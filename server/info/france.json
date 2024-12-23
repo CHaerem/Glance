@@ -1,0 +1,13 @@
+{
+    "country": "France",
+    "official_name": "French Republic",
+    "population": 67391582,
+    "area": 551695.0,
+    "capital": "Paris",
+    "region": "Europe",
+    "subregion": "Western Europe",
+    "languages": "French",
+    "currencies": "Euro (EUR)",
+    "timezones": "UTC-10:00, UTC-09:30, UTC-09:00, UTC-08:00, UTC-04:00, UTC-03:00, UTC+01:00, UTC+02:00, UTC+03:00, UTC+04:00, UTC+05:00, UTC+10:00, UTC+11:00, UTC+12:00",
+    "borders": "AND, BEL, DEU, ITA, LUX, MCO, ESP, CHE"
+}

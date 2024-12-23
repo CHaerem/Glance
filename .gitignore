@@ -1,0 +1,40 @@
+# Ignore Python virtual environment
+venv/
+__pycache__/
+
+# Ignore PlatformIO build files
+esp32/.pio/
+esp32/.vscode/
+
+# Ignore node_modules
+node_modules/
+
+# Ignore log files
+*.log
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore compiled files
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Ignore temporary files
+*.tmp
+*.swp
+*.swo
+*.bak
+*.old
+
+# Ignore build directories
+build/
+dist/
+
+# Ignore IDE specific files
+.vscode/
+.idea/

@@ -1,0 +1,13 @@
+{
+    "country": "Russia",
+    "official_name": "Russian Federation",
+    "population": 144104080,
+    "area": 17098242.0,
+    "capital": "Moscow",
+    "region": "Europe",
+    "subregion": "Eastern Europe",
+    "languages": "Russian",
+    "currencies": "Russian ruble (RUB)",
+    "timezones": "UTC+03:00, UTC+04:00, UTC+06:00, UTC+07:00, UTC+08:00, UTC+09:00, UTC+10:00, UTC+11:00, UTC+12:00",
+    "borders": "AZE, BLR, CHN, EST, FIN, GEO, KAZ, PRK, LVA, LTU, MNG, NOR, POL, UKR"
+}
