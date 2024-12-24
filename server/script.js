@@ -33,7 +33,9 @@ async function loadCurrentFlagInfo() {
 		// Basic info
 		const nameElem = document.querySelector("header h1");
 		const flagImgElem = document.getElementById("flag-img");
+		const titleElem = document.getElementById("page-title");
 		if (nameElem) nameElem.textContent = metadata.country || "Unknown";
+		if (titleElem) titleElem.textContent = metadata.country || "Loading...";
 		if (flagImgElem) {
 			flagImgElem.src = data.flagUrl;
 			flagImgElem.alt = metadata.country || "Flag";
@@ -83,6 +85,9 @@ async function loadCurrentFlagInfo() {
 		console.error("Error loading current flag info:", error);
 		if (document.querySelector("header h1")) {
 			document.querySelector("header h1").textContent = "Error loading data.";
+		}
+		if (document.getElementById("page-title")) {
+			document.getElementById("page-title").textContent = "Error loading data.";
 		}
 	}
 }
