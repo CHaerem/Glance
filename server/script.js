@@ -55,48 +55,64 @@ async function setNextFlag() {
 	}
 }
 
-// Load current flag metadata for info.html
-async function loadFlagInfo() {
+// Load the country list from a CSV file
+async function loadCountryList(csvFilePath) {
 	try {
-		const response = await fetch(`${API_URL}?action=currentFlag`);
-		if (!response.ok) throw new Error("Failed to fetch flag info");
-		const data = await response.json();
-
-		// Populate flag info page
-		document.getElementById("country-name").textContent =
-			data.metadata?.country || "Unknown";
-		document.getElementById("flag-img").src = data.flagUrl;
-		document.getElementById("flag-img").alt = data.metadata?.country || "Flag";
-		document.getElementById("flag-info").innerHTML = `
-      <p><strong>Official Name:</strong> ${
-				data.metadata?.official_name || "Unknown"
-			}</p>
-      <p><strong>Population:</strong> ${
-				data.metadata?.population?.toLocaleString() || "Unknown"
-			}</p>
-      <p><strong>Area:</strong> ${
-				data.metadata?.area?.toLocaleString() || "Unknown"
-			} km²</p>
-      <p><strong>Capital:</strong> ${data.metadata?.capital || "Unknown"}</p>
-    `;
+		const response = await fetch(csvFilePath);
+		if (!response.ok) throw new Error("Failed to load country list");
+		const csvText = await response.text();
+		return parseCSV(csvText);
 	} catch (error) {
-		console.error("Error loading flag info:", error);
-		document.getElementById("flag-info").textContent =
-			"We encountered a problem loading the flag details. Please try again.";
+		console.error("Error loading country list:", error);
+		return [];
 	}
 }
 
+// Parse CSV into an array of country names
+function parseCSV(csvText) {
+	return csvText
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line); // Remove empty lines
+}
+
+// Populate the datalist for country suggestions
+function populateCountrySuggestions(inputId, datalistId, countries) {
+	const input = document.getElementById(inputId);
+	const datalist = document.getElementById(datalistId);
+
+	input.addEventListener("input", () => {
+		const value = input.value.toLowerCase();
+		datalist.innerHTML = ""; // Clear old suggestions
+		countries
+			.filter((country) => country.toLowerCase().startsWith(value))
+			.forEach((match) => {
+				const option = document.createElement("option");
+				option.value = match;
+				datalist.appendChild(option);
+			});
+	});
+}
+
 // Initialize page logic
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+	// Load current flag
 	if (document.getElementById("current-flag")) {
 		loadCurrentFlag();
 	}
+
+	// Set next flag
 	if (document.getElementById("set-next-flag")) {
 		document
 			.getElementById("set-next-flag")
 			.addEventListener("click", setNextFlag);
 	}
-	if (document.getElementById("flag-info")) {
-		loadFlagInfo();
-	}
+
+	// Load country list and populate suggestions
+	const countries = await loadCountryList("Countries_List.csv");
+	populateCountrySuggestions(
+		"next-flag-input",
+		"country-suggestions",
+		countries
+	);
 });

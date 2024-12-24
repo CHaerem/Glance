@@ -25,9 +25,13 @@
 				<input
 					type="text"
 					id="next-flag-input"
-					placeholder="Enter Flag ID (e.g., norway)"
+					list="country-suggestions"
+					placeholder="Enter Flag ID (e.g., Norway)"
 					class="input-field"
 				/>
+				<datalist id="country-suggestions">
+					<!-- Options will be dynamically populated -->
+				</datalist>
 				<button id="set-next-flag" class="button">Set Next Flag</button>
 				<p id="next-flag-status" class="status"></p>
 			</section>
