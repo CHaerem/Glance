@@ -3,19 +3,41 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Glance - Flag Explorer</title>
+		<title>Glance - ESP32 Management</title>
 		<link rel="stylesheet" href="style.css" />
 	</head>
 	<body>
-		<h1>Glance - Flag Explorer</h1>
-		<div id="content">
-			<div id="flag-list"></div>
-			<div id="flag-details" style="display: none">
-				<img id="flag-img" alt="Flag will appear here" />
-				<div id="flag-info"></div>
-				<button id="back-button">Back</button>
-			</div>
-		</div>
-		<script src="script.js"></script>
+		<header>
+			<h1>Glance</h1>
+			<p class="subtitle">Manage and Monitor Your ESP32 Display</p>
+		</header>
+		<main>
+			<!-- Current Flag Section -->
+			<section>
+				<h2>Currently Displayed Flag</h2>
+				<p id="current-flag">Loading...</p>
+				<img id="current-flag-img" src="" alt="Current Flag" class="flag-img" />
+			</section>
+
+			<!-- Set Next Flag Section -->
+			<section>
+				<h2>Set Next Flag</h2>
+				<input
+					type="text"
+					id="next-flag-input"
+					placeholder="Enter Flag ID (e.g., norway)"
+					class="input-field"
+				/>
+				<button id="set-next-flag" class="button">Set Next Flag</button>
+				<p id="next-flag-status" class="status"></p>
+			</section>
+		</main>
+		<footer>
+			<p>
+				&copy; 2024 <a href="https://github.com/chaerem">chaerem</a>. All rights
+				reserved.
+			</p>
+		</footer>
+		<script src="js/manage.js"></script>
 	</body>
 </html>
