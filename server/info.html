@@ -3,18 +3,37 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Current Flag Info</title>
+		<!-- Use your existing style.css -->
 		<link rel="stylesheet" href="style.css" />
 	</head>
 	<body>
-		<h1>Current Flag Information</h1>
+		<header>
+			<h1 id="country-name">Loading...</h1>
+		</header>
+		<main>
+			<!-- Current Flag Info -->
+			<section>
+				<img id="flag-img" src="" alt="Flag" class="flag-img" />
+			</section>
 
-		<section>
-			<h2 id="country-name">Loading...</h2>
-			<img id="flag-img" src="" alt="Flag" style="width: 300px; height: auto" />
-			<p id="flag-info">Loading flag details...</p>
-		</section>
-
+			<!-- Extended Info Section -->
+			<section>
+				<div class="extended-info">
+					<p>
+						<strong>Official Name:</strong> <span id="official-name"></span>
+					</p>
+					<p><strong>Population:</strong> <span id="population"></span></p>
+					<p><strong>Area (km²):</strong> <span id="area"></span></p>
+					<p><strong>Capital:</strong> <span id="capital"></span></p>
+					<p><strong>Region:</strong> <span id="region"></span></p>
+					<p><strong>Subregion:</strong> <span id="subregion"></span></p>
+					<p><strong>Languages:</strong> <span id="languages"></span></p>
+					<p><strong>Currencies:</strong> <span id="currencies"></span></p>
+					<p><strong>Timezones:</strong> <span id="timezones"></span></p>
+					<p><strong>Borders:</strong> <span id="borders"></span></p>
+				</div>
+			</section>
+		</main>
 		<script src="script.js"></script>
 	</body>
 </html>

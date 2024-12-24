@@ -1,15 +1,13 @@
 const API_URL =
 	"https://script.google.com/macros/s/AKfycbxDNyBtpCBSw9JTbFVYW5WR3xFYFd6TONTHQbtybg0ggTfxs95l38Wgg45YlB1i5W3-/exec";
 
-// Fetch and display the currently displayed flag
+// Fetch and display the currently displayed flag (basic)
 async function loadCurrentFlag() {
 	try {
 		const response = await fetch(`${API_URL}?action=currentFlag`);
 		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
 		const data = await response.json();
-
-		// Populate the current flag section
 		const currentFlagElement = document.getElementById("current-flag");
 		const currentFlagImgElement = document.getElementById("current-flag-img");
 
@@ -20,6 +18,72 @@ async function loadCurrentFlag() {
 		console.error("Error loading current flag:", error);
 		document.getElementById("current-flag").textContent =
 			"We encountered a problem loading the current flag.";
+	}
+}
+
+// Fetch and display the *extended info* for the currently displayed flag
+async function loadCurrentFlagInfo() {
+	try {
+		const response = await fetch(`${API_URL}?action=currentFlag`);
+		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+		const data = await response.json();
+		const metadata = data.metadata || {};
+
+		// Basic info
+		const nameElem = document.querySelector("header h1");
+		const flagImgElem = document.getElementById("flag-img");
+		if (nameElem) nameElem.textContent = metadata.country || "Unknown";
+		if (flagImgElem) {
+			flagImgElem.src = data.flagUrl;
+			flagImgElem.alt = metadata.country || "Flag";
+		}
+
+		// Extended details (from data.metadata)
+		if (document.getElementById("official-name")) {
+			document.getElementById("official-name").textContent =
+				metadata.official_name || "N/A";
+		}
+		if (document.getElementById("population")) {
+			document.getElementById("population").textContent =
+				metadata.population?.toLocaleString() || "N/A";
+		}
+		if (document.getElementById("area")) {
+			document.getElementById("area").textContent =
+				metadata.area?.toLocaleString() || "N/A";
+		}
+		if (document.getElementById("capital")) {
+			document.getElementById("capital").textContent =
+				metadata.capital || "N/A";
+		}
+		if (document.getElementById("region")) {
+			document.getElementById("region").textContent = metadata.region || "N/A";
+		}
+		if (document.getElementById("subregion")) {
+			document.getElementById("subregion").textContent =
+				metadata.subregion || "N/A";
+		}
+		if (document.getElementById("languages")) {
+			document.getElementById("languages").textContent =
+				metadata.languages || "N/A";
+		}
+		if (document.getElementById("currencies")) {
+			document.getElementById("currencies").textContent =
+				metadata.currencies || "N/A";
+		}
+		if (document.getElementById("timezones")) {
+			document.getElementById("timezones").textContent =
+				metadata.timezones || "N/A";
+		}
+		if (document.getElementById("borders")) {
+			document.getElementById("borders").textContent =
+				metadata.borders || "N/A";
+		}
+	} catch (error) {
+		console.error("Error loading current flag info:", error);
+		if (document.querySelector("header h1")) {
+			document.querySelector("header h1").textContent = "Error loading data.";
+		}
 	}
 }
 
@@ -40,10 +104,9 @@ async function setNextFlag() {
 		const response = await fetch(
 			`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(nextFlag)}`
 		);
-
 		if (!response.ok) throw new Error("Failed to set next flag");
-
 		const result = await response.json();
+
 		nextFlagStatus.textContent =
 			result.status === "success"
 				? "Next flag updated successfully!"
@@ -80,6 +143,7 @@ function parseCSV(csvText) {
 function populateCountrySuggestions(inputId, datalistId, countries) {
 	const input = document.getElementById(inputId);
 	const datalist = document.getElementById(datalistId);
+	if (!input || !datalist) return;
 
 	input.addEventListener("input", () => {
 		const value = input.value.toLowerCase();
@@ -96,23 +160,33 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 
 // Initialize page logic
 document.addEventListener("DOMContentLoaded", async () => {
-	// Load current flag
+	// If there's an element with ID "current-flag", assume we're on the main page:
 	if (document.getElementById("current-flag")) {
-		loadCurrentFlag();
+		await loadCurrentFlag();
 	}
 
-	// Set next flag
+	// If there's a button to set the next flag, wire it up:
 	if (document.getElementById("set-next-flag")) {
 		document
 			.getElementById("set-next-flag")
 			.addEventListener("click", setNextFlag);
 	}
 
-	// Load country list and populate suggestions
-	const countries = await loadCountryList("Countries_List.csv");
-	populateCountrySuggestions(
-		"next-flag-input",
-		"country-suggestions",
-		countries
-	);
+	// If there's a datalist for countries, load them:
+	if (
+		document.getElementById("next-flag-input") &&
+		document.getElementById("country-suggestions")
+	) {
+		const countries = await loadCountryList("Countries_List.csv");
+		populateCountrySuggestions(
+			"next-flag-input",
+			"country-suggestions",
+			countries
+		);
+	}
+
+	// If there's an element with ID "country-name", assume we're on the info page:
+	if (document.getElementById("country-name")) {
+		await loadCurrentFlagInfo();
+	}
 });
