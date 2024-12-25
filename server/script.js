@@ -15,7 +15,7 @@ async function loadCurrentFlag() {
 		const currentFlagImgElement = document.getElementById("current-flag-img");
 
 		currentFlagElement.textContent = data.metadata?.country || "Unknown";
-		currentFlagImgElement.src = data.flagUrl;
+		currentFlagImgElement.src = data.flagUrl.replace(".bmp", ".svg"); // Change to SVG URL
 		currentFlagImgElement.alt = data.metadata?.country || "Flag";
 	} catch (error) {
 		console.error("Error loading current flag:", error);
@@ -41,7 +41,7 @@ async function loadCurrentFlagInfo() {
 		if (nameElem) nameElem.textContent = metadata.country || "Unknown";
 		if (titleElem) titleElem.textContent = metadata.country || "Loading...";
 		if (flagImgElem) {
-			flagImgElem.src = data.flagUrl;
+			flagImgElem.src = data.flagUrl.replace(".bmp", ".svg"); // Change to SVG URL
 			flagImgElem.alt = metadata.country || "Flag";
 		}
 
