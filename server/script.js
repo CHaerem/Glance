@@ -1,8 +1,11 @@
 const API_URL =
 	"https://script.google.com/macros/s/AKfycbxDNyBtpCBSw9JTbFVYW5WR3xFYFd6TONTHQbtybg0ggTfxs95l38Wgg45YlB1i5W3-/exec";
 
+let allCountries = [];
+
 // Fetch and display the currently displayed flag (basic)
 async function loadCurrentFlag() {
+	console.log("Sending request to:", `${API_URL}?action=currentFlag`);
 	try {
 		const response = await fetch(`${API_URL}?action=currentFlag`);
 		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -23,6 +26,7 @@ async function loadCurrentFlag() {
 
 // Fetch and display the *extended info* for the currently displayed flag
 async function loadCurrentFlagInfo() {
+	console.log("Sending request to:", `${API_URL}?action=currentFlag`);
 	try {
 		const response = await fetch(`${API_URL}?action=currentFlag`);
 		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -99,15 +103,30 @@ async function setNextFlag() {
 
 	if (!nextFlagInput || !nextFlagStatus) return;
 
-	const nextFlag = nextFlagInput.value.trim().toLowerCase();
-	if (!nextFlag) {
+	const userInput = nextFlagInput.value.trim().toLowerCase();
+	if (!userInput) {
 		nextFlagStatus.textContent = "Please enter a valid flag ID.";
 		return;
 	}
 
+	if (!allCountries.map((c) => c.toLowerCase()).includes(userInput)) {
+		nextFlagStatus.textContent = "Invalid flag ID.";
+		return;
+	}
+
+	const nextFlagForRequest = userInput.replace(/\s+/g, "_");
+	console.log("Setting next flag to:", nextFlagForRequest);
+	console.log(
+		"Sending request to:",
+		`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(
+			nextFlagForRequest
+		)}`
+	);
 	try {
 		const response = await fetch(
-			`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(nextFlag)}`
+			`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(
+				nextFlagForRequest
+			)}`
 		);
 		if (!response.ok) throw new Error("Failed to set next flag");
 		const result = await response.json();
@@ -128,6 +147,7 @@ async function setNextFlag() {
 
 // Load the country list from a CSV file
 async function loadCountryList(csvFilePath) {
+	console.log("Fetching country list from:", csvFilePath);
 	try {
 		const response = await fetch(csvFilePath);
 		if (!response.ok) throw new Error("Failed to load country list");
@@ -185,11 +205,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 		document.getElementById("next-flag-input") &&
 		document.getElementById("country-suggestions")
 	) {
-		const countries = await loadCountryList("Countries_List.csv");
+		allCountries = await loadCountryList("Countries_List.csv");
 		populateCountrySuggestions(
 			"next-flag-input",
 			"country-suggestions",
-			countries
+			allCountries
 		);
 	}
 
