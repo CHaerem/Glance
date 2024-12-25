@@ -222,7 +222,39 @@ document.addEventListener("DOMContentLoaded", async () => {
 	const flagImgElement = document.getElementById("current-flag-img");
 	if (flagImgElement) {
 		flagImgElement.addEventListener("click", () => {
-			flagImgElement.classList.toggle("expanded");
+			showEnlargedImage(flagImgElement.src);
+		});
+	}
+
+	const infoFlagImgElement = document.getElementById("flag-img");
+	if (infoFlagImgElement) {
+		infoFlagImgElement.addEventListener("click", () => {
+			showEnlargedImage(infoFlagImgElement.src);
 		});
 	}
 });
+
+function showEnlargedImage(src) {
+	const container = document.createElement("div");
+	container.classList.add("flag-img-container");
+
+	const img = document.createElement("img");
+	img.src = src;
+	container.appendChild(img);
+
+	const closeBtn = document.createElement("button");
+	closeBtn.classList.add("close-btn");
+	closeBtn.innerHTML = "&times;";
+	closeBtn.addEventListener("click", () => {
+		document.body.removeChild(container);
+	});
+	container.appendChild(closeBtn);
+
+	container.addEventListener("click", (event) => {
+		if (event.target === container) {
+			document.body.removeChild(container);
+		}
+	});
+
+	document.body.appendChild(container);
+}

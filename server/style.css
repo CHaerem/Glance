@@ -64,10 +64,44 @@ body {
 	left: 0;
 	width: 100%;
 	height: 100%;
-	object-fit: cover;
+	object-fit: contain; /* Ensure the image fits within the screen */
 	z-index: 1000;
 	background-color: rgba(0, 0, 0, 0.8);
 	cursor: pointer;
+  }
+  
+  .flag-img-container {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background-color: rgba(0, 0, 0, 0.8);
+	z-index: 1000;
+  }
+  
+  .flag-img-container img {
+	max-width: 90%;
+	max-height: 90%;
+	object-fit: contain;
+  }
+  
+  .flag-img-container .close-btn {
+	position: absolute;
+	top: 20px;
+	right: 20px;
+	background-color: #fff;
+	border: none;
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+	font-size: 1.5em;
+	cursor: pointer;
+	text-align: center;
+	line-height: 30px;
   }
   
   /* Buttons */
