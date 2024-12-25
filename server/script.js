@@ -217,4 +217,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 	if (document.getElementById("country-name")) {
 		await loadCurrentFlagInfo();
 	}
+
+	// Add click event listener to the flag image
+	const flagImgElement = document.getElementById("current-flag-img");
+	if (flagImgElement) {
+		flagImgElement.addEventListener("click", () => {
+			flagImgElement.classList.toggle("expanded");
+		});
+	}
 });
