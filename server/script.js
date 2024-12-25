@@ -99,7 +99,7 @@ async function setNextFlag() {
 
 	if (!nextFlagInput || !nextFlagStatus) return;
 
-	const nextFlag = nextFlagInput.value.trim();
+	const nextFlag = nextFlagInput.value.trim().toLowerCase();
 	if (!nextFlag) {
 		nextFlagStatus.textContent = "Please enter a valid flag ID.";
 		return;
@@ -116,6 +116,9 @@ async function setNextFlag() {
 			result.status === "success"
 				? "Next flag updated successfully!"
 				: `Failed to update the next flag: ${result.error || "Unknown error"}`;
+		if (result.status === "success") {
+			location.reload();
+		}
 	} catch (error) {
 		console.error("Error setting next flag:", error);
 		nextFlagStatus.textContent =
