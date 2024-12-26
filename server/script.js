@@ -280,6 +280,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 	await loadCurrentFlag();
 	await loadNextFlag();
 
+	// Attach click listeners for enlarged images
+	const currentFlagImg = document.getElementById("current-flag-img");
+	const nextFlagImg = document.getElementById("next-flag-img");
+
+	currentFlagImg?.addEventListener("click", () => {
+		if (currentFlagImg.src) showEnlargedImage(currentFlagImg.src);
+	});
+	nextFlagImg?.addEventListener("click", () => {
+		if (nextFlagImg.src) showEnlargedImage(nextFlagImg.src);
+	});
+
 	// Connect buttons to functions
 	document
 		.getElementById("update-current-flag")
