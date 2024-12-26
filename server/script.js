@@ -67,7 +67,9 @@ async function updateCurrentFlag() {
 
 		if (result.status === "success") {
 			statusElement.textContent = "Current flag updated successfully!";
-			await loadCurrentFlag(); // Refresh current flag display
+			// Refresh both, because the server will have cleared or changed next flag
+			await loadCurrentFlag();
+			await loadNextFlag();
 		} else {
 			statusElement.textContent = `Update failed: ${
 				result.error || "Unknown error"
@@ -120,8 +122,9 @@ function updateFlagDetails(metadata) {
 	];
 	fields.forEach((field) => {
 		const element = document.getElementById(field);
-		if (element)
+		if (element) {
 			element.textContent = metadata[field.replace("-", "_")] || "N/A";
+		}
 	});
 }
 
@@ -142,8 +145,7 @@ async function setNextFlag() {
 	// Convert to lower for case-insensitive matching
 	const lowerInput = rawInput.toLowerCase();
 
-	// Find the correct entry in your allCountries array
-	// that matches ignoring case
+	// Find the correct entry in your allCountries array that matches ignoring case
 	const matchedCountry = allCountries.find(
 		(c) => c.toLowerCase() === lowerInput
 	);
@@ -166,7 +168,9 @@ async function setNextFlag() {
 			result.status === "success"
 				? "Next flag updated successfully!"
 				: `Failed to update next flag: ${result.error || "Unknown error"}`;
-		await loadNextFlag(); // Refresh the next flag display
+
+		// Refresh the next flag display (current won't change)
+		await loadNextFlag();
 	} catch (error) {
 		console.error("Error setting next flag:", error);
 		nextFlagStatus.textContent = "Error updating next flag.";
@@ -216,9 +220,11 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 
 // Initialize the page logic
 document.addEventListener("DOMContentLoaded", async () => {
+	// Load the current and next flags
 	await loadCurrentFlag();
 	await loadNextFlag();
 
+	// Wire up buttons
 	document
 		.getElementById("update-current-flag")
 		?.addEventListener("click", updateCurrentFlag);
@@ -226,6 +232,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 		.getElementById("set-next-flag")
 		?.addEventListener("click", setNextFlag);
 
+	// If we have an input for next-flag plus a datalist, load countries from CSV
 	if (
 		document.getElementById("next-flag-input") &&
 		document.getElementById("country-suggestions")
