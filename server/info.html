@@ -3,38 +3,41 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<!-- Use your existing style.css -->
+		<title>Glance - Flag Info</title>
 		<link rel="stylesheet" href="style.css" />
-		<title id="page-title">Loading...</title>
 	</head>
 	<body>
 		<header>
-			<h1 id="country-name">Loading...</h1>
+			<h1>Glance Info</h1>
+			<p class="subtitle">Detailed Info on the Current Flag</p>
 		</header>
 		<main>
-			<!-- Current Flag Info -->
 			<section>
-				<img id="flag-img" src="" alt="Flag" class="flag-img" />
-			</section>
+				<h2>Current Flag Details</h2>
+				<!-- Where we show the detailed info for the current flag -->
+				<img
+					id="flag-img"
+					src=""
+					alt="Flag"
+					class="flag-img"
+					style="display: none"
+				/>
 
-			<!-- Extended Info Section -->
-			<section>
-				<div class="extended-info">
-					<p>
-						<strong>Official Name:</strong> <span id="official-name"></span>
-					</p>
-					<p><strong>Population:</strong> <span id="population"></span></p>
-					<p><strong>Area (km²):</strong> <span id="area"></span></p>
-					<p><strong>Capital:</strong> <span id="capital"></span></p>
-					<p><strong>Region:</strong> <span id="region"></span></p>
-					<p><strong>Subregion:</strong> <span id="subregion"></span></p>
-					<p><strong>Languages:</strong> <span id="languages"></span></p>
-					<p><strong>Currencies:</strong> <span id="currencies"></span></p>
-					<p><strong>Timezones:</strong> <span id="timezones"></span></p>
-					<p><strong>Borders:</strong> <span id="borders"></span></p>
-				</div>
+				<!-- Example fields for extended info (same IDs used by updateFlagDetails) -->
+				<p>
+					<strong>Official Name:</strong> <span id="official-name">N/A</span>
+				</p>
+				<p><strong>Population:</strong> <span id="population">N/A</span></p>
+				<p><strong>Area:</strong> <span id="area">N/A</span></p>
+				<p><strong>Capital:</strong> <span id="capital">N/A</span></p>
+				<p><strong>Region:</strong> <span id="region">N/A</span></p>
+				<p><strong>Subregion:</strong> <span id="subregion">N/A</span></p>
+				<p><strong>Languages:</strong> <span id="languages">N/A</span></p>
+				<p><strong>Currencies:</strong> <span id="currencies">N/A</span></p>
+				<p><strong>Timezones:</strong> <span id="timezones">N/A</span></p>
+				<p><strong>Borders:</strong> <span id="borders">N/A</span></p>
 			</section>
 		</main>
-		<script src="script.js"></script>
+		<script src="info.js"></script>
 	</body>
 </html>
