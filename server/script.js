@@ -3,99 +3,128 @@ const API_URL =
 
 let allCountries = [];
 
-// Fetch and display the currently displayed flag
+/* ----------------------------------
+   Utility: Show Toast Notification
+   type = "info" | "success" | "error"
+------------------------------------ */
+function showToast(message, type = "info") {
+	// Create the toast container if it doesn't exist
+	let toastContainer = document.getElementById("toast-container");
+	if (!toastContainer) {
+		toastContainer = document.createElement("div");
+		toastContainer.id = "toast-container";
+		document.body.appendChild(toastContainer);
+	}
+
+	// Create the toast element
+	const toast = document.createElement("div");
+	toast.classList.add("toast", `toast-${type}`);
+	toast.textContent = message;
+	toastContainer.appendChild(toast);
+
+	// Fade out after 2s, remove after 3s
+	setTimeout(() => toast.classList.add("fade"), 2000);
+	setTimeout(() => {
+		if (toastContainer.contains(toast)) {
+			toastContainer.removeChild(toast);
+		}
+	}, 3000);
+}
+
+/* ----------------------------------
+   Fetch and display the current flag
+------------------------------------ */
 async function loadCurrentFlag() {
 	console.log("Fetching current flag...");
-	// Show a quick textual loading indicator
-	const currentFlagParagraph = document.getElementById("current-flag");
-	currentFlagParagraph.textContent = "Loading current flag...";
+	const currentFlagEl = document.getElementById("current-flag");
+	const flagImg = document.getElementById("current-flag-img");
+
+	// Optionally, show a quick loading text
+	currentFlagEl.textContent = "Loading current flag...";
 
 	try {
 		const response = await fetch(`${API_URL}?action=currentFlag`);
 		const data = await response.json();
 
-		const flagImg = document.getElementById("current-flag-img");
 		if (data.error) {
-			currentFlagParagraph.textContent = data.error;
+			currentFlagEl.textContent = data.error;
 			flagImg.style.display = "none";
 			return;
 		}
 
-		currentFlagParagraph.textContent = data.metadata?.country || "Unknown";
+		currentFlagEl.textContent = data.metadata?.country || "Unknown";
 		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
 		flagImg.alt = data.metadata?.country || "Flag";
 		flagImg.style.display = "";
 	} catch (error) {
 		console.error("Error loading current flag:", error);
-		currentFlagParagraph.textContent =
+		currentFlagEl.textContent =
 			"We encountered a problem loading the current flag.";
-		document.getElementById("current-flag-img").style.display = "none";
+		flagImg.style.display = "none";
 	}
 }
 
-// Fetch and display the next flag
+/* --------------------------------
+   Fetch and display the next flag
+---------------------------------- */
 async function loadNextFlag() {
 	console.log("Fetching next flag...");
-	// Show a quick textual loading indicator
-	const nextFlagParagraph = document.getElementById("next-flag");
-	nextFlagParagraph.textContent = "Loading next flag...";
+	const nextFlagEl = document.getElementById("next-flag");
+	const flagImg = document.getElementById("next-flag-img");
+
+	nextFlagEl.textContent = "Loading next flag...";
 
 	try {
 		const response = await fetch(`${API_URL}?action=nextFlag`);
 		const data = await response.json();
 
-		const flagImg = document.getElementById("next-flag-img");
 		if (data.error) {
-			nextFlagParagraph.textContent = data.error;
+			nextFlagEl.textContent = data.error;
 			flagImg.style.display = "none";
 			return;
 		}
 
-		nextFlagParagraph.textContent = data.metadata?.country || "Unknown";
+		nextFlagEl.textContent = data.metadata?.country || "Unknown";
 		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
 		flagImg.alt = data.metadata?.country || "Flag";
 		flagImg.style.display = "";
 	} catch (error) {
 		console.error("Error loading next flag:", error);
-		nextFlagParagraph.textContent =
-			"We encountered a problem loading the next flag.";
-		document.getElementById("next-flag-img").style.display = "none";
+		nextFlagEl.textContent = "We encountered a problem loading the next flag.";
+		flagImg.style.display = "none";
 	}
 }
 
-// Update the current flag, letting the server pick next or random
+/* -----------------------------------------
+   Update the current flag (server picks next)
+------------------------------------------- */
 async function updateCurrentFlag() {
-	const statusElement = document.getElementById("update-current-status");
-	statusElement.textContent = "Submitting..."; // Show request in progress
-
+	showToast("Submitting update for current flag...", "info");
 	try {
-		console.log("Updating current flag (server will pick next or random)...");
-		const updateResponse = await fetch(`${API_URL}?action=updateFlag`);
-		const result = await updateResponse.json();
+		console.log("Updating current flag...");
+		const response = await fetch(`${API_URL}?action=updateFlag`);
+		const result = await response.json();
 
 		if (result.status === "success") {
-			statusElement.textContent = "Current flag updated successfully!";
-			// Refresh both, because the server will have cleared or changed next flag
+			showToast("Current flag updated successfully!", "success");
+			// Refresh current & next flags
 			await loadCurrentFlag();
 			await loadNextFlag();
 		} else {
-			statusElement.textContent = `Update failed: ${
-				result.error || "Unknown error"
-			}`;
+			showToast(`Update failed: ${result.error || "Unknown error"}`, "error");
 		}
 	} catch (error) {
 		console.error("Error updating current flag:", error);
-		statusElement.textContent =
-			"We encountered a problem updating the current flag.";
+		showToast("We encountered a problem updating the current flag.", "error");
 	}
 }
 
-// Fetch and display extended information for the currently displayed flag
+/* ---------------------------------------
+   Load extended info for the current flag
+---------------------------------------- */
 async function loadCurrentFlagInfo() {
 	console.log("Fetching detailed current flag information...");
-	// Optionally show a loading indicator on the details
-	document.getElementById("official-name").textContent = "Loading...";
-	// etc. for each detail if you like
+	// Optionally set placeholders in UI here, e.g. "Loading..."
 
 	try {
 		const response = await fetch(`${API_URL}?action=currentFlag`);
@@ -105,10 +134,8 @@ async function loadCurrentFlagInfo() {
 		const data = await response.json();
 		const metadata = data.metadata || {};
 
-		// Update UI with metadata
 		updateFlagDetails(metadata);
 
-		// Update flag image
 		const flagImg = document.getElementById("flag-img");
 		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
 		flagImg.alt = metadata.country || "Flag";
@@ -119,7 +146,9 @@ async function loadCurrentFlagInfo() {
 	}
 }
 
-// Helper to update extended flag details in the UI
+/* ------------------------------------
+   Helper: update extended flag details
+-------------------------------------- */
 function updateFlagDetails(metadata) {
 	const fields = [
 		"official-name",
@@ -141,16 +170,16 @@ function updateFlagDetails(metadata) {
 	});
 }
 
-// Set the next flag to display
+/* ------------------------------------------
+   Set the next flag to display (from input)
+-------------------------------------------- */
 async function setNextFlag() {
 	const nextFlagInput = document.getElementById("next-flag-input");
-	const nextFlagStatus = document.getElementById("next-flag-status");
-
-	if (!nextFlagInput || !nextFlagStatus) return;
+	if (!nextFlagInput) return;
 
 	const rawInput = nextFlagInput.value.trim();
 	if (!rawInput) {
-		nextFlagStatus.textContent = "Please enter a valid flag name.";
+		showToast("Please enter a valid flag name.", "error");
 		return;
 	}
 
@@ -158,20 +187,18 @@ async function setNextFlag() {
 	const lowerInput = rawInput.toLowerCase();
 
 	// Find the correct entry in your allCountries array
-	// that matches ignoring case
 	const matchedCountry = allCountries.find(
 		(c) => c.toLowerCase() === lowerInput
 	);
 
 	if (!matchedCountry) {
-		nextFlagStatus.textContent = "Invalid flag name.";
+		showToast("Invalid flag name.", "error");
 		return;
 	}
 
-	nextFlagStatus.textContent = "Submitting..."; // Indicate a request is in progress
-
-	console.log(`Setting next flag to: ${matchedCountry}`);
+	showToast("Submitting next flag...", "info");
 	try {
+		console.log(`Setting next flag to: ${matchedCountry}`);
 		const response = await fetch(
 			`${API_URL}?action=updateNextFlag&nextFlag=${encodeURIComponent(
 				matchedCountry
@@ -179,20 +206,25 @@ async function setNextFlag() {
 		);
 		const result = await response.json();
 
-		nextFlagStatus.textContent =
-			result.status === "success"
-				? "Next flag updated successfully!"
-				: `Failed to update next flag: ${result.error || "Unknown error"}`;
-
-		// Refresh the next flag display
-		await loadNextFlag();
+		if (result.status === "success") {
+			showToast("Next flag updated successfully!", "success");
+			// Refresh the next flag display
+			await loadNextFlag();
+		} else {
+			showToast(
+				`Failed to update next flag: ${result.error || "Unknown error"}`,
+				"error"
+			);
+		}
 	} catch (error) {
 		console.error("Error setting next flag:", error);
-		nextFlagStatus.textContent = "Error updating next flag.";
+		showToast("Error updating next flag.", "error");
 	}
 }
 
-// Load a list of country names from a CSV file
+/* -------------------------------------------
+   Load a list of country names from a CSV file
+-------------------------------------------- */
 async function loadCountryList(csvFilePath) {
 	console.log(`Fetching country list from: ${csvFilePath}`);
 	try {
@@ -207,15 +239,19 @@ async function loadCountryList(csvFilePath) {
 	}
 }
 
-// Parse a CSV file into an array of strings
+/* ------------------------------
+   Parse CSV text into an array
+------------------------------- */
 function parseCSV(csvText) {
 	return csvText
 		.split("\n")
 		.map((line) => line.trim())
-		.filter((line) => line); // Remove empty lines
+		.filter((line) => line);
 }
 
-// Populate a datalist with country suggestions
+/* -------------------------------------------
+   Populate a <datalist> with country options
+-------------------------------------------- */
 function populateCountrySuggestions(inputId, datalistId, countries) {
 	const input = document.getElementById(inputId);
 	const datalist = document.getElementById(datalistId);
@@ -225,6 +261,7 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 	input.addEventListener("input", () => {
 		const value = input.value.toLowerCase();
 		datalist.innerHTML = ""; // Clear old suggestions
+
 		countries
 			.filter((country) => country.toLowerCase().startsWith(value))
 			.forEach((match) => {
@@ -235,13 +272,15 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 	});
 }
 
-// Initialize the page logic
+/* ---------------------------------------
+   Initialize page logic on DOMContentLoaded
+---------------------------------------- */
 document.addEventListener("DOMContentLoaded", async () => {
 	// Load current and next flags
 	await loadCurrentFlag();
 	await loadNextFlag();
 
-	// Wire up buttons
+	// Connect buttons to functions
 	document
 		.getElementById("update-current-flag")
 		?.addEventListener("click", updateCurrentFlag);
@@ -263,7 +302,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 	}
 });
 
-// Utility to show enlarged images
+/* -------------------------
+   Show enlarged image logic
+-------------------------- */
 function showEnlargedImage(src) {
 	const container = document.createElement("div");
 	container.classList.add("flag-img-container");
