@@ -8,21 +8,25 @@ async function loadCurrentFlag() {
 	console.log("Fetching current flag...");
 	try {
 		const response = await fetch(`${API_URL}?action=currentFlag`);
-		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
 		const data = await response.json();
+
+		const flagImg = document.getElementById("current-flag-img");
+		if (data.error) {
+			document.getElementById("current-flag").textContent = data.error;
+			flagImg.style.display = "none"; // Hide the image
+			return;
+		}
+
 		document.getElementById("current-flag").textContent =
 			data.metadata?.country || "Unknown";
-		document.getElementById("current-flag-img").src = data.flagUrl.replace(
-			".bmp",
-			".svg"
-		);
-		document.getElementById("current-flag-img").alt =
-			data.metadata?.country || "Flag";
+		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
+		flagImg.alt = data.metadata?.country || "Flag";
+		flagImg.style.display = ""; // Show the image if hidden
 	} catch (error) {
 		console.error("Error loading current flag:", error);
 		document.getElementById("current-flag").textContent =
 			"We encountered a problem loading the current flag.";
+		document.getElementById("current-flag-img").style.display = "none"; // Hide the image
 	}
 }
 
@@ -31,21 +35,25 @@ async function loadNextFlag() {
 	console.log("Fetching next flag...");
 	try {
 		const response = await fetch(`${API_URL}?action=nextFlag`);
-		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
 		const data = await response.json();
+
+		const flagImg = document.getElementById("next-flag-img");
+		if (data.error) {
+			document.getElementById("next-flag").textContent = data.error;
+			flagImg.style.display = "none"; // Hide the image
+			return;
+		}
+
 		document.getElementById("next-flag").textContent =
 			data.metadata?.country || "Unknown";
-		document.getElementById("next-flag-img").src = data.flagUrl.replace(
-			".bmp",
-			".svg"
-		);
-		document.getElementById("next-flag-img").alt =
-			data.metadata?.country || "Flag";
+		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
+		flagImg.alt = data.metadata?.country || "Flag";
+		flagImg.style.display = ""; // Show the image if hidden
 	} catch (error) {
 		console.error("Error loading next flag:", error);
 		document.getElementById("next-flag").textContent =
 			"We encountered a problem loading the next flag.";
+		document.getElementById("next-flag-img").style.display = "none"; // Hide the image
 	}
 }
 
@@ -56,6 +64,11 @@ async function updateCurrentFlag() {
 		console.log("Fetching next flag to update current flag...");
 		const response = await fetch(`${API_URL}?action=nextFlag`);
 		const data = await response.json();
+
+		if (data.error) {
+			statusElement.textContent = data.error;
+			return;
+		}
 
 		const updateResponse = await fetch(
 			`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(
@@ -92,13 +105,13 @@ async function loadCurrentFlagInfo() {
 		updateFlagDetails(metadata);
 
 		// Update flag image
-		document.getElementById("flag-img").src = data.flagUrl.replace(
-			".bmp",
-			".svg"
-		);
-		document.getElementById("flag-img").alt = metadata.country || "Flag";
+		const flagImg = document.getElementById("flag-img");
+		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
+		flagImg.alt = metadata.country || "Flag";
+		flagImg.style.display = ""; // Show the image if hidden
 	} catch (error) {
 		console.error("Error fetching detailed flag info:", error);
+		document.getElementById("flag-img").style.display = "none"; // Hide the image
 	}
 }
 
@@ -204,13 +217,9 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 
 // Initialize the page logic
 document.addEventListener("DOMContentLoaded", async () => {
-	// Load the current flag
 	await loadCurrentFlag();
-
-	// Load the next flag
 	await loadNextFlag();
 
-	// Attach event listeners for actions
 	document
 		.getElementById("update-current-flag")
 		?.addEventListener("click", updateCurrentFlag);
@@ -218,7 +227,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 		.getElementById("set-next-flag")
 		?.addEventListener("click", setNextFlag);
 
-	// Load and populate country suggestions
 	if (
 		document.getElementById("next-flag-input") &&
 		document.getElementById("country-suggestions")
