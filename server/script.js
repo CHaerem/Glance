@@ -24,7 +24,56 @@ async function loadCurrentFlag() {
 	}
 }
 
-// Fetch and display the *extended info* for the currently displayed flag
+// Fetch and display the next flag
+async function loadNextFlag() {
+	console.log("Sending request to:", `${API_URL}?action=nextFlag`);
+	try {
+		const response = await fetch(`${API_URL}?action=nextFlag`);
+		if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+		const data = await response.json();
+		const nextFlagElement = document.getElementById("next-flag");
+		const nextFlagImgElement = document.getElementById("next-flag-img");
+
+		nextFlagElement.textContent = data.metadata?.country || "Unknown";
+		nextFlagImgElement.src = data.flagUrl.replace(".bmp", ".svg"); // Change to SVG URL
+		nextFlagImgElement.alt = data.metadata?.country || "Flag";
+	} catch (error) {
+		console.error("Error loading next flag:", error);
+		document.getElementById("next-flag").textContent =
+			"We encountered a problem loading the next flag.";
+	}
+}
+
+// Update the current flag to match the next flag
+async function updateCurrentFlag() {
+	const updateStatus = document.getElementById("update-current-status");
+	try {
+		const response = await fetch(`${API_URL}?action=nextFlag`);
+		if (!response.ok) throw new Error("Failed to fetch next flag");
+		const data = await response.json();
+		const nextFlag = data.nextFlag;
+
+		const updateResponse = await fetch(
+			`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(nextFlag)}`
+		);
+		const result = await updateResponse.json();
+
+		updateStatus.textContent =
+			result.status === "success"
+				? "Current flag updated successfully!"
+				: `Failed to update current flag: ${result.error || "Unknown error"}`;
+		if (result.status === "success") {
+			await loadCurrentFlag();
+		}
+	} catch (error) {
+		console.error("Error updating current flag:", error);
+		updateStatus.textContent =
+			"We encountered a problem updating the current flag. Please try again.";
+	}
+}
+
+// Fetch and display the extended info for the currently displayed flag
 async function loadCurrentFlagInfo() {
 	console.log("Sending request to:", `${API_URL}?action=currentFlag`);
 	try {
@@ -46,45 +95,7 @@ async function loadCurrentFlagInfo() {
 		}
 
 		// Extended details (from data.metadata)
-		if (document.getElementById("official-name")) {
-			document.getElementById("official-name").textContent =
-				metadata.official_name || "N/A";
-		}
-		if (document.getElementById("population")) {
-			document.getElementById("population").textContent =
-				metadata.population?.toLocaleString() || "N/A";
-		}
-		if (document.getElementById("area")) {
-			document.getElementById("area").textContent =
-				metadata.area?.toLocaleString() || "N/A";
-		}
-		if (document.getElementById("capital")) {
-			document.getElementById("capital").textContent =
-				metadata.capital || "N/A";
-		}
-		if (document.getElementById("region")) {
-			document.getElementById("region").textContent = metadata.region || "N/A";
-		}
-		if (document.getElementById("subregion")) {
-			document.getElementById("subregion").textContent =
-				metadata.subregion || "N/A";
-		}
-		if (document.getElementById("languages")) {
-			document.getElementById("languages").textContent =
-				metadata.languages || "N/A";
-		}
-		if (document.getElementById("currencies")) {
-			document.getElementById("currencies").textContent =
-				metadata.currencies || "N/A";
-		}
-		if (document.getElementById("timezones")) {
-			document.getElementById("timezones").textContent =
-				metadata.timezones || "N/A";
-		}
-		if (document.getElementById("borders")) {
-			document.getElementById("borders").textContent =
-				metadata.borders || "N/A";
-		}
+		updateFlagDetails(metadata);
 	} catch (error) {
 		console.error("Error loading current flag info:", error);
 		if (document.querySelector("header h1")) {
@@ -94,6 +105,27 @@ async function loadCurrentFlagInfo() {
 			document.getElementById("page-title").textContent = "Error loading data.";
 		}
 	}
+}
+
+// Helper to update flag details
+function updateFlagDetails(metadata) {
+	const fields = [
+		"official-name",
+		"population",
+		"area",
+		"capital",
+		"region",
+		"subregion",
+		"languages",
+		"currencies",
+		"timezones",
+		"borders",
+	];
+
+	fields.forEach((field) => {
+		const elem = document.getElementById(field);
+		if (elem) elem.textContent = metadata[field.replace("-", "_")] || "N/A";
+	});
 }
 
 // Set the next flag to display
@@ -116,28 +148,18 @@ async function setNextFlag() {
 
 	const nextFlagForRequest = userInput.replace(/\s+/g, "_");
 	console.log("Setting next flag to:", nextFlagForRequest);
-	console.log(
-		"Sending request to:",
-		`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(
-			nextFlagForRequest
-		)}`
-	);
 	try {
 		const response = await fetch(
-			`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(
+			`${API_URL}?action=updateNextFlag&nextFlag=${encodeURIComponent(
 				nextFlagForRequest
 			)}`
 		);
-		if (!response.ok) throw new Error("Failed to set next flag");
 		const result = await response.json();
 
 		nextFlagStatus.textContent =
 			result.status === "success"
 				? "Next flag updated successfully!"
 				: `Failed to update the next flag: ${result.error || "Unknown error"}`;
-		if (result.status === "success") {
-			location.reload();
-		}
 	} catch (error) {
 		console.error("Error setting next flag:", error);
 		nextFlagStatus.textContent =
@@ -188,19 +210,31 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 
 // Initialize page logic
 document.addEventListener("DOMContentLoaded", async () => {
-	// If there's an element with ID "current-flag", assume we're on the main page:
+	// Load the current flag
 	if (document.getElementById("current-flag")) {
 		await loadCurrentFlag();
 	}
 
-	// If there's a button to set the next flag, wire it up:
+	// Load the next flag
+	if (document.getElementById("next-flag")) {
+		await loadNextFlag();
+	}
+
+	// Handle updating the current flag
+	if (document.getElementById("update-current-flag")) {
+		document
+			.getElementById("update-current-flag")
+			.addEventListener("click", updateCurrentFlag);
+	}
+
+	// Set the next flag
 	if (document.getElementById("set-next-flag")) {
 		document
 			.getElementById("set-next-flag")
 			.addEventListener("click", setNextFlag);
 	}
 
-	// If there's a datalist for countries, load them:
+	// Load the country suggestions
 	if (
 		document.getElementById("next-flag-input") &&
 		document.getElementById("country-suggestions")
@@ -211,26 +245,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 			"country-suggestions",
 			allCountries
 		);
-	}
-
-	// If there's an element with ID "country-name", assume we're on the info page:
-	if (document.getElementById("country-name")) {
-		await loadCurrentFlagInfo();
-	}
-
-	// Add click event listener to the flag image
-	const flagImgElement = document.getElementById("current-flag-img");
-	if (flagImgElement) {
-		flagImgElement.addEventListener("click", () => {
-			showEnlargedImage(flagImgElement.src);
-		});
-	}
-
-	const infoFlagImgElement = document.getElementById("flag-img");
-	if (infoFlagImgElement) {
-		infoFlagImgElement.addEventListener("click", () => {
-			showEnlargedImage(infoFlagImgElement.src);
-		});
 	}
 });
 
