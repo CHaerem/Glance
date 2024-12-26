@@ -192,19 +192,78 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 	const input = document.getElementById(inputId);
 	const datalist = document.getElementById(datalistId);
 
-	if (!input || !datalist) return;
+	// Create wrapper for input and icon
+	const inputWrapper = document.createElement("div");
+	inputWrapper.className = "input-with-flag";
+	input.parentNode.insertBefore(inputWrapper, input);
+	inputWrapper.appendChild(input);
+
+	// Create flag icon element
+	const selectedFlagIcon = document.createElement("img");
+	selectedFlagIcon.className = "selected-flag-icon";
+	selectedFlagIcon.style.display = "none";
+	inputWrapper.appendChild(selectedFlagIcon);
+
+	const suggestionsContainer = document.createElement("div");
+	suggestionsContainer.id = "suggestions-container";
+	inputWrapper.appendChild(suggestionsContainer);
+
+	// Update flag icon when input changes
+	function updateSelectedFlag(countryName) {
+		if (countryName && countries.includes(countryName)) {
+			const flagFilename = countryName.toLowerCase().replace(/\s+/g, "_");
+			selectedFlagIcon.src = `flags/${flagFilename}.svg`;
+			selectedFlagIcon.style.display = "block";
+		} else {
+			selectedFlagIcon.style.display = "none";
+		}
+	}
+
+	// Hide datalist as we'll use custom suggestions
+	datalist.style.display = "none";
 
 	input.addEventListener("input", () => {
 		const value = input.value.toLowerCase();
-		datalist.innerHTML = ""; // Clear old suggestions
+		suggestionsContainer.innerHTML = "";
+		updateSelectedFlag(input.value.trim());
 
-		countries
+		const matches = countries
 			.filter((country) => country.toLowerCase().startsWith(value))
-			.forEach((match) => {
-				const option = document.createElement("option");
-				option.value = match;
-				datalist.appendChild(option);
+			.slice(0, 10); // Limit to 10 suggestions
+
+		if (matches.length > 0 && value) {
+			suggestionsContainer.style.display = "block";
+			matches.forEach((match) => {
+				const suggestion = document.createElement("div");
+				suggestion.className = "suggestion-item";
+
+				// Convert spaces to underscores for the filename
+				const flagFilename = match.toLowerCase().replace(/\s+/g, "_");
+				const flagUrl = `flags/${flagFilename}.svg`;
+
+				suggestion.innerHTML = `
+                    <img src="${flagUrl}" alt="" class="suggestion-flag">
+                    <span>${match}</span>
+                `;
+
+				suggestion.addEventListener("click", () => {
+					input.value = match;
+					updateSelectedFlag(match);
+					suggestionsContainer.style.display = "none";
+				});
+
+				suggestionsContainer.appendChild(suggestion);
 			});
+		} else {
+			suggestionsContainer.style.display = "none";
+		}
+	});
+
+	// Close suggestions when clicking outside
+	document.addEventListener("click", (e) => {
+		if (!suggestionsContainer.contains(e.target) && e.target !== input) {
+			suggestionsContainer.style.display = "none";
+		}
 	});
 }
 

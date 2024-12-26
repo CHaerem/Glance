@@ -132,6 +132,28 @@ body {
 	margin-bottom: 10px;
 	background-color: #f9f9f9;
   }
+
+  .input-with-flag {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.input-with-flag input {
+    width: 100%;
+    padding-right: 40px;
+}
+
+.selected-flag-icon {
+    position: absolute;
+    right: 10px;
+    width: 24px;
+    height: 16px;
+    object-fit: cover;
+    border-radius: 2px;
+    pointer-events: none;
+}
   
   /* Status Message */
   .status {
@@ -193,4 +215,49 @@ body {
   .toast-error {
 	background-color: #f44336; /* Red */
   }
+
+  .country-option {
+	display: flex;
+	align-items: center;
+  }
   
+  .flag-icon {
+	width: 20px;
+	height: 15px;
+	margin-right: 8px;
+  }
+
+  #suggestions-container {
+    display: none;
+    position: absolute;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+    width: 100%;
+    max-width: 300px;
+    top: 100%;
+    left: 0;
+}
+
+.suggestion-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.suggestion-item:hover {
+    background-color: #f0f0f0;
+}
+
+.suggestion-flag {
+    width: 24px;
+    height: 16px;
+    object-fit: cover;
+    border-radius: 2px;
+}
