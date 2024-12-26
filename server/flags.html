@@ -1,0 +1,243 @@
+<!-- flags.html -->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Glance - Flag Browser</title>
+		<link rel="stylesheet" href="style.css" />
+		<style>
+			.flags-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+				gap: 20px;
+				padding: 20px;
+			}
+
+			.flag-item {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				cursor: pointer;
+				padding: 10px;
+				border-radius: 8px;
+				transition: background-color 0.2s;
+			}
+
+			.flag-item:hover {
+				background-color: #f0f0f0;
+			}
+
+			.flag-item img {
+				width: 120px;
+				height: 80px;
+				object-fit: contain;
+				margin-bottom: 8px;
+			}
+
+			.flag-item span {
+				text-align: center;
+				font-size: 14px;
+			}
+
+			.search-container {
+				position: sticky;
+				top: 0;
+				padding: 20px;
+				background: white;
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+				z-index: 100;
+			}
+
+			.search-input {
+				width: 100%;
+				max-width: 400px;
+				padding: 10px;
+				font-size: 16px;
+				border: 1px solid #ccc;
+				border-radius: 4px;
+			}
+
+			.flag-modal {
+				display: none;
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background-color: rgba(0, 0, 0, 0.8);
+				z-index: 1000;
+			}
+
+			.modal-content {
+				position: relative;
+				background-color: white;
+				margin: 10% auto;
+				padding: 20px;
+				width: 90%;
+				max-width: 500px;
+				border-radius: 8px;
+				text-align: center;
+			}
+
+			.modal-content img {
+				max-width: 200px;
+				margin-bottom: 20px;
+			}
+
+			.close-modal {
+				position: absolute;
+				right: 20px;
+				top: 20px;
+				font-size: 24px;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<h1>Flag Browser</h1>
+			<p class="subtitle">Browse and Set Next Flag</p>
+		</header>
+
+		<main>
+			<div class="search-container">
+				<input
+					type="text"
+					class="search-input"
+					placeholder="Search flags..."
+					id="flag-search"
+				/>
+			</div>
+
+			<div class="flags-grid" id="flags-grid">
+				<!-- Flags will be dynamically populated here -->
+			</div>
+
+			<div class="flag-modal" id="flag-modal">
+				<div class="modal-content">
+					<span class="close-modal">&times;</span>
+					<img id="modal-flag" src="" alt="Selected flag" />
+					<h2 id="modal-country">Country Name</h2>
+					<button id="set-as-next" class="button">Set as Next Flag</button>
+				</div>
+			</div>
+		</main>
+
+		<script>
+			const API_URL =
+				"https://script.google.com/macros/s/AKfycbxDNyBtpCBSw9JTbFVYW5WR3xFYFd6TONTHQbtybg0ggTfxs95l38Wgg45YlB1i5W3-/exec";
+			let allCountries = [];
+
+			async function loadCountryList() {
+				const response = await fetch("Countries_List.csv");
+				const text = await response.text();
+				const lines = text.split("\n");
+				// Sort the countries alphabetically after filtering
+				return lines
+					.slice(1)
+					.map((line) => line.trim())
+					.filter(Boolean)
+					.sort((a, b) => a.localeCompare(b)); // Add alphabetical sorting
+			}
+
+			function showToast(message, type = "info") {
+				// Reuse existing toast function from script.js
+			}
+
+			function createFlagElement(country) {
+				const flagId = country.toLowerCase().replace(/\s+/g, "_");
+				const div = document.createElement("div");
+				div.className = "flag-item";
+				div.innerHTML = `
+                <img src="flags/${flagId}.svg" alt="${country} flag">
+                <span>${country}</span>
+            `;
+				div.addEventListener("click", () => showModal(country));
+				return div;
+			}
+
+			function updateFlagGrid(searchTerm = "") {
+				const grid = document.getElementById("flags-grid");
+				grid.innerHTML = "";
+
+				const filteredCountries = allCountries
+					.filter((country) =>
+						country.toLowerCase().includes(searchTerm.toLowerCase())
+					)
+					.sort((a, b) => a.localeCompare(b)); // Keep sorted even after filtering
+
+				filteredCountries.forEach((country) => {
+					grid.appendChild(createFlagElement(country));
+				});
+			}
+
+			function showModal(country) {
+				const modal = document.getElementById("flag-modal");
+				const modalImg = document.getElementById("modal-flag");
+				const modalCountry = document.getElementById("modal-country");
+				const flagId = country.toLowerCase().replace(/\s+/g, "_");
+
+				modalImg.src = `flags/${flagId}.svg`;
+				modalCountry.textContent = country;
+				modal.style.display = "block";
+			}
+
+			async function setAsNextFlag(country) {
+				try {
+					const response = await fetch(
+						`${API_URL}?action=updateNextFlag&nextFlag=${encodeURIComponent(
+							country
+						)}`
+					);
+					const result = await response.json();
+
+					if (result.status === "success") {
+						showToast("Next flag updated successfully!", "success");
+					} else {
+						showToast(
+							`Failed to update next flag: ${result.error || "Unknown error"}`,
+							"error"
+						);
+					}
+				} catch (error) {
+					console.error("Error setting next flag:", error);
+					showToast("Error updating next flag.", "error");
+				}
+			}
+
+			document.addEventListener("DOMContentLoaded", async () => {
+				// Load countries
+				allCountries = await loadCountryList();
+				updateFlagGrid();
+
+				// Setup search
+				const searchInput = document.getElementById("flag-search");
+				searchInput.addEventListener("input", (e) => {
+					updateFlagGrid(e.target.value);
+				});
+
+				// Setup modal
+				const modal = document.getElementById("flag-modal");
+				const closeModal = document.querySelector(".close-modal");
+				const setAsNextBtn = document.getElementById("set-as-next");
+
+				closeModal.onclick = () => {
+					modal.style.display = "none";
+				};
+
+				setAsNextBtn.onclick = () => {
+					const country = document.getElementById("modal-country").textContent;
+					setAsNextFlag(country);
+					modal.style.display = "none";
+				};
+
+				window.onclick = (e) => {
+					if (e.target === modal) {
+						modal.style.display = "none";
+					}
+				};
+			});
+		</script>
+	</body>
+</html>
