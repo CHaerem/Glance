@@ -222,10 +222,54 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 	// Hide datalist as we'll use custom suggestions
 	datalist.style.display = "none";
 
+	let currentSelection = -1;
+
+	input.addEventListener("keydown", (e) => {
+		const suggestions =
+			suggestionsContainer.getElementsByClassName("suggestion-item");
+
+		switch (e.key) {
+			case "ArrowDown":
+				e.preventDefault();
+				if (suggestionsContainer.style.display === "none") return;
+				currentSelection = Math.min(
+					currentSelection + 1,
+					suggestions.length - 1
+				);
+				updateSelection(suggestions);
+				break;
+
+			case "ArrowUp":
+				e.preventDefault();
+				if (suggestionsContainer.style.display === "none") return;
+				currentSelection = Math.max(currentSelection - 1, -1);
+				updateSelection(suggestions);
+				break;
+
+			case "Enter":
+				e.preventDefault();
+				if (currentSelection >= 0 && suggestions[currentSelection]) {
+					const selectedValue =
+						suggestions[currentSelection].querySelector("span").textContent;
+					input.value = selectedValue;
+					updateSelectedFlag(selectedValue);
+					suggestionsContainer.style.display = "none";
+					currentSelection = -1;
+				}
+				break;
+
+			case "Escape":
+				suggestionsContainer.style.display = "none";
+				currentSelection = -1;
+				break;
+		}
+	});
+
 	input.addEventListener("input", () => {
 		const value = input.value.toLowerCase();
 		suggestionsContainer.innerHTML = "";
 		updateSelectedFlag(input.value.trim());
+		currentSelection = -1;
 
 		const matches = countries
 			.filter((country) => country.toLowerCase().startsWith(value))
@@ -250,6 +294,7 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 					input.value = match;
 					updateSelectedFlag(match);
 					suggestionsContainer.style.display = "none";
+					currentSelection = -1;
 				});
 
 				suggestionsContainer.appendChild(suggestion);
@@ -258,6 +303,18 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
 			suggestionsContainer.style.display = "none";
 		}
 	});
+
+	function updateSelection(suggestions) {
+		Array.from(suggestions).forEach((suggestion, index) => {
+			if (index === currentSelection) {
+				suggestion.style.backgroundColor = "#e0e0e0";
+				// Ensure the selected item is visible in the container
+				suggestion.scrollIntoView({ block: "nearest" });
+			} else {
+				suggestion.style.backgroundColor = "";
+			}
+		});
+	}
 
 	// Close suggestions when clicking outside
 	document.addEventListener("click", (e) => {
