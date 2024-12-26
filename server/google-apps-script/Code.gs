@@ -1,7 +1,12 @@
 const GITHUB_BASE_URL = "https://chaerem.github.io/Glance";
 
+let cachedData = null; // Cache for Google Sheet data
+
 function doGet(e) {
 	const action = e.parameter.action;
+
+	// Load data from the Google Sheet if not already cached
+	if (!cachedData) cachedData = loadSheetData();
 
 	if (action === "info" && e.parameter.flagId) {
 		return fetchFlagInfo(e.parameter.flagId);
@@ -34,6 +39,14 @@ function doGet(e) {
 	}
 }
 
+// Load all data from the Google Sheet at once
+function loadSheetData() {
+	const sheet =
+		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
+	const data = sheet.getRange("A2:B2").getValues()[0];
+	return { currentFlag: data[0], nextFlag: data[1] };
+}
+
 // Fetch metadata for a specific flag
 function fetchFlagInfo(flagId) {
 	const infoUrl = `${GITHUB_BASE_URL}/info/${flagId}.json`;
@@ -41,7 +54,6 @@ function fetchFlagInfo(flagId) {
 	try {
 		const response = UrlFetchApp.fetch(infoUrl);
 		const metadata = JSON.parse(response.getContentText());
-
 		return ContentService.createTextOutput(
 			JSON.stringify(metadata)
 		).setMimeType(ContentService.MimeType.JSON);
@@ -54,10 +66,7 @@ function fetchFlagInfo(flagId) {
 
 // Provide the next flag with metadata and image URL
 function fetchNextFlag() {
-	const sheet =
-		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
-	const nextFlag = sheet.getRange("B2").getValue();
-
+	const { nextFlag } = cachedData || {};
 	if (!nextFlag) {
 		return ContentService.createTextOutput(
 			JSON.stringify({ error: "No next flag set" })
@@ -73,21 +82,9 @@ function fetchNextFlag() {
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Fetch the GitHub Pages URL for the flag image
-function fetchFlagImage(flagId) {
-	const flagUrl = `${GITHUB_BASE_URL}/flags/${flagId}.bmp`;
-
-	return ContentService.createTextOutput(
-		JSON.stringify({ flagUrl })
-	).setMimeType(ContentService.MimeType.JSON);
-}
-
 // Fetch the currently displayed flag
 function fetchCurrentFlag() {
-	const sheet =
-		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
-	const currentFlag = sheet.getRange("A2").getValue();
-
+	const { currentFlag } = cachedData || {};
 	if (!currentFlag) {
 		return ContentService.createTextOutput(
 			JSON.stringify({ error: "No current flag set" })
@@ -103,6 +100,15 @@ function fetchCurrentFlag() {
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
+// Fetch the GitHub Pages URL for the flag image
+function fetchFlagImage(flagId) {
+	const flagUrl = `${GITHUB_BASE_URL}/flags/${flagId}.bmp`;
+
+	return ContentService.createTextOutput(
+		JSON.stringify({ flagUrl })
+	).setMimeType(ContentService.MimeType.JSON);
+}
+
 // Update the current flag
 function updateCurrentFlag(data) {
 	const sheet =
@@ -112,8 +118,14 @@ function updateCurrentFlag(data) {
 		sheet.getRange("A2").setValue(data.currentFlag);
 		sheet.getRange("B2").setValue(""); // Clear the next flag
 
+		// Ensure cachedData is initialized
+		if (!cachedData) cachedData = loadSheetData();
+
+		cachedData.currentFlag = data.currentFlag;
+		cachedData.nextFlag = ""; // Sync cache
+
 		return ContentService.createTextOutput(
-			JSON.stringify({ status: "success" })
+			JSON.stringify({ status: "success", currentFlag: data.currentFlag })
 		).setMimeType(ContentService.MimeType.JSON);
 	}
 
@@ -129,8 +141,14 @@ function updateNextFlag(data) {
 
 	if (data.nextFlag) {
 		sheet.getRange("B2").setValue(data.nextFlag); // Set the next flag
+
+		// Ensure cachedData is initialized
+		if (!cachedData) cachedData = loadSheetData();
+
+		cachedData.nextFlag = data.nextFlag; // Sync cache
+
 		return ContentService.createTextOutput(
-			JSON.stringify({ status: "success" })
+			JSON.stringify({ status: "success", nextFlag: data.nextFlag })
 		).setMimeType(ContentService.MimeType.JSON);
 	}
 
