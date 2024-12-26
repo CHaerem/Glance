@@ -32,66 +32,54 @@ function showToast(message, type = "info") {
 }
 
 /* ----------------------------------
-   Fetch and display the current flag
+   Fetch and display both current and next flags
 ------------------------------------ */
-async function loadCurrentFlag() {
-	console.log("Fetching current flag...");
-	const currentFlagEl = document.getElementById("current-flag");
-	const flagImg = document.getElementById("current-flag-img");
-
-	// Optionally, show a quick loading text
-	currentFlagEl.textContent = "Loading current flag...";
-
+async function loadBothFlags() {
+	console.log("Fetching both current and next flags...");
 	try {
-		const response = await fetch(`${API_URL}?action=currentFlag`);
+		const response = await fetch(`${API_URL}?action=bothFlags`);
 		const data = await response.json();
 
-		if (data.error) {
-			currentFlagEl.textContent = data.error;
-			flagImg.style.display = "none";
-			return;
+		// Handle Current Flag
+		const currentFlagEl = document.getElementById("current-flag");
+		const currentFlagImg = document.getElementById("current-flag-img");
+
+		if (data.current && data.current.friendlyName) {
+			currentFlagEl.textContent = data.current.friendlyName;
+			currentFlagImg.src = data.current.flagUrl
+				? data.current.flagUrl.replace(".bmp", ".svg")
+				: "";
+			currentFlagImg.alt = data.current.metadata?.country || "Flag";
+			currentFlagImg.style.display = data.current.flagUrl ? "" : "none";
+		} else if (data.current && data.current.error) {
+			currentFlagEl.textContent = data.current.error;
+			currentFlagImg.style.display = "none";
+		} else {
+			currentFlagEl.textContent = "No current flag set.";
+			currentFlagImg.style.display = "none";
 		}
 
-		currentFlagEl.textContent = data.metadata?.country || "Unknown";
-		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
-		flagImg.alt = data.metadata?.country || "Flag";
-		flagImg.style.display = "";
-	} catch (error) {
-		console.error("Error loading current flag:", error);
-		currentFlagEl.textContent =
-			"We encountered a problem loading the current flag.";
-		flagImg.style.display = "none";
-	}
-}
+		// Handle Next Flag
+		const nextFlagEl = document.getElementById("next-flag");
+		const nextFlagImg = document.getElementById("next-flag-img");
 
-/* --------------------------------
-   Fetch and display the next flag
----------------------------------- */
-async function loadNextFlag() {
-	console.log("Fetching next flag...");
-	const nextFlagEl = document.getElementById("next-flag");
-	const flagImg = document.getElementById("next-flag-img");
-
-	nextFlagEl.textContent = "Loading next flag...";
-
-	try {
-		const response = await fetch(`${API_URL}?action=nextFlag`);
-		const data = await response.json();
-
-		if (data.error) {
-			nextFlagEl.textContent = data.error;
-			flagImg.style.display = "none";
-			return;
+		if (data.next && data.next.friendlyName) {
+			nextFlagEl.textContent = data.next.friendlyName;
+			nextFlagImg.src = data.next.flagUrl
+				? data.next.flagUrl.replace(".bmp", ".svg")
+				: "";
+			nextFlagImg.alt = data.next.metadata?.country || "Flag";
+			nextFlagImg.style.display = data.next.flagUrl ? "" : "none";
+		} else if (data.next && data.next.error) {
+			nextFlagEl.textContent = data.next.error;
+			nextFlagImg.style.display = "none";
+		} else {
+			nextFlagEl.textContent = "No next flag set.";
+			nextFlagImg.style.display = "none";
 		}
-
-		nextFlagEl.textContent = data.metadata?.country || "Unknown";
-		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
-		flagImg.alt = data.metadata?.country || "Flag";
-		flagImg.style.display = "";
 	} catch (error) {
-		console.error("Error loading next flag:", error);
-		nextFlagEl.textContent = "We encountered a problem loading the next flag.";
-		flagImg.style.display = "none";
+		console.error("Error fetching both flags:", error);
+		showToast("Failed to load flags. Please try again later.", "error");
 	}
 }
 
@@ -107,9 +95,8 @@ async function updateCurrentFlag() {
 
 		if (result.status === "success") {
 			showToast("Current flag updated successfully!", "success");
-			// Refresh current & next flags
-			await loadCurrentFlag();
-			await loadNextFlag();
+			// Refresh both flags
+			await loadBothFlags();
 		} else {
 			showToast(`Update failed: ${result.error || "Unknown error"}`, "error");
 		}
@@ -117,57 +104,6 @@ async function updateCurrentFlag() {
 		console.error("Error updating current flag:", error);
 		showToast("We encountered a problem updating the current flag.", "error");
 	}
-}
-
-/* ---------------------------------------
-   Load extended info for the current flag
----------------------------------------- */
-async function loadCurrentFlagInfo() {
-	console.log("Fetching detailed current flag information...");
-	// Optionally set placeholders in UI here, e.g. "Loading..."
-
-	try {
-		const response = await fetch(`${API_URL}?action=currentFlag`);
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
-		}
-		const data = await response.json();
-		const metadata = data.metadata || {};
-
-		updateFlagDetails(metadata);
-
-		const flagImg = document.getElementById("flag-img");
-		flagImg.src = data.flagUrl.replace(".bmp", ".svg");
-		flagImg.alt = metadata.country || "Flag";
-		flagImg.style.display = "";
-	} catch (error) {
-		console.error("Error fetching detailed flag info:", error);
-		document.getElementById("flag-img").style.display = "none";
-	}
-}
-
-/* ------------------------------------
-   Helper: update extended flag details
--------------------------------------- */
-function updateFlagDetails(metadata) {
-	const fields = [
-		"official-name",
-		"population",
-		"area",
-		"capital",
-		"region",
-		"subregion",
-		"languages",
-		"currencies",
-		"timezones",
-		"borders",
-	];
-	fields.forEach((field) => {
-		const element = document.getElementById(field);
-		if (element) {
-			element.textContent = metadata[field.replace("-", "_")] || "N/A";
-		}
-	});
 }
 
 /* ------------------------------------------
@@ -208,8 +144,8 @@ async function setNextFlag() {
 
 		if (result.status === "success") {
 			showToast("Next flag updated successfully!", "success");
-			// Refresh the next flag display
-			await loadNextFlag();
+			// Refresh both flags
+			await loadBothFlags();
 		} else {
 			showToast(
 				`Failed to update next flag: ${result.error || "Unknown error"}`,
@@ -276,9 +212,8 @@ function populateCountrySuggestions(inputId, datalistId, countries) {
    Initialize page logic on DOMContentLoaded
 ---------------------------------------- */
 document.addEventListener("DOMContentLoaded", async () => {
-	// Load current and next flags
-	await loadCurrentFlag();
-	await loadNextFlag();
+	// Load both current and next flags
+	await loadBothFlags();
 
 	// Attach click listeners for enlarged images
 	const currentFlagImg = document.getElementById("current-flag-img");

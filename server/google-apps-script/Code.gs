@@ -18,17 +18,14 @@ function doGet(e) {
 	if (!cachedData) cachedData = loadSheetData();
 
 	if (action === "info" && e.parameter.flagId) {
-		// e.parameter.flagId is the friendly name, e.g. "United States"
 		return fetchFlagInfo(e.parameter.flagId);
 	} else if (action === "nextFlag") {
 		return fetchNextFlag();
 	} else if (action === "flags" && e.parameter.flagId) {
-		// e.parameter.flagId is the friendly name, e.g. "United States"
 		return fetchFlagImage(e.parameter.flagId);
 	} else if (action === "currentFlag") {
 		return fetchCurrentFlag();
 	} else if (action === "updateFlag") {
-		// Server picks nextFlag or a random one, no param needed
 		return updateCurrentFlag();
 	} else if (action === "updateNextFlag") {
 		const nextFlag = e.parameter.nextFlag;
@@ -38,7 +35,13 @@ function doGet(e) {
 			).setMimeType(ContentService.MimeType.JSON);
 		}
 		return updateNextFlag({ nextFlag });
-	} else {
+	}
+	// ===== NEW ACTION: bothFlags =====
+	else if (action === "bothFlags") {
+		return fetchCurrentAndNextFlags();
+	}
+	// =================================
+	else {
 		return ContentService.createTextOutput(
 			JSON.stringify({ error: "Invalid action" })
 		).setMimeType(ContentService.MimeType.JSON);
@@ -47,7 +50,7 @@ function doGet(e) {
 
 /**
  * Load all data from the "DisplayConfig" sheet (row 2, columns A & B).
- * A2 = currentFlag (friendly name), B2 = nextFlag (friendly name)
+ * A2 = currentFlag, B2 = nextFlag
  */
 function loadSheetData() {
 	const sheet =
@@ -58,19 +61,14 @@ function loadSheetData() {
 
 /**
  * Reads all friendly flags from the "Countries" sheet (column A).
- * For example, row 2 might have "United States", row 3 "Norway", etc.
  */
 function getAllFlagsFromSheet() {
 	const sheet =
 		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Countries");
 	if (!sheet) return [];
 
-	// Read all rows in column A
 	const values = sheet.getRange("A1:A").getValues();
-	// values is a 2D array like [[header], ["United States"], ["Norway"], ...]
-
-	// If row 1 is a header, skip index=0
-	return values.map((row) => row[0]).filter((flag, index) => flag && index > 0);
+	return values.map((row) => row[0]).filter((flag, i) => flag && i > 0);
 }
 
 /** Pick a random friendly name from the "Countries" sheet. */
@@ -83,8 +81,6 @@ function pickRandomFlag() {
 
 /**
  * Fetch metadata for a specific friendly name.
- * We convert friendlyName -> slug for the JSON file.
- * Then we overwrite metadata.country with the friendly name for display.
  */
 function fetchFlagInfo(friendlyName) {
 	const slug = toFlagSlug(friendlyName);
@@ -93,8 +89,7 @@ function fetchFlagInfo(friendlyName) {
 	try {
 		const response = UrlFetchApp.fetch(infoUrl);
 		const metadata = JSON.parse(response.getContentText());
-		// Overwrite or ensure "country" is the friendly name
-		metadata.country = friendlyName;
+		metadata.country = friendlyName; // Overwrite for display
 
 		return ContentService.createTextOutput(
 			JSON.stringify(metadata)
@@ -117,20 +112,13 @@ function fetchNextFlag() {
 		).setMimeType(ContentService.MimeType.JSON);
 	}
 
-	// Grab metadata for nextFlag (friendly name)
 	const flagInfoResponse = fetchFlagInfo(nextFlag);
 	const flagMetadata = JSON.parse(flagInfoResponse.getContent());
-
-	// Generate slug-based image URL
 	const slug = toFlagSlug(nextFlag);
 	const flagUrl = `${GITHUB_BASE_URL}/flags/${slug}.bmp`;
 
 	return ContentService.createTextOutput(
-		JSON.stringify({
-			nextFlag,
-			metadata: flagMetadata,
-			flagUrl,
-		})
+		JSON.stringify({ nextFlag, metadata: flagMetadata, flagUrl })
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -145,20 +133,13 @@ function fetchCurrentFlag() {
 		).setMimeType(ContentService.MimeType.JSON);
 	}
 
-	// Grab metadata for currentFlag
 	const infoResponse = fetchFlagInfo(currentFlag);
 	const flagMetadata = JSON.parse(infoResponse.getContent());
-
-	// Generate slug-based image URL
 	const slug = toFlagSlug(currentFlag);
 	const flagUrl = `${GITHUB_BASE_URL}/flags/${slug}.bmp`;
 
 	return ContentService.createTextOutput(
-		JSON.stringify({
-			currentFlag,
-			metadata: flagMetadata,
-			flagUrl,
-		})
+		JSON.stringify({ currentFlag, metadata: flagMetadata, flagUrl })
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -175,7 +156,7 @@ function fetchFlagImage(flagId) {
 
 /**
  * Update the current flag in the "DisplayConfig" sheet.
- * 1) If nextFlag is set (friendly name), use it as new currentFlag.
+ * 1) If nextFlag is set, use it as new currentFlag.
  * 2) If nextFlag is empty, pick a random from "Countries".
  * 3) Clear nextFlag after updating.
  */
@@ -184,9 +165,8 @@ function updateCurrentFlag() {
 		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
 
 	if (!cachedData) cachedData = loadSheetData();
-	let nextFlag = cachedData.nextFlag; // This is a friendly name or blank
+	let nextFlag = cachedData.nextFlag;
 
-	// If nextFlag is not set, pick a random
 	if (!nextFlag) {
 		nextFlag = pickRandomFlag();
 		if (!nextFlag) {
@@ -199,11 +179,9 @@ function updateCurrentFlag() {
 		}
 	}
 
-	// Write to DisplayConfig: currentFlag = nextFlag, nextFlag = ""
 	sheet.getRange("A2").setValue(nextFlag);
 	sheet.getRange("B2").setValue("");
 
-	// Update our cache
 	cachedData.currentFlag = nextFlag;
 	cachedData.nextFlag = "";
 
@@ -220,9 +198,7 @@ function updateNextFlag(data) {
 		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
 
 	if (data.nextFlag) {
-		sheet.getRange("B2").setValue(data.nextFlag); // Set nextFlag
-
-		// Ensure cachedData is up-to-date
+		sheet.getRange("B2").setValue(data.nextFlag);
 		if (!cachedData) cachedData = loadSheetData();
 		cachedData.nextFlag = data.nextFlag;
 
@@ -236,11 +212,37 @@ function updateNextFlag(data) {
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
+/**
+ * Fetch both current and next flags (metadata + URLs) in one go.
+ */
+function fetchCurrentAndNextFlags() {
+	const { currentFlag, nextFlag } = cachedData || {};
+
+	function buildFlagInfo(friendlyName) {
+		if (!friendlyName) {
+			return { friendlyName: null, metadata: null, flagUrl: null };
+		}
+		const infoResponse = fetchFlagInfo(friendlyName);
+		const metadata = JSON.parse(infoResponse.getContent());
+		const slug = toFlagSlug(friendlyName);
+		const flagUrl = `${GITHUB_BASE_URL}/flags/${slug}.bmp`;
+
+		return { friendlyName, metadata, flagUrl };
+	}
+
+	const currentData = buildFlagInfo(currentFlag);
+	const nextData = buildFlagInfo(nextFlag);
+
+	return ContentService.createTextOutput(
+		JSON.stringify({ current: currentData, next: nextData })
+	).setMimeType(ContentService.MimeType.JSON);
+}
+
 /* ==============================
    Test Functions (optional)
    ============================== */
+
 function testFetchFlagInfo() {
-	// Example: "United States" in the sheet
 	const response = fetchFlagInfo("United States");
 	Logger.log("testFetchFlagInfo Response: " + response.getContent());
 }
@@ -261,13 +263,11 @@ function testFetchCurrentFlag() {
 }
 
 function testUpdateCurrentFlag() {
-	// This picks the existing nextFlag or a random one if nextFlag is empty
 	const response = updateCurrentFlag();
 	Logger.log("testUpdateCurrentFlag Response: " + response.getContent());
 }
 
 function testUpdateNextFlag() {
-	// Example: set nextFlag to "Denmark"
 	const data = { nextFlag: "Denmark" };
 	const response = updateNextFlag(data);
 	Logger.log("testUpdateNextFlag Response: " + response.getContent());
