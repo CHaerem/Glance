@@ -2,6 +2,15 @@ const GITHUB_BASE_URL = "https://chaerem.github.io/Glance";
 
 let cachedData = null; // Cache for Google Sheet data
 
+/**
+ * Convert a user-friendly name like "United States"
+ * into a slug "united_states" for JSON / flag files.
+ */
+function toFlagSlug(name) {
+	if (!name) return "";
+	return name.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
 function doGet(e) {
 	const action = e.parameter.action;
 
@@ -9,21 +18,18 @@ function doGet(e) {
 	if (!cachedData) cachedData = loadSheetData();
 
 	if (action === "info" && e.parameter.flagId) {
+		// e.parameter.flagId is the friendly name, e.g. "United States"
 		return fetchFlagInfo(e.parameter.flagId);
 	} else if (action === "nextFlag") {
 		return fetchNextFlag();
 	} else if (action === "flags" && e.parameter.flagId) {
+		// e.parameter.flagId is the friendly name, e.g. "United States"
 		return fetchFlagImage(e.parameter.flagId);
 	} else if (action === "currentFlag") {
 		return fetchCurrentFlag();
 	} else if (action === "updateFlag") {
-		const currentFlag = e.parameter.currentFlag;
-		if (!currentFlag) {
-			return ContentService.createTextOutput(
-				JSON.stringify({ error: "currentFlag is missing" })
-			).setMimeType(ContentService.MimeType.JSON);
-		}
-		return updateCurrentFlag({ currentFlag });
+		// Server picks nextFlag or a random one, no param needed
+		return updateCurrentFlag();
 	} else if (action === "updateNextFlag") {
 		const nextFlag = e.parameter.nextFlag;
 		if (!nextFlag) {
@@ -39,7 +45,10 @@ function doGet(e) {
 	}
 }
 
-// Load all data from the Google Sheet at once
+/**
+ * Load all data from the "DisplayConfig" sheet (row 2, columns A & B).
+ * A2 = currentFlag (friendly name), B2 = nextFlag (friendly name)
+ */
 function loadSheetData() {
 	const sheet =
 		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
@@ -47,13 +56,46 @@ function loadSheetData() {
 	return { currentFlag: data[0], nextFlag: data[1] };
 }
 
-// Fetch metadata for a specific flag
-function fetchFlagInfo(flagId) {
-	const infoUrl = `${GITHUB_BASE_URL}/info/${flagId}.json`;
+/**
+ * Reads all friendly flags from the "Countries" sheet (column A).
+ * For example, row 2 might have "United States", row 3 "Norway", etc.
+ */
+function getAllFlagsFromSheet() {
+	const sheet =
+		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Countries");
+	if (!sheet) return [];
+
+	// Read all rows in column A
+	const values = sheet.getRange("A1:A").getValues();
+	// values is a 2D array like [[header], ["United States"], ["Norway"], ...]
+
+	// If row 1 is a header, skip index=0
+	return values.map((row) => row[0]).filter((flag, index) => flag && index > 0);
+}
+
+/** Pick a random friendly name from the "Countries" sheet. */
+function pickRandomFlag() {
+	const allFlags = getAllFlagsFromSheet();
+	if (!allFlags.length) return "";
+	const randomIndex = Math.floor(Math.random() * allFlags.length);
+	return allFlags[randomIndex];
+}
+
+/**
+ * Fetch metadata for a specific friendly name.
+ * We convert friendlyName -> slug for the JSON file.
+ * Then we overwrite metadata.country with the friendly name for display.
+ */
+function fetchFlagInfo(friendlyName) {
+	const slug = toFlagSlug(friendlyName);
+	const infoUrl = `${GITHUB_BASE_URL}/info/${slug}.json`;
 
 	try {
 		const response = UrlFetchApp.fetch(infoUrl);
 		const metadata = JSON.parse(response.getContentText());
+		// Overwrite or ensure "country" is the friendly name
+		metadata.country = friendlyName;
+
 		return ContentService.createTextOutput(
 			JSON.stringify(metadata)
 		).setMimeType(ContentService.MimeType.JSON);
@@ -64,7 +106,9 @@ function fetchFlagInfo(flagId) {
 	}
 }
 
-// Provide the next flag with metadata and image URL
+/**
+ * Provide the next flag with metadata and the correct slug-based image URL.
+ */
 function fetchNextFlag() {
 	const { nextFlag } = cachedData || {};
 	if (!nextFlag) {
@@ -73,16 +117,26 @@ function fetchNextFlag() {
 		).setMimeType(ContentService.MimeType.JSON);
 	}
 
+	// Grab metadata for nextFlag (friendly name)
 	const flagInfoResponse = fetchFlagInfo(nextFlag);
 	const flagMetadata = JSON.parse(flagInfoResponse.getContent());
-	const flagUrl = `${GITHUB_BASE_URL}/flags/${nextFlag}.bmp`;
+
+	// Generate slug-based image URL
+	const slug = toFlagSlug(nextFlag);
+	const flagUrl = `${GITHUB_BASE_URL}/flags/${slug}.bmp`;
 
 	return ContentService.createTextOutput(
-		JSON.stringify({ nextFlag, metadata: flagMetadata, flagUrl })
+		JSON.stringify({
+			nextFlag,
+			metadata: flagMetadata,
+			flagUrl,
+		})
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Fetch the currently displayed flag
+/**
+ * Fetch the currently displayed friendly name, metadata, and slug-based image URL.
+ */
 function fetchCurrentFlag() {
 	const { currentFlag } = cachedData || {};
 	if (!currentFlag) {
@@ -91,61 +145,86 @@ function fetchCurrentFlag() {
 		).setMimeType(ContentService.MimeType.JSON);
 	}
 
-	const flagInfoResponse = fetchFlagInfo(currentFlag);
-	const flagMetadata = JSON.parse(flagInfoResponse.getContent());
-	const flagUrl = `${GITHUB_BASE_URL}/flags/${currentFlag}.bmp`;
+	// Grab metadata for currentFlag
+	const infoResponse = fetchFlagInfo(currentFlag);
+	const flagMetadata = JSON.parse(infoResponse.getContent());
+
+	// Generate slug-based image URL
+	const slug = toFlagSlug(currentFlag);
+	const flagUrl = `${GITHUB_BASE_URL}/flags/${slug}.bmp`;
 
 	return ContentService.createTextOutput(
-		JSON.stringify({ currentFlag, metadata: flagMetadata, flagUrl })
+		JSON.stringify({
+			currentFlag,
+			metadata: flagMetadata,
+			flagUrl,
+		})
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Fetch the GitHub Pages URL for the flag image
+/**
+ * Return the GitHub Pages URL for the flag image, given a friendly name.
+ */
 function fetchFlagImage(flagId) {
-	const flagUrl = `${GITHUB_BASE_URL}/flags/${flagId}.bmp`;
-
+	const slug = toFlagSlug(flagId);
+	const flagUrl = `${GITHUB_BASE_URL}/flags/${slug}.bmp`;
 	return ContentService.createTextOutput(
 		JSON.stringify({ flagUrl })
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Update the current flag
-function updateCurrentFlag(data) {
+/**
+ * Update the current flag in the "DisplayConfig" sheet.
+ * 1) If nextFlag is set (friendly name), use it as new currentFlag.
+ * 2) If nextFlag is empty, pick a random from "Countries".
+ * 3) Clear nextFlag after updating.
+ */
+function updateCurrentFlag() {
 	const sheet =
 		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
 
-	if (data.currentFlag) {
-		sheet.getRange("A2").setValue(data.currentFlag);
-		sheet.getRange("B2").setValue(""); // Clear the next flag
+	if (!cachedData) cachedData = loadSheetData();
+	let nextFlag = cachedData.nextFlag; // This is a friendly name or blank
 
-		// Ensure cachedData is initialized
-		if (!cachedData) cachedData = loadSheetData();
-
-		cachedData.currentFlag = data.currentFlag;
-		cachedData.nextFlag = ""; // Sync cache
-
-		return ContentService.createTextOutput(
-			JSON.stringify({ status: "success", currentFlag: data.currentFlag })
-		).setMimeType(ContentService.MimeType.JSON);
+	// If nextFlag is not set, pick a random
+	if (!nextFlag) {
+		nextFlag = pickRandomFlag();
+		if (!nextFlag) {
+			return ContentService.createTextOutput(
+				JSON.stringify({
+					status: "error",
+					error: "No flags available in 'Countries' sheet.",
+				})
+			).setMimeType(ContentService.MimeType.JSON);
+		}
 	}
 
+	// Write to DisplayConfig: currentFlag = nextFlag, nextFlag = ""
+	sheet.getRange("A2").setValue(nextFlag);
+	sheet.getRange("B2").setValue("");
+
+	// Update our cache
+	cachedData.currentFlag = nextFlag;
+	cachedData.nextFlag = "";
+
 	return ContentService.createTextOutput(
-		JSON.stringify({ status: "error", message: "Missing currentFlag" })
+		JSON.stringify({ status: "success", currentFlag: nextFlag })
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Update the next flag
+/**
+ * Update the next flag (friendly name) in "DisplayConfig" sheet (cell B2).
+ */
 function updateNextFlag(data) {
 	const sheet =
 		SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DisplayConfig");
 
 	if (data.nextFlag) {
-		sheet.getRange("B2").setValue(data.nextFlag); // Set the next flag
+		sheet.getRange("B2").setValue(data.nextFlag); // Set nextFlag
 
-		// Ensure cachedData is initialized
+		// Ensure cachedData is up-to-date
 		if (!cachedData) cachedData = loadSheetData();
-
-		cachedData.nextFlag = data.nextFlag; // Sync cache
+		cachedData.nextFlag = data.nextFlag;
 
 		return ContentService.createTextOutput(
 			JSON.stringify({ status: "success", nextFlag: data.nextFlag })
@@ -157,9 +236,12 @@ function updateNextFlag(data) {
 	).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Test Functions
+/* ==============================
+   Test Functions (optional)
+   ============================== */
 function testFetchFlagInfo() {
-	const response = fetchFlagInfo("norway");
+	// Example: "United States" in the sheet
+	const response = fetchFlagInfo("United States");
 	Logger.log("testFetchFlagInfo Response: " + response.getContent());
 }
 
@@ -169,7 +251,7 @@ function testFetchNextFlag() {
 }
 
 function testFetchFlagImage() {
-	const response = fetchFlagImage("norway");
+	const response = fetchFlagImage("Norway");
 	Logger.log("testFetchFlagImage Response: " + response.getContent());
 }
 
@@ -179,13 +261,14 @@ function testFetchCurrentFlag() {
 }
 
 function testUpdateCurrentFlag() {
-	const data = { currentFlag: "sweden" };
-	const response = updateCurrentFlag(data);
+	// This picks the existing nextFlag or a random one if nextFlag is empty
+	const response = updateCurrentFlag();
 	Logger.log("testUpdateCurrentFlag Response: " + response.getContent());
 }
 
 function testUpdateNextFlag() {
-	const data = { nextFlag: "denmark" };
+	// Example: set nextFlag to "Denmark"
+	const data = { nextFlag: "Denmark" };
 	const response = updateNextFlag(data);
 	Logger.log("testUpdateNextFlag Response: " + response.getContent());
 }

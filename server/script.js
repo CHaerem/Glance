@@ -57,32 +57,21 @@ async function loadNextFlag() {
 	}
 }
 
-// Update the current flag with the next flag
+// Update the current flag, letting the server pick next or random
 async function updateCurrentFlag() {
 	const statusElement = document.getElementById("update-current-status");
 	try {
-		console.log("Fetching next flag to update current flag...");
-		const response = await fetch(`${API_URL}?action=nextFlag`);
-		const data = await response.json();
-
-		if (data.error) {
-			statusElement.textContent = data.error;
-			return;
-		}
-
-		const updateResponse = await fetch(
-			`${API_URL}?action=updateFlag&currentFlag=${encodeURIComponent(
-				data.nextFlag
-			)}`
-		);
+		console.log("Updating current flag (server will pick next or random)...");
+		const updateResponse = await fetch(`${API_URL}?action=updateFlag`);
 		const result = await updateResponse.json();
 
-		statusElement.textContent =
-			result.status === "success"
-				? "Current flag updated successfully!"
-				: `Update failed: ${result.error || "Unknown error"}`;
 		if (result.status === "success") {
-			await loadCurrentFlag();
+			statusElement.textContent = "Current flag updated successfully!";
+			await loadCurrentFlag(); // Refresh current flag display
+		} else {
+			statusElement.textContent = `Update failed: ${
+				result.error || "Unknown error"
+			}`;
 		}
 	} catch (error) {
 		console.error("Error updating current flag:", error);
@@ -143,22 +132,32 @@ async function setNextFlag() {
 
 	if (!nextFlagInput || !nextFlagStatus) return;
 
-	const userInput = nextFlagInput.value.trim().toLowerCase();
-	if (!userInput) {
-		nextFlagStatus.textContent = "Please enter a valid flag ID.";
+	// Grab exactly what the user typed
+	const rawInput = nextFlagInput.value.trim();
+	if (!rawInput) {
+		nextFlagStatus.textContent = "Please enter a valid flag name.";
 		return;
 	}
 
-	if (!allCountries.map((c) => c.toLowerCase()).includes(userInput)) {
-		nextFlagStatus.textContent = "Invalid flag ID.";
+	// Convert to lower for case-insensitive matching
+	const lowerInput = rawInput.toLowerCase();
+
+	// Find the correct entry in your allCountries array
+	// that matches ignoring case
+	const matchedCountry = allCountries.find(
+		(c) => c.toLowerCase() === lowerInput
+	);
+
+	if (!matchedCountry) {
+		nextFlagStatus.textContent = "Invalid flag name.";
 		return;
 	}
 
-	console.log(`Setting next flag to: ${userInput}`);
+	console.log(`Setting next flag to: ${matchedCountry}`);
 	try {
 		const response = await fetch(
 			`${API_URL}?action=updateNextFlag&nextFlag=${encodeURIComponent(
-				userInput
+				matchedCountry
 			)}`
 		);
 		const result = await response.json();
