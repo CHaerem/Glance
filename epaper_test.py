@@ -8,12 +8,16 @@ import spidev
 import RPi.GPIO as GPIO
 import time
 import sys
+import os
+
+# Set environment variable to use the legacy GPIO interface
+os.environ['GPIOZERO_PIN_FACTORY'] = 'rpigpio'
 
 # Pin definitions for Raspberry Pi to Waveshare 13.3" E-Paper HAT+
 # These correspond to the HAT+ pin connections
 RST_PIN = 17  # Reset
 DC_PIN = 25   # Data/Command
-CS_PIN = 8    # Chip Select (CE0)
+CS_PIN = 8    # Chip Select (CE0) - managed manually
 BUSY_PIN = 24 # Busy
 
 # Display dimensions
@@ -28,7 +32,8 @@ class EPD_13in3_Spectra6:
         self.spi.mode = 0b00
         
     def _spi_transfer(self, data):
-        """Send data via SPI"""
+        """Send data via SPI with manual CS control"""
+        # CS is controlled by SPI automatically, no need for manual control
         self.spi.xfer2([data])
         
     def _send_command(self, command):
@@ -60,25 +65,44 @@ class EPD_13in3_Spectra6:
         """Initialize the display"""
         print("\n=== DISPLAY INITIALIZATION ===")
         
-        # Setup GPIO
+        # Setup GPIO with more robust initialization
         GPIO.setwarnings(False)
         
-        # Clean up any previous GPIO state
+        # Try to set mode first, then cleanup if needed
         try:
-            GPIO.cleanup()
-        except:
-            pass
-            
-        # Set mode after cleanup
-        GPIO.setmode(GPIO.BCM)
+            GPIO.setmode(GPIO.BCM)
+        except Exception:
+            # If setmode fails, cleanup and try again
+            try:
+                GPIO.cleanup()
+                time.sleep(0.1)
+                GPIO.setmode(GPIO.BCM)
+            except Exception as e:
+                print(f"ERROR: Could not set GPIO mode - {e}")
+                return False
         
-        GPIO.setup(RST_PIN, GPIO.OUT)
-        GPIO.setup(DC_PIN, GPIO.OUT)
-        GPIO.setup(CS_PIN, GPIO.OUT)
-        GPIO.setup(BUSY_PIN, GPIO.IN)
+        # Setup GPIO pins with error checking (CS pin is managed by SPI)
+        try:
+            GPIO.setup(RST_PIN, GPIO.OUT)
+            GPIO.setup(DC_PIN, GPIO.OUT)
+            GPIO.setup(BUSY_PIN, GPIO.IN)
+            print("GPIO pins configured successfully")
+        except Exception as e:
+            print(f"ERROR: GPIO setup failed - {e}")
+            # Try alternative approach - cleanup and retry once
+            try:
+                GPIO.cleanup()
+                time.sleep(0.2)
+                GPIO.setmode(GPIO.BCM)
+                GPIO.setup(RST_PIN, GPIO.OUT)
+                GPIO.setup(DC_PIN, GPIO.OUT)
+                GPIO.setup(BUSY_PIN, GPIO.IN)
+                print("GPIO pins configured successfully (after retry)")
+            except Exception as e2:
+                print(f"ERROR: GPIO setup failed even after retry - {e2}")
+                return False
         
-        # Initialize pins
-        GPIO.output(CS_PIN, GPIO.HIGH)
+        # Initialize pins (CS pin is managed by SPI)
         GPIO.output(DC_PIN, GPIO.LOW)
         GPIO.output(RST_PIN, GPIO.HIGH)
         
