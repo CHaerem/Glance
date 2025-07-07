@@ -61,7 +61,6 @@ class EPD_13in3_Spectra6:
         print("\n=== DISPLAY INITIALIZATION ===")
         
         # Setup GPIO
-        GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         
         # Clean up any previous GPIO state
@@ -70,6 +69,9 @@ class EPD_13in3_Spectra6:
         except:
             pass
             
+        # Set mode after cleanup
+        GPIO.setmode(GPIO.BCM)
+        
         GPIO.setup(RST_PIN, GPIO.OUT)
         GPIO.setup(DC_PIN, GPIO.OUT)
         GPIO.setup(CS_PIN, GPIO.OUT)
