@@ -13,12 +13,13 @@ import os
 # Set environment variable to use the legacy GPIO interface
 os.environ['GPIOZERO_PIN_FACTORY'] = 'rpigpio'
 
-# Pin definitions for Raspberry Pi to Waveshare 13.3" E-Paper HAT+
-# These correspond to the HAT+ pin connections
-RST_PIN = 17  # Reset
-DC_PIN = 25   # Data/Command
-CS_PIN = 8    # Chip Select (CE0) - managed manually
-BUSY_PIN = 24 # Busy
+# Pin definitions for Raspberry Pi to Waveshare 13.3" E-Paper HAT+ (E)
+# These correspond to the official HAT+ pin connections
+RST_PIN = 11  # Reset
+DC_PIN = 22   # Data/Command
+CS_M_PIN = 24 # Chip Select Master (CE0)
+CS_S_PIN = 26 # Chip Select Slave (CE1) - Dual IC display
+BUSY_PIN = 18 # Busy
 
 # Display dimensions
 EPD_WIDTH = 1600
@@ -30,20 +31,35 @@ class EPD_13in3_Spectra6:
         self.spi.open(0, 0)  # SPI bus 0, device 0
         self.spi.max_speed_hz = 4000000
         self.spi.mode = 0b00
+        self.current_cs = None  # Track which CS is active
+        
+    def _select_chip(self, chip):
+        """Select which IC to communicate with ('M' for master, 'S' for slave)"""
+        if chip == 'M':
+            GPIO.output(CS_M_PIN, GPIO.LOW)
+            GPIO.output(CS_S_PIN, GPIO.HIGH)
+        elif chip == 'S':
+            GPIO.output(CS_M_PIN, GPIO.HIGH)
+            GPIO.output(CS_S_PIN, GPIO.LOW)
+        else:  # Both high (deselect)
+            GPIO.output(CS_M_PIN, GPIO.HIGH)
+            GPIO.output(CS_S_PIN, GPIO.HIGH)
+        self.current_cs = chip
         
     def _spi_transfer(self, data):
         """Send data via SPI with manual CS control"""
-        # CS is controlled by SPI automatically, no need for manual control
         self.spi.xfer2([data])
         
-    def _send_command(self, command):
+    def _send_command(self, command, chip='M'):
         """Send command to display"""
+        self._select_chip(chip)
         GPIO.output(DC_PIN, GPIO.LOW)
         self._spi_transfer(command)
-        print(f"CMD: 0x{command:02X}")
+        print(f"CMD: 0x{command:02X} to {chip}")
         
-    def _send_data(self, data):
+    def _send_data(self, data, chip='M'):
         """Send data to display"""
+        self._select_chip(chip)
         GPIO.output(DC_PIN, GPIO.HIGH)
         self._spi_transfer(data)
         
@@ -81,10 +97,12 @@ class EPD_13in3_Spectra6:
                 print(f"ERROR: Could not set GPIO mode - {e}")
                 return False
         
-        # Setup GPIO pins with error checking (CS pin is managed by SPI)
+        # Setup GPIO pins with error checking (dual-IC display with manual CS control)
         try:
             GPIO.setup(RST_PIN, GPIO.OUT)
             GPIO.setup(DC_PIN, GPIO.OUT)
+            GPIO.setup(CS_M_PIN, GPIO.OUT)
+            GPIO.setup(CS_S_PIN, GPIO.OUT)
             GPIO.setup(BUSY_PIN, GPIO.IN)
             print("GPIO pins configured successfully")
         except Exception as e:
@@ -96,36 +114,53 @@ class EPD_13in3_Spectra6:
                 GPIO.setmode(GPIO.BCM)
                 GPIO.setup(RST_PIN, GPIO.OUT)
                 GPIO.setup(DC_PIN, GPIO.OUT)
+                GPIO.setup(CS_M_PIN, GPIO.OUT)
+                GPIO.setup(CS_S_PIN, GPIO.OUT)
                 GPIO.setup(BUSY_PIN, GPIO.IN)
                 print("GPIO pins configured successfully (after retry)")
             except Exception as e2:
                 print(f"ERROR: GPIO setup failed even after retry - {e2}")
                 return False
         
-        # Initialize pins (CS pin is managed by SPI)
+        # Initialize pins (dual-IC display with manual CS control)
         GPIO.output(DC_PIN, GPIO.LOW)
         GPIO.output(RST_PIN, GPIO.HIGH)
+        GPIO.output(CS_M_PIN, GPIO.HIGH)  # Deselect master
+        GPIO.output(CS_S_PIN, GPIO.HIGH)  # Deselect slave
         
         print("Resetting display...")
         self._reset()
         
-        print("Sending power on command...")
-        self._send_command(0x04)  # Power on
+        print("Sending power on command to both ICs...")
+        self._send_command(0x04, 'M')  # Power on master
+        self._send_command(0x04, 'S')  # Power on slave
         if not self._wait_until_idle(10):
             print("ERROR: Power on timeout")
             return False
             
         print("Setting panel configuration...")
-        self._send_command(0x00)  # Panel setting
-        self._send_data(0x2f)     # KW-3f, KWR-2f, BWROTP-0f, BWOTP-1f
-        self._send_data(0x00)     # 400x300
+        self._send_command(0x00, 'M')  # Panel setting master
+        self._send_data(0x2f, 'M')     # KW-3f, KWR-2f, BWROTP-0f, BWOTP-1f
+        self._send_data(0x00, 'M')     # 400x300
+        
+        self._send_command(0x00, 'S')  # Panel setting slave
+        self._send_data(0x2f, 'S')     # KW-3f, KWR-2f, BWROTP-0f, BWOTP-1f
+        self._send_data(0x00, 'S')     # 400x300
         
         print("Setting resolution...")
-        self._send_command(0x61)  # Resolution setting
-        self._send_data(EPD_WIDTH >> 8)
-        self._send_data(EPD_WIDTH & 0xff)
-        self._send_data(EPD_HEIGHT >> 8)
-        self._send_data(EPD_HEIGHT & 0xff)
+        # Master IC controls left half (800x1200)
+        self._send_command(0x61, 'M')  # Resolution setting master
+        self._send_data(800 >> 8, 'M')
+        self._send_data(800 & 0xff, 'M')
+        self._send_data(EPD_HEIGHT >> 8, 'M')
+        self._send_data(EPD_HEIGHT & 0xff, 'M')
+        
+        # Slave IC controls right half (800x1200)
+        self._send_command(0x61, 'S')  # Resolution setting slave
+        self._send_data(800 >> 8, 'S')
+        self._send_data(800 & 0xff, 'S')
+        self._send_data(EPD_HEIGHT >> 8, 'S')
+        self._send_data(EPD_HEIGHT & 0xff, 'S')
         
         print("Display initialization complete")
         return True
@@ -143,21 +178,36 @@ class EPD_13in3_Spectra6:
         """Clear display to white"""
         print("\n=== CLEARING DISPLAY ===")
         
-        # Send white pixels to entire display
-        print("Sending clear data...")
+        # Send white pixels to both halves of the display
+        print("Sending clear data to both ICs...")
         
-        self._send_command(0x10)  # Start transmission 1
-        total_pixels = EPD_WIDTH * EPD_HEIGHT // 4
-        for i in range(total_pixels):
-            self._send_data(0x11)  # White pixels
-            if i % 10000 == 0:
+        # Clear master IC (left half)
+        self._send_command(0x10, 'M')  # Start transmission 1 master
+        half_pixels = (800 * EPD_HEIGHT) // 4
+        for i in range(half_pixels):
+            self._send_data(0x11, 'M')  # White pixels
+            if i % 5000 == 0:
+                print(".", end="", flush=True)
+        
+        # Clear slave IC (right half)
+        self._send_command(0x10, 'S')  # Start transmission 1 slave
+        for i in range(half_pixels):
+            self._send_data(0x11, 'S')  # White pixels
+            if i % 5000 == 0:
                 print(".", end="", flush=True)
         print()
         
-        self._send_command(0x13)  # Start transmission 2
-        for i in range(total_pixels):
-            self._send_data(0x11)  # White pixels
-            if i % 10000 == 0:
+        # Second transmission
+        self._send_command(0x13, 'M')  # Start transmission 2 master
+        for i in range(half_pixels):
+            self._send_data(0x11, 'M')  # White pixels
+            if i % 5000 == 0:
+                print(".", end="", flush=True)
+                
+        self._send_command(0x13, 'S')  # Start transmission 2 slave
+        for i in range(half_pixels):
+            self._send_data(0x11, 'S')  # White pixels
+            if i % 5000 == 0:
                 print(".", end="", flush=True)
         print()
         
@@ -235,8 +285,9 @@ class EPD_13in3_Spectra6:
     def _refresh(self):
         """Refresh the display"""
         print("\n=== REFRESHING DISPLAY ===")
-        print("Starting display refresh...")
-        self._send_command(0x12)  # Display refresh
+        print("Starting display refresh on both ICs...")
+        self._send_command(0x12, 'M')  # Display refresh master
+        self._send_command(0x12, 'S')  # Display refresh slave
         time.sleep(0.1)
         
         print("Waiting for refresh to complete (up to 45 seconds)...")
@@ -248,10 +299,13 @@ class EPD_13in3_Spectra6:
     def sleep(self):
         """Put display to sleep"""
         print("\nPutting display to sleep...")
-        self._send_command(0x02)  # Power off
+        self._send_command(0x02, 'M')  # Power off master
+        self._send_command(0x02, 'S')  # Power off slave
         self._wait_until_idle(5)
-        self._send_command(0x07)  # Deep sleep
-        self._send_data(0xA5)
+        self._send_command(0x07, 'M')  # Deep sleep master
+        self._send_data(0xA5, 'M')
+        self._send_command(0x07, 'S')  # Deep sleep slave
+        self._send_data(0xA5, 'S')
         print("Display is now in sleep mode")
         
     def cleanup(self):
