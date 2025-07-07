@@ -62,6 +62,14 @@ class EPD_13in3_Spectra6:
         
         # Setup GPIO
         GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        
+        # Clean up any previous GPIO state
+        try:
+            GPIO.cleanup()
+        except:
+            pass
+            
         GPIO.setup(RST_PIN, GPIO.OUT)
         GPIO.setup(DC_PIN, GPIO.OUT)
         GPIO.setup(CS_PIN, GPIO.OUT)
@@ -222,8 +230,14 @@ class EPD_13in3_Spectra6:
         
     def cleanup(self):
         """Clean up resources"""
-        self.spi.close()
-        GPIO.cleanup()
+        try:
+            self.spi.close()
+        except:
+            pass
+        try:
+            GPIO.cleanup()
+        except:
+            pass
 
 def main():
     """Main test function"""
