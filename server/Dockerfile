@@ -15,7 +15,7 @@ RUN apk add --no-cache dumb-init
 COPY package*.json ./
 
 # Install dependencies with production optimization
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --production --no-dev && npm cache clean --force
 
 # Copy source code
 COPY server.js ./
