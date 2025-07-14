@@ -131,6 +131,8 @@ class GitHubOAuth {
         // we need to use a proxy service or GitHub's device flow
         // For now, we'll use a workaround with the GitHub CLI approach
         
+        console.log('OAuth code received:', code.substring(0, 8) + '...');
+        
         // Option 1: Use GitHub's Personal Access Token flow (recommended)
         // We'll redirect users to create a token manually but with pre-filled scopes
         this.redirectToTokenCreation();

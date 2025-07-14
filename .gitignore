@@ -49,6 +49,10 @@ Thumbs.db
 .pioenvs/
 .piolibdeps/
 
+# Environment files
+.env
+src/.env
+
 # Temporary files
 *.tmp
 *.temp

@@ -1,0 +1,40 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// Configuration file for Glance ESP32 client
+// This file loads settings from environment or defaults
+
+// Load from environment variables or use defaults
+#ifndef WIFI_SSID
+#define WIFI_SSID "YOUR_WIFI_SSID"  // Will be replaced by build system
+#endif
+
+#ifndef WIFI_PASSWORD  
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"  // Will be replaced by build system
+#endif
+
+#ifndef GITHUB_TOKEN
+#define GITHUB_TOKEN ""  // Optional: GitHub token for status reporting
+#endif
+
+#ifndef DEVICE_ID
+#define DEVICE_ID "esp32-001"  // Unique device identifier
+#endif
+
+// API Configuration
+#define API_BASE_URL "https://chaerem.github.io/Glance/api/"
+#define STATUS_URL "https://api.github.com/repos/CHaerem/Glance/dispatches"
+
+// Sleep Configuration (in microseconds)
+#define MIN_SLEEP_TIME 300000000ULL    // 5 minutes
+#define MAX_SLEEP_TIME 86400000000ULL  // 24 hours  
+#define DEFAULT_SLEEP_TIME 3600000000ULL // 1 hour
+
+// Battery Configuration
+#define BATTERY_PIN A13
+#define LOW_BATTERY_THRESHOLD 3.3
+
+// Hardware Configuration
+#define FIRMWARE_VERSION "1.0.0"
+
+#endif // CONFIG_H
