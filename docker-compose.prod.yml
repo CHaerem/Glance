@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   glance-server:
-    image: your-username/glance-server:latest  # Replace with your Docker Hub username
+    image: chaerem/glance-server:latest
     container_name: glance-server
     ports:
       - "3000:3000"
