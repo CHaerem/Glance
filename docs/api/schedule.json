@@ -1,0 +1,10 @@
+{
+  "mode": "manual",
+  "interval": 60,
+  "intervalUnit": "minutes",
+  "times": ["08:00"],
+  "activeHoursStart": "06:00",
+  "activeHoursEnd": "22:00",
+  "updatedAt": "2024-01-01T00:00:00Z",
+  "timestamp": 1704067200000
+}

@@ -3,18 +3,8 @@
 
 class GlanceManager {
     constructor() {
-        this.currentImage = null;
-        this.imageLibrary = [];
-        this.devices = [];
-        this.schedule = {
-            mode: 'manual',
-            interval: 60,
-            intervalUnit: 'minutes',
-            times: ['08:00'],
-            activeHoursStart: '06:00',
-            activeHoursEnd: '22:00'
-        };
-        
+        this.githubOAuth = new GitHubOAuth();
+        this.persistence = new PersistenceManager();
         this.init();
     }
 
@@ -23,30 +13,32 @@ class GlanceManager {
         this.setupEventListeners();
         this.updateDisplay();
         this.startStatusUpdates();
+        this.persistence.startDeviceMonitoring();
     }
 
     loadStoredData() {
-        // Load data from localStorage (GitHub Pages limitation workaround)
-        const stored = localStorage.getItem('glanceData');
-        if (stored) {
-            const data = JSON.parse(stored);
-            this.currentImage = data.currentImage || null;
-            this.imageLibrary = data.imageLibrary || [];
-            this.schedule = { ...this.schedule, ...data.schedule };
-            this.devices = data.devices || [this.createDefaultDevice()];
-        } else {
-            this.devices = [this.createDefaultDevice()];
+        const data = this.persistence.getData();
+        this.currentImage = data.currentImage;
+        this.imageLibrary = data.imageLibrary;
+        this.schedule = data.schedule;
+        this.devices = data.devices;
+        
+        // Add default device if none exist
+        if (this.devices.length === 0) {
+            this.devices.push(this.createDefaultDevice());
+            this.persistence.registerDevice(this.devices[0]);
         }
     }
 
-    saveData() {
-        const data = {
-            currentImage: this.currentImage,
-            imageLibrary: this.imageLibrary,
-            schedule: this.schedule,
-            devices: this.devices
-        };
-        localStorage.setItem('glanceData', JSON.stringify(data));
+    async saveData() {
+        // Update persistence layer
+        const data = this.persistence.getData();
+        data.currentImage = this.currentImage;
+        data.imageLibrary = this.imageLibrary;
+        data.schedule = this.schedule;
+        data.devices = this.devices;
+        
+        await this.persistence.save();
     }
 
     createDefaultDevice() {
@@ -115,6 +107,13 @@ class GlanceManager {
                 e.target.closest('.time-item').remove();
             }
         });
+
+        // GitHub OAuth connections
+        document.getElementById('githubLoginBtn').addEventListener('click', () => this.githubOAuth.login());
+        document.getElementById('connectTokenBtn').addEventListener('click', () => this.connectWithToken());
+        document.getElementById('showTokenFormBtn').addEventListener('click', () => this.toggleTokenForm());
+        document.getElementById('disconnectBtn').addEventListener('click', () => this.disconnectGitHub());
+        document.getElementById('refreshConnectionBtn').addEventListener('click', () => this.refreshGitHubConnection());
     }
 
     switchTab(tabName) {
@@ -139,6 +138,8 @@ class GlanceManager {
                 break;
             case 'devices':
                 this.renderDeviceList();
+                this.renderGitHubStatus();
+                this.renderRepoStats();
                 break;
         }
     }
@@ -570,6 +571,154 @@ class GlanceManager {
             notification.classList.remove('show');
             setTimeout(() => notification.remove(), 300);
         }, 3000);
+    }
+
+    // GitHub Integration Methods
+    async connectWithToken(buttonElement) {
+        // Handle token from modal or main form
+        const tokenInput = buttonElement ? 
+            buttonElement.previousElementSibling : 
+            document.getElementById('githubToken');
+            
+        const token = tokenInput.value.trim();
+        if (!token) {
+            this.showNotification('Please enter a GitHub token', 'error');
+            return;
+        }
+
+        this.showNotification('Connecting to GitHub...', 'info');
+
+        try {
+            // Store token in OAuth manager
+            const result = await this.githubOAuth.storeToken(token);
+            
+            // Configure persistence layer
+            await this.persistence.configure({ githubToken: token });
+            
+            this.showNotification('Connected to GitHub successfully!', 'success');
+            this.renderGitHubStatus();
+            
+            // Clear token input
+            tokenInput.value = '';
+            
+            // Close modal if it exists
+            const modal = document.querySelector('.oauth-modal');
+            if (modal) {
+                modal.remove();
+            }
+            
+        } catch (error) {
+            this.showNotification(`GitHub connection failed: ${error.message}`, 'error');
+        }
+    }
+
+    toggleTokenForm() {
+        const form = document.getElementById('manualTokenForm');
+        const button = document.getElementById('showTokenFormBtn');
+        const icon = button.querySelector('i');
+        
+        if (form.style.display === 'none') {
+            form.style.display = 'block';
+            button.innerHTML = '<i class="fas fa-chevron-up"></i> Hide Token Form';
+        } else {
+            form.style.display = 'none';
+            button.innerHTML = '<i class="fas fa-chevron-down"></i> Use Token Instead';
+        }
+    }
+
+    async disconnectGitHub() {
+        if (confirm('Are you sure you want to disconnect from GitHub? This will stop automatic syncing.')) {
+            this.githubOAuth.logout();
+            this.persistence.useGitHub = false;
+            this.showNotification('Disconnected from GitHub', 'success');
+            this.renderGitHubStatus();
+        }
+    }
+
+    async refreshGitHubConnection() {
+        this.showNotification('Refreshing connection...', 'info');
+        
+        try {
+            if (this.githubOAuth.isAuthenticated()) {
+                // Re-configure persistence with existing token
+                await this.persistence.configure({ 
+                    githubToken: this.githubOAuth.getToken() 
+                });
+                this.renderGitHubStatus();
+                this.showNotification('Connection refreshed!', 'success');
+            } else {
+                this.showNotification('Not authenticated', 'error');
+            }
+        } catch (error) {
+            this.showNotification(`Refresh failed: ${error.message}`, 'error');
+        }
+    }
+
+    renderGitHubStatus() {
+        const loginSection = document.getElementById('githubLoginSection');
+        const authenticatedSection = document.getElementById('githubAuthenticatedSection');
+        
+        if (this.githubOAuth.isAuthenticated()) {
+            // Show authenticated state
+            loginSection.style.display = 'none';
+            authenticatedSection.style.display = 'block';
+            
+            // Update user profile
+            const user = this.githubOAuth.getUser();
+            document.getElementById('userAvatar').src = user.avatar_url;
+            document.getElementById('userName').textContent = user.name || user.login;
+            document.getElementById('userLogin').textContent = `@${user.login}`;
+            document.getElementById('userBio').textContent = user.bio || '';
+            
+            // Update connection info
+            if (this.persistence.useGitHub && this.persistence.github) {
+                const rateLimit = this.persistence.github.getRateLimitStatus();
+                const infoEl = document.getElementById('githubInfo');
+                infoEl.innerHTML = `
+                    <p><strong>Repository:</strong> ${this.persistence.github.owner}/${this.persistence.github.repo}</p>
+                    <p><strong>Rate Limit:</strong> ${rateLimit.remaining} requests remaining</p>
+                    <p><strong>Reset Time:</strong> ${rateLimit.resetTime.toLocaleTimeString()}</p>
+                    <p><strong>User:</strong> ${user.public_repos} repos, ${user.followers} followers</p>
+                `;
+            }
+        } else {
+            // Show login state
+            loginSection.style.display = 'block';
+            authenticatedSection.style.display = 'none';
+        }
+    }
+
+    async renderRepoStats() {
+        if (!this.persistence.useGitHub) {
+            return;
+        }
+
+        try {
+            const [stats, commits] = await Promise.all([
+                this.persistence.github.getRepoStats(),
+                this.persistence.github.getCommitHistory()
+            ]);
+
+            // Update stats
+            document.getElementById('commitCount').textContent = commits.length + '+';
+            document.getElementById('repoSize').textContent = `${(stats.size / 1024).toFixed(1)} MB`;
+            document.getElementById('lastPush').textContent = new Date(stats.lastPush).toLocaleDateString();
+
+            // Update commit history
+            const historyEl = document.getElementById('commitHistory');
+            historyEl.innerHTML = commits.slice(0, 5).map(commit => `
+                <div class="commit-item">
+                    <div class="commit-message">${commit.message}</div>
+                    <div class="commit-meta">
+                        <span class="commit-author">${commit.author}</span>
+                        <span class="commit-date">${new Date(commit.date).toLocaleDateString()}</span>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('Failed to load repository stats:', error);
+        }
     }
 
     // API simulation for GitHub Pages

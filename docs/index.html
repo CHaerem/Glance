@@ -193,6 +193,89 @@
             <!-- Devices Tab -->
             <div id="devices" class="tab-content">
                 <div class="card">
+                    <h2><i class="fas fa-cog"></i> Configuration</h2>
+                    <div class="config-section">
+                        <h3><i class="fab fa-github"></i> GitHub Integration</h3>
+                        <p>Connect to GitHub for persistent data storage and real-time synchronization.</p>
+                        
+                        <!-- Not authenticated state -->
+                        <div class="github-login-section" id="githubLoginSection">
+                            <div class="login-options">
+                                <div class="login-option recommended">
+                                    <h4><i class="fas fa-star"></i> Recommended: GitHub Login</h4>
+                                    <p>Seamless authentication with GitHub OAuth</p>
+                                    <button class="btn btn-primary btn-large" id="githubLoginBtn">
+                                        <i class="fab fa-github"></i> Sign in with GitHub
+                                    </button>
+                                </div>
+                                
+                                <div class="login-divider">
+                                    <span>or</span>
+                                </div>
+                                
+                                <div class="login-option alternative">
+                                    <h4><i class="fas fa-key"></i> Manual Token</h4>
+                                    <p>Use a personal access token</p>
+                                    <div class="manual-token-form" id="manualTokenForm" style="display: none;">
+                                        <div class="form-group">
+                                            <div class="input-group">
+                                                <input type="password" id="githubToken" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                                                <button class="btn btn-secondary" id="connectTokenBtn">
+                                                    <i class="fas fa-link"></i> Connect
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-secondary btn-outline" id="showTokenFormBtn">
+                                        <i class="fas fa-chevron-down"></i> Use Token Instead
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Authenticated state -->
+                        <div class="github-authenticated-section" id="githubAuthenticatedSection" style="display: none;">
+                            <div class="user-profile">
+                                <div class="user-avatar">
+                                    <img id="userAvatar" src="" alt="User Avatar">
+                                </div>
+                                <div class="user-info">
+                                    <h4 id="userName">Loading...</h4>
+                                    <p id="userLogin">@loading</p>
+                                    <p id="userBio" class="user-bio"></p>
+                                </div>
+                                <div class="user-actions">
+                                    <button class="btn btn-secondary" id="refreshConnectionBtn">
+                                        <i class="fas fa-sync"></i> Refresh
+                                    </button>
+                                    <button class="btn btn-danger" id="disconnectBtn">
+                                        <i class="fas fa-sign-out-alt"></i> Disconnect
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="connection-status">
+                                <div class="status-indicator">
+                                    <span class="status-dot online" id="githubStatusDot"></span>
+                                    <span id="githubStatusText">Connected</span>
+                                </div>
+                                <div class="github-info" id="githubInfo"></div>
+                            </div>
+
+                            <div class="repository-selection" id="repositorySelection">
+                                <h4><i class="fas fa-folder"></i> Repository</h4>
+                                <div class="repo-info">
+                                    <p><strong>Using:</strong> <span id="currentRepo">CHaerem/Glance</span></p>
+                                    <button class="btn btn-small btn-secondary" id="changeRepoBtn">
+                                        <i class="fas fa-edit"></i> Change Repository
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
                     <h2><i class="fas fa-microchip"></i> Connected Devices</h2>
                     <div class="device-list" id="deviceList">
                         <!-- Devices will be populated by JavaScript -->
@@ -203,15 +286,43 @@
                         <p>To connect a new Glance display:</p>
                         <ol>
                             <li>Flash the firmware with your WiFi credentials</li>
-                            <li>Set the API endpoint to: <code id="apiEndpoint">https://chaerem.github.io/Glance/api/</code></li>
+                            <li>Set the API endpoint to: <code id="apiEndpoint">https://chaerem.github.io/Glance/api/current.json</code></li>
                             <li>Power on the device - it will appear here automatically</li>
                         </ol>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2><i class="fas fa-chart-line"></i> Repository Stats</h2>
+                    <div class="repo-stats" id="repoStats">
+                        <div class="stat-item">
+                            <i class="fas fa-code-branch"></i>
+                            <span>Commits: <strong id="commitCount">--</strong></span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-database"></i>
+                            <span>Repository Size: <strong id="repoSize">--</strong></span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-clock"></i>
+                            <span>Last Update: <strong id="lastPush">--</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="commit-history">
+                        <h4><i class="fas fa-history"></i> Recent Updates</h4>
+                        <div id="commitHistory">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
+    <script src="js/github-oauth.js"></script>
+    <script src="js/github-persistence.js"></script>
+    <script src="js/persistence.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

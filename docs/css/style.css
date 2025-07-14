@@ -759,6 +759,339 @@ body {
   }
 }
 
+/* GitHub Integration Styles */
+.config-section {
+  margin-bottom: 25px;
+}
+
+.config-section h3 {
+  color: var(--secondary-color);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* GitHub OAuth Styles */
+.login-options {
+  display: grid;
+  gap: 20px;
+}
+
+.login-option {
+  padding: 20px;
+  border-radius: var(--border-radius);
+  border: 2px solid var(--border-color);
+  transition: var(--transition);
+}
+
+.login-option.recommended {
+  border-color: var(--primary-color);
+  background: rgba(52, 152, 219, 0.05);
+}
+
+.login-option.alternative {
+  background: var(--light-bg);
+}
+
+.login-option h4 {
+  margin-bottom: 8px;
+  color: var(--secondary-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-option.recommended h4 {
+  color: var(--primary-color);
+}
+
+.login-option p {
+  margin-bottom: 15px;
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.btn-large {
+  padding: 15px 25px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid var(--text-light);
+  color: var(--text-light);
+}
+
+.btn-outline:hover {
+  background: var(--text-light);
+  color: white;
+}
+
+.login-divider {
+  text-align: center;
+  position: relative;
+  margin: 15px 0;
+}
+
+.login-divider span {
+  background: white;
+  padding: 0 15px;
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.login-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-color);
+  z-index: -1;
+}
+
+.manual-token-form {
+  margin-top: 15px;
+}
+
+/* User Profile Styles */
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: var(--light-bg);
+  border-radius: var(--border-radius);
+  margin-bottom: 20px;
+}
+
+.user-avatar {
+  flex-shrink: 0;
+}
+
+.user-avatar img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid var(--primary-color);
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-info h4 {
+  margin-bottom: 2px;
+  color: var(--secondary-color);
+}
+
+.user-info p {
+  margin-bottom: 5px;
+  color: var(--text-light);
+  font-size: 14px;
+}
+
+.user-bio {
+  font-style: italic;
+  max-width: 300px;
+}
+
+.user-actions {
+  display: flex;
+  gap: 10px;
+  flex-direction: column;
+}
+
+.repository-selection {
+  background: var(--light-bg);
+  padding: 15px;
+  border-radius: var(--border-radius);
+  margin-top: 15px;
+}
+
+.repository-selection h4 {
+  color: var(--secondary-color);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.repo-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.repo-info p {
+  margin: 0;
+  color: var(--text-color);
+}
+
+/* OAuth Modal Styles */
+.oauth-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.oauth-modal-content {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.oauth-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.oauth-header h3 {
+  margin: 0;
+  color: var(--secondary-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.close-modal {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 3px;
+  transition: var(--transition);
+}
+
+.close-modal:hover {
+  background: var(--light-bg);
+  color: var(--text-color);
+}
+
+.oauth-body {
+  padding: 20px;
+}
+
+.oauth-body ol {
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+.oauth-body li {
+  margin-bottom: 8px;
+  color: var(--text-color);
+}
+
+.token-input-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: var(--light-bg);
+  border-radius: var(--border-radius);
+}
+
+.oauth-help {
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(52, 152, 219, 0.1);
+  border-radius: var(--border-radius);
+  border-left: 3px solid var(--primary-color);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.connection-status {
+  background: var(--light-bg);
+  padding: 15px;
+  border-radius: var(--border-radius);
+  margin-top: 15px;
+}
+
+.connection-status .status-indicator {
+  margin-bottom: 10px;
+}
+
+.github-info p {
+  margin-bottom: 5px;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.repo-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--light-bg);
+  border-radius: var(--border-radius);
+}
+
+.stat-item i {
+  color: var(--primary-color);
+}
+
+.commit-history {
+  margin-top: 20px;
+}
+
+.commit-history h4 {
+  color: var(--secondary-color);
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.commit-item {
+  padding: 12px;
+  background: var(--light-bg);
+  border-radius: var(--border-radius);
+  margin-bottom: 8px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.commit-message {
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 5px;
+}
+
+.commit-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
 @media (max-width: 480px) {
   .stats-grid {
     grid-template-columns: 1fr;
@@ -776,5 +1109,14 @@ body {
   
   .history-details {
     justify-content: space-between;
+  }
+
+  .repo-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .commit-meta {
+    flex-direction: column;
+    gap: 3px;
   }
 }

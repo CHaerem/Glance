@@ -1,0 +1,24 @@
+{
+  "endpoint": "/api/status",
+  "method": "POST",
+  "description": "Endpoint for ESP32 devices to report their status",
+  "note": "This is a static endpoint. In production, implement with your backend service.",
+  "expectedPayload": {
+    "deviceId": "esp32-001",
+    "batteryLevel": 85,
+    "signalStrength": -45,
+    "temperature": 23.5,
+    "uptime": 1234567,
+    "firmwareVersion": "1.0.0",
+    "lastUpdateSuccess": true,
+    "lastUpdateTime": 1704067200000,
+    "freeHeap": 123456,
+    "timestamp": 1704067200000,
+    "lastError": "Optional error message"
+  },
+  "response": {
+    "success": true,
+    "message": "Status received",
+    "nextUpdate": 3600000
+  }
+}

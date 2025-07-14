@@ -80,6 +80,16 @@ graph LR
 
 ## 🚀 Quick Start
 
+### 🌐 Web Dashboard
+**Live Demo:** [https://chaerem.github.io/Glance/](https://chaerem.github.io/Glance/)
+
+Manage your e-ink displays with a beautiful web interface:
+- 🖼️ Upload and optimize images for e-paper
+- ⏰ Schedule automatic updates with smart timing
+- 📊 Monitor device status and battery levels
+- 🔧 Configure display settings and WiFi
+- 🐙 GitHub integration for persistent storage
+
 ### 🔧 Development Setup
 
 ```bash
