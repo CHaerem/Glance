@@ -1,0 +1,18 @@
+title: Glance - E-Ink Display Manager
+description: A battery-powered, WiFi-enabled e-ink display that fetches and displays images from a remote server
+url: https://chaerem.github.io
+baseurl: /Glance
+
+# GitHub Pages settings
+theme: null
+plugins:
+  - jekyll-relative-links
+
+# Enable relative links processing
+relative_links:
+  enabled: true
+  collections: false
+
+# Include API files
+include:
+  - _headers
