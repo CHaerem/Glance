@@ -1,17 +1,28 @@
-# ESP32 E-Ink Display Project
+# 🖼️ Glance - ESP32 E-Ink Display
 
-This project drives a Waveshare 13.3" Spectra 6 color e-ink display using an ESP32 Feather board with dynamic image updates fetched from a remote server. The device operates on battery power using deep sleep cycles for optimal power efficiency.
+> A battery-powered, WiFi-enabled e-ink display that fetches and displays images from a remote server with intelligent power management.
 
-## Hardware Components
+## ✨ Features
 
-- **ESP32 Board**: Adafruit HUZZAH32 ESP32 Feather
-- **Display**: Waveshare 13.3" E-Paper HAT+ Spectra 6 (E6) - 1200×1600 resolution
-- **Power**: LiPo battery connected to BAT pin for portable operation
-- **Colors**: 6-color support (BLACK, WHITE, YELLOW, RED, BLUE, GREEN)
-- **Interface**: SPI communication via GPIO pins
-- **Connectivity**: WiFi for remote image fetching
+🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles  
+🌐 **Remote Updates** - Fetch images wirelessly from your server  
+🎨 **6-Color Display** - Beautiful Spectra 6 e-paper technology  
+📱 **Web Dashboard** - Manage images and schedules remotely  
+⚡ **Smart Scheduling** - Server controls update frequency  
 
-## Pin Connections
+## 🛠️ Hardware
+
+| Component | Model | Purpose |
+|-----------|-------|---------|
+| **Microcontroller** | ESP32 HUZZAH32 Feather | WiFi + Processing |
+| **Display** | Waveshare 13.3" Spectra 6 | 1200×1600 6-color e-paper |
+| **Power** | LiPo Battery | Portable operation |
+| **Interface** | SPI + GPIO | Display communication |
+
+## 🔌 Connections
+
+<details>
+<summary><strong>📍 Pin Mapping</strong></summary>
 
 | ESP32 Pin | HAT+ Pin | Function |
 |-----------|----------|----------|
@@ -24,137 +35,133 @@ This project drives a Waveshare 13.3" Spectra 6 color e-ink display using an ESP
 | 15        | BUSY     | Busy Signal |
 | 21        | PWR      | Power Control |
 
-## Power Configuration
+</details>
 
-### USB Power (Recommended for Development)
-```
-HAT+ VCC → ESP32 3V pin (regulated 3.3V)
-USB cable → ESP32 USB connector
-```
-- Stable power delivery
-- No brownout issues
-- Full CPU performance
-- Simplified code
+<details>
+<summary><strong>⚡ Power Setup</strong></summary>
 
-### LiPo Battery Power (Primary Mode)
+**🔧 Development Mode**
+```
+HAT+ VCC → ESP32 3V pin
+Power via USB cable
+```
+
+**🔋 Production Mode**
 ```
 LiPo battery → ESP32 BAT pin
-HAT+ VCC → ESP32 3V pin (regulated 3.3V)
+HAT+ VCC → ESP32 3V pin
 ```
-- **Deep sleep cycles** for maximum battery life
-- Wake up periodically to fetch new images
-- Power consumption optimized for extended operation
-- Battery monitoring and low-voltage protection
 
-## System Architecture
+</details>
 
-### Remote Image Service
-- **Web service** for image management and scheduling
-- **User interface** to upload and configure display images
-- **Update scheduling** with configurable intervals
-- **API endpoint** providing image data and sleep duration
-- **Image optimization** server-side processing for e-paper display
+## 🏗️ How It Works
 
-### ESP32 Operation Cycle
-1. **Wake from deep sleep** (RTC timer or external trigger)
-2. **Connect to WiFi** and fetch current image + schedule
-3. **Download image data** optimized for e-paper display
-4. **Update display** with new image content
-5. **Calculate next wake time** from server response
-6. **Enter deep sleep** until next scheduled update
+```mermaid
+graph LR
+    A[😴 Deep Sleep] --> B[⏰ Wake Up]
+    B --> C[📶 Connect WiFi]
+    C --> D[📥 Fetch Image]
+    D --> E[🖼️ Update Display]
+    E --> F[💤 Calculate Sleep]
+    F --> A
+```
 
-## Image Processing
+### 🔄 Operation Cycle
+1. **😴 Deep Sleep** - Ultra-low power mode (10μA)
+2. **📶 WiFi Connect** - Quick reconnect with saved credentials  
+3. **📥 Image Fetch** - Download optimized image + schedule
+4. **🖼️ Display Update** - Refresh e-paper display (~30s)
+5. **💤 Sleep Timer** - Server determines next wake time
 
-The project includes advanced image processing capabilities:
+## 🚀 Quick Start
 
-- **Floyd-Steinberg dithering** for smooth color transitions
-- **6-color e-paper optimization** with custom color mapping
-- **Remote processing** on server to reduce ESP32 workload
-- **Compressed image transfer** to minimize download time
-- **Full-screen coverage** (1150×1550 pixels, 93% display area)
+### 🔧 Development Setup
+```bash
+1. Connect ESP32 to e-paper HAT using pin mapping
+2. Power via USB cable
+3. Flash firmware to ESP32
+4. Reset to see display update
+```
 
-## Current Implementation
+### 🔋 Production Deployment  
+```bash
+1. Configure WiFi credentials in firmware
+2. Set up remote image service API
+3. Connect LiPo battery to BAT pin
+4. Deploy - device runs autonomously
+```
 
-Currently displays a static Bhutan flag image demonstrating:
-- Professional dithering quality
-- Accurate color representation
-- Near full-screen coverage with minimal borders
-- Optimized for e-paper color palette
+## 📁 Project Structure
 
-## Code Structure
+```
+src/
+├── main.cpp                    # Core application
+├── bhutan_flag_fullscreen.h    # Demo image data
+└── [libraries]                 # Waveshare e-paper drivers
+```
 
-- `main.cpp` - Main application with display control and WiFi connectivity
-- `bhutan_flag_fullscreen.h` - Static image data (1150×1550 pixels)
-- Waveshare e-paper library integration
-- Future: Remote image fetching and deep sleep management
+## 🎨 Image Processing
 
-## Usage
+- **🌈 6-Color Optimization** - Custom mapping for e-paper palette
+- **✨ Floyd-Steinberg Dithering** - Smooth color transitions  
+- **📦 Server-Side Processing** - Reduces ESP32 workload
+- **🗜️ Compressed Transfer** - Faster downloads
+- **📺 Full Coverage** - 1150×1550 pixels (93% display area)
 
-### Development Mode (Current)
-1. **Setup Hardware**: Connect ESP32 to HAT+ using pin mapping above
-2. **Power Connection**: Use USB power with 3V pin for stable operation
-3. **Upload Code**: Flash the firmware to ESP32
-4. **Display Update**: Reset ESP32 to refresh display
+## 📊 Performance
 
-### Production Mode (Planned)
-1. **Configure WiFi credentials** in firmware
-2. **Set up remote image service** with API endpoint
-3. **Install LiPo battery** and power via BAT pin
-4. **Deploy device** - will automatically wake, fetch, and update images
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **Display Resolution** | 1150×1550px | 93% screen coverage |
+| **Refresh Time** | 30-45 seconds | Full color update |
+| **Deep Sleep Current** | ~10μA | Months of battery life |
+| **Active Current** | ~100mA | During WiFi + display |
+| **Wake-up Time** | 2-3 seconds | To WiFi ready |
 
-## Performance
+## 🗺️ Roadmap
 
-### Display Specifications
-- **Display Size**: 1150×1550 pixels (96%×97% coverage)
-- **Refresh Time**: ~30-45 seconds for full update
-- **Color Accuracy**: Custom 6-color e-paper mapping
+### 📱 Remote Service
+- [ ] Web dashboard for image management
+- [ ] Scheduled updates with custom intervals  
+- [ ] Multi-device support
+- [ ] User authentication & device pairing
 
-### Power Management
-- **Deep Sleep Current**: ~10μA (ESP32 ultra-low power mode)
-- **Active Current**: ~100mA during WiFi and display update
-- **Battery Life**: Months to years depending on update frequency
-- **Wake-up Time**: ~2-3 seconds from deep sleep to WiFi ready
+### 🔋 Advanced Power
+- [ ] Battery voltage monitoring
+- [ ] Adaptive sleep based on battery level
+- [ ] Solar charging support
+- [ ] Manual wake triggers
 
-### Network Performance
-- **Image Download**: Compressed data transfer
-- **Server Response**: Image data + next wake time
-- **WiFi Connection**: Quick connect with stored credentials
-- **Failsafe**: Local fallback if server unreachable
+### 🌟 Smart Features  
+- [ ] Weather integration
+- [ ] Calendar synchronization
+- [ ] Multi-zone content areas
+- [ ] Robust error handling
 
-## Planned Features
+---
 
-### Remote Image Service
-- **Web dashboard** for image management
-- **Scheduled updates** with custom intervals
-- **Multiple device support** with individual configurations
-- **Image gallery** and history
-- **User authentication** and device pairing
+## 📝 Development Notes
 
-### Advanced Power Management
-- **Battery voltage monitoring** with low-power alerts
-- **Adaptive sleep intervals** based on battery level
-- **Solar charging support** for outdoor installations
-- **Wake-up triggers** (button press, motion sensor)
-
-### Enhanced Functionality
-- **Weather integration** with dynamic content
-- **Calendar synchronization** for event displays
-- **Multi-zone displays** with different content areas
-- **Error handling** and recovery mechanisms
-
-## Development Notes
+<details>
+<summary><strong>⚠️ Important Considerations</strong></summary>
 
 - E-ink displays require specific refresh sequences
-- Partial updates limited compared to monochrome displays
-- SPI communication uses dual-IC control for large display
-- Floyd-Steinberg dithering provides professional image quality
+- Partial updates limited compared to monochrome displays  
+- SPI uses dual-IC control for large display
 - Power management critical for battery operation
+- Floyd-Steinberg dithering provides professional quality
 
-## Display Specifications
+</details>
 
-- **Resolution**: 1200×1600 pixels
-- **Size**: 13.3 inches diagonal
-- **Technology**: Spectra 6 color e-paper
-- **Refresh**: Full screen update required
-- **Interface**: SPI with dual chip select
-- **Power**: 3.3V operation
+<details>
+<summary><strong>📋 Display Specifications</strong></summary>
+
+| Spec | Value |
+|------|-------|
+| **Resolution** | 1200×1600 pixels |
+| **Size** | 13.3" diagonal |
+| **Technology** | Spectra 6 color e-paper |
+| **Interface** | SPI with dual chip select |
+| **Power** | 3.3V operation |
+
+</details>
