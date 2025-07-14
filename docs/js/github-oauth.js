@@ -39,7 +39,7 @@ class GitHubOAuth {
         
         if (hostname === 'chaerem.github.io') {
             // Production GitHub Pages
-            this.clientId = 'Ov23lijBvpNZtKTJklm0'; // Your production OAuth app
+            this.clientId = 'Ov23lieMJ8jDPOSFeF2k'; // Your production OAuth app
         } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
             // Local development
             this.clientId = 'your_dev_client_id'; // Your development OAuth app

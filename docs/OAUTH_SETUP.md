@@ -43,7 +43,7 @@ This guide will help you create a GitHub OAuth App to enable seamless authentica
    ```javascript
    if (hostname === 'chaerem.github.io') {
        // Production GitHub Pages
-       this.clientId = 'Ov23lijBvpNZtKTJklm0'; // Your actual Client ID here
+       this.clientId = 'Ov23lieMJ8jDPOSFeF2k'; // Your actual Client ID here
    }
    ```
 
