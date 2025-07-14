@@ -1,14 +1,15 @@
 # 🖼️ Glance - ESP32 E-Ink Display
 
-> A battery-powered, WiFi-enabled e-ink display that fetches and displays images from a remote server with intelligent power management.
+> A battery-powered, WiFi-enabled e-ink display that fetches and displays images from a local server with intelligent power management.
 
 ## ✨ Features
 
 🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles  
-🌐 **Remote Updates** - Fetch images wirelessly from your server  
+🌐 **Local Server** - No cloud dependencies, runs on your Raspberry Pi  
 🎨 **6-Color Display** - Beautiful Spectra 6 e-paper technology  
-📱 **Web Dashboard** - Manage images and schedules remotely  
-⚡ **Smart Scheduling** - Server controls update frequency
+📱 **Web Dashboard** - Manage images and monitor devices locally  
+⚡ **Smart Scheduling** - Server controls update frequency  
+🐳 **Docker Ready** - Easy deployment with published Docker images
 
 ## 🛠️ Hardware
 
@@ -80,41 +81,67 @@ graph LR
 
 ## 🚀 Quick Start
 
+### 🥧 Deploy Server (Raspberry Pi)
+
+```bash
+# Option 1: One-command deployment
+./deploy-to-pi.sh raspberrypi.local your-dockerhub-username
+
+# Option 2: Manual deployment
+docker run -d -p 3000:3000 -v $(pwd)/data:/app/data your-username/glance-server:latest
+```
+
 ### 🌐 Web Dashboard
-**Live Demo:** [https://chaerem.github.io/Glance/](https://chaerem.github.io/Glance/)
+**Access:** `http://your-pi-ip:3000`
 
 Manage your e-ink displays with a beautiful web interface:
 - 🖼️ Upload and optimize images for e-paper
 - ⏰ Schedule automatic updates with smart timing
 - 📊 Monitor device status and battery levels
-- 🔧 Configure display settings and WiFi
-- 🐙 GitHub integration for persistent storage
+- 📋 View ESP32 logs in real-time
+- 🔧 Configure display settings
 
-### 🔧 Development Setup
+### 🔧 ESP32 Setup
 
 ```bash
-1. Connect ESP32 to e-paper HAT using pin mapping
-2. Power via USB cable
-3. Flash firmware to ESP32
-4. Reset to see display update
+# Navigate to ESP32 client directory
+cd esp32-client/
+
+# Configure WiFi and server IP
+nano build.sh    # Set WIFI_SSID and WIFI_PASSWORD
+nano config.h    # Set your Pi's IP address
+
+# Build and upload
+./build.sh
 ```
 
 ### 🔋 Production Deployment
 
 ```bash
-1. Configure WiFi credentials in firmware
-2. Set up remote image service API
-3. Connect LiPo battery to BAT pin
-4. Deploy - device runs autonomously
+1. Set up Raspberry Pi with Docker
+2. Deploy Glance server container
+3. Configure ESP32 with WiFi credentials
+4. Connect LiPo battery to ESP32
+5. Deploy - system runs autonomously
 ```
 
 ## 📁 Project Structure
 
 ```
-src/
-├── main.cpp                    # Core application
-├── bhutan_flag_fullscreen.h    # Demo image data
-└── [libraries]                 # Waveshare e-paper drivers
+glance/
+├── esp32-client/              # ESP32 firmware
+│   ├── glance_client.cpp     # Main ESP32 application
+│   ├── config.h              # Hardware configuration
+│   ├── build.sh              # Build script
+│   └── platformio.ini        # PlatformIO config
+├── server/                   # Local server
+│   ├── server.js             # Express.js server
+│   ├── package.json          # Node.js dependencies
+│   └── Dockerfile            # Container build
+├── scripts/                  # Deployment scripts
+│   ├── build-and-push.sh     # Docker Hub publishing
+│   └── local-build.sh        # Local development
+└── docker-compose.yml        # Local development
 ```
 
 ## 🎨 Image Processing
@@ -137,17 +164,18 @@ src/
 
 ## 🗺️ Roadmap
 
-### 📱 Remote Service
+### 📱 Web Dashboard
 
-- [ ] Web dashboard for image management
-- [ ] Scheduled updates with custom intervals
-- [ ] Multi-device support
+- [x] Web dashboard for image management
+- [x] Real-time device monitoring
+- [x] ESP32 log viewing
+- [x] Multi-device support
 - [ ] User authentication & device pairing
 
 ### 🔋 Advanced Power
 
-- [ ] Battery voltage monitoring
-- [ ] Adaptive sleep based on battery level
+- [x] Battery voltage monitoring
+- [x] Adaptive sleep based on battery level
 - [ ] Solar charging support
 - [ ] Manual wake triggers
 
@@ -156,7 +184,8 @@ src/
 - [ ] Weather integration
 - [ ] Calendar synchronization
 - [ ] Multi-zone content areas
-- [ ] Robust error handling
+- [x] Robust error handling
+- [x] Local server deployment
 
 ---
 
