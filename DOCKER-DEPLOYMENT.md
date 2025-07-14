@@ -34,20 +34,20 @@ Check your image at: `https://hub.docker.com/r/your-username/glance-server`
 
 ```bash
 # Deploy directly to your Pi (replace with your details)
-./deploy-to-pi.sh raspberrypi.local your-username
+./deploy-to-pi.sh ServerPi.local your-username
 ```
 
 ### Option 2: Manual Deployment
 
 1. **Copy files to Pi:**
    ```bash
-   scp docker-compose.prod.yml pi@raspberrypi.local:~/glance/docker-compose.yml
+   scp docker-compose.prod.yml pi@ServerPi.local:~/glance/docker-compose.yml
    ```
 
 2. **Update the image name:**
    ```bash
    # On the Pi, edit docker-compose.yml
-   ssh pi@raspberrypi.local
+   ssh pi@ServerPi.local
    cd ~/glance
    nano docker-compose.yml
    # Change: your-username/glance-server:latest
@@ -86,15 +86,12 @@ docker logs glance-server -f
 After deployment, update your ESP32 code with the Pi's IP:
 
 ```cpp
-// In src/config.h, replace 192.168.1.100 with your Pi's IP
-#define API_BASE_URL "http://YOUR_PI_IP:3000/api/"
-#define STATUS_URL "http://YOUR_PI_IP:3000/api/device-status"
+// In esp32-client/config.h - already configured for ServerPi.local
+#define API_BASE_URL "http://ServerPi.local:3000/api/"
+#define STATUS_URL "http://ServerPi.local:3000/api/device-status"
 ```
 
-Find your Pi's IP:
-```bash
-ssh pi@raspberrypi.local "hostname -I"
-```
+The ESP32 client is already configured to use ServerPi.local hostname for automatic discovery.
 
 ## 🔄 Updates
 

@@ -22,9 +22,9 @@
 #endif
 
 // API Configuration - Local Server
-// Replace 192.168.1.100 with your Raspberry Pi's IP address
-#define API_BASE_URL "http://192.168.1.100:3000/api/"
-#define STATUS_URL "http://192.168.1.100:3000/api/device-status"
+// Uses ServerPi.local hostname for automatic discovery
+#define API_BASE_URL "http://ServerPi.local:3000/api/"
+#define STATUS_URL "http://ServerPi.local:3000/api/device-status"
 
 // Sleep Configuration (in microseconds)
 #define MIN_SLEEP_TIME 300000000ULL    // 5 minutes
