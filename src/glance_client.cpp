@@ -14,6 +14,7 @@
 #include "EPD_13in3e.h"
 #include "GUI_Paint.h"
 #include "ImageData.h"
+#include "fonts.h"
 #include "config.h"
 
 // Configuration loaded from config.h (which uses environment variables)
@@ -37,7 +38,28 @@ struct DeviceStatus {
 };
 
 DeviceStatus deviceStatus;
-EPD_13IN3E epd;
+// EPD functions are C-style, no class instance needed
+
+// Function prototypes
+void initializeDeviceStatus();
+bool initializeDisplay();
+bool checkBatteryLevel();
+float getBatteryVoltage();
+void showLowBatteryScreen();
+bool connectToWiFi();
+void updateDeviceStatus();
+float getTemperature();
+bool fetchAndDisplayImage();
+bool processImageResponse(String jsonResponse);
+bool displayBase64Image(String base64Data, String title);
+bool displayStatusScreen(String title);
+void storeSleepDuration(unsigned long duration);
+unsigned long calculateSleepDuration();
+unsigned long getRetryDelay();
+bool reportDeviceStatus();
+String getCurrentTimeString();
+unsigned long getCurrentTimestamp();
+void enterDeepSleep(unsigned long duration);
 
 void setup() {
   Serial.begin(115200);
@@ -108,14 +130,12 @@ void initializeDeviceStatus() {
 }
 
 bool initializeDisplay() {
-  if (epd.Init() != 0) {
-    return false;
-  }
+  EPD_13IN3E_Init();
   
   // Clear display on first boot
   esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
   if (wakeup_reason == ESP_SLEEP_WAKEUP_UNDEFINED) {
-    epd.Clear();
+    EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
     Serial.println("Display cleared (first boot)");
   }
   
@@ -138,7 +158,7 @@ float getBatteryVoltage() {
 
 void showLowBatteryScreen() {
   // Display low battery warning
-  epd.Clear();
+  EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
   
   // Create battery warning image
   UBYTE *image = (UBYTE *)malloc(EPD_13IN3E_WIDTH * EPD_13IN3E_HEIGHT / 2);
@@ -148,15 +168,22 @@ void showLowBatteryScreen() {
   Paint_Clear(WHITE);
   
   // Draw low battery icon and text
-  Paint_DrawString_EN(400, 300, "LOW BATTERY", &Font48, WHITE, BLACK);
-  Paint_DrawString_EN(350, 400, "Please charge device", &Font24, WHITE, BLACK);
-  Paint_DrawString_EN(300, 450, "Entering extended sleep mode", &Font20, WHITE, BLACK);
+  Paint_DrawString_EN(400, 300, "LOW BATTERY", &Font24, WHITE, BLACK);
+  Paint_DrawString_EN(350, 400, "Please charge device", &Font20, WHITE, BLACK);
+  Paint_DrawString_EN(300, 450, "Entering extended sleep mode", &Font16, WHITE, BLACK);
   
-  epd.Display(image);
+  EPD_13IN3E_Display(image);
   free(image);
 }
 
 bool connectToWiFi() {
+  Serial.println("=== WiFi Configuration ===");
+  Serial.print("SSID: ");
+  Serial.println(WIFI_SSID_VAR);
+  Serial.print("Password length: ");
+  Serial.println(strlen(WIFI_PASSWORD_VAR));
+  Serial.println("========================");
+  
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID_VAR, WIFI_PASSWORD_VAR);
   
@@ -284,7 +311,7 @@ bool displayBase64Image(String base64Data, String title) {
   // For now, display a placeholder with the title
   // In production, you'd decode the base64 and convert to e-paper format
   
-  epd.Clear();
+  EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
   
   UBYTE *image = (UBYTE *)malloc(EPD_13IN3E_WIDTH * EPD_13IN3E_HEIGHT / 2);
   if (image == NULL) {
@@ -296,8 +323,8 @@ bool displayBase64Image(String base64Data, String title) {
   Paint_Clear(WHITE);
   
   // Display title and status
-  Paint_DrawString_EN(100, 100, title.c_str(), &Font48, WHITE, BLACK);
-  Paint_DrawString_EN(100, 200, "Glance Display", &Font24, WHITE, RED);
+  Paint_DrawString_EN(100, 100, title.c_str(), &Font24, WHITE, BLACK);
+  Paint_DrawString_EN(100, 200, "Glance Display", &Font20, WHITE, EPD_13IN3E_RED);
   
   // Display device info
   String batteryText = "Battery: " + String(deviceStatus.batteryVoltage, 1) + "V";
@@ -315,7 +342,7 @@ bool displayBase64Image(String base64Data, String title) {
   // 3. Apply dithering and color mapping
   // 4. Display on e-paper
   
-  epd.Display(image);
+  EPD_13IN3E_Display(image);
   free(image);
   
   deviceStatus.lastUpdateTime = millis();
@@ -324,7 +351,7 @@ bool displayBase64Image(String base64Data, String title) {
 
 bool displayStatusScreen(String title) {
   // Display status screen when no image is available
-  epd.Clear();
+  EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
   
   UBYTE *image = (UBYTE *)malloc(EPD_13IN3E_WIDTH * EPD_13IN3E_HEIGHT / 2);
   if (image == NULL) {
@@ -336,8 +363,8 @@ bool displayStatusScreen(String title) {
   Paint_Clear(WHITE);
   
   // Display title and status
-  Paint_DrawString_EN(100, 100, "Glance Display", &Font48, WHITE, BLACK);
-  Paint_DrawString_EN(100, 180, title.c_str(), &Font24, WHITE, RED);
+  Paint_DrawString_EN(100, 100, "Glance Display", &Font24, WHITE, BLACK);
+  Paint_DrawString_EN(100, 180, title.c_str(), &Font20, WHITE, EPD_13IN3E_RED);
   
   // Display device status
   String batteryText = "Battery: " + String(deviceStatus.batteryVoltage, 1) + "V (" + 
@@ -352,18 +379,18 @@ bool displayStatusScreen(String title) {
   Paint_DrawString_EN(100, 310, signalText.c_str(), &Font20, WHITE, BLACK);
   Paint_DrawString_EN(100, 340, tempText.c_str(), &Font20, WHITE, BLACK);
   Paint_DrawString_EN(100, 370, timeText.c_str(), &Font20, WHITE, BLACK);
-  Paint_DrawString_EN(100, 420, deviceText.c_str(), &Font16, WHITE, BLUE);
-  Paint_DrawString_EN(100, 450, firmwareText.c_str(), &Font16, WHITE, BLUE);
+  Paint_DrawString_EN(100, 420, deviceText.c_str(), &Font16, WHITE, EPD_13IN3E_BLUE);
+  Paint_DrawString_EN(100, 450, firmwareText.c_str(), &Font16, WHITE, EPD_13IN3E_BLUE);
   
   // Show connection status
   if (WiFi.status() == WL_CONNECTED) {
     String ipText = "IP: " + WiFi.localIP().toString();
-    Paint_DrawString_EN(100, 500, ipText.c_str(), &Font16, WHITE, GREEN);
+    Paint_DrawString_EN(100, 500, ipText.c_str(), &Font16, WHITE, EPD_13IN3E_GREEN);
   } else {
-    Paint_DrawString_EN(100, 500, "WiFi: Disconnected", &Font16, WHITE, RED);
+    Paint_DrawString_EN(100, 500, "WiFi: Disconnected", &Font16, WHITE, EPD_13IN3E_RED);
   }
   
-  epd.Display(image);
+  EPD_13IN3E_Display(image);
   free(image);
   
   deviceStatus.lastUpdateTime = millis();
@@ -397,7 +424,7 @@ unsigned long getRetryDelay() {
   retryCount++;
   
   unsigned long delay = MIN_SLEEP_TIME * (1 << min(retryCount - 1, 6)); // Max 64x multiplier
-  return min(delay, MAX_SLEEP_TIME);
+  return min(delay, (unsigned long)MAX_SLEEP_TIME);
 }
 
 bool reportDeviceStatus() {

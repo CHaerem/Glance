@@ -27,7 +27,7 @@
 
 // Sleep Configuration (in microseconds)
 #define MIN_SLEEP_TIME 300000000ULL    // 5 minutes
-#define MAX_SLEEP_TIME 86400000000ULL  // 24 hours  
+#define MAX_SLEEP_TIME 4294967295ULL   // Max value for 32-bit unsigned long (about 71 minutes)
 #define DEFAULT_SLEEP_TIME 3600000000ULL // 1 hour
 
 // Battery Configuration
