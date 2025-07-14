@@ -24,16 +24,18 @@
 <details>
 <summary><strong>📍 Pin Mapping</strong></summary>
 
-| ESP32 Pin | HAT+ Pin | Function |
-|-----------|----------|----------|
-| SCK (18)  | CLK      | SPI Clock |
-| MOSI (23) | DIN      | SPI Data In |
-| 5         | CS_M     | Chip Select Master |
-| 16        | CS_S     | Chip Select Slave |
-| 17        | DC       | Data/Command |
-| 4         | RST      | Reset |
-| 15        | BUSY     | Busy Signal |
-| 21        | PWR      | Power Control |
+| ESP32 Pin | HAT+ Pin | Cable Color | Function |
+|-----------|----------|-------------|----------|
+| SCK (18)  | CLK      | 🟡 YELLOW   | SPI Clock |
+| MOSI (23) | DIN      | 🔵 BLUE     | SPI Data In |
+| 5         | CS_M     | 🟠 ORANGE   | Chip Select Master |
+| 16        | CS_S     | 🟢 GREEN    | Chip Select Slave |
+| 17        | DC       | ⚪ WHITE    | Data/Command |
+| 4         | RST      | 🟣 PURPLE   | Reset |
+| 15        | BUSY     | 🟤 BROWN    | Busy Signal |
+| 21        | PWR      | ⚫ GRAY     | Power Control |
+| GND       | GND      | ⚫ BLACK    | Ground |
+| 3V        | VCC      | 🔴 RED      | Power Supply |
 
 </details>
 
