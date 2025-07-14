@@ -52,7 +52,32 @@ Thumbs.db
 # Environment files
 .env
 src/.env
+.env.local
+.env.production
+
+# Docker and server data
+server/node_modules/
+server/package-lock.json
+server/data/
+docker-compose.override.yml
 
 # Temporary files
 *.tmp
 *.temp
+*.bak
+*.backup
+
+# Additional build artifacts
+*.map
+.clang_complete
+.gcc-flags.json
+
+# Generated configuration files
+config.h.local
+credentials.h
+
+# NPM logs
+npm-debug.log*
+
+# Git merge files
+*.orig
