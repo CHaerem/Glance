@@ -5,7 +5,7 @@
 
 set -e
 
-PI_HOST=${1:-"raspberrypi.local"}
+PI_HOST=${1:-"ServerPi.local"}
 DOCKER_USERNAME=${2:-"your-username"}
 
 echo "🥧 Deploying Glance Server to Raspberry Pi at ${PI_HOST}"
@@ -37,6 +37,7 @@ echo ""
 echo "📊 To check status:"
 echo "   ssh pi@${PI_HOST} 'cd ~/glance && docker-compose logs -f'"
 echo ""
-echo "🔧 Update ESP32 config.h with:"
-echo "   #define API_BASE_URL \"http://${PI_IP}:3000/api/\""
-echo "   #define STATUS_URL \"http://${PI_IP}:3000/api/device-status\""
+echo "🔧 ESP32 is already configured to use ServerPi.local hostname"
+echo "   If you need to change it, update config.h:"
+echo "   #define API_BASE_URL \"http://ServerPi.local:3000/api/\""
+echo "   #define STATUS_URL \"http://ServerPi.local:3000/api/device-status\""
