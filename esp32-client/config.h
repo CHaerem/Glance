@@ -22,9 +22,9 @@
 #endif
 
 // API Configuration - Local Server
-// Uses ServerPi.local hostname for automatic discovery
-#define API_BASE_URL "http://ServerPi.local:3000/api/"
-#define STATUS_URL "http://ServerPi.local:3000/api/device-status"
+// Uses serverpi.local hostname for automatic discovery
+#define API_BASE_URL "http://serverpi.local:3000/api/"
+#define STATUS_URL "http://serverpi.local:3000/api/device-status"
 
 // Sleep Configuration (in microseconds)
 #define MIN_SLEEP_TIME 300000000ULL    // 5 minutes
