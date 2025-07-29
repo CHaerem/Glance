@@ -8,7 +8,12 @@ set -e
 PI_HOST=${1:-"serverpi.local"}
 DOCKER_USERNAME=${2:-"chaerem"}
 
+# Get the current git commit for version info
+GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+export IMAGE_VERSION=$GIT_COMMIT
+
 echo "🥧 Deploying Glance Server to Raspberry Pi at ${PI_HOST}"
+echo "📦 Using image version: ${IMAGE_VERSION}"
 
 # Create deployment directory on Pi
 echo "📁 Creating deployment directory..."
@@ -29,7 +34,7 @@ ssh chris@${PI_HOST} "chmod +x ~/glance/*.sh" 2>/dev/null || true
 
 # Deploy and start the service
 echo "🚀 Starting Glance Server with auto-updates on Pi..."
-ssh chris@${PI_HOST} "cd ~/glance && docker compose pull && docker compose up -d"
+ssh chris@${PI_HOST} "cd ~/glance && IMAGE_VERSION=${IMAGE_VERSION} docker compose pull && IMAGE_VERSION=${IMAGE_VERSION} docker compose up -d"
 
 # Get Pi IP for reference
 PI_IP=$(ssh chris@${PI_HOST} "hostname -I | awk '{print \$1}'")
