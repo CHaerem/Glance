@@ -14,14 +14,14 @@ const BUILD_DATE = process.env.BUILD_DATE || 'unknown';
 const DATA_DIR = path.join(__dirname, 'data');
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 
-// E-ink color palette for Waveshare 13.3" Spectra 6
+// E-ink color palette for Waveshare 13.3" Spectra 6 (as per EPD_13in3e.h)
 const EINK_PALETTE = [
-    [0, 0, 0],       // Black
-    [255, 255, 255], // White
-    [255, 0, 0],     // Red
-    [255, 255, 0],   // Yellow
-    [0, 0, 255],     // Blue
-    [0, 255, 0]      // Green
+    { rgb: [0, 0, 0], index: 0x0 },         // Black
+    { rgb: [255, 255, 255], index: 0x1 },   // White  
+    { rgb: [255, 255, 0], index: 0x2 },     // Yellow
+    { rgb: [255, 0, 0], index: 0x3 },       // Red
+    { rgb: [0, 0, 255], index: 0x5 },       // Blue
+    { rgb: [0, 255, 0], index: 0x6 }        // Green
 ];
 
 // Configure multer for file uploads
@@ -91,12 +91,12 @@ async function ensureDir(dir) {
 }
 
 // Image processing functions
-function findClosestColorIndex(rgb) {
+function findClosestColor(rgb) {
     let minDistance = Infinity;
-    let closestIndex = 1; // Default to white
+    let closestColor = EINK_PALETTE[1]; // Default to white
     
-    for (let i = 0; i < EINK_PALETTE.length; i++) {
-        const [r, g, b] = EINK_PALETTE[i];
+    for (const color of EINK_PALETTE) {
+        const [r, g, b] = color.rgb;
         const distance = Math.sqrt(
             Math.pow(rgb[0] - r, 2) +
             Math.pow(rgb[1] - g, 2) +
@@ -105,11 +105,59 @@ function findClosestColorIndex(rgb) {
         
         if (distance < minDistance) {
             minDistance = distance;
-            closestIndex = i;
+            closestColor = color;
         }
     }
     
-    return closestIndex;
+    return closestColor;
+}
+
+// Floyd-Steinberg dithering for better color conversion
+function applyFloydSteinbergDithering(imageData, width, height) {
+    const ditheredData = new Uint8ClampedArray(imageData);
+    
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 3;
+            const oldR = ditheredData[idx];
+            const oldG = ditheredData[idx + 1];
+            const oldB = ditheredData[idx + 2];
+            
+            // Find closest color
+            const closestColor = findClosestColor([oldR, oldG, oldB]);
+            const [newR, newG, newB] = closestColor.rgb;
+            
+            // Set new color
+            ditheredData[idx] = newR;
+            ditheredData[idx + 1] = newG;
+            ditheredData[idx + 2] = newB;
+            
+            // Calculate error
+            const errR = oldR - newR;
+            const errG = oldG - newG;
+            const errB = oldB - newB;
+            
+            // Distribute error to neighboring pixels
+            const distributeError = (dx, dy, factor) => {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    const nIdx = (ny * width + nx) * 3;
+                    ditheredData[nIdx] = Math.max(0, Math.min(255, ditheredData[nIdx] + errR * factor));
+                    ditheredData[nIdx + 1] = Math.max(0, Math.min(255, ditheredData[nIdx + 1] + errG * factor));
+                    ditheredData[nIdx + 2] = Math.max(0, Math.min(255, ditheredData[nIdx + 2] + errB * factor));
+                }
+            };
+            
+            // Floyd-Steinberg error distribution
+            distributeError(1, 0, 7/16);  // Right
+            distributeError(-1, 1, 3/16); // Below-left
+            distributeError(0, 1, 5/16);  // Below  
+            distributeError(1, 1, 1/16);  // Below-right
+        }
+    }
+    
+    return ditheredData;
 }
 
 async function convertImageToEink(imagePath, targetWidth = 1150, targetHeight = 1550) {
@@ -123,14 +171,19 @@ async function convertImageToEink(imagePath, targetWidth = 1150, targetHeight = 
             .raw()
             .toBuffer();
         
-        // Convert to e-ink format
+        // Apply Floyd-Steinberg dithering for better color conversion
+        console.log('Applying Floyd-Steinberg dithering...');
+        const ditheredBuffer = applyFloydSteinbergDithering(imageBuffer, targetWidth, targetHeight);
+        
+        // Convert dithered image to e-ink format
         const pixels = [];
-        for (let i = 0; i < imageBuffer.length; i += 3) {
-            const rgb = [imageBuffer[i], imageBuffer[i + 1], imageBuffer[i + 2]];
-            const colorIndex = findClosestColorIndex(rgb);
-            pixels.push(colorIndex);
+        for (let i = 0; i < ditheredBuffer.length; i += 3) {
+            const rgb = [ditheredBuffer[i], ditheredBuffer[i + 1], ditheredBuffer[i + 2]];
+            const closestColor = findClosestColor(rgb);
+            pixels.push(closestColor.index);
         }
         
+        console.log(`Converted ${pixels.length} pixels to e-ink format`);
         return Buffer.from(pixels);
     } catch (error) {
         console.error('Error converting image:', error);
@@ -154,12 +207,15 @@ async function createTextImage(text, targetWidth = 1150, targetHeight = 1550) {
             .raw()
             .toBuffer();
         
+        // Apply Floyd-Steinberg dithering for better color conversion
+        const ditheredBuffer = applyFloydSteinbergDithering(imageBuffer, targetWidth, targetHeight);
+        
         // Convert to e-ink format
         const pixels = [];
-        for (let i = 0; i < imageBuffer.length; i += 3) {
-            const rgb = [imageBuffer[i], imageBuffer[i + 1], imageBuffer[i + 2]];
-            const colorIndex = findClosestColorIndex(rgb);
-            pixels.push(colorIndex);
+        for (let i = 0; i < ditheredBuffer.length; i += 3) {
+            const rgb = [ditheredBuffer[i], ditheredBuffer[i + 1], ditheredBuffer[i + 2]];
+            const closestColor = findClosestColor(rgb);
+            pixels.push(closestColor.index);
         }
         
         return Buffer.from(pixels);
