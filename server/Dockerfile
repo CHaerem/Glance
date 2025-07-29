@@ -6,6 +6,14 @@ LABEL org.opencontainers.image.title="Glance Server" \
       org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.licenses="MIT"
 
+# Build metadata
+ARG IMAGE_VERSION=local
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.revision="$IMAGE_VERSION" \
+      org.opencontainers.image.created="$BUILD_DATE"
+ENV IMAGE_VERSION=$IMAGE_VERSION
+ENV BUILD_DATE=$BUILD_DATE
+
 WORKDIR /app
 
 # Install dumb-init for proper signal handling

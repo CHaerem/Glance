@@ -2,7 +2,11 @@ version: '3.8'
 
 services:
   glance-server:
-    build: ./server
+    build:
+      context: ./server
+      args:
+        IMAGE_VERSION: ${IMAGE_VERSION:-local}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
     container_name: glance-server
     ports:
       - "3000:3000"
@@ -11,7 +15,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - IMAGE_VERSION=local
+      - IMAGE_VERSION=${IMAGE_VERSION:-local}
+      - BUILD_DATE=${BUILD_DATE:-unknown}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
