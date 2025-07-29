@@ -19,6 +19,34 @@ echo "🐳 Building and pushing ${FULL_IMAGE_NAME}"
 # Ensure we're in the right directory
 cd "$(dirname "$0")/.."
 
+# Check if we have Node.js for running tests
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js is required to run tests"
+    exit 1
+fi
+
+# Run tests before building
+echo "🧪 Running tests..."
+cd server
+
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing dependencies..."
+    npm install
+fi
+
+# Run tests with coverage
+echo "🔍 Running test suite..."
+npm run test:ci
+
+if [ $? -ne 0 ]; then
+    echo "❌ Tests failed! Aborting build."
+    exit 1
+fi
+
+echo "✅ All tests passed!"
+cd ..
+
 # Enable Docker BuildKit and multi-platform builds
 export DOCKER_BUILDKIT=1
 
