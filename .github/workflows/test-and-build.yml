@@ -18,12 +18,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: server/package-lock.json
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: server/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('server/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
         
     - name: Install dependencies
       working-directory: ./server
-      run: npm install
+      run: npm ci
       
     - name: Run tests
       working-directory: ./server
@@ -105,12 +111,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: server/package-lock.json
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: server/node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('server/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
         
     - name: Install dependencies
       working-directory: ./server
-      run: npm install
+      run: npm ci
       
     - name: Run security audit
       working-directory: ./server
