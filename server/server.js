@@ -853,7 +853,7 @@ app.get('/', (req, res) => {
                                     </button>
                                 </div>
                                 <div style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 10px;">
-                                    ${isOnline ? '🟢 Device active - commands work immediately' : '🔴 Device asleep - commands queued for next wake'}
+                                    \${isOnline ? '🟢 Device active - commands work immediately' : '🔴 Device asleep - commands queued for next wake'}
                                 </div>
                                 <div class="device-status">
                                     <span><i class="fas fa-battery-half"></i> \${device.batteryVoltage?.toFixed(2) || 'N/A'}V</span>
