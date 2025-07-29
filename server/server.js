@@ -5,6 +5,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const sharp = require('sharp');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,8 +52,22 @@ const upload = multer({
     }
 });
 
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.'
+});
+
+const uploadLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // limit uploads to 10 per 15 minutes
+    message: 'Too many uploads, please try again later.'
+});
+
 // Middleware
 app.use(cors());
+app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 app.use('/uploads', express.static(UPLOAD_DIR));
@@ -154,18 +169,40 @@ async function createTextImage(text, targetWidth = 1150, targetHeight = 1550) {
     }
 }
 
+// Input validation helpers
+function validateDeviceId(deviceId) {
+    return typeof deviceId === 'string' && deviceId.length > 0 && deviceId.length < 100;
+}
+
+function validateImageData(imageData) {
+    return typeof imageData === 'string' && imageData.length < 10 * 1024 * 1024; // 10MB limit
+}
+
+function sanitizeInput(input) {
+    if (typeof input !== 'string') return '';
+    return input.replace(/[<>]/g, '').trim().substring(0, 1000);
+}
+
 // Helper functions
 async function readJSONFile(filename) {
     try {
+        await ensureDataDir();
         const data = await fs.readFile(path.join(DATA_DIR, filename), 'utf8');
         return JSON.parse(data);
-    } catch {
+    } catch (error) {
+        console.error(`Error reading ${filename}:`, error.message);
         return null;
     }
 }
 
 async function writeJSONFile(filename, data) {
-    await fs.writeFile(path.join(DATA_DIR, filename), JSON.stringify(data, null, 2));
+    try {
+        await ensureDataDir();
+        await fs.writeFile(path.join(DATA_DIR, filename), JSON.stringify(data, null, 2));
+    } catch (error) {
+        console.error(`Error writing ${filename}:`, error.message);
+        throw error;
+    }
 }
 
 // API Routes
@@ -193,12 +230,21 @@ app.post('/api/current', async (req, res) => {
     try {
         const { title, image, sleepDuration, isText } = req.body;
         
+        // Input validation
+        const sanitizedTitle = sanitizeInput(title);
+        const sleepMs = parseInt(sleepDuration) || 3600000000;
+        
+        if (image && !validateImageData(image)) {
+            return res.status(400).json({ error: 'Invalid image data' });
+        }
+        
         let imageData = '';
         
         if (image) {
             if (isText) {
                 // Convert text to e-ink image
-                const textImageBuffer = await createTextImage(image);
+                const sanitizedText = sanitizeInput(image);
+                const textImageBuffer = await createTextImage(sanitizedText);
                 imageData = textImageBuffer.toString('base64');
             } else if (image.startsWith('data:image/')) {
                 // Handle base64 image upload from web interface
@@ -223,17 +269,17 @@ app.post('/api/current', async (req, res) => {
         }
         
         const current = {
-            title: title || 'Glance Display',
+            title: sanitizedTitle || 'Glance Display',
             image: imageData,
             imageId: imageData ? uuidv4() : '',
             timestamp: Date.now(),
-            sleepDuration: sleepDuration || 3600000000 // 1 hour default
+            sleepDuration: sleepMs
         };
         
         await writeJSONFile('current.json', current);
         
         // Log the update
-        console.log(`Image updated: ${title} (${current.imageId})`);
+        console.log(`Image updated: ${sanitizedTitle} (${current.imageId})`);
         
         res.json({ success: true, current });
     } catch (error) {
@@ -242,8 +288,45 @@ app.post('/api/current', async (req, res) => {
     }
 });
 
+// Image preview endpoint
+app.post('/api/preview', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        
+        // Generate preview (standard RGB image)
+        const previewBuffer = await sharp(req.file.path)
+            .resize(575, 775, { // Half size for web preview
+                fit: 'contain',
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
+            })
+            .png()
+            .toBuffer();
+        
+        // Convert to e-ink format for size estimation
+        const einkBuffer = await convertImageToEink(req.file.path);
+        
+        // Clean up uploaded file
+        await fs.unlink(req.file.path);
+        
+        res.json({
+            success: true,
+            preview: `data:image/png;base64,${previewBuffer.toString('base64')}`,
+            einkSize: Math.round(einkBuffer.length / 1024), // Size in KB
+            originalName: req.file.originalname
+        });
+    } catch (error) {
+        console.error('Error generating preview:', error);
+        if (req.file?.path) {
+            try { await fs.unlink(req.file.path); } catch {}
+        }
+        res.status(500).json({ error: 'Error generating preview: ' + error.message });
+    }
+});
+
 // File upload endpoint
-app.post('/api/upload', upload.single('image'), async (req, res) => {
+app.post('/api/upload', uploadLimiter, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -251,16 +334,20 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
         
         const { title, sleepDuration } = req.body;
         
+        // Input validation
+        const sanitizedTitle = sanitizeInput(title);
+        const sleepMs = parseInt(sleepDuration) || 3600000000;
+        
         // Convert uploaded image to e-ink format
         const einkBuffer = await convertImageToEink(req.file.path);
         const imageData = einkBuffer.toString('base64');
         
         const current = {
-            title: title || `Uploaded: ${req.file.originalname}`,
+            title: sanitizedTitle || `Uploaded: ${req.file.originalname}`,
             image: imageData,
             imageId: uuidv4(),
             timestamp: Date.now(),
-            sleepDuration: parseInt(sleepDuration) || 3600000000
+            sleepDuration: sleepMs
         };
         
         await writeJSONFile('current.json', current);
@@ -282,18 +369,22 @@ app.post('/api/device-status', async (req, res) => {
     try {
         const { deviceId, status } = req.body;
         
-        if (!deviceId || !status) {
-            return res.status(400).json({ error: 'deviceId and status required' });
+        if (!validateDeviceId(deviceId) || !status || typeof status !== 'object') {
+            return res.status(400).json({ error: 'Valid deviceId and status object required' });
         }
         
         // Load existing devices
         const devices = await readJSONFile('devices.json') || {};
         
-        // Update device status
+        // Update device status with sanitized data
         devices[deviceId] = {
-            ...status,
+            batteryVoltage: parseFloat(status.batteryVoltage) || 0,
+            signalStrength: parseInt(status.signalStrength) || 0,
+            freeHeap: parseInt(status.freeHeap) || 0,
+            bootCount: parseInt(status.bootCount) || 0,
+            status: sanitizeInput(status.status) || 'unknown',
             lastSeen: Date.now(),
-            deviceId
+            deviceId: sanitizeInput(deviceId)
         };
         
         await writeJSONFile('devices.json', devices);
@@ -307,13 +398,104 @@ app.post('/api/device-status', async (req, res) => {
     }
 });
 
+// Send command to device (only works when device is awake and polling)
+app.post('/api/device-command/:deviceId', async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        const { command, duration } = req.body;
+        
+        if (!validateDeviceId(deviceId)) {
+            return res.status(400).json({ error: 'Valid deviceId required' });
+        }
+        
+        const validCommands = ['stay_awake', 'force_update', 'update_now'];
+        if (!validCommands.includes(command)) {
+            return res.status(400).json({ error: 'Invalid command. Valid commands: ' + validCommands.join(', ') });
+        }
+        
+        // Load existing devices to check if device exists
+        const devices = await readJSONFile('devices.json') || {};
+        
+        if (!devices[deviceId]) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+        
+        // Check if device was seen recently (within 5 minutes)
+        const isRecentlyActive = Date.now() - devices[deviceId].lastSeen < 300000;
+        
+        // Create command
+        const deviceCommand = {
+            command,
+            duration: parseInt(duration) || 300000, // Default 5 minutes
+            timestamp: Date.now(),
+            deviceId: sanitizeInput(deviceId)
+        };
+        
+        // Store command for device to pick up
+        let commands = await readJSONFile('commands.json') || {};
+        if (!commands[deviceId]) {
+            commands[deviceId] = [];
+        }
+        
+        commands[deviceId].push(deviceCommand);
+        
+        // Keep only last 10 commands per device
+        if (commands[deviceId].length > 10) {
+            commands[deviceId] = commands[deviceId].slice(-10);
+        }
+        
+        await writeJSONFile('commands.json', commands);
+        
+        console.log(`Command '${command}' sent to device: ${deviceId}`);
+        
+        const message = isRecentlyActive 
+            ? `Command sent to ${deviceId}` 
+            : `Command queued for ${deviceId} (device currently asleep - will execute on next wake)`;
+        
+        res.json({ 
+            success: true, 
+            message,
+            isRecentlyActive,
+            lastSeen: devices[deviceId].lastSeen
+        });
+    } catch (error) {
+        console.error('Error sending device command:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get commands for device (ESP32 polls this)
+app.get('/api/commands/:deviceId', async (req, res) => {
+    try {
+        const { deviceId } = req.params;
+        
+        if (!validateDeviceId(deviceId)) {
+            return res.status(400).json({ error: 'Valid deviceId required' });
+        }
+        
+        const commands = await readJSONFile('commands.json') || {};
+        const deviceCommands = commands[deviceId] || [];
+        
+        // Clear commands after sending (one-time delivery)
+        if (deviceCommands.length > 0) {
+            commands[deviceId] = [];
+            await writeJSONFile('commands.json', commands);
+        }
+        
+        res.json({ commands: deviceCommands });
+    } catch (error) {
+        console.error('Error getting commands:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 // ESP32 log reporting
 app.post('/api/logs', async (req, res) => {
     try {
         const { deviceId, logs, logLevel } = req.body;
         
-        if (!deviceId || !logs) {
-            return res.status(400).json({ error: 'deviceId and logs required' });
+        if (!validateDeviceId(deviceId) || !logs) {
+            return res.status(400).json({ error: 'Valid deviceId and logs required' });
         }
         
         // Load existing logs
@@ -324,12 +506,12 @@ app.post('/api/logs', async (req, res) => {
             allLogs[deviceId] = [];
         }
         
-        // Add new log entry
+        // Add new log entry with sanitized data
         const logEntry = {
             timestamp: Date.now(),
-            level: logLevel || 'INFO',
-            message: logs,
-            deviceTime: req.body.deviceTime || Date.now()
+            level: sanitizeInput(logLevel) || 'INFO',
+            message: sanitizeInput(logs),
+            deviceTime: parseInt(req.body.deviceTime) || Date.now()
         };
         
         allLogs[deviceId].push(logEntry);
@@ -533,6 +715,15 @@ app.get('/', (req, res) => {
                 </div>
                 
                 <h3><i class="fas fa-microchip"></i> Connected Devices</h3>
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #495057;"><i class="fas fa-info-circle"></i> ESP32 Deep Sleep Behavior</h4>
+                    <p style="margin: 0; font-size: 0.9rem; color: #6c757d;">
+                        <strong>🟢 Active devices</strong> can receive commands immediately.<br>
+                        <strong>🔴 Sleeping devices</strong> cannot be woken remotely - commands are queued and executed on their next scheduled wake (usually every 1-6 hours).<br>
+                        <strong>Stay Awake:</strong> Prevents device from sleeping again for 5 minutes.<br>
+                        <strong>Update Now:</strong> Forces content refresh on next wake cycle.
+                    </p>
+                </div>
                 <div class="device-grid" id="devices">Loading...</div>
             </div>
             
@@ -545,6 +736,12 @@ app.get('/', (req, res) => {
                         <h4>Drop an image here or click to select</h4>
                         <p>Supports JPG, PNG, GIF, BMP, WebP (Max 10MB)</p>
                         <input type="file" id="imageFile" name="image" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+                    </div>
+                    
+                    <div id="imagePreview" style="display: none; margin: 20px 0; text-align: center;">
+                        <h4>Preview</h4>
+                        <img id="previewImage" style="max-width: 300px; max-height: 400px; border: 1px solid #ddd; border-radius: 8px;">
+                        <p id="previewInfo" style="margin-top: 10px; color: #666;"></p>
                     </div>
                     
                     <div class="form-group">
@@ -647,6 +844,17 @@ app.get('/', (req, res) => {
                             <div class="device \${isOnline ? 'online' : 'offline'}">
                                 <h3><i class="fas fa-microchip"></i> \${device.deviceId}
                                     <div class="status-indicator \${isOnline ? 'online' : 'offline'}"></div></h3>
+                                <div style="margin-bottom: 15px; display: flex; gap: 5px; flex-wrap: wrap;">
+                                    <button onclick="sendDeviceCommand('\${device.deviceId}', 'stay_awake')" class="btn" style="font-size: 11px; padding: 4px 8px;" title="Keep device awake for 5 minutes (only works if device is currently active)">
+                                        <i class="fas fa-clock"></i> Stay Awake
+                                    </button>
+                                    <button onclick="sendDeviceCommand('\${device.deviceId}', 'update_now')" class="btn" style="font-size: 11px; padding: 4px 8px;" title="Force immediate content update on next wake">
+                                        <i class="fas fa-sync"></i> Update Now
+                                    </button>
+                                </div>
+                                <div style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 10px;">
+                                    ${isOnline ? '🟢 Device active - commands work immediately' : '🔴 Device asleep - commands queued for next wake'}
+                                </div>
                                 <div class="device-status">
                                     <span><i class="fas fa-battery-half"></i> \${device.batteryVoltage?.toFixed(2) || 'N/A'}V</span>
                                     <span><i class="fas fa-wifi"></i> \${device.signalStrength || 'N/A'}dBm</span>
@@ -726,12 +934,39 @@ app.get('/', (req, res) => {
         function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); e.target.classList.add('dragover'); }
         function handleDragLeave(e) { e.preventDefault(); e.stopPropagation(); e.target.classList.remove('dragover'); }
         
-        function handleFileSelect(e) {
+        async function handleFileSelect(e) {
             const file = e.target.files[0];
             if (file) {
                 const uploadArea = document.querySelector('.upload-area');
                 uploadArea.innerHTML = \`<i class="fas fa-check-circle upload-icon" style="color: #22c55e;"></i>
-                    <h4>\${file.name}</h4><p>File selected (\${Math.round(file.size/1024)}KB)</p>\`;
+                    <h4>\${file.name}</h4><p>File selected (\${Math.round(file.size/1024)}KB) - Generating preview...</p>\`;
+                
+                // Generate preview
+                try {
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    
+                    const response = await fetch('/api/preview', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        document.getElementById('previewImage').src = result.preview;
+                        document.getElementById('previewInfo').innerHTML = \`<strong>\${result.originalName}</strong><br>E-ink size: \${result.einkSize}KB\`;
+                        document.getElementById('imagePreview').style.display = 'block';
+                        
+                        uploadArea.innerHTML = \`<i class="fas fa-check-circle upload-icon" style="color: #22c55e;"></i>
+                            <h4>\${file.name}</h4><p>Ready to upload (\${Math.round(file.size/1024)}KB)</p>\`;
+                    } else {
+                        throw new Error('Preview generation failed');
+                    }
+                } catch (error) {
+                    console.error('Preview error:', error);
+                    uploadArea.innerHTML = \`<i class="fas fa-check-circle upload-icon" style="color: #22c55e;"></i>
+                        <h4>\${file.name}</h4><p>File selected (\${Math.round(file.size/1024)}KB) - Preview failed</p>\`;
+                }
             }
         }
         
@@ -776,6 +1011,123 @@ app.get('/', (req, res) => {
                 else { alert('Error updating text display'); }
             } catch (error) { alert('Error: ' + error.message); }
         });
+        
+        // Settings functions
+        async function clearAllDisplays() {
+            if (confirm('Are you sure you want to clear all displays?')) {
+                try {
+                    const response = await fetch('/api/current', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: 'Display Cleared',
+                            image: '',
+                            sleepDuration: 3600000000
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        alert('All displays cleared!');
+                        loadCurrent();
+                    }
+                } catch (error) {
+                    alert('Error clearing displays: ' + error.message);
+                }
+            }
+        }
+        
+        async function sendDeviceCommand(deviceId, command) {
+            try {
+                const response = await fetch(\`/api/device-command/\${deviceId}\`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command, duration: 300000 }) // 5 minutes
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    const commandNames = {
+                        stay_awake: 'Stay Awake',
+                        update_now: 'Update Now',
+                        force_update: 'Force Update'
+                    };
+                    
+                    alert(\`\${commandNames[command]} command: \${result.message}\`);
+                    
+                    // Refresh device list to update status
+                    loadDevices();
+                } else {
+                    alert(\`Error sending command: \${result.error}\`);
+                }
+            } catch (error) {
+                alert('Error sending command: ' + error.message);
+            }
+        }
+        
+        async function updateAllDevices() {
+            if (!confirm('Send "Update Now" command to all devices? This will force content refresh on their next wake cycle.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/devices');
+                const devices = await response.json();
+                
+                const deviceIds = Object.keys(devices);
+                if (deviceIds.length === 0) {
+                    alert('No devices found');
+                    return;
+                }
+                
+                let successCount = 0;
+                let activeCount = 0;
+                
+                for (const deviceId of deviceIds) {
+                    try {
+                        const commandResponse = await fetch(\`/api/device-command/\${deviceId}\`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ command: 'update_now', duration: 300000 })
+                        });
+                        
+                        if (commandResponse.ok) {
+                            successCount++;
+                            const result = await commandResponse.json();
+                            if (result.isRecentlyActive) activeCount++;
+                        }
+                    } catch (error) {
+                        console.error(\`Failed to send command to \${deviceId}:\`, error);
+                    }
+                }
+                
+                alert(\`Update commands sent to \${successCount}/\${deviceIds.length} devices\\n\` +
+                      \`\${activeCount} devices are currently active and will update immediately\\n\` +
+                      \`\${successCount - activeCount} devices are asleep and will update on next wake\`);
+                
+                // Refresh device list
+                loadDevices();
+            } catch (error) {
+                alert('Error sending update commands: ' + error.message);
+            }
+        }
+        
+        async function exportLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const logs = await response.json();
+                
+                const dataStr = JSON.stringify(logs, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = 'glance-logs-' + new Date().toISOString().split('T')[0] + '.json';
+                link.click();
+            } catch (error) {
+                alert('Error exporting logs: ' + error.message);
+            }
+        }
         
         loadDevices(); loadCurrent();
         setInterval(() => { loadDevices(); loadCurrent(); }, 30000);
