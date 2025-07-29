@@ -1,6 +1,6 @@
 services:
   glance-server:
-    image: chaerem/glance-server:latest
+    image: chaerem/glance-server:${IMAGE_VERSION:-latest}
     container_name: glance-server
     ports:
       - "3000:3000"
@@ -17,25 +17,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=300  # Check every 5 minutes
-      - WATCHTOWER_INCLUDE_STOPPED=true
-      - WATCHTOWER_REVIVE_STOPPED=false
-      - WATCHTOWER_LABEL_ENABLE=true  # Only update containers with watchtower.enable=true
-      - WATCHTOWER_NOTIFICATIONS=shoutrrr
-      - WATCHTOWER_NOTIFICATION_URL=logger://
-    restart: unless-stopped
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"  # Don't update watchtower itself
 
 volumes:
   data:
