@@ -11,14 +11,18 @@ echo "🔨 Building Glance Server locally..."
 cd "$(dirname "$0")/.."
 
 # Build for local architecture only
+COMMIT_SHA=$(git rev-parse --short HEAD)
+BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 docker build \
     --file server/Dockerfile \
-    --tag glance-server:local \
+    --build-arg IMAGE_VERSION="$COMMIT_SHA" \
+    --build-arg BUILD_DATE="$BUILD_DATE" \
+    --tag glance-server:$COMMIT_SHA \
     server/
 
 echo "✅ Local build complete!"
 echo ""
 echo "🧪 To test locally:"
-echo "   docker run -p 3000:3000 -v \$(pwd)/data:/app/data glance-server:local"
+echo "   docker run -p 3000:3000 -v \$(pwd)/data:/app/data glance-server:$COMMIT_SHA"
 echo ""
 echo "🌐 Then visit: http://localhost:3000"
