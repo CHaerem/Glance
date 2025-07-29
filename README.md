@@ -22,6 +22,8 @@
 
 ## 🔌 Connections
 
+> **Note**: This project now includes comprehensive test coverage and automated deployment via GitHub Actions with Tailscale integration.
+
 <details>
 <summary><strong>📍 Pin Mapping</strong></summary>
 
