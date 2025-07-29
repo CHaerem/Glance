@@ -8,6 +8,7 @@ const sharp = require('sharp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const IMAGE_VERSION = process.env.IMAGE_VERSION || 'local';
 const DATA_DIR = path.join(__dirname, 'data');
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 
@@ -415,6 +416,7 @@ app.get('/', (req, res) => {
         .header { text-align: center; color: white; margin-bottom: 30px; }
         .header h1 { font-size: 2.5rem; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
         .header p { font-size: 1.1rem; opacity: 0.9; }
+        .version { font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
         .card {
             background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             padding: 25px; margin-bottom: 20px; transition: transform 0.3s ease;
@@ -495,6 +497,7 @@ app.get('/', (req, res) => {
         <div class="header">
             <h1><i class="fas fa-display"></i> Glance E-Ink Display Server</h1>
             <p>Manage your autonomous e-paper displays with ease</p>
+            <p class="version">Docker Image Version: ${IMAGE_VERSION}</p>
         </div>
         
         <div class="card">
