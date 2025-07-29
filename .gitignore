@@ -57,7 +57,6 @@ src/.env
 
 # Docker and server data
 server/node_modules/
-server/package-lock.json
 server/data/
 docker-compose.override.yml
 
