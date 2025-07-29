@@ -16,76 +16,68 @@ app.get("/", (req, res) => {
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #fafafa;
             min-height: 100vh;
             color: #333;
+            line-height: 1.5;
         }
-        
+
         .container {
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         .header {
             text-align: center;
-            color: white;
+            color: #333;
             margin-bottom: 30px;
         }
-        
+
         .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-size: 2rem;
+            margin-bottom: 5px;
         }
-        
+
         .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
+            font-size: 1rem;
+            opacity: 0.8;
         }
         
         .card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            padding: 25px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            padding: 20px;
             margin-bottom: 20px;
-            transition: transform 0.3s ease;
-        }
-        
-        .card:hover {
-            transform: translateY(-5px);
         }
         
         .tabs {
             display: flex;
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 5px;
-            margin-bottom: 25px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 20px;
             overflow-x: auto;
         }
-        
+
         .tab {
-            flex: 1;
-            padding: 12px 20px;
-            text-align: center;
-            border-radius: 8px;
+            padding: 10px 15px;
+            margin-right: 15px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            color: #555;
             white-space: nowrap;
-            font-weight: 500;
+            transition: border-color 0.2s ease, color 0.2s ease;
         }
-        
+
         .tab:hover {
-            background: #e9ecef;
+            color: #000;
         }
-        
+
         .tab.active {
-            background: #007bff;
-            color: white;
-            box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+            border-color: #3b82f6;
+            color: #3b82f6;
         }
         
         .tab-content {
@@ -110,15 +102,15 @@ app.get("/", (req, res) => {
         }
         
         .device {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: #fff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        
+
         .device.offline {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-color: #ef4444;
         }
         
         .device h3 {
@@ -174,52 +166,51 @@ app.get("/", (req, res) => {
         
         .form-control:focus {
             outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.2);
         }
         
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #3b82f6;
+            color: #fff;
             border: none;
-            padding: 12px 25px;
-            border-radius: 8px;
+            padding: 10px 20px;
+            border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
             font-weight: 600;
-            transition: all 0.3s ease;
+            transition: background 0.2s ease;
             text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
-        
+
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: #2563eb;
         }
-        
+
         .btn-success {
-            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            background: #22c55e;
         }
-        
+
         .btn-danger {
-            background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            background: #ef4444;
         }
-        
+
         .btn-secondary {
-            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+            background: #6b7280;
         }
         
         .logs {
-            background: #1a1a1a;
-            color: #4ade80;
+            background: #f9fafb;
+            color: #111827;
             font-family: 'Courier New', monospace;
             padding: 20px;
-            border-radius: 10px;
+            border-radius: 6px;
             height: 400px;
             overflow-y: auto;
-            border: 2px solid #333;
+            border: 1px solid #e5e7eb;
         }
         
         .log-entry {
@@ -232,37 +223,36 @@ app.get("/", (req, res) => {
         .log-info { color: #4ade80; }
         
         .upload-area {
-            border: 2px dashed #007bff;
-            border-radius: 10px;
+            border: 2px dashed #3b82f6;
+            border-radius: 8px;
             padding: 40px;
             text-align: center;
-            background: #f8f9ff;
-            transition: all 0.3s ease;
+            background: #f9fafb;
+            transition: background 0.2s ease, border-color 0.2s ease;
             cursor: pointer;
         }
-        
+
         .upload-area:hover {
-            border-color: #0056b3;
-            background: #e7f3ff;
+            border-color: #2563eb;
+            background: #eff6ff;
         }
-        
+
         .upload-area.dragover {
-            border-color: #0056b3;
-            background: #e7f3ff;
-            transform: scale(1.02);
+            border-color: #2563eb;
+            background: #eff6ff;
         }
-        
+
         .upload-icon {
             font-size: 3rem;
-            color: #007bff;
+            color: #3b82f6;
             margin-bottom: 15px;
         }
         
         .current-display {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #fff;
+            border: 1px solid #e5e7eb;
             padding: 20px;
-            border-radius: 12px;
+            border-radius: 8px;
             margin-bottom: 20px;
         }
         
@@ -274,17 +264,17 @@ app.get("/", (req, res) => {
         }
         
         .stat-card {
-            background: white;
+            background: #fff;
             padding: 20px;
-            border-radius: 10px;
+            border-radius: 6px;
             text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid #e5e7eb;
         }
         
         .stat-value {
             font-size: 2rem;
             font-weight: bold;
-            color: #007bff;
+            color: #3b82f6;
             margin-bottom: 5px;
         }
         
