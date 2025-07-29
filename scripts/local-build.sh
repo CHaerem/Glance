@@ -10,6 +10,34 @@ echo "🔨 Building Glance Server locally..."
 # Ensure we're in the right directory
 cd "$(dirname "$0")/.."
 
+# Check if we have Node.js for running tests
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js is required to run tests"
+    exit 1
+fi
+
+# Run tests before building
+echo "🧪 Running tests..."
+cd server
+
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing dependencies..."
+    npm install
+fi
+
+# Run tests with coverage
+echo "🔍 Running test suite..."
+npm run test:ci
+
+if [ $? -ne 0 ]; then
+    echo "❌ Tests failed! Aborting build."
+    exit 1
+fi
+
+echo "✅ All tests passed!"
+cd ..
+
 # Build for local architecture only
 COMMIT_SHA=$(git rev-parse --short HEAD)
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
