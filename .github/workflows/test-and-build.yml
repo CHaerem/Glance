@@ -31,9 +31,9 @@ jobs:
       working-directory: ./server
       run: |
         if [ -f package-lock.json ]; then
-          npm ci
+          npm ci --include=optional
         else
-          npm install
+          npm install --include=optional
         fi
       
     - name: Run tests
@@ -129,9 +129,9 @@ jobs:
       working-directory: ./server
       run: |
         if [ -f package-lock.json ]; then
-          npm ci
+          npm ci --include=optional
         else
-          npm install
+          npm install --include=optional
         fi
       
     - name: Run security audit
