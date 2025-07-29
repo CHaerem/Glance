@@ -141,21 +141,22 @@ describe('Full E-ink Processing Pipeline', () => {
     describe('Solid Color Processing', () => {
         test('should process solid black image correctly', async () => {
             const imagePath = path.join(fixturesDir, 'solid-black.png');
-            const result = await convertImageToEink(imagePath, 50, 50);
+            const result = await convertImageToEink(imagePath, 60, 40); // Match original size
             
-            expect(result.length).toBe(2500); // 50x50 pixels
+            expect(result.length).toBe(2400); // 60x40 pixels
             
             // All pixels should be black (0x0)
             const pixels = Array.from(result);
+            const uniqueValues = [...new Set(pixels)];
             const allBlack = pixels.every(pixel => pixel === 0x0);
             expect(allBlack).toBe(true);
         });
         
         test('should process solid white image correctly', async () => {
             const imagePath = path.join(fixturesDir, 'solid-white.png');
-            const result = await convertImageToEink(imagePath, 50, 50);
+            const result = await convertImageToEink(imagePath, 60, 40); // Match original size
             
-            expect(result.length).toBe(2500); // 50x50 pixels
+            expect(result.length).toBe(2400); // 60x40 pixels
             
             // All pixels should be white (0x1)
             const pixels = Array.from(result);
@@ -165,12 +166,13 @@ describe('Full E-ink Processing Pipeline', () => {
         
         test('should process solid red image correctly', async () => {
             const imagePath = path.join(fixturesDir, 'solid-red.png');
-            const result = await convertImageToEink(imagePath, 50, 50);
+            const result = await convertImageToEink(imagePath, 60, 40); // Match original size
             
-            expect(result.length).toBe(2500); // 50x50 pixels
+            expect(result.length).toBe(2400); // 60x40 pixels
             
             // All pixels should be red (0x3)
             const pixels = Array.from(result);
+            const uniqueValues = [...new Set(pixels)];
             const allRed = pixels.every(pixel => pixel === 0x3);
             expect(allRed).toBe(true);
         });

@@ -40,7 +40,7 @@ app.post('/api/current', (req, res) => {
         image: image || '',
         imageId: 'test-' + Date.now(),
         timestamp: Date.now(),
-        sleepDuration: sleepDuration || 3600000000
+        sleepDuration: parseInt(sleepDuration) || 3600000000
     };
     
     res.json({ success: true, current: currentData });
