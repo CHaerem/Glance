@@ -1,0 +1,39 @@
+name: PR Server Page Preview
+
+on:
+  pull_request:
+    paths:
+      - 'server/web-interface.js'
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install server dependencies
+        run: npm ci
+        working-directory: server
+
+      - name: Start server
+        run: |
+          node server.js &
+          npx wait-on http://localhost:3000
+        working-directory: server
+
+      - name: Install Puppeteer
+        run: npm install puppeteer --no-save
+
+      - name: Generate preview
+        run: node scripts/pr-preview.js
+
+      - name: Comment on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: preview.md
