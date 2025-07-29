@@ -114,3 +114,10 @@ if (require.main === module) {
 }
 
 module.exports = { createTestImages };
+
+// Add a simple test to avoid "no tests" error
+if (process.env.NODE_ENV === 'test') {
+    test('createTestImages should be a function', () => {
+        expect(typeof createTestImages).toBe('function');
+    });
+}
