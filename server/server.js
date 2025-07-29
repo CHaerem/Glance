@@ -9,6 +9,7 @@ const sharp = require('sharp');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const IMAGE_VERSION = process.env.IMAGE_VERSION || 'local';
+const BUILD_DATE = process.env.BUILD_DATE || 'unknown';
 const DATA_DIR = path.join(__dirname, 'data');
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 
@@ -495,7 +496,7 @@ app.get('/', (req, res) => {
         <div class="header">
             <h1><i class="fas fa-display"></i> Glance E-Ink Display Server</h1>
             <p>Manage your autonomous e-paper displays with ease</p>
-            <p class="version">Docker Image Version: ${IMAGE_VERSION}</p>
+            <p class="version">Docker Image: ${IMAGE_VERSION} (built ${BUILD_DATE})</p>
         </div>
         
         <div class="card">
@@ -794,6 +795,7 @@ async function startServer() {
     
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`Glance server running on port ${PORT}`);
+        console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE})`);
         console.log(`Access the web interface at http://localhost:${PORT}`);
         console.log(`API endpoint for ESP32: http://localhost:${PORT}/api/current.json`);
     });
