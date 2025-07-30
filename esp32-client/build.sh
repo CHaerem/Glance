@@ -13,12 +13,10 @@ if [[ -z "$WIFI_SSID" || -z "$WIFI_PASSWORD" ]]; then
     echo ""
     echo "Optional variables:"
     echo "  export DEVICE_ID=\"esp32-001\"        # Default: esp32-001"
-    echo "  export GITHUB_TOKEN=\"your_token\"    # Default: NONE"
     exit 1
 fi
 
 # Set defaults for optional variables
-export GITHUB_TOKEN=${GITHUB_TOKEN:-"NONE"}
 export DEVICE_ID=${DEVICE_ID:-"esp32-001"}
 
 # Show configuration (without password)

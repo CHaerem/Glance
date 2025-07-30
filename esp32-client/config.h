@@ -13,9 +13,6 @@
 #define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" // Will be replaced by build system
 #endif
 
-#ifndef GITHUB_TOKEN
-#define GITHUB_TOKEN "" // Optional: GitHub token for status reporting
-#endif
 
 #ifndef DEVICE_ID
 #define DEVICE_ID "esp32-001" // Unique device identifier
