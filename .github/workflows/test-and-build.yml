@@ -101,7 +101,7 @@ jobs:
 
     - name: Deploy to serverpi
       run: |
-        tailscale ssh chris@serverpi-1 \
+        tailscale ssh -o StrictHostKeyChecking=no chris@serverpi \
           'cd ~/glance && IMAGE_VERSION=${{ github.sha }} docker compose pull && IMAGE_VERSION=${{ github.sha }} docker compose up -d'
 
   security-scan:
