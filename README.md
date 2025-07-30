@@ -127,6 +127,27 @@ nano config.h    # Set your Pi's IP address
 5. Deploy - system runs autonomously
 ```
 
+## 🔄 Updating the Server
+
+Pushing changes to the **`main`** branch automatically builds and deploys a new
+Docker image:
+
+1. GitHub Actions runs the full test suite and builds a multi-architecture image.
+2. The image is pushed to Docker Hub and tagged with the commit SHA.
+3. Using Tailscale SSH, the workflow updates the Raspberry Pi with
+   `docker compose pull` and `docker compose up -d`.
+4. Check the running version with:
+
+```bash
+docker compose exec glance-server env | grep IMAGE_VERSION
+```
+
+To deploy a specific commit manually, run:
+
+```bash
+IMAGE_VERSION=<sha> ./deploy-to-pi.sh serverpi.local your-dockerhub-username
+```
+
 ## 📁 Project Structure
 
 ```
