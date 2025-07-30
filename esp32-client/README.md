@@ -43,7 +43,6 @@ export WIFI_PASSWORD="YourWiFiPassword"
 
 # Optional: Device configuration
 export DEVICE_ID="esp32-001"        # Default: esp32-001
-export GITHUB_TOKEN="your_token"    # Default: NONE
 ```
 
 ### 2. Build and Upload

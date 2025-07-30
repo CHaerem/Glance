@@ -53,15 +53,11 @@ echo "-----------------------------------"
 # Device ID
 read_with_default "Device ID" "esp32-001" "DEVICE_ID"
 
-# GitHub Token (optional)
-read_with_default "GitHub Token (optional, press Enter to skip)" "NONE" "GITHUB_TOKEN"
-
 echo ""
 echo "✅ Environment Variables Configured:"
 echo "====================================="
 echo "WIFI_SSID: $WIFI_SSID"
 echo "DEVICE_ID: $DEVICE_ID"
-echo "GITHUB_TOKEN: $GITHUB_TOKEN"
 echo ""
 
 # Create export commands for easy copy-paste
@@ -70,7 +66,6 @@ echo "======================================================"
 echo "export WIFI_SSID=\"$WIFI_SSID\""
 echo "export WIFI_PASSWORD=\"$WIFI_PASSWORD\""
 echo "export DEVICE_ID=\"$DEVICE_ID\""
-echo "export GITHUB_TOKEN=\"$GITHUB_TOKEN\""
 echo ""
 
 # Ask if user wants to build now
