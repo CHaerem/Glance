@@ -4,41 +4,65 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This project is focused on driving a Waveshare 13.3" Spectra 6 e-ink display using a Raspberry Pi Zero 2W with the 13.3 inch e-paper HAT+.
+**Glance** is a battery-powered ESP32 e-ink display system that fetches images from a local Node.js server running on a Raspberry Pi.
+
+## Architecture
+
+- **ESP32** → Connects to Waveshare 13.3" e-ink display (the display driver)
+- **Raspberry Pi** → Runs Node.js server ("serverpi") that provides images and web interface
+- **Communication** → ESP32 fetches display content via HTTP from serverpi
 
 ## Development Environment
 
-- Target platform: Raspberry Pi Zero 2W
-- Display: Waveshare 13.3" Spectra 6 e-ink display
-- HAT: Waveshare 13.3 inch e-paper HAT+
-- Programming language: Python 3
+- **ESP32 Client**: PlatformIO with Arduino framework
+- **Server**: Node.js with Express.js running on Raspberry Pi
+- **Display**: Waveshare 13.3" Spectra 6 e-ink display
+- **Interface**: SPI communication between ESP32 and display
 
 ## Common Commands
 
-Testing the display:
+ESP32 development:
 ```bash
-# Install dependencies
-pip3 install -r requirements.txt
+# Set WiFi credentials
+export WIFI_SSID="YourNetwork"
+export WIFI_PASSWORD="YourPassword"
 
-# Run the display test
-python3 epaper_test.py
+# Build and upload ESP32 firmware
+cd esp32-client/
+./build.sh
 
-# Run with sudo if needed for GPIO access
-sudo python3 epaper_test.py
+# Monitor serial output
+./build.sh monitor
+```
+
+Server development:
+```bash
+# Start server locally
+cd server/
+npm install
+npm start
+
+# Run tests
+npm test
+
+# Deploy to Raspberry Pi
+./deploy-to-pi.sh serverpi.local your-dockerhub-username
 ```
 
 ## Hardware Specifications
 
-- **Display**: Waveshare 13.3" Spectra 6 color e-ink display
-- **Controller**: Raspberry Pi Zero 2W
-- **Interface**: SPI communication via HAT+ connector
-- **HAT**: Waveshare 13.3 inch e-paper HAT+ (plugs into Pi GPIO header)
+- **ESP32**: Controls the e-ink display, deep sleep power management
+- **Display**: Waveshare 13.3" Spectra 6 color e-ink display (1200×1600px)
+- **Server**: Raspberry Pi running Node.js server on port 3000
+- **Interface**: SPI between ESP32 and display, WiFi to server
+- **Power**: LiPo battery with ultra-low power deep sleep
 
 ## Development Notes
 
+- ESP32 wakes up periodically to check for new images
+- Server controls sleep duration via API responses
 - E-ink displays require specific timing and refresh sequences
 - The Spectra 6 supports 6-color display (black, white, red, yellow, blue, green)
-- Partial refresh capabilities may be limited compared to monochrome displays
-- SPI must be enabled on the Raspberry Pi (use `sudo raspi-config`)
-- The HAT+ handles most of the low-level interfacing
-- Display refresh can take 30-45 seconds for full updates
+- Image processing happens server-side to reduce ESP32 workload
+- Display refresh takes 30-45 seconds for full color updates
+- Deep sleep current is ~10μA for months of battery life
