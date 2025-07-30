@@ -3,13 +3,25 @@
 # ESP32 Glance Client Build Script
 # Usage: ./build.sh [compile|upload|monitor]
 
-# Export environment variables directly
-export WIFI_SSID=YourNetwork
-export WIFI_PASSWORD=YourPassword
-export GITHUB_TOKEN=NONE
-export DEVICE_ID=esp32-001
+# Check for required environment variables
+if [[ -z "$WIFI_SSID" || -z "$WIFI_PASSWORD" ]]; then
+    echo "❌ Error: WiFi credentials not set!"
+    echo ""
+    echo "Please set environment variables:"
+    echo "  export WIFI_SSID=\"YourWiFiNetwork\""
+    echo "  export WIFI_PASSWORD=\"YourWiFiPassword\""
+    echo ""
+    echo "Optional variables:"
+    echo "  export DEVICE_ID=\"esp32-001\"        # Default: esp32-001"
+    echo "  export GITHUB_TOKEN=\"your_token\"    # Default: NONE"
+    exit 1
+fi
 
-# Show WiFi configuration (without password)
+# Set defaults for optional variables
+export GITHUB_TOKEN=${GITHUB_TOKEN:-"NONE"}
+export DEVICE_ID=${DEVICE_ID:-"esp32-001"}
+
+# Show configuration (without password)
 echo "=== ESP32 Build Configuration ==="
 echo "WIFI_SSID: $WIFI_SSID"
 echo "DEVICE_ID: $DEVICE_ID"

@@ -1,82 +1,61 @@
+# Dependencies
+node_modules/
+.pioenvs
+.piolibdeps
+.pio/
+.vscode/
+
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
+*.pyo
+
+# Production builds
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+build/
 
-# Virtual environments
-venv/
-env/
-ENV/
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+esp32-client/.env*
+!esp32-client/.env.example
 
-# IDE
-.vscode/
-.idea/
+# IDE files
+.DS_Store
 *.swp
 *.swo
-
-# OS
-.DS_Store
-Thumbs.db
+*~
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Build artifacts
-*.o
-*.elf
-*.bin
-*.hex
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
 
-# PlatformIO
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output
+
+# Docker
+.dockerignore
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+
+# PlatformIO specific
 .pio/
-.pioenvs/
-.piolibdeps/
-
-# Environment files
-.env
-src/.env
-.env.local
-.env.production
-
-# Docker and server data
-server/node_modules/
-server/data/
-docker-compose.override.yml
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
-
-# Additional build artifacts
-*.map
+.vscode/
 .clang_complete
 .gcc-flags.json
 
-# Generated configuration files
-config.h.local
-credentials.h
-
-# NPM logs
-npm-debug.log*
-
-# Git merge files
-*.orig
+# Server data directory
+server/data/
+server/uploads/

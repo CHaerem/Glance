@@ -7,6 +7,7 @@
 #include "soc/rtc_cntl_reg.h"
 #include "esp32-hal-cpu.h"
 #include "esp_sleep.h"
+#include "esp_task_wdt.h"
 
 // Configuration constants
 #define API_BASE_URL "http://serverpi.local:3000/api/"
@@ -88,6 +89,8 @@ void displayImageFromData(const uint8_t *imageData, int width, int height);
 void displayTextMessage(const String &text);
 void enterDeepSleep(uint64_t sleepTime);
 float readBatteryVoltage();
+bool checkForCommands();
+void processCommand(const String &command, unsigned long duration);
 
 void setup()
 {
@@ -144,7 +147,12 @@ void setup()
     EPD_13IN3E_Init();
     delay(2000);
 
+    // Check for pending commands first
+    esp_task_wdt_reset();
+    checkForCommands();
+
     // Fetch and display current image
+    esp_task_wdt_reset();
     bool imageUpdated = fetchCurrentImage();
 
     if (imageUpdated)
@@ -160,6 +168,36 @@ void setup()
 
     // Power down display
     EPD_13IN3E_Sleep();
+
+    // Check for commands again before sleeping
+    bool shouldStayAwake = checkForCommands();
+
+    if (shouldStayAwake)
+    {
+        reportDeviceStatus("staying_awake", batteryVoltage, signalStrength);
+        sendLogToServer("Staying awake for remote commands");
+        
+        // Stay awake for up to 5 minutes, checking for commands every 30 seconds
+        unsigned long stayAwakeStart = millis();
+        unsigned long stayAwakeTimeout = 5 * 60 * 1000; // 5 minutes
+        
+        while (millis() - stayAwakeStart < stayAwakeTimeout)
+        {
+            delay(30000); // Wait 30 seconds
+            esp_task_wdt_reset(); // Reset watchdog during stay awake period
+            
+            if (!checkForCommands())
+            {
+                // No more commands, can sleep now
+                break;
+            }
+            
+            // Update battery status periodically
+            batteryVoltage = readBatteryVoltage();
+            signalStrength = WiFi.RSSI();
+            reportDeviceStatus("awake_waiting", batteryVoltage, signalStrength);
+        }
+    }
 
     // Report going to sleep
     reportDeviceStatus("sleeping", batteryVoltage, signalStrength);
@@ -188,6 +226,11 @@ void setupPowerManagement()
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
     Debug("Brownout detector disabled\r\n");
 
+    // Configure watchdog timer (300 seconds = 5 minutes)
+    esp_task_wdt_init(300, true);
+    esp_task_wdt_add(NULL);
+    Debug("Watchdog timer configured (300s)\r\n");
+
     // Configure wake-up source
     esp_sleep_enable_timer_wakeup(DEFAULT_SLEEP_TIME);
 }
@@ -196,29 +239,42 @@ bool connectToWiFi()
 {
     Debug("Connecting to WiFi: " WIFI_SSID "\r\n");
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    // Try WiFi connection with multiple attempts
+    for (int retry = 0; retry < 3; retry++)
+    {
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20)
-    {
-        delay(500);
-        Debug(".");
-        attempts++;
-    }
+        int attempts = 0;
+        while (WiFi.status() != WL_CONNECTED && attempts < 20)
+        {
+            delay(500);
+            Debug(".");
+            attempts++;
+            
+            // Feed watchdog during long operations
+            esp_task_wdt_reset();
+        }
 
-    if (WiFi.status() == WL_CONNECTED)
-    {
-        Debug("\r\nWiFi connected!\r\n");
-        Debug("IP address: " + WiFi.localIP().toString() + "\r\n");
-        Debug("Signal strength: " + String(WiFi.RSSI()) + " dBm\r\n");
-        return true;
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            Debug("\r\nWiFi connected!\r\n");
+            Debug("IP address: " + WiFi.localIP().toString() + "\r\n");
+            Debug("Signal strength: " + String(WiFi.RSSI()) + " dBm\r\n");
+            return true;
+        }
+        
+        Debug("\r\nWiFi connection attempt " + String(retry + 1) + " failed\r\n");
+        
+        if (retry < 2)
+        {
+            WiFi.disconnect();
+            delay(2000); // Wait before retry
+        }
     }
-    else
-    {
-        Debug("\r\nWiFi connection failed!\r\n");
-        return false;
-    }
+    
+    Debug("WiFi connection failed after 3 attempts!\r\n");
+    return false;
 }
 
 bool fetchCurrentImage()
@@ -227,6 +283,8 @@ bool fetchCurrentImage()
 
     HTTPClient http;
     http.begin(API_BASE_URL "current.json");
+    http.setTimeout(15000); // 15 second timeout for image downloads
+    http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
 
     int httpResponseCode = http.GET();
 
@@ -335,36 +393,49 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
 {
     Debug("Reporting device status: " + String(status) + "\r\n");
 
-    HTTPClient http;
-    http.begin(STATUS_URL);
-    http.addHeader("Content-Type", "application/json");
-
-    DynamicJsonDocument doc(1024);
-    doc["deviceId"] = DEVICE_ID;
-
-    JsonObject statusObj = doc.createNestedObject("status");
-    statusObj["status"] = status;
-    statusObj["batteryVoltage"] = batteryVoltage;
-    statusObj["signalStrength"] = signalStrength;
-    statusObj["firmwareVersion"] = FIRMWARE_VERSION;
-    statusObj["bootCount"] = bootCount;
-    statusObj["freeHeap"] = ESP.getFreeHeap();
-
-    String jsonString;
-    serializeJson(doc, jsonString);
-
-    int httpResponseCode = http.POST(jsonString);
-
-    if (httpResponseCode == 200)
+    for (int retry = 0; retry < 3; retry++)
     {
-        Debug("Status reported successfully\r\n");
-    }
-    else
-    {
-        Debug("Status report failed: " + String(httpResponseCode) + "\r\n");
-    }
+        HTTPClient http;
+        http.begin(STATUS_URL);
+        http.setTimeout(10000); // 10 second timeout
+        http.addHeader("Content-Type", "application/json");
+        http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
 
-    http.end();
+        DynamicJsonDocument doc(1024);
+        doc["deviceId"] = DEVICE_ID;
+
+        JsonObject statusObj = doc.createNestedObject("status");
+        statusObj["status"] = status;
+        statusObj["batteryVoltage"] = batteryVoltage;
+        statusObj["signalStrength"] = signalStrength;
+        statusObj["firmwareVersion"] = FIRMWARE_VERSION;
+        statusObj["bootCount"] = bootCount;
+        statusObj["freeHeap"] = ESP.getFreeHeap();
+
+        String jsonString;
+        serializeJson(doc, jsonString);
+
+        int httpResponseCode = http.POST(jsonString);
+
+        if (httpResponseCode == 200)
+        {
+            Debug("Status reported successfully\r\n");
+            http.end();
+            return;
+        }
+        else
+        {
+            Debug("Status report failed (attempt " + String(retry + 1) + "): " + String(httpResponseCode) + "\r\n");
+        }
+
+        http.end();
+        
+        if (retry < 2) {
+            delay(1000 * (retry + 1)); // Progressive delay: 1s, 2s
+        }
+    }
+    
+    Debug("Status report failed after 3 attempts\r\n");
 }
 
 void sendLogToServer(const char *message, const char *level)
@@ -373,7 +444,9 @@ void sendLogToServer(const char *message, const char *level)
 
     HTTPClient http;
     http.begin(API_BASE_URL "logs");
+    http.setTimeout(5000); // 5 second timeout for logs
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
 
     DynamicJsonDocument doc(1024);
     doc["deviceId"] = DEVICE_ID;
@@ -384,7 +457,13 @@ void sendLogToServer(const char *message, const char *level)
     String jsonString;
     serializeJson(doc, jsonString);
 
-    http.POST(jsonString);
+    int httpResponseCode = http.POST(jsonString);
+    
+    if (httpResponseCode != 200 && httpResponseCode != 201)
+    {
+        Debug("Log send failed: " + String(httpResponseCode) + "\r\n");
+    }
+
     http.end();
 }
 
@@ -409,4 +488,108 @@ void enterDeepSleep(uint64_t sleepTime)
 
     // Enter deep sleep
     esp_deep_sleep_start();
+}
+
+bool checkForCommands()
+{
+    Debug("Checking for pending commands...\r\n");
+
+    HTTPClient http;
+    http.begin(API_BASE_URL "commands/" DEVICE_ID);
+    http.setTimeout(10000); // 10 second timeout
+
+    int httpResponseCode = http.GET();
+    bool shouldStayAwake = false;
+
+    if (httpResponseCode == 200)
+    {
+        String payload = http.getString();
+        Debug("Commands response received\r\n");
+
+        // Parse JSON response
+        DynamicJsonDocument doc(4096);
+        DeserializationError error = deserializeJson(doc, payload);
+
+        if (!error)
+        {
+            JsonArray commands = doc["commands"];
+            
+            if (commands.size() > 0)
+            {
+                Debug("Found " + String(commands.size()) + " pending commands\r\n");
+                
+                for (JsonObject command : commands)
+                {
+                    String cmd = command["command"];
+                    unsigned long duration = command["duration"];
+                    
+                    Debug("Processing command: " + cmd + "\r\n");
+                    processCommand(cmd, duration);
+                    
+                    // If any command is "stay_awake", we should stay awake
+                    if (cmd == "stay_awake")
+                    {
+                        shouldStayAwake = true;
+                    }
+                }
+            }
+            else
+            {
+                Debug("No pending commands\r\n");
+            }
+        }
+        else
+        {
+            Debug("JSON parsing error: " + String(error.c_str()) + "\r\n");
+        }
+    }
+    else if (httpResponseCode == 404)
+    {
+        Debug("No commands found for device\r\n");
+    }
+    else
+    {
+        Debug("Commands check failed: " + String(httpResponseCode) + "\r\n");
+    }
+
+    http.end();
+    return shouldStayAwake;
+}
+
+void processCommand(const String &command, unsigned long duration)
+{
+    Debug("Processing command: " + command + " (duration: " + String(duration) + "ms)\r\n");
+    
+    if (command == "stay_awake")
+    {
+        sendLogToServer(("Stay awake command received - duration: " + String(duration/1000) + "s").c_str());
+        // The stay awake logic is handled in the main loop
+    }
+    else if (command == "update_now" || command == "force_update")
+    {
+        sendLogToServer("Force update command received - refreshing display");
+        
+        // Re-initialize display if needed
+        EPD_13IN3E_Init();
+        delay(1000);
+        
+        // Force fetch current image
+        bool updated = fetchCurrentImage();
+        
+        if (updated)
+        {
+            sendLogToServer("Forced display update completed successfully");
+        }
+        else
+        {
+            sendLogToServer("Forced display update completed (no changes)", "WARN");
+        }
+        
+        // Power down display
+        EPD_13IN3E_Sleep();
+    }
+    else
+    {
+        sendLogToServer(("Unknown command received: " + command).c_str(), "WARN");
+    }
 }
