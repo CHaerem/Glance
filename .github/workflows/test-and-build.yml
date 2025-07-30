@@ -101,7 +101,7 @@ jobs:
 
     - name: Deploy to serverpi
       run: |
-        tailscale ssh chris@serverpi \
+        tailscale ssh chris@serverpi-1 \
           'cd ~/glance && IMAGE_VERSION=${{ github.sha }} docker compose pull && IMAGE_VERSION=${{ github.sha }} docker compose up -d'
 
   security-scan:
