@@ -55,8 +55,7 @@ const EINK_PALETTE = [
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-	destination: async (req, file, cb) => {
-		await ensureDir(UPLOAD_DIR);
+	destination: (req, file, cb) => {
 		cb(null, UPLOAD_DIR);
 	},
 	filename: (req, file, cb) => {
@@ -490,6 +489,17 @@ app.post(
 			res.json({ success: true, current });
 		} catch (error) {
 			console.error("Error processing upload:", error);
+			console.error("Error stack:", error.stack);
+			
+			// Clean up uploaded file on error
+			if (req.file?.path) {
+				try {
+					await fs.unlink(req.file.path);
+				} catch (cleanupError) {
+					console.error("Error cleaning up file:", cleanupError);
+				}
+			}
+			
 			res
 				.status(500)
 				.json({ error: "Error processing upload: " + error.message });
@@ -1286,10 +1296,11 @@ app.get("/", (req, res) => {
 // Start server
 async function startServer() {
 	await ensureDataDir();
+	await ensureDir(UPLOAD_DIR);
 
 	app.listen(PORT, "0.0.0.0", () => {
 		console.log(`Glance server running on port ${PORT}`);
-                console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE_HUMAN})`);
+		console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE_HUMAN})`);
 		console.log(`Access the web interface at http://localhost:${PORT}`);
 		console.log(
 			`API endpoint for ESP32: http://localhost:${PORT}/api/current.json`
