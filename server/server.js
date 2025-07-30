@@ -1,642 +1,700 @@
-const express = require('express');
-const cors = require('cors');
-const fs = require('fs').promises;
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const multer = require('multer');
-const sharp = require('sharp');
-const rateLimit = require('express-rate-limit');
+const express = require("express");
+const cors = require("cors");
+const fs = require("fs").promises;
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
+const multer = require("multer");
+const sharp = require("sharp");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const IMAGE_VERSION = process.env.IMAGE_VERSION || 'local';
-const BUILD_DATE = process.env.BUILD_DATE || 'unknown';
-const DATA_DIR = path.join(__dirname, 'data');
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
+const IMAGE_VERSION = process.env.IMAGE_VERSION || "local";
+const BUILD_DATE = process.env.BUILD_DATE || "unknown";
+const DATA_DIR = path.join(__dirname, "data");
+const UPLOAD_DIR = path.join(__dirname, "uploads");
 
 // E-ink color palette for Waveshare 13.3" Spectra 6 (as per EPD_13in3e.h)
 const EINK_PALETTE = [
-    { rgb: [0, 0, 0], index: 0x0 },         // Black
-    { rgb: [255, 255, 255], index: 0x1 },   // White  
-    { rgb: [255, 255, 0], index: 0x2 },     // Yellow
-    { rgb: [255, 0, 0], index: 0x3 },       // Red
-    { rgb: [0, 0, 255], index: 0x5 },       // Blue
-    { rgb: [0, 255, 0], index: 0x6 }        // Green
+	{ rgb: [0, 0, 0], index: 0x0 }, // Black
+	{ rgb: [255, 255, 255], index: 0x1 }, // White
+	{ rgb: [255, 255, 0], index: 0x2 }, // Yellow
+	{ rgb: [255, 0, 0], index: 0x3 }, // Red
+	{ rgb: [0, 0, 255], index: 0x5 }, // Blue
+	{ rgb: [0, 255, 0], index: 0x6 }, // Green
 ];
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-    destination: async (req, file, cb) => {
-        await ensureDir(UPLOAD_DIR);
-        cb(null, UPLOAD_DIR);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
+	destination: async (req, file, cb) => {
+		await ensureDir(UPLOAD_DIR);
+		cb(null, UPLOAD_DIR);
+	},
+	filename: (req, file, cb) => {
+		const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+		cb(null, uniqueSuffix + path.extname(file.originalname));
+	},
 });
 
-const upload = multer({ 
-    storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif|bmp|webp/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
-        
-        if (mimetype && extname) {
-            return cb(null, true);
-        } else {
-            cb(new Error('Only image files are allowed!'));
-        }
-    }
+const upload = multer({
+	storage: storage,
+	limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+	fileFilter: (req, file, cb) => {
+		const allowedTypes = /jpeg|jpg|png|gif|bmp|webp/;
+		const extname = allowedTypes.test(
+			path.extname(file.originalname).toLowerCase()
+		);
+		const mimetype = allowedTypes.test(file.mimetype);
+
+		if (mimetype && extname) {
+			return cb(null, true);
+		} else {
+			cb(new Error("Only image files are allowed!"));
+		}
+	},
 });
 
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 100, // limit each IP to 100 requests per windowMs
+	message: "Too many requests from this IP, please try again later.",
 });
 
 const uploadLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // limit uploads to 10 per 15 minutes
-    message: 'Too many uploads, please try again later.'
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 10, // limit uploads to 10 per 15 minutes
+	message: "Too many uploads, please try again later.",
 });
 
 // Middleware
 app.use(cors());
 app.use(limiter);
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static('public'));
-app.use('/uploads', express.static(UPLOAD_DIR));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.static("public"));
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 // Ensure data directory exists
 async function ensureDataDir() {
-    try {
-        await fs.access(DATA_DIR);
-    } catch {
-        await fs.mkdir(DATA_DIR, { recursive: true });
-    }
+	try {
+		await fs.access(DATA_DIR);
+	} catch {
+		await fs.mkdir(DATA_DIR, { recursive: true });
+	}
 }
 
 // Ensure directory exists
 async function ensureDir(dir) {
-    try {
-        await fs.access(dir);
-    } catch {
-        await fs.mkdir(dir, { recursive: true });
-    }
+	try {
+		await fs.access(dir);
+	} catch {
+		await fs.mkdir(dir, { recursive: true });
+	}
 }
 
 // Image processing functions
 function findClosestColor(rgb) {
-    let minDistance = Infinity;
-    let closestColor = EINK_PALETTE[1]; // Default to white
-    
-    for (const color of EINK_PALETTE) {
-        const [r, g, b] = color.rgb;
-        const distance = Math.sqrt(
-            Math.pow(rgb[0] - r, 2) +
-            Math.pow(rgb[1] - g, 2) +
-            Math.pow(rgb[2] - b, 2)
-        );
-        
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestColor = color;
-        }
-    }
-    
-    return closestColor;
+	let minDistance = Infinity;
+	let closestColor = EINK_PALETTE[1]; // Default to white
+
+	for (const color of EINK_PALETTE) {
+		const [r, g, b] = color.rgb;
+		const distance = Math.sqrt(
+			Math.pow(rgb[0] - r, 2) +
+				Math.pow(rgb[1] - g, 2) +
+				Math.pow(rgb[2] - b, 2)
+		);
+
+		if (distance < minDistance) {
+			minDistance = distance;
+			closestColor = color;
+		}
+	}
+
+	return closestColor;
 }
 
 // Floyd-Steinberg dithering for better color conversion
 function applyFloydSteinbergDithering(imageData, width, height) {
-    const ditheredData = new Uint8ClampedArray(imageData);
-    
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const idx = (y * width + x) * 3;
-            const oldR = ditheredData[idx];
-            const oldG = ditheredData[idx + 1];
-            const oldB = ditheredData[idx + 2];
-            
-            // Find closest color
-            const closestColor = findClosestColor([oldR, oldG, oldB]);
-            const [newR, newG, newB] = closestColor.rgb;
-            
-            // Set new color
-            ditheredData[idx] = newR;
-            ditheredData[idx + 1] = newG;
-            ditheredData[idx + 2] = newB;
-            
-            // Calculate error
-            const errR = oldR - newR;
-            const errG = oldG - newG;
-            const errB = oldB - newB;
-            
-            // Distribute error to neighboring pixels
-            const distributeError = (dx, dy, factor) => {
-                const nx = x + dx;
-                const ny = y + dy;
-                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                    const nIdx = (ny * width + nx) * 3;
-                    ditheredData[nIdx] = Math.max(0, Math.min(255, ditheredData[nIdx] + errR * factor));
-                    ditheredData[nIdx + 1] = Math.max(0, Math.min(255, ditheredData[nIdx + 1] + errG * factor));
-                    ditheredData[nIdx + 2] = Math.max(0, Math.min(255, ditheredData[nIdx + 2] + errB * factor));
-                }
-            };
-            
-            // Floyd-Steinberg error distribution
-            distributeError(1, 0, 7/16);  // Right
-            distributeError(-1, 1, 3/16); // Below-left
-            distributeError(0, 1, 5/16);  // Below  
-            distributeError(1, 1, 1/16);  // Below-right
-        }
-    }
-    
-    return ditheredData;
+	const ditheredData = new Uint8ClampedArray(imageData);
+
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const idx = (y * width + x) * 3;
+			const oldR = ditheredData[idx];
+			const oldG = ditheredData[idx + 1];
+			const oldB = ditheredData[idx + 2];
+
+			// Find closest color
+			const closestColor = findClosestColor([oldR, oldG, oldB]);
+			const [newR, newG, newB] = closestColor.rgb;
+
+			// Set new color
+			ditheredData[idx] = newR;
+			ditheredData[idx + 1] = newG;
+			ditheredData[idx + 2] = newB;
+
+			// Calculate error
+			const errR = oldR - newR;
+			const errG = oldG - newG;
+			const errB = oldB - newB;
+
+			// Distribute error to neighboring pixels
+			const distributeError = (dx, dy, factor) => {
+				const nx = x + dx;
+				const ny = y + dy;
+				if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+					const nIdx = (ny * width + nx) * 3;
+					ditheredData[nIdx] = Math.max(
+						0,
+						Math.min(255, ditheredData[nIdx] + errR * factor)
+					);
+					ditheredData[nIdx + 1] = Math.max(
+						0,
+						Math.min(255, ditheredData[nIdx + 1] + errG * factor)
+					);
+					ditheredData[nIdx + 2] = Math.max(
+						0,
+						Math.min(255, ditheredData[nIdx + 2] + errB * factor)
+					);
+				}
+			};
+
+			// Floyd-Steinberg error distribution
+			distributeError(1, 0, 7 / 16); // Right
+			distributeError(-1, 1, 3 / 16); // Below-left
+			distributeError(0, 1, 5 / 16); // Below
+			distributeError(1, 1, 1 / 16); // Below-right
+		}
+	}
+
+	return ditheredData;
 }
 
-async function convertImageToEink(imagePath, targetWidth = 1150, targetHeight = 1550) {
-    try {
-        // Load and process image with Sharp
-        const imageBuffer = await sharp(imagePath)
-            .resize(targetWidth, targetHeight, {
-                fit: 'contain',
-                background: { r: 255, g: 255, b: 255, alpha: 1 }
-            })
-            .raw()
-            .toBuffer();
-        
-        // Apply Floyd-Steinberg dithering for better color conversion
-        console.log('Applying Floyd-Steinberg dithering...');
-        const ditheredBuffer = applyFloydSteinbergDithering(imageBuffer, targetWidth, targetHeight);
-        
-        // Convert dithered image to e-ink format
-        const pixels = [];
-        for (let i = 0; i < ditheredBuffer.length; i += 3) {
-            const rgb = [ditheredBuffer[i], ditheredBuffer[i + 1], ditheredBuffer[i + 2]];
-            const closestColor = findClosestColor(rgb);
-            pixels.push(closestColor.index);
-        }
-        
-        console.log(`Converted ${pixels.length} pixels to e-ink format`);
-        return Buffer.from(pixels);
-    } catch (error) {
-        console.error('Error converting image:', error);
-        throw error;
-    }
+async function convertImageToEink(
+	imagePath,
+	targetWidth = 1150,
+	targetHeight = 1550
+) {
+	try {
+		// Load and process image with Sharp
+		const imageBuffer = await sharp(imagePath)
+			.resize(targetWidth, targetHeight, {
+				fit: "contain",
+				background: { r: 255, g: 255, b: 255, alpha: 1 },
+			})
+			.raw()
+			.toBuffer();
+
+		// Apply Floyd-Steinberg dithering for better color conversion
+		console.log("Applying Floyd-Steinberg dithering...");
+		const ditheredBuffer = applyFloydSteinbergDithering(
+			imageBuffer,
+			targetWidth,
+			targetHeight
+		);
+
+		// Convert dithered image to e-ink format
+		const pixels = [];
+		for (let i = 0; i < ditheredBuffer.length; i += 3) {
+			const rgb = [
+				ditheredBuffer[i],
+				ditheredBuffer[i + 1],
+				ditheredBuffer[i + 2],
+			];
+			const closestColor = findClosestColor(rgb);
+			pixels.push(closestColor.index);
+		}
+
+		console.log(`Converted ${pixels.length} pixels to e-ink format`);
+		return Buffer.from(pixels);
+	} catch (error) {
+		console.error("Error converting image:", error);
+		throw error;
+	}
 }
 
 async function createTextImage(text, targetWidth = 1150, targetHeight = 1550) {
-    try {
-        // Create SVG text
-        const svg = `
+	try {
+		// Create SVG text
+		const svg = `
             <svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
                 <rect width="100%" height="100%" fill="white"/>
                 <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="60" text-anchor="middle" 
                       dominant-baseline="middle" fill="black">${text}</text>
             </svg>
         `;
-        
-        const imageBuffer = await sharp(Buffer.from(svg))
-            .resize(targetWidth, targetHeight)
-            .raw()
-            .toBuffer();
-        
-        // Apply Floyd-Steinberg dithering for better color conversion
-        const ditheredBuffer = applyFloydSteinbergDithering(imageBuffer, targetWidth, targetHeight);
-        
-        // Convert to e-ink format
-        const pixels = [];
-        for (let i = 0; i < ditheredBuffer.length; i += 3) {
-            const rgb = [ditheredBuffer[i], ditheredBuffer[i + 1], ditheredBuffer[i + 2]];
-            const closestColor = findClosestColor(rgb);
-            pixels.push(closestColor.index);
-        }
-        
-        return Buffer.from(pixels);
-    } catch (error) {
-        console.error('Error creating text image:', error);
-        throw error;
-    }
+
+		const imageBuffer = await sharp(Buffer.from(svg))
+			.resize(targetWidth, targetHeight)
+			.raw()
+			.toBuffer();
+
+		// Apply Floyd-Steinberg dithering for better color conversion
+		const ditheredBuffer = applyFloydSteinbergDithering(
+			imageBuffer,
+			targetWidth,
+			targetHeight
+		);
+
+		// Convert to e-ink format
+		const pixels = [];
+		for (let i = 0; i < ditheredBuffer.length; i += 3) {
+			const rgb = [
+				ditheredBuffer[i],
+				ditheredBuffer[i + 1],
+				ditheredBuffer[i + 2],
+			];
+			const closestColor = findClosestColor(rgb);
+			pixels.push(closestColor.index);
+		}
+
+		return Buffer.from(pixels);
+	} catch (error) {
+		console.error("Error creating text image:", error);
+		throw error;
+	}
 }
 
 // Input validation helpers
 function validateDeviceId(deviceId) {
-    return typeof deviceId === 'string' && deviceId.length > 0 && deviceId.length < 100;
+	return (
+		typeof deviceId === "string" && deviceId.length > 0 && deviceId.length < 100
+	);
 }
 
 function validateImageData(imageData) {
-    return typeof imageData === 'string' && imageData.length < 10 * 1024 * 1024; // 10MB limit
+	return typeof imageData === "string" && imageData.length < 10 * 1024 * 1024; // 10MB limit
 }
 
 function sanitizeInput(input) {
-    if (typeof input !== 'string') return '';
-    return input.replace(/[<>]/g, '').trim().substring(0, 1000);
+	if (typeof input !== "string") return "";
+	return input.replace(/[<>]/g, "").trim().substring(0, 1000);
 }
 
 // Helper functions
 async function readJSONFile(filename) {
-    try {
-        await ensureDataDir();
-        const data = await fs.readFile(path.join(DATA_DIR, filename), 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        console.error(`Error reading ${filename}:`, error.message);
-        return null;
-    }
+	try {
+		await ensureDataDir();
+		const data = await fs.readFile(path.join(DATA_DIR, filename), "utf8");
+		return JSON.parse(data);
+	} catch (error) {
+		console.error(`Error reading ${filename}:`, error.message);
+		return null;
+	}
 }
 
 async function writeJSONFile(filename, data) {
-    try {
-        await ensureDataDir();
-        await fs.writeFile(path.join(DATA_DIR, filename), JSON.stringify(data, null, 2));
-    } catch (error) {
-        console.error(`Error writing ${filename}:`, error.message);
-        throw error;
-    }
+	try {
+		await ensureDataDir();
+		await fs.writeFile(
+			path.join(DATA_DIR, filename),
+			JSON.stringify(data, null, 2)
+		);
+	} catch (error) {
+		console.error(`Error writing ${filename}:`, error.message);
+		throw error;
+	}
 }
 
 // API Routes
 
 // Get current image/schedule for ESP32
-app.get('/api/current.json', async (req, res) => {
-    try {
-        const current = await readJSONFile('current.json') || {
-            title: 'Glance Display',
-            image: '',
-            imageId: '',
-            timestamp: Date.now(),
-            sleepDuration: 3600000000 // 1 hour in microseconds
-        };
-        
-        res.json(current);
-    } catch (error) {
-        console.error('Error getting current:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.get("/api/current.json", async (req, res) => {
+	try {
+		const current = (await readJSONFile("current.json")) || {
+			title: "Glance Display",
+			image: "",
+			imageId: "",
+			timestamp: Date.now(),
+			sleepDuration: 3600000000, // 1 hour in microseconds
+		};
+
+		res.json(current);
+	} catch (error) {
+		console.error("Error getting current:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Update current image (for web interface or manual updates)
-app.post('/api/current', async (req, res) => {
-    try {
-        const { title, image, sleepDuration, isText } = req.body;
-        
-        // Input validation
-        const sanitizedTitle = sanitizeInput(title);
-        const sleepMs = parseInt(sleepDuration) || 3600000000;
-        
-        if (image && !validateImageData(image)) {
-            return res.status(400).json({ error: 'Invalid image data' });
-        }
-        
-        let imageData = '';
-        
-        if (image) {
-            if (isText) {
-                // Convert text to e-ink image
-                const sanitizedText = sanitizeInput(image);
-                const textImageBuffer = await createTextImage(sanitizedText);
-                imageData = textImageBuffer.toString('base64');
-            } else if (image.startsWith('data:image/')) {
-                // Handle base64 image upload from web interface
-                const base64Data = image.split(',')[1];
-                const imageBuffer = Buffer.from(base64Data, 'base64');
-                
-                // Save temporary file
-                const tempPath = path.join(UPLOAD_DIR, 'temp-' + Date.now() + '.png');
-                await ensureDir(UPLOAD_DIR);
-                await fs.writeFile(tempPath, imageBuffer);
-                
-                // Convert to e-ink format
-                const einkBuffer = await convertImageToEink(tempPath);
-                imageData = einkBuffer.toString('base64');
-                
-                // Clean up temp file
-                await fs.unlink(tempPath);
-            } else {
-                // Assume it's already processed base64 data
-                imageData = image;
-            }
-        }
-        
-        const current = {
-            title: sanitizedTitle || 'Glance Display',
-            image: imageData,
-            imageId: imageData ? uuidv4() : '',
-            timestamp: Date.now(),
-            sleepDuration: sleepMs
-        };
-        
-        await writeJSONFile('current.json', current);
-        
-        // Log the update
-        console.log(`Image updated: ${sanitizedTitle} (${current.imageId})`);
-        
-        res.json({ success: true, current });
-    } catch (error) {
-        console.error('Error updating current:', error);
-        res.status(500).json({ error: 'Internal server error: ' + error.message });
-    }
+app.post("/api/current", async (req, res) => {
+	try {
+		const { title, image, sleepDuration, isText } = req.body;
+
+		// Input validation
+		const sanitizedTitle = sanitizeInput(title);
+		const sleepMs = parseInt(sleepDuration) || 3600000000;
+
+		if (image && !validateImageData(image)) {
+			return res.status(400).json({ error: "Invalid image data" });
+		}
+
+		let imageData = "";
+
+		if (image) {
+			if (isText) {
+				// Convert text to e-ink image
+				const sanitizedText = sanitizeInput(image);
+				const textImageBuffer = await createTextImage(sanitizedText);
+				imageData = textImageBuffer.toString("base64");
+			} else if (image.startsWith("data:image/")) {
+				// Handle base64 image upload from web interface
+				const base64Data = image.split(",")[1];
+				const imageBuffer = Buffer.from(base64Data, "base64");
+
+				// Save temporary file
+				const tempPath = path.join(UPLOAD_DIR, "temp-" + Date.now() + ".png");
+				await ensureDir(UPLOAD_DIR);
+				await fs.writeFile(tempPath, imageBuffer);
+
+				// Convert to e-ink format
+				const einkBuffer = await convertImageToEink(tempPath);
+				imageData = einkBuffer.toString("base64");
+
+				// Clean up temp file
+				await fs.unlink(tempPath);
+			} else {
+				// Assume it's already processed base64 data
+				imageData = image;
+			}
+		}
+
+		const current = {
+			title: sanitizedTitle || "Glance Display",
+			image: imageData,
+			imageId: imageData ? uuidv4() : "",
+			timestamp: Date.now(),
+			sleepDuration: sleepMs,
+		};
+
+		await writeJSONFile("current.json", current);
+
+		// Log the update
+		console.log(`Image updated: ${sanitizedTitle} (${current.imageId})`);
+
+		res.json({ success: true, current });
+	} catch (error) {
+		console.error("Error updating current:", error);
+		res.status(500).json({ error: "Internal server error: " + error.message });
+	}
 });
 
 // Image preview endpoint
-app.post('/api/preview', upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-        
-        // Generate preview (standard RGB image)
-        const previewBuffer = await sharp(req.file.path)
-            .resize(575, 775, { // Half size for web preview
-                fit: 'contain',
-                background: { r: 255, g: 255, b: 255, alpha: 1 }
-            })
-            .png()
-            .toBuffer();
-        
-        // Convert to e-ink format for size estimation
-        const einkBuffer = await convertImageToEink(req.file.path);
-        
-        // Clean up uploaded file
-        await fs.unlink(req.file.path);
-        
-        res.json({
-            success: true,
-            preview: `data:image/png;base64,${previewBuffer.toString('base64')}`,
-            einkSize: Math.round(einkBuffer.length / 1024), // Size in KB
-            originalName: req.file.originalname
-        });
-    } catch (error) {
-        console.error('Error generating preview:', error);
-        if (req.file?.path) {
-            try { await fs.unlink(req.file.path); } catch {}
-        }
-        res.status(500).json({ error: 'Error generating preview: ' + error.message });
-    }
+app.post("/api/preview", upload.single("image"), async (req, res) => {
+	try {
+		if (!req.file) {
+			return res.status(400).json({ error: "No file uploaded" });
+		}
+
+		// Generate preview (standard RGB image)
+		const previewBuffer = await sharp(req.file.path)
+			.resize(575, 775, {
+				// Half size for web preview
+				fit: "contain",
+				background: { r: 255, g: 255, b: 255, alpha: 1 },
+			})
+			.png()
+			.toBuffer();
+
+		// Convert to e-ink format for size estimation
+		const einkBuffer = await convertImageToEink(req.file.path);
+
+		// Clean up uploaded file
+		await fs.unlink(req.file.path);
+
+		res.json({
+			success: true,
+			preview: `data:image/png;base64,${previewBuffer.toString("base64")}`,
+			einkSize: Math.round(einkBuffer.length / 1024), // Size in KB
+			originalName: req.file.originalname,
+		});
+	} catch (error) {
+		console.error("Error generating preview:", error);
+		if (req.file?.path) {
+			try {
+				await fs.unlink(req.file.path);
+			} catch {}
+		}
+		res
+			.status(500)
+			.json({ error: "Error generating preview: " + error.message });
+	}
 });
 
 // File upload endpoint
-app.post('/api/upload', uploadLimiter, upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
-        }
-        
-        const { title, sleepDuration } = req.body;
-        
-        // Input validation
-        const sanitizedTitle = sanitizeInput(title);
-        const sleepMs = parseInt(sleepDuration) || 3600000000;
-        
-        // Convert uploaded image to e-ink format
-        const einkBuffer = await convertImageToEink(req.file.path);
-        const imageData = einkBuffer.toString('base64');
-        
-        const current = {
-            title: sanitizedTitle || `Uploaded: ${req.file.originalname}`,
-            image: imageData,
-            imageId: uuidv4(),
-            timestamp: Date.now(),
-            sleepDuration: sleepMs
-        };
-        
-        await writeJSONFile('current.json', current);
-        
-        // Clean up uploaded file
-        await fs.unlink(req.file.path);
-        
-        console.log(`File uploaded and processed: ${req.file.originalname}`);
-        
-        res.json({ success: true, current });
-    } catch (error) {
-        console.error('Error processing upload:', error);
-        res.status(500).json({ error: 'Error processing upload: ' + error.message });
-    }
-});
+app.post(
+	"/api/upload",
+	uploadLimiter,
+	upload.single("image"),
+	async (req, res) => {
+		try {
+			if (!req.file) {
+				return res.status(400).json({ error: "No file uploaded" });
+			}
+
+			const { title, sleepDuration } = req.body;
+
+			// Input validation
+			const sanitizedTitle = sanitizeInput(title);
+			const sleepMs = parseInt(sleepDuration) || 3600000000;
+
+			// Convert uploaded image to e-ink format
+			const einkBuffer = await convertImageToEink(req.file.path);
+			const imageData = einkBuffer.toString("base64");
+
+			const current = {
+				title: sanitizedTitle || `Uploaded: ${req.file.originalname}`,
+				image: imageData,
+				imageId: uuidv4(),
+				timestamp: Date.now(),
+				sleepDuration: sleepMs,
+			};
+
+			await writeJSONFile("current.json", current);
+
+			// Clean up uploaded file
+			await fs.unlink(req.file.path);
+
+			console.log(`File uploaded and processed: ${req.file.originalname}`);
+
+			res.json({ success: true, current });
+		} catch (error) {
+			console.error("Error processing upload:", error);
+			res
+				.status(500)
+				.json({ error: "Error processing upload: " + error.message });
+		}
+	}
+);
 
 // Device status reporting (replaces GitHub Actions)
-app.post('/api/device-status', async (req, res) => {
-    try {
-        const { deviceId, status } = req.body;
-        
-        if (!validateDeviceId(deviceId) || !status || typeof status !== 'object') {
-            return res.status(400).json({ error: 'Valid deviceId and status object required' });
-        }
-        
-        // Load existing devices
-        const devices = await readJSONFile('devices.json') || {};
-        
-        // Update device status with sanitized data
-        devices[deviceId] = {
-            batteryVoltage: parseFloat(status.batteryVoltage) || 0,
-            signalStrength: parseInt(status.signalStrength) || 0,
-            freeHeap: parseInt(status.freeHeap) || 0,
-            bootCount: parseInt(status.bootCount) || 0,
-            status: sanitizeInput(status.status) || 'unknown',
-            lastSeen: Date.now(),
-            deviceId: sanitizeInput(deviceId)
-        };
-        
-        await writeJSONFile('devices.json', devices);
-        
-        console.log(`Device status updated: ${deviceId} - Battery: ${status.batteryVoltage}V, Signal: ${status.signalStrength}dBm`);
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error updating device status:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.post("/api/device-status", async (req, res) => {
+	try {
+		const { deviceId, status } = req.body;
+
+		if (!validateDeviceId(deviceId) || !status || typeof status !== "object") {
+			return res
+				.status(400)
+				.json({ error: "Valid deviceId and status object required" });
+		}
+
+		// Load existing devices
+		const devices = (await readJSONFile("devices.json")) || {};
+
+		// Update device status with sanitized data
+		devices[deviceId] = {
+			batteryVoltage: parseFloat(status.batteryVoltage) || 0,
+			signalStrength: parseInt(status.signalStrength) || 0,
+			freeHeap: parseInt(status.freeHeap) || 0,
+			bootCount: parseInt(status.bootCount) || 0,
+			status: sanitizeInput(status.status) || "unknown",
+			lastSeen: Date.now(),
+			deviceId: sanitizeInput(deviceId),
+		};
+
+		await writeJSONFile("devices.json", devices);
+
+		console.log(
+			`Device status updated: ${deviceId} - Battery: ${status.batteryVoltage}V, Signal: ${status.signalStrength}dBm`
+		);
+
+		res.json({ success: true });
+	} catch (error) {
+		console.error("Error updating device status:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Send command to device (only works when device is awake and polling)
-app.post('/api/device-command/:deviceId', async (req, res) => {
-    try {
-        const { deviceId } = req.params;
-        const { command, duration } = req.body;
-        
-        if (!validateDeviceId(deviceId)) {
-            return res.status(400).json({ error: 'Valid deviceId required' });
-        }
-        
-        const validCommands = ['stay_awake', 'force_update', 'update_now'];
-        if (!validCommands.includes(command)) {
-            return res.status(400).json({ error: 'Invalid command. Valid commands: ' + validCommands.join(', ') });
-        }
-        
-        // Load existing devices to check if device exists
-        const devices = await readJSONFile('devices.json') || {};
-        
-        if (!devices[deviceId]) {
-            return res.status(404).json({ error: 'Device not found' });
-        }
-        
-        // Check if device was seen recently (within 5 minutes)
-        const isRecentlyActive = Date.now() - devices[deviceId].lastSeen < 300000;
-        
-        // Create command
-        const deviceCommand = {
-            command,
-            duration: parseInt(duration) || 300000, // Default 5 minutes
-            timestamp: Date.now(),
-            deviceId: sanitizeInput(deviceId)
-        };
-        
-        // Store command for device to pick up
-        let commands = await readJSONFile('commands.json') || {};
-        if (!commands[deviceId]) {
-            commands[deviceId] = [];
-        }
-        
-        commands[deviceId].push(deviceCommand);
-        
-        // Keep only last 10 commands per device
-        if (commands[deviceId].length > 10) {
-            commands[deviceId] = commands[deviceId].slice(-10);
-        }
-        
-        await writeJSONFile('commands.json', commands);
-        
-        console.log(`Command '${command}' sent to device: ${deviceId}`);
-        
-        const message = isRecentlyActive 
-            ? `Command sent to ${deviceId}` 
-            : `Command queued for ${deviceId} (device currently asleep - will execute on next wake)`;
-        
-        res.json({ 
-            success: true, 
-            message,
-            isRecentlyActive,
-            lastSeen: devices[deviceId].lastSeen
-        });
-    } catch (error) {
-        console.error('Error sending device command:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.post("/api/device-command/:deviceId", async (req, res) => {
+	try {
+		const { deviceId } = req.params;
+		const { command, duration } = req.body;
+
+		if (!validateDeviceId(deviceId)) {
+			return res.status(400).json({ error: "Valid deviceId required" });
+		}
+
+		const validCommands = ["stay_awake", "force_update", "update_now"];
+		if (!validCommands.includes(command)) {
+			return res
+				.status(400)
+				.json({
+					error: "Invalid command. Valid commands: " + validCommands.join(", "),
+				});
+		}
+
+		// Load existing devices to check if device exists
+		const devices = (await readJSONFile("devices.json")) || {};
+
+		if (!devices[deviceId]) {
+			return res.status(404).json({ error: "Device not found" });
+		}
+
+		// Check if device was seen recently (within 5 minutes)
+		const isRecentlyActive = Date.now() - devices[deviceId].lastSeen < 300000;
+
+		// Create command
+		const deviceCommand = {
+			command,
+			duration: parseInt(duration) || 300000, // Default 5 minutes
+			timestamp: Date.now(),
+			deviceId: sanitizeInput(deviceId),
+		};
+
+		// Store command for device to pick up
+		let commands = (await readJSONFile("commands.json")) || {};
+		if (!commands[deviceId]) {
+			commands[deviceId] = [];
+		}
+
+		commands[deviceId].push(deviceCommand);
+
+		// Keep only last 10 commands per device
+		if (commands[deviceId].length > 10) {
+			commands[deviceId] = commands[deviceId].slice(-10);
+		}
+
+		await writeJSONFile("commands.json", commands);
+
+		console.log(`Command '${command}' sent to device: ${deviceId}`);
+
+		const message = isRecentlyActive
+			? `Command sent to ${deviceId}`
+			: `Command queued for ${deviceId} (device currently asleep - will execute on next wake)`;
+
+		res.json({
+			success: true,
+			message,
+			isRecentlyActive,
+			lastSeen: devices[deviceId].lastSeen,
+		});
+	} catch (error) {
+		console.error("Error sending device command:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Get commands for device (ESP32 polls this)
-app.get('/api/commands/:deviceId', async (req, res) => {
-    try {
-        const { deviceId } = req.params;
-        
-        if (!validateDeviceId(deviceId)) {
-            return res.status(400).json({ error: 'Valid deviceId required' });
-        }
-        
-        const commands = await readJSONFile('commands.json') || {};
-        const deviceCommands = commands[deviceId] || [];
-        
-        // Clear commands after sending (one-time delivery)
-        if (deviceCommands.length > 0) {
-            commands[deviceId] = [];
-            await writeJSONFile('commands.json', commands);
-        }
-        
-        res.json({ commands: deviceCommands });
-    } catch (error) {
-        console.error('Error getting commands:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.get("/api/commands/:deviceId", async (req, res) => {
+	try {
+		const { deviceId } = req.params;
+
+		if (!validateDeviceId(deviceId)) {
+			return res.status(400).json({ error: "Valid deviceId required" });
+		}
+
+		const commands = (await readJSONFile("commands.json")) || {};
+		const deviceCommands = commands[deviceId] || [];
+
+		// Clear commands after sending (one-time delivery)
+		if (deviceCommands.length > 0) {
+			commands[deviceId] = [];
+			await writeJSONFile("commands.json", commands);
+		}
+
+		res.json({ commands: deviceCommands });
+	} catch (error) {
+		console.error("Error getting commands:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // ESP32 log reporting
-app.post('/api/logs', async (req, res) => {
-    try {
-        const { deviceId, logs, logLevel } = req.body;
-        
-        if (!validateDeviceId(deviceId) || !logs) {
-            return res.status(400).json({ error: 'Valid deviceId and logs required' });
-        }
-        
-        // Load existing logs
-        const allLogs = await readJSONFile('logs.json') || {};
-        
-        // Initialize device logs if not exists
-        if (!allLogs[deviceId]) {
-            allLogs[deviceId] = [];
-        }
-        
-        // Add new log entry with sanitized data
-        const logEntry = {
-            timestamp: Date.now(),
-            level: sanitizeInput(logLevel) || 'INFO',
-            message: sanitizeInput(logs),
-            deviceTime: parseInt(req.body.deviceTime) || Date.now()
-        };
-        
-        allLogs[deviceId].push(logEntry);
-        
-        // Keep only last 1000 log entries per device
-        if (allLogs[deviceId].length > 1000) {
-            allLogs[deviceId] = allLogs[deviceId].slice(-1000);
-        }
-        
-        await writeJSONFile('logs.json', allLogs);
-        
-        console.log(`Log received from ${deviceId}: ${logs}`);
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error storing logs:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.post("/api/logs", async (req, res) => {
+	try {
+		const { deviceId, logs, logLevel } = req.body;
+
+		if (!validateDeviceId(deviceId) || !logs) {
+			return res
+				.status(400)
+				.json({ error: "Valid deviceId and logs required" });
+		}
+
+		// Load existing logs
+		const allLogs = (await readJSONFile("logs.json")) || {};
+
+		// Initialize device logs if not exists
+		if (!allLogs[deviceId]) {
+			allLogs[deviceId] = [];
+		}
+
+		// Add new log entry with sanitized data
+		const logEntry = {
+			timestamp: Date.now(),
+			level: sanitizeInput(logLevel) || "INFO",
+			message: sanitizeInput(logs),
+			deviceTime: parseInt(req.body.deviceTime) || Date.now(),
+		};
+
+		allLogs[deviceId].push(logEntry);
+
+		// Keep only last 1000 log entries per device
+		if (allLogs[deviceId].length > 1000) {
+			allLogs[deviceId] = allLogs[deviceId].slice(-1000);
+		}
+
+		await writeJSONFile("logs.json", allLogs);
+
+		console.log(`Log received from ${deviceId}: ${logs}`);
+
+		res.json({ success: true });
+	} catch (error) {
+		console.error("Error storing logs:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Get logs for a device
-app.get('/api/logs/:deviceId', async (req, res) => {
-    try {
-        const { deviceId } = req.params;
-        const { limit = 100 } = req.query;
-        
-        const allLogs = await readJSONFile('logs.json') || {};
-        const deviceLogs = allLogs[deviceId] || [];
-        
-        // Return last N logs
-        const logs = deviceLogs.slice(-parseInt(limit));
-        
-        res.json({ deviceId, logs });
-    } catch (error) {
-        console.error('Error getting logs:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.get("/api/logs/:deviceId", async (req, res) => {
+	try {
+		const { deviceId } = req.params;
+		const { limit = 100 } = req.query;
+
+		const allLogs = (await readJSONFile("logs.json")) || {};
+		const deviceLogs = allLogs[deviceId] || [];
+
+		// Return last N logs
+		const logs = deviceLogs.slice(-parseInt(limit));
+
+		res.json({ deviceId, logs });
+	} catch (error) {
+		console.error("Error getting logs:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Get all logs
-app.get('/api/logs', async (req, res) => {
-    try {
-        const allLogs = await readJSONFile('logs.json') || {};
-        res.json(allLogs);
-    } catch (error) {
-        console.error('Error getting all logs:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.get("/api/logs", async (req, res) => {
+	try {
+		const allLogs = (await readJSONFile("logs.json")) || {};
+		res.json(allLogs);
+	} catch (error) {
+		console.error("Error getting all logs:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Get all devices (for monitoring dashboard)
-app.get('/api/devices', async (req, res) => {
-    try {
-        const devices = await readJSONFile('devices.json') || {};
-        res.json(devices);
-    } catch (error) {
-        console.error('Error getting devices:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
+app.get("/api/devices", async (req, res) => {
+	try {
+		const devices = (await readJSONFile("devices.json")) || {};
+		res.json(devices);
+	} catch (error) {
+		console.error("Error getting devices:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Health check
-app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', timestamp: Date.now() });
+app.get("/health", (req, res) => {
+	res.json({ status: "healthy", timestamp: Date.now() });
 });
 
 // Beautiful web interface
-app.get('/', (req, res) => {
-    res.send(`
+app.get("/", (req, res) => {
+	res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -733,7 +791,6 @@ app.get('/', (req, res) => {
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-display"></i> Glance E-Ink Display Server</h1>
-            <p>Manage your autonomous e-paper displays with ease</p>
             <p class="version">Docker Image: ${IMAGE_VERSION} (built ${BUILD_DATE})</p>
         </div>
         
@@ -1199,14 +1256,16 @@ app.get('/', (req, res) => {
 
 // Start server
 async function startServer() {
-    await ensureDataDir();
-    
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`Glance server running on port ${PORT}`);
-        console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE})`);
-        console.log(`Access the web interface at http://localhost:${PORT}`);
-        console.log(`API endpoint for ESP32: http://localhost:${PORT}/api/current.json`);
-    });
+	await ensureDataDir();
+
+	app.listen(PORT, "0.0.0.0", () => {
+		console.log(`Glance server running on port ${PORT}`);
+		console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE})`);
+		console.log(`Access the web interface at http://localhost:${PORT}`);
+		console.log(
+			`API endpoint for ESP32: http://localhost:${PORT}/api/current.json`
+		);
+	});
 }
 
 startServer().catch(console.error);
