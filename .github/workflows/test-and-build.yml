@@ -101,7 +101,7 @@ jobs:
 
     - name: Deploy to serverpi
       run: |
-        tailscale ssh chris@100.74.55.82 \
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null chris@100.74.55.82 \
           'cd ~/glance && IMAGE_VERSION=${{ github.sha }} docker compose pull && IMAGE_VERSION=${{ github.sha }} docker compose up -d'
 
   security-scan:
