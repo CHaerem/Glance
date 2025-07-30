@@ -11,6 +11,35 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IMAGE_VERSION = process.env.IMAGE_VERSION || "local";
 const BUILD_DATE = process.env.BUILD_DATE || "unknown";
+
+function formatBuildDate(dateStr) {
+    if (!dateStr || dateStr === "unknown") return dateStr;
+    const date = new Date(dateStr);
+    if (isNaN(date)) return dateStr;
+
+    let timeZone = "UTC";
+    const offsetMatch = dateStr.match(/([+-])(\d{2}):(\d{2})$/);
+    if (offsetMatch) {
+        const sign = offsetMatch[1] === "+" ? "-" : "+";
+        const hours = parseInt(offsetMatch[2], 10);
+        // Only handle whole hour offsets (most common)
+        if (offsetMatch[3] === "00") {
+            timeZone = `Etc/GMT${sign}${hours}`;
+        }
+    }
+
+    return date.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone,
+        timeZoneName: "short",
+    });
+}
+
+const BUILD_DATE_HUMAN = formatBuildDate(BUILD_DATE);
 const DATA_DIR = path.join(__dirname, "data");
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 
@@ -791,7 +820,7 @@ app.get("/", (req, res) => {
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-display"></i> Glance E-Ink Display Server</h1>
-            <p class="version">Docker Image: ${IMAGE_VERSION} (built ${BUILD_DATE})</p>
+            <p class="version">Docker Image: ${IMAGE_VERSION} (built ${BUILD_DATE_HUMAN})</p>
         </div>
         
         <div class="card">
@@ -1260,7 +1289,7 @@ async function startServer() {
 
 	app.listen(PORT, "0.0.0.0", () => {
 		console.log(`Glance server running on port ${PORT}`);
-		console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE})`);
+                console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE_HUMAN})`);
 		console.log(`Access the web interface at http://localhost:${PORT}`);
 		console.log(
 			`API endpoint for ESP32: http://localhost:${PORT}/api/current.json`
