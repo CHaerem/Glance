@@ -1081,7 +1081,9 @@ app.get("/", (req, res) => {
         function handleDrop(e) {
             e.preventDefault(); e.stopPropagation(); e.target.classList.remove('dragover');
             const files = e.dataTransfer.files;
-            if (files.length > 0) { document.getElementById('imageFile').files = files; handleFileSelect({ target: { files: files } }); }
+            if (files.length > 0) { 
+                handleFileSelect({ target: { files: files } }); 
+            }
         }
         function handleDragOver(e) { e.preventDefault(); e.stopPropagation(); e.target.classList.add('dragover'); }
         function handleDragLeave(e) { e.preventDefault(); e.stopPropagation(); e.target.classList.remove('dragover'); }
@@ -1091,7 +1093,14 @@ app.get("/", (req, res) => {
             if (file) {
                 const uploadArea = document.querySelector('.upload-area');
                 uploadArea.innerHTML = \`<i class="fas fa-check-circle upload-icon" style="color: #22c55e;"></i>
-                    <h4>\${file.name}</h4><p>File selected (\${Math.round(file.size/1024)}KB) - Generating preview...</p>\`;
+                    <h4>\${file.name}</h4><p>File selected (\${Math.round(file.size/1024)}KB) - Generating preview...</p>
+                    <input type="file" id="imageFile" name="image" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">\`;
+                
+                // Store file reference for form submission
+                const fileInput = document.getElementById('imageFile');
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
                 
                 // Generate preview
                 try {
@@ -1110,14 +1119,24 @@ app.get("/", (req, res) => {
                         document.getElementById('imagePreview').style.display = 'block';
                         
                         uploadArea.innerHTML = \`<i class="fas fa-check-circle upload-icon" style="color: #22c55e;"></i>
-                            <h4>\${file.name}</h4><p>Ready to upload (\${Math.round(file.size/1024)}KB)</p>\`;
+                            <h4>\${file.name}</h4><p>Ready to upload (\${Math.round(file.size/1024)}KB)</p>
+                            <input type="file" id="imageFile" name="image" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">\`;
+                        
+                        // Restore file reference after innerHTML change
+                        const newFileInput = document.getElementById('imageFile');
+                        newFileInput.files = dataTransfer.files;
                     } else {
                         throw new Error('Preview generation failed');
                     }
                 } catch (error) {
                     console.error('Preview error:', error);
                     uploadArea.innerHTML = \`<i class="fas fa-check-circle upload-icon" style="color: #22c55e;"></i>
-                        <h4>\${file.name}</h4><p>File selected (\${Math.round(file.size/1024)}KB) - Preview failed</p>\`;
+                        <h4>\${file.name}</h4><p>File selected (\${Math.round(file.size/1024)}KB) - Preview failed</p>
+                        <input type="file" id="imageFile" name="image" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">\`;
+                    
+                    // Restore file reference after innerHTML change
+                    const newFileInput = document.getElementById('imageFile');
+                    newFileInput.files = dataTransfer.files;
                 }
             }
         }
@@ -1126,8 +1145,17 @@ app.get("/", (req, res) => {
             e.preventDefault();
             const formData = new FormData();
             const fileInput = document.getElementById('imageFile');
-            const file = fileInput.files[0];
-            if (!file) { alert('Please select an image file first.'); return; }
+            
+            if (!fileInput) {
+                alert('Error: File input not found. Please refresh the page and try again.');
+                return;
+            }
+            
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) { 
+                alert('Please select an image file first.'); 
+                return; 
+            }
             
             formData.append('image', file);
             formData.append('title', document.getElementById('uploadTitle').value || file.name);
@@ -1137,10 +1165,16 @@ app.get("/", (req, res) => {
                 const response = await fetch('/api/upload', { method: 'POST', body: formData });
                 const result = await response.json();
                 if (response.ok) {
-                    alert('Image uploaded and processed successfully!'); loadCurrent();
+                    alert('Image uploaded and processed successfully!'); 
+                    loadCurrent();
+                    
+                    // Reset form and restore upload area
                     document.getElementById('uploadForm').reset();
+                    document.getElementById('imagePreview').style.display = 'none';
                     document.querySelector('.upload-area').innerHTML = \`<i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <h4>Drop an image here or click to select</h4><p>Supports JPG, PNG, GIF, BMP, WebP (Max 10MB)</p>\`;
+                        <h4>Drop an image here or click to select</h4>
+                        <p>Supports JPG, PNG, GIF, BMP, WebP (Max 10MB)</p>
+                        <input type="file" id="imageFile" name="image" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">\`;
                 } else { alert('Error uploading image: ' + result.error); }
             } catch (error) { alert('Error: ' + error.message); }
         });
