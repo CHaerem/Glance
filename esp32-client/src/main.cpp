@@ -18,7 +18,52 @@
 #define BATTERY_PIN A13
 #define LOW_BATTERY_THRESHOLD 3.3
 #define DEVICE_ID "esp32-001"
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.1.0"
+
+// Enhanced communication constants
+#define MAX_RETRY_ATTEMPTS 3
+#define BASE_TIMEOUT 5000
+#define MAX_TIMEOUT 15000
+#define OFFLINE_BUFFER_SIZE 10
+#define HEARTBEAT_INTERVAL 30000  // 30 seconds when staying awake
+#define CONNECTION_CHECK_INTERVAL 5000  // 5 seconds
+
+// Serial streaming constants
+#define SERIAL_STREAM_BUFFER_SIZE 1024
+#define SERIAL_STREAM_INTERVAL 10000  // Stream every 10 seconds when awake
+#define SERIAL_STREAM_MIN_CHARS 50    // Minimum characters before streaming
+
+// Communication state tracking
+struct CommState {
+    unsigned long lastSuccessfulContact = 0;
+    unsigned long lastHeartbeat = 0;
+    int consecutiveFailures = 0;
+    bool serverReachable = false;
+    int adaptiveTimeout = BASE_TIMEOUT;
+};
+
+// Offline buffer for logs and status updates
+struct BufferedMessage {
+    String endpoint;
+    String payload;
+    unsigned long timestamp;
+    int retryCount;
+};
+
+// Serial streaming state
+struct SerialStreamState {
+    String buffer;
+    unsigned long lastStreamTime = 0;
+    boolean isStreaming = false;
+    boolean streamingEnabled = false;
+};
+
+// Global state
+CommState commState;
+BufferedMessage offlineBuffer[OFFLINE_BUFFER_SIZE];
+int bufferHead = 0;
+int bufferCount = 0;
+SerialStreamState serialStream;
 
 // Simple base64 decoder
 String base64_decode(String input)
@@ -91,6 +136,22 @@ void enterDeepSleep(uint64_t sleepTime);
 float readBatteryVoltage();
 bool checkForCommands();
 void processCommand(const String &command, unsigned long duration);
+
+// Enhanced communication functions
+bool makeHttpRequest(const String &url, const String &method, const String &payload, String &response, int customTimeout = 0);
+void bufferMessage(const String &endpoint, const String &payload);
+void flushOfflineBuffer();
+void updateCommState(bool success);
+void sendHeartbeat();
+bool isServerReachable();
+void adaptiveDelay(int baseDelay);
+
+// Serial streaming functions
+void enableSerialStreaming();
+void disableSerialStreaming();
+void captureSerialOutput(const String &output);
+void flushSerialStream();
+size_t debugWrite(const uint8_t *buffer, size_t size);
 
 void setup()
 {
@@ -177,26 +238,45 @@ void setup()
         reportDeviceStatus("staying_awake", batteryVoltage, signalStrength);
         sendLogToServer("Staying awake for remote commands");
         
+        // Enable serial streaming while awake
+        enableSerialStreaming();
+        
         // Stay awake for up to 5 minutes, checking for commands every 30 seconds
         unsigned long stayAwakeStart = millis();
         unsigned long stayAwakeTimeout = 5 * 60 * 1000; // 5 minutes
         
         while (millis() - stayAwakeStart < stayAwakeTimeout)
         {
-            delay(30000); // Wait 30 seconds
-            esp_task_wdt_reset(); // Reset watchdog during stay awake period
+            // Send heartbeat to maintain connection
+            sendHeartbeat();
             
-            if (!checkForCommands())
+            // Wait between heartbeats, but check for commands more frequently
+            unsigned long heartbeatStart = millis();
+            while (millis() - heartbeatStart < HEARTBEAT_INTERVAL && 
+                   millis() - stayAwakeStart < stayAwakeTimeout)
             {
-                // No more commands, can sleep now
-                break;
+                delay(CONNECTION_CHECK_INTERVAL); // Check every 5 seconds
+                esp_task_wdt_reset(); // Reset watchdog during stay awake period
+                
+                // Check for new commands
+                if (checkForCommands())
+                {
+                    // New commands received, continue staying awake
+                    stayAwakeStart = millis(); // Reset stay awake timer
+                }
             }
             
-            // Update battery status periodically
-            batteryVoltage = readBatteryVoltage();
-            signalStrength = WiFi.RSSI();
-            reportDeviceStatus("awake_waiting", batteryVoltage, signalStrength);
+            // If we haven't received commands for a while, check server reachability
+            if (!isServerReachable())
+            {
+                Debug("Server unreachable, ending stay awake period\r\n");
+                sendLogToServer("Ending stay awake - server unreachable", "WARN");
+                break;
+            }
         }
+        
+        // Disable serial streaming before sleeping
+        disableSerialStreaming();
     }
 
     // Report going to sleep
@@ -393,60 +473,42 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
 {
     Debug("Reporting device status: " + String(status) + "\r\n");
 
-    for (int retry = 0; retry < 3; retry++)
+    DynamicJsonDocument doc(1024);
+    doc["deviceId"] = DEVICE_ID;
+
+    JsonObject statusObj = doc.createNestedObject("status");
+    statusObj["status"] = status;
+    statusObj["batteryVoltage"] = batteryVoltage;
+    statusObj["signalStrength"] = signalStrength;
+    statusObj["firmwareVersion"] = FIRMWARE_VERSION;
+    statusObj["bootCount"] = bootCount;
+    statusObj["freeHeap"] = ESP.getFreeHeap();
+    statusObj["uptime"] = millis();
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+
+    String response;
+    if (makeHttpRequest(STATUS_URL, "POST", jsonString, response))
     {
-        HTTPClient http;
-        http.begin(STATUS_URL);
-        http.setTimeout(10000); // 10 second timeout
-        http.addHeader("Content-Type", "application/json");
-        http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
-
-        DynamicJsonDocument doc(1024);
-        doc["deviceId"] = DEVICE_ID;
-
-        JsonObject statusObj = doc.createNestedObject("status");
-        statusObj["status"] = status;
-        statusObj["batteryVoltage"] = batteryVoltage;
-        statusObj["signalStrength"] = signalStrength;
-        statusObj["firmwareVersion"] = FIRMWARE_VERSION;
-        statusObj["bootCount"] = bootCount;
-        statusObj["freeHeap"] = ESP.getFreeHeap();
-
-        String jsonString;
-        serializeJson(doc, jsonString);
-
-        int httpResponseCode = http.POST(jsonString);
-
-        if (httpResponseCode == 200)
-        {
-            Debug("Status reported successfully\r\n");
-            http.end();
-            return;
-        }
-        else
-        {
-            Debug("Status report failed (attempt " + String(retry + 1) + "): " + String(httpResponseCode) + "\r\n");
-        }
-
-        http.end();
+        Debug("Device status reported successfully\r\n");
         
-        if (retry < 2) {
-            delay(1000 * (retry + 1)); // Progressive delay: 1s, 2s
+        // Try to flush any buffered messages when we have connectivity
+        if (bufferCount > 0)
+        {
+            flushOfflineBuffer();
         }
     }
-    
-    Debug("Status report failed after 3 attempts\r\n");
+    else
+    {
+        Debug("Device status reporting failed, buffering...\r\n");
+        bufferMessage("device-status", jsonString);
+    }
 }
 
 void sendLogToServer(const char *message, const char *level)
 {
     Debug("Sending log: " + String(message) + "\r\n");
-
-    HTTPClient http;
-    http.begin(API_BASE_URL "logs");
-    http.setTimeout(5000); // 5 second timeout for logs
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
 
     DynamicJsonDocument doc(1024);
     doc["deviceId"] = DEVICE_ID;
@@ -457,14 +519,21 @@ void sendLogToServer(const char *message, const char *level)
     String jsonString;
     serializeJson(doc, jsonString);
 
-    int httpResponseCode = http.POST(jsonString);
+    String response;
+    String logsUrl = String(API_BASE_URL) + "logs";
     
-    if (httpResponseCode != 200 && httpResponseCode != 201)
+    if (makeHttpRequest(logsUrl, "POST", jsonString, response, BASE_TIMEOUT))
     {
-        Debug("Log send failed: " + String(httpResponseCode) + "\r\n");
+        Debug("Log sent successfully\r\n");
     }
-
-    http.end();
+    else
+    {
+        // Don't buffer logs if we're already having connectivity issues to avoid infinite recursion
+        if (commState.consecutiveFailures < 2)
+        {
+            bufferMessage("logs", jsonString);
+        }
+    }
 }
 
 float readBatteryVoltage()
@@ -494,21 +563,17 @@ bool checkForCommands()
 {
     Debug("Checking for pending commands...\r\n");
 
-    HTTPClient http;
-    http.begin(API_BASE_URL "commands/" DEVICE_ID);
-    http.setTimeout(10000); // 10 second timeout
-
-    int httpResponseCode = http.GET();
+    String commandsUrl = String(API_BASE_URL) + "commands/" + DEVICE_ID;
+    String response;
     bool shouldStayAwake = false;
 
-    if (httpResponseCode == 200)
+    if (makeHttpRequest(commandsUrl, "GET", "", response))
     {
-        String payload = http.getString();
         Debug("Commands response received\r\n");
 
         // Parse JSON response
         DynamicJsonDocument doc(4096);
-        DeserializationError error = deserializeJson(doc, payload);
+        DeserializationError error = deserializeJson(doc, response);
 
         if (!error)
         {
@@ -543,16 +608,11 @@ bool checkForCommands()
             Debug("JSON parsing error: " + String(error.c_str()) + "\r\n");
         }
     }
-    else if (httpResponseCode == 404)
-    {
-        Debug("No commands found for device\r\n");
-    }
     else
     {
-        Debug("Commands check failed: " + String(httpResponseCode) + "\r\n");
+        Debug("Commands check failed - server not reachable\r\n");
     }
 
-    http.end();
     return shouldStayAwake;
 }
 
@@ -588,8 +648,341 @@ void processCommand(const String &command, unsigned long duration)
         // Power down display
         EPD_13IN3E_Sleep();
     }
+    else if (command == "enable_streaming")
+    {
+        sendLogToServer("Serial streaming enable command received");
+        enableSerialStreaming();
+    }
+    else if (command == "disable_streaming")
+    {
+        sendLogToServer("Serial streaming disable command received");
+        disableSerialStreaming();
+    }
     else
     {
         sendLogToServer(("Unknown command received: " + command).c_str(), "WARN");
     }
+}
+
+// Enhanced communication functions for robustness
+
+bool makeHttpRequest(const String &url, const String &method, const String &payload, String &response, int customTimeout)
+{
+    int timeout = customTimeout > 0 ? customTimeout : commState.adaptiveTimeout;
+    
+    for (int attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++)
+    {
+        HTTPClient http;
+        http.begin(url);
+        http.setTimeout(timeout);
+        http.addHeader("Content-Type", "application/json");
+        http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
+        
+        int httpResponseCode;
+        if (method == "POST")
+        {
+            httpResponseCode = http.POST(payload);
+        }
+        else
+        {
+            httpResponseCode = http.GET();
+        }
+        
+        if (httpResponseCode == 200 || httpResponseCode == 201)
+        {
+            response = http.getString();
+            http.end();
+            updateCommState(true);
+            return true;
+        }
+        else if (httpResponseCode > 0)
+        {
+            Debug("HTTP request failed with code: " + String(httpResponseCode) + " (attempt " + String(attempt + 1) + ")\r\n");
+        }
+        else
+        {
+            Debug("HTTP request failed: " + http.errorToString(httpResponseCode) + " (attempt " + String(attempt + 1) + ")\r\n");
+        }
+        
+        http.end();
+        
+        if (attempt < MAX_RETRY_ATTEMPTS - 1)
+        {
+            adaptiveDelay(1000 * (attempt + 1)); // Exponential backoff
+        }
+    }
+    
+    updateCommState(false);
+    return false;
+}
+
+void bufferMessage(const String &endpoint, const String &payload)
+{
+    if (bufferCount >= OFFLINE_BUFFER_SIZE)
+    {
+        // Buffer full, remove oldest message
+        bufferHead = (bufferHead + 1) % OFFLINE_BUFFER_SIZE;
+        bufferCount--;
+    }
+    
+    int index = (bufferHead + bufferCount) % OFFLINE_BUFFER_SIZE;
+    offlineBuffer[index].endpoint = endpoint;
+    offlineBuffer[index].payload = payload;
+    offlineBuffer[index].timestamp = millis();
+    offlineBuffer[index].retryCount = 0;
+    bufferCount++;
+    
+    Debug("Message buffered: " + endpoint + " (buffer count: " + String(bufferCount) + ")\r\n");
+}
+
+void flushOfflineBuffer()
+{
+    if (bufferCount == 0) return;
+    
+    Debug("Flushing offline buffer (" + String(bufferCount) + " messages)...\r\n");
+    
+    int processed = 0;
+    for (int i = 0; i < bufferCount && processed < 5; i++) // Limit to 5 messages per flush to avoid timeout
+    {
+        int index = (bufferHead + i) % OFFLINE_BUFFER_SIZE;
+        BufferedMessage &msg = offlineBuffer[index];
+        
+        if (msg.retryCount >= MAX_RETRY_ATTEMPTS)
+        {
+            Debug("Discarding message after max retries: " + msg.endpoint + "\r\n");
+            processed++;
+            continue;
+        }
+        
+        String response;
+        String fullUrl = String(API_BASE_URL) + msg.endpoint;
+        
+        if (makeHttpRequest(fullUrl, "POST", msg.payload, response, BASE_TIMEOUT))
+        {
+            Debug("Buffered message sent successfully: " + msg.endpoint + "\r\n");
+            processed++;
+        }
+        else
+        {
+            msg.retryCount++;
+            Debug("Buffered message retry " + String(msg.retryCount) + ": " + msg.endpoint + "\r\n");
+            break; // Stop processing if we can't reach server
+        }
+    }
+    
+    // Remove processed messages
+    if (processed > 0)
+    {
+        bufferHead = (bufferHead + processed) % OFFLINE_BUFFER_SIZE;
+        bufferCount -= processed;
+    }
+}
+
+void updateCommState(bool success)
+{
+    if (success)
+    {
+        commState.lastSuccessfulContact = millis();
+        commState.consecutiveFailures = 0;
+        commState.serverReachable = true;
+        
+        // Reduce timeout if we've been having issues
+        if (commState.adaptiveTimeout > BASE_TIMEOUT)
+        {
+            commState.adaptiveTimeout = max(BASE_TIMEOUT, commState.adaptiveTimeout - 1000);
+        }
+    }
+    else
+    {
+        commState.consecutiveFailures++;
+        commState.serverReachable = false;
+        
+        // Increase timeout for future requests
+        commState.adaptiveTimeout = min(MAX_TIMEOUT, commState.adaptiveTimeout + 2000);
+        
+        Debug("Communication failure #" + String(commState.consecutiveFailures) + 
+              ", timeout increased to " + String(commState.adaptiveTimeout) + "ms\r\n");
+    }
+}
+
+void sendHeartbeat()
+{
+    if (millis() - commState.lastHeartbeat < HEARTBEAT_INTERVAL)
+    {
+        return; // Too soon for next heartbeat
+    }
+    
+    float batteryVoltage = readBatteryVoltage();
+    int signalStrength = WiFi.RSSI();
+    
+    DynamicJsonDocument doc(1024);
+    doc["deviceId"] = DEVICE_ID;
+    
+    JsonObject statusObj = doc.createNestedObject("status");
+    statusObj["status"] = "heartbeat";
+    statusObj["batteryVoltage"] = batteryVoltage;
+    statusObj["signalStrength"] = signalStrength;
+    statusObj["firmwareVersion"] = FIRMWARE_VERSION;
+    statusObj["bootCount"] = bootCount;
+    statusObj["freeHeap"] = ESP.getFreeHeap();
+    statusObj["uptime"] = millis();
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    String response;
+    if (makeHttpRequest(STATUS_URL, "POST", jsonString, response, BASE_TIMEOUT))
+    {
+        Debug("Heartbeat sent successfully\r\n");
+    }
+    else
+    {
+        Debug("Heartbeat failed, buffering...\r\n");
+        bufferMessage("device-status", jsonString);
+    }
+    
+    commState.lastHeartbeat = millis();
+}
+
+bool isServerReachable()
+{
+    return commState.serverReachable || 
+           (millis() - commState.lastSuccessfulContact < 300000); // 5 minutes grace period
+}
+
+void adaptiveDelay(int baseDelay)
+{
+    // Use shorter delays if we have good connectivity, longer if poor
+    int actualDelay = baseDelay;
+    if (commState.consecutiveFailures > 2)
+    {
+        actualDelay *= 2; // Double delay if having connection issues
+    }
+    
+    unsigned long startTime = millis();
+    while (millis() - startTime < actualDelay)
+    {
+        esp_task_wdt_reset(); // Feed watchdog during delays
+        delay(100);
+    }
+}
+
+// Serial streaming functions for efficient real-time monitoring
+
+void enableSerialStreaming()
+{
+    if (!serialStream.streamingEnabled && isServerReachable())
+    {
+        serialStream.streamingEnabled = true;
+        serialStream.buffer.reserve(SERIAL_STREAM_BUFFER_SIZE);
+        serialStream.lastStreamTime = millis();
+        Debug("Serial streaming enabled\r\n");
+        
+        // Send initial stream enable notification
+        DynamicJsonDocument doc(512);
+        doc["deviceId"] = DEVICE_ID;
+        doc["streamEvent"] = "started";
+        doc["timestamp"] = millis();
+        
+        String jsonString;
+        serializeJson(doc, jsonString);
+        bufferMessage("serial-stream", jsonString);
+    }
+}
+
+void disableSerialStreaming()
+{
+    if (serialStream.streamingEnabled)
+    {
+        // Flush any remaining buffer content
+        if (serialStream.buffer.length() > 0)
+        {
+            flushSerialStream();
+        }
+        
+        serialStream.streamingEnabled = false;
+        serialStream.isStreaming = false;
+        serialStream.buffer = "";
+        Debug("Serial streaming disabled\r\n");
+        
+        // Send stream disable notification
+        DynamicJsonDocument doc(512);
+        doc["deviceId"] = DEVICE_ID;
+        doc["streamEvent"] = "stopped";
+        doc["timestamp"] = millis();
+        
+        String jsonString;
+        serializeJson(doc, jsonString);
+        bufferMessage("serial-stream", jsonString);
+    }
+}
+
+void captureSerialOutput(const String &output)
+{
+    if (!serialStream.streamingEnabled) return;
+    
+    // Add to buffer
+    serialStream.buffer += output;
+    
+    // If buffer is getting full or enough time has passed, flush it
+    if (serialStream.buffer.length() >= SERIAL_STREAM_MIN_CHARS ||
+        (serialStream.buffer.length() > 0 && 
+         millis() - serialStream.lastStreamTime >= SERIAL_STREAM_INTERVAL))
+    {
+        flushSerialStream();
+    }
+}
+
+void flushSerialStream()
+{
+    if (!serialStream.streamingEnabled || serialStream.buffer.length() == 0) return;
+    
+    DynamicJsonDocument doc(2048);
+    doc["deviceId"] = DEVICE_ID;
+    doc["serialOutput"] = serialStream.buffer;
+    doc["timestamp"] = millis();
+    doc["bufferSize"] = serialStream.buffer.length();
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    String response;
+    String streamUrl = String(API_BASE_URL) + "serial-stream";
+    
+    if (makeHttpRequest(streamUrl, "POST", jsonString, response, BASE_TIMEOUT))
+    {
+        // Successfully streamed, clear buffer
+        serialStream.buffer = "";
+        serialStream.lastStreamTime = millis();
+    }
+    else
+    {
+        // Failed to stream, keep buffer but prevent it from growing too large
+        if (serialStream.buffer.length() > SERIAL_STREAM_BUFFER_SIZE)
+        {
+            // Keep only the last half of the buffer to prevent memory issues
+            int keepLength = SERIAL_STREAM_BUFFER_SIZE / 2;
+            serialStream.buffer = serialStream.buffer.substring(serialStream.buffer.length() - keepLength);
+        }
+    }
+}
+
+// Custom debug write function that captures output for streaming
+size_t debugWrite(const uint8_t *buffer, size_t size)
+{
+    // Write to serial as normal
+    size_t written = Serial.write(buffer, size);
+    
+    // If streaming is enabled and we have good connectivity, capture the output
+    if (serialStream.streamingEnabled && isServerReachable())
+    {
+        String output = "";
+        for (size_t i = 0; i < size; i++)
+        {
+            output += (char)buffer[i];
+        }
+        captureSerialOutput(output);
+    }
+    
+    return written;
 }
