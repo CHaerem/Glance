@@ -250,7 +250,9 @@
         <div class="header">
             <h1><i class="fas fa-display"></i> Glance Display</h1>
             <p>Manage your e-ink display</p>
-            <small id="buildInfo" style="color: #64748b; opacity: 0.8;">Loading build info...</small>
+            <div id="buildInfo" style="color: #64748b; font-size: 0.9rem; margin-top: 8px; padding: 8px; background: #f1f5f9; border-radius: 6px; border-left: 3px solid #3b82f6;">
+                <i class="fas fa-code-branch"></i> Loading build info...
+            </div>
         </div>
         
         <!-- Current Display Status -->
@@ -367,8 +369,8 @@
                 // Load build info
                 const buildResponse = await fetch('/api/build-info');
                 const buildInfo = await buildResponse.json();
-                document.getElementById('buildInfo').textContent = 
-                    `Version: ${buildInfo.version} • Built: ${buildInfo.buildDateHuman}`;
+                document.getElementById('buildInfo').innerHTML = 
+                    `<i class="fas fa-code-branch"></i> Version: ${buildInfo.version} • Built: ${buildInfo.buildDateHuman}`;
                 
             } catch (error) {
                 console.error('Error loading status:', error);
