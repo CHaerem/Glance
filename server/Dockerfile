@@ -27,7 +27,7 @@ RUN npm install --production --no-dev && npm cache clean --force
 
 # Copy source code and UI files
 COPY server.js ./
-COPY ../simple-ui.html ./
+COPY simple-ui.html ./
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
