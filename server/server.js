@@ -120,40 +120,9 @@ async function ensureDir(dir) {
 	}
 }
 
-// Improved color mapping with better contrast preservation
+// Simple closest color mapping - matches preview exactly
 function findClosestColor(rgb) {
 	const [r, g, b] = rgb;
-	const brightness = (r + g + b) / 3;
-	
-	// Determine dominant color channel
-	const maxChannel = Math.max(r, g, b);
-	const minChannel = Math.min(r, g, b);
-	const saturation = maxChannel === 0 ? 0 : (maxChannel - minChannel) / maxChannel;
-	
-	// High saturation color mapping
-	if (saturation > 0.3) {
-		if (r > g && r > b && r > 100) {
-			return EINK_PALETTE.find(c => c.index === 0x3); // Red
-		}
-		if (g > r && g > b && g > 100) {
-			return EINK_PALETTE.find(c => c.index === 0x6); // Green
-		}
-		if (b > r && b > g && b > 100) {
-			return EINK_PALETTE.find(c => c.index === 0x5); // Blue
-		}
-		if (r > 120 && g > 120 && b < 80) {
-			return EINK_PALETTE.find(c => c.index === 0x2); // Yellow
-		}
-	}
-	
-	// Brightness-based mapping for low saturation
-	if (brightness > 200) {
-		return EINK_PALETTE.find(c => c.index === 0x1); // White
-	} else if (brightness < 80) {
-		return EINK_PALETTE.find(c => c.index === 0x0); // Black
-	}
-	
-	// Fall back to closest color for mid-tones
 	let minDistance = Infinity;
 	let closestColor = EINK_PALETTE[1]; // Default to white
 
