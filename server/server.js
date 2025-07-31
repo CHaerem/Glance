@@ -830,6 +830,16 @@ app.get("/health", (req, res) => {
 	res.json({ status: "healthy", timestamp: Date.now() });
 });
 
+// Build info endpoint
+app.get("/api/build-info", (_req, res) => {
+	res.json({
+		version: IMAGE_VERSION,
+		buildDate: BUILD_DATE,
+		buildDateHuman: BUILD_DATE_HUMAN,
+		timestamp: Date.now()
+	});
+});
+
 // Simple, focused web interface for single display management
 app.get("/", async (_req, res) => {
 	try {
