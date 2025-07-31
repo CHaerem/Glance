@@ -139,6 +139,13 @@ function findClosestColor(rgb) {
 		}
 	}
 
+	// For bright images, prefer lighter colors over black
+	const brightness = (rgb[0] + rgb[1] + rgb[2]) / 3;
+	if (brightness > 200 && closestColor.index === 0x0) {
+		// If pixel is very bright but mapped to black, use white instead
+		closestColor = EINK_PALETTE[1]; // White
+	}
+
 	return closestColor;
 }
 
@@ -201,8 +208,8 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 
 async function convertImageToEink(
 	imagePath,
-	targetWidth = 1150,
-	targetHeight = 1550
+	targetWidth = 1200,
+	targetHeight = 1600
 ) {
 	try {
 		// Load and process image with Sharp
@@ -242,7 +249,7 @@ async function convertImageToEink(
 	}
 }
 
-async function createTextImage(text, targetWidth = 1150, targetHeight = 1550) {
+async function createTextImage(text, targetWidth = 1200, targetHeight = 1600) {
 	try {
 		// Create SVG text
 		const svg = `
@@ -417,7 +424,7 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 
 		// Generate preview (standard RGB image)
 		const previewBuffer = await sharp(req.file.path)
-			.resize(575, 775, {
+			.resize(600, 800, {
 				// Half size for web preview
 				fit: "contain",
 				background: { r: 255, g: 255, b: 255, alpha: 1 },

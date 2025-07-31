@@ -403,11 +403,11 @@ bool fetchCurrentImage()
                 delay(3000);
 
                 // Check if this looks like image data or text data
-                if (decoded.length() == (1150 * 1550))
+                if (decoded.length() == (1200 * 1600))
                 {
                     // This looks like raw image data for the display
                     Debug("Processing as image data\r\n");
-                    displayImageFromData((const uint8_t *)decoded.c_str(), 1150, 1550);
+                    displayImageFromData((const uint8_t *)decoded.c_str(), 1200, 1600);
                 }
                 else
                 {
