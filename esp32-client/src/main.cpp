@@ -139,6 +139,139 @@ String base64_decode(String input)
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR uint64_t lastSleepDuration = DEFAULT_SLEEP_TIME;
 
+// E-ink color palette (hardware defined)
+const uint8_t EINK_BLACK = 0x0;
+const uint8_t EINK_WHITE = 0x1;
+const uint8_t EINK_YELLOW = 0x2;
+const uint8_t EINK_RED = 0x3;
+const uint8_t EINK_BLUE = 0x5;
+const uint8_t EINK_GREEN = 0x6;
+
+// Color mapping configuration - easily adjustable
+struct ColorMappingConfig {
+    int brightnessThresholdLow = 30;    // Below this -> black
+    int brightnessThresholdHigh = 230;  // Above this -> white
+    int colorfulnessThreshold = 50;     // Below this -> grayscale
+    int redThreshold = 150;             // For detecting strong reds
+    int blueThreshold = 100;            // For detecting blues
+    int yellowRedThreshold = 150;       // For yellow detection
+    int yellowGreenThreshold = 150;     // For yellow detection
+    int yellowBlueMax = 100;            // For yellow detection
+    bool usePerceptualWeighting = true; // Use human vision weights
+};
+
+ColorMappingConfig colorConfig;
+
+// ESP32 color mapping function - fully configurable
+uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b) {
+    int brightness = (r + g + b) / 3;
+    
+    // Very bright -> White
+    if (brightness > colorConfig.brightnessThresholdHigh) {
+        return EINK_WHITE;
+    }
+    
+    // Very dark -> Black
+    if (brightness < colorConfig.brightnessThresholdLow) {
+        return EINK_BLACK;
+    }
+    
+    // Check colorfulness
+    int maxChannel = max(r, max(g, b));
+    int minChannel = min(r, min(g, b));
+    int colorfulness = maxChannel - minChannel;
+    
+    // Low colorfulness -> grayscale
+    if (colorfulness < colorConfig.colorfulnessThreshold) {
+        return brightness > 128 ? EINK_WHITE : EINK_BLACK;
+    }
+    
+    // High colorfulness -> detect dominant color
+    if (g > r && g > b) {
+        return EINK_GREEN;  // Green dominant
+    } else if (r > g && r > b && r > colorConfig.redThreshold) {
+        return EINK_RED;    // Strong red
+    } else if (b > r && b > g && b > colorConfig.blueThreshold) {
+        return EINK_BLUE;   // Blue dominant
+    } else if (r > colorConfig.yellowRedThreshold && g > colorConfig.yellowGreenThreshold && b < colorConfig.yellowBlueMax) {
+        return EINK_YELLOW; // Yellow-ish
+    }
+    
+    // Fallback: use perceptual distance or simple distance
+    if (colorConfig.usePerceptualWeighting) {
+        // Perceptually weighted distance to each color
+        uint8_t colors[6][3] = {
+            {0, 0, 0},       // Black
+            {255, 255, 255}, // White
+            {255, 255, 0},   // Yellow
+            {255, 0, 0},     // Red
+            {0, 0, 255},     // Blue
+            {0, 255, 0}      // Green
+        };
+        uint8_t indices[6] = {EINK_BLACK, EINK_WHITE, EINK_YELLOW, EINK_RED, EINK_BLUE, EINK_GREEN};
+        
+        long minDistance = LONG_MAX;
+        uint8_t closestColor = EINK_WHITE;
+        
+        for (int i = 0; i < 6; i++) {
+            long deltaR = r - colors[i][0];
+            long deltaG = g - colors[i][1];
+            long deltaB = b - colors[i][2];
+            
+            // Human perception weights: green most sensitive
+            long distance = 2 * deltaR * deltaR + 4 * deltaG * deltaG + 3 * deltaB * deltaB;
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestColor = indices[i];
+            }
+        }
+        
+        return closestColor;
+    }
+    
+    // Simple fallback
+    return EINK_WHITE;
+}
+
+// Process RGB image data and convert to e-ink display
+void processRGBImageData(const uint8_t *rgbData, int width, int height) {
+    Debug("Converting RGB to e-ink colors on ESP32...\r\n");
+    Debug("Free heap before conversion: " + String(ESP.getFreeHeap()) + "\r\n");
+    
+    // Allocate buffer for e-ink data
+    int pixelCount = width * height;
+    uint8_t *einkData = (uint8_t*)malloc(pixelCount);
+    
+    if (!einkData) {
+        Debug("Failed to allocate memory for e-ink conversion!\r\n");
+        return;
+    }
+    
+    // Convert each RGB pixel to e-ink color
+    for (int i = 0; i < pixelCount; i++) {
+        uint8_t r = rgbData[i * 3];
+        uint8_t g = rgbData[i * 3 + 1];
+        uint8_t b = rgbData[i * 3 + 2];
+        
+        einkData[i] = mapRGBToEink(r, g, b);
+        
+        // Reset watchdog periodically
+        if (i % 10000 == 0) {
+            esp_task_wdt_reset();
+        }
+    }
+    
+    Debug("RGB to e-ink conversion completed\r\n");
+    Debug("Free heap after conversion: " + String(ESP.getFreeHeap()) + "\r\n");
+    
+    // Display the converted image
+    displayImageFromData(einkData, width, height);
+    
+    // Free the allocated memory
+    free(einkData);
+}
+
 // Function declarations
 void setupPowerManagement();
 bool connectToWiFi();
@@ -422,17 +555,25 @@ bool fetchCurrentImage()
                 EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
                 delay(3000);
 
-                // Check if this looks like image data or text data
-                if (decoded.length() == (1200 * 1600))
+                // Check if this looks like RGB data (3 bytes per pixel)
+                if (decoded.length() == (1200 * 1600 * 3))
                 {
-                    // This looks like raw image data for the display
-                    Debug("Processing as image data\r\n");
+                    // This is raw RGB data - convert to e-ink colors
+                    Debug("Processing as RGB data\r\n");
+                    processRGBImageData((const uint8_t *)decoded.c_str(), 1200, 1600);
+                }
+                else if (decoded.length() == (1200 * 1600))
+                {
+                    // This looks like pre-processed e-ink data (legacy)
+                    Debug("Processing as legacy e-ink data\r\n");
                     displayImageFromData((const uint8_t *)decoded.c_str(), 1200, 1600);
                 }
                 else
                 {
                     // This looks like text data - but let's show more debug info
                     Debug("Processing as text data (length mismatch)\r\n");
+                    Debug("Expected RGB: " + String(1200 * 1600 * 3) + " bytes\r\n");
+                    Debug("Expected E-ink: " + String(1200 * 1600) + " bytes\r\n");
                     Debug("First 10 bytes: ");
                     for (int i = 0; i < min(10, (int)decoded.length()); i++) {
                         Debug(String((unsigned char)decoded[i], HEX) + " ");
