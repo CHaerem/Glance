@@ -555,7 +555,7 @@ app.post("/api/device-command/:deviceId", async (req, res) => {
 			return res.status(400).json({ error: "Valid deviceId required" });
 		}
 
-		const validCommands = ["stay_awake", "force_update", "update_now"];
+		const validCommands = ["stay_awake", "force_update", "update_now", "enable_streaming", "disable_streaming"];
 		if (!validCommands.includes(command)) {
 			return res
 				.status(400)
@@ -685,6 +685,66 @@ app.post("/api/logs", async (req, res) => {
 	}
 });
 
+// ESP32 serial stream reporting for real-time monitoring
+app.post("/api/serial-stream", async (req, res) => {
+	try {
+		const { deviceId, serialOutput, streamEvent, timestamp, bufferSize } = req.body;
+
+		if (!validateDeviceId(deviceId)) {
+			return res.status(400).json({ error: "Valid deviceId required" });
+		}
+
+		// Load existing streams
+		const allStreams = (await readJSONFile("serial-streams.json")) || {};
+
+		// Initialize device streams if not exists
+		if (!allStreams[deviceId]) {
+			allStreams[deviceId] = {
+				isStreaming: false,
+				lastActivity: Date.now(),
+				chunks: []
+			};
+		}
+
+		if (streamEvent) {
+			// Handle stream control events
+			if (streamEvent === "started") {
+				allStreams[deviceId].isStreaming = true;
+				allStreams[deviceId].lastActivity = Date.now();
+				console.log(`Serial streaming started for device: ${deviceId}`);
+			} else if (streamEvent === "stopped") {
+				allStreams[deviceId].isStreaming = false;
+				console.log(`Serial streaming stopped for device: ${deviceId}`);
+			}
+		} else if (serialOutput) {
+			// Handle actual serial output data
+			const streamChunk = {
+				timestamp: Date.now(),
+				deviceTime: parseInt(timestamp) || Date.now(),
+				output: sanitizeInput(serialOutput),
+				bufferSize: parseInt(bufferSize) || 0,
+			};
+
+			allStreams[deviceId].chunks.push(streamChunk);
+			allStreams[deviceId].lastActivity = Date.now();
+
+			// Keep only last 100 chunks per device to prevent excessive storage
+			if (allStreams[deviceId].chunks.length > 100) {
+				allStreams[deviceId].chunks = allStreams[deviceId].chunks.slice(-100);
+			}
+
+			console.log(`Serial stream chunk received from ${deviceId}: ${serialOutput.length} chars`);
+		}
+
+		await writeJSONFile("serial-streams.json", allStreams);
+
+		res.json({ success: true });
+	} catch (error) {
+		console.error("Error storing serial stream:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
 // Get logs for a device
 app.get("/api/logs/:deviceId", async (req, res) => {
 	try {
@@ -705,7 +765,7 @@ app.get("/api/logs/:deviceId", async (req, res) => {
 });
 
 // Get all logs
-app.get("/api/logs", async (req, res) => {
+app.get("/api/logs", async (_req, res) => {
 	try {
 		const allLogs = (await readJSONFile("logs.json")) || {};
 		res.json(allLogs);
@@ -715,8 +775,47 @@ app.get("/api/logs", async (req, res) => {
 	}
 });
 
+// Get serial streams for a device
+app.get("/api/serial-stream/:deviceId", async (req, res) => {
+	try {
+		const { deviceId } = req.params;
+		const { limit = 50 } = req.query;
+
+		const allStreams = (await readJSONFile("serial-streams.json")) || {};
+		const deviceStream = allStreams[deviceId] || { 
+			isStreaming: false, 
+			lastActivity: 0, 
+			chunks: [] 
+		};
+
+		// Return last N chunks
+		const chunks = deviceStream.chunks.slice(-parseInt(limit));
+
+		res.json({ 
+			deviceId, 
+			isStreaming: deviceStream.isStreaming,
+			lastActivity: deviceStream.lastActivity,
+			chunks 
+		});
+	} catch (error) {
+		console.error("Error getting serial streams:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Get all serial streams
+app.get("/api/serial-streams", async (_req, res) => {
+	try {
+		const allStreams = (await readJSONFile("serial-streams.json")) || {};
+		res.json(allStreams);
+	} catch (error) {
+		console.error("Error getting all serial streams:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
 // Get all devices (for monitoring dashboard)
-app.get("/api/devices", async (req, res) => {
+app.get("/api/devices", async (_req, res) => {
 	try {
 		const devices = (await readJSONFile("devices.json")) || {};
 		res.json(devices);
