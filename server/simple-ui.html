@@ -544,26 +544,10 @@
         ];
         
         function findClosestEinkColor(r, g, b) {
-            const brightness = (r + g + b) / 3;
-            const maxChannel = Math.max(r, g, b);
-            const minChannel = Math.min(r, g, b);
-            const saturation = maxChannel === 0 ? 0 : (maxChannel - minChannel) / maxChannel;
-            
-            // High saturation color mapping
-            if (saturation > 0.3) {
-                if (r > g && r > b && r > 100) return EINK_COLORS[3]; // Red
-                if (g > r && g > b && g > 100) return EINK_COLORS[5]; // Green
-                if (b > r && b > g && b > 100) return EINK_COLORS[4]; // Blue
-                if (r > 120 && g > 120 && b < 80) return EINK_COLORS[2]; // Yellow
-            }
-            
-            // Brightness-based mapping
-            if (brightness > 200) return EINK_COLORS[1]; // White
-            if (brightness < 80) return EINK_COLORS[0];  // Black
-            
-            // Fallback to closest color
+            // Simple closest color mapping - find the nearest e-ink color
             let minDistance = Infinity;
-            let closest = EINK_COLORS[1];
+            let closest = EINK_COLORS[1]; // Default to white
+            
             for (const color of EINK_COLORS) {
                 const distance = Math.sqrt(
                     Math.pow(r - color.rgb[0], 2) +
@@ -575,6 +559,7 @@
                     closest = color;
                 }
             }
+            
             return closest;
         }
         
