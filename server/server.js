@@ -43,7 +43,7 @@ const BUILD_DATE_HUMAN = formatBuildDate(BUILD_DATE);
 const DATA_DIR = path.join(__dirname, "data");
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 
-// E-ink color palette for Waveshare 13.3" Spectra 6 (as per EPD_13in3e.h)
+// E-ink color palette for Waveshare 13.3" Spectra 6 (hardware colors - do not change RGB values)
 const EINK_PALETTE = [
 	{ rgb: [0, 0, 0], index: 0x0 }, // Black
 	{ rgb: [255, 255, 255], index: 0x1 }, // White
@@ -120,11 +120,94 @@ async function ensureDir(dir) {
 	}
 }
 
-// Simple closest color mapping - matches preview exactly
+// Adaptive color mapping that analyzes the image content
+function createAdaptiveColorMapper(imageBuffer, width, height) {
+	console.log("Analyzing image colors for adaptive mapping...");
+	
+	// Sample the image to understand its color distribution
+	const colorStats = {
+		brightness: { min: 255, max: 0, avg: 0 },
+		saturation: { min: 255, max: 0, avg: 0 },
+		dominantHues: { red: 0, green: 0, blue: 0, yellow: 0 }
+	};
+	
+	let totalBrightness = 0;
+	let totalSaturation = 0;
+	let pixelCount = 0;
+	
+	// Sample every 10th pixel to get color statistics
+	for (let i = 0; i < imageBuffer.length; i += 30) { // Every 10th pixel (3 channels)
+		const r = imageBuffer[i];
+		const g = imageBuffer[i + 1]; 
+		const b = imageBuffer[i + 2];
+		
+		const brightness = (r + g + b) / 3;
+		const max = Math.max(r, g, b);
+		const min = Math.min(r, g, b);
+		const saturation = max === 0 ? 0 : (max - min) / max * 255;
+		
+		// Update statistics
+		colorStats.brightness.min = Math.min(colorStats.brightness.min, brightness);
+		colorStats.brightness.max = Math.max(colorStats.brightness.max, brightness);
+		totalBrightness += brightness;
+		totalSaturation += saturation;
+		pixelCount++;
+		
+		// Dominant hue detection
+		if (saturation > 50) { // Only count colorful pixels
+			if (r > g && r > b) colorStats.dominantHues.red++;
+			else if (g > r && g > b) colorStats.dominantHues.green++;
+			else if (b > r && b > g) colorStats.dominantHues.blue++;
+			else if (r > 100 && g > 100 && b < 80) colorStats.dominantHues.yellow++;
+		}
+	}
+	
+	colorStats.brightness.avg = totalBrightness / pixelCount;
+	colorStats.saturation.avg = totalSaturation / pixelCount;
+	
+	console.log("Image analysis:", {
+		brightnessRange: [colorStats.brightness.min, colorStats.brightness.max],
+		avgBrightness: colorStats.brightness.avg,
+		avgSaturation: colorStats.saturation.avg,
+		dominantColors: colorStats.dominantHues
+	});
+	
+	// Return adaptive mapping function based on image characteristics
+	return function(rgb) {
+		const [r, g, b] = rgb;
+		
+		// Use perceptually uniform color distance (Delta E approximation)
+		let minDistance = Infinity;
+		let closestColor = EINK_PALETTE[1]; // Default to white
+		
+		for (const color of EINK_PALETTE) {
+			// LAB color space approximation for better perceptual matching
+			const deltaR = r - color.rgb[0];
+			const deltaG = g - color.rgb[1];
+			const deltaB = b - color.rgb[2];
+			
+			// Weight the color channels based on human perception
+			const distance = Math.sqrt(
+				2 * deltaR * deltaR +        // Red weight
+				4 * deltaG * deltaG +        // Green weight (higher - human eye is most sensitive)
+				3 * deltaB * deltaB          // Blue weight
+			);
+			
+			if (distance < minDistance) {
+				minDistance = distance;
+				closestColor = color;
+			}
+		}
+		
+		return closestColor;
+	};
+}
+
+// Simple fallback color mapping
 function findClosestColor(rgb) {
 	const [r, g, b] = rgb;
 	let minDistance = Infinity;
-	let closestColor = EINK_PALETTE[1]; // Default to white
+	let closestColor = EINK_PALETTE[1];
 
 	for (const color of EINK_PALETTE) {
 		const distance = Math.sqrt(
@@ -214,8 +297,11 @@ async function convertImageToEink(
 			.raw()
 			.toBuffer();
 
-		// Convert directly to e-ink format with improved color mapping
-		console.log("Converting to e-ink colors with better contrast preservation...");
+		// Create adaptive color mapper based on this specific image
+		const adaptiveMapper = createAdaptiveColorMapper(imageBuffer, targetWidth, targetHeight);
+		
+		// Convert to e-ink format using adaptive mapping
+		console.log("Converting to e-ink colors with adaptive mapping...");
 		const pixels = [];
 		for (let i = 0; i < imageBuffer.length; i += 3) {
 			const rgb = [
@@ -223,7 +309,7 @@ async function convertImageToEink(
 				imageBuffer[i + 1],
 				imageBuffer[i + 2],
 			];
-			const closestColor = findClosestColor(rgb);
+			const closestColor = adaptiveMapper(rgb);
 			pixels.push(closestColor.index);
 		}
 

@@ -544,16 +544,23 @@
         ];
         
         function findClosestEinkColor(r, g, b) {
-            // Simple closest color mapping - find the nearest e-ink color
+            // Use perceptually weighted color distance matching the server
             let minDistance = Infinity;
             let closest = EINK_COLORS[1]; // Default to white
             
             for (const color of EINK_COLORS) {
+                // Perceptually weighted color distance (matches server logic)
+                const deltaR = r - color.rgb[0];
+                const deltaG = g - color.rgb[1];
+                const deltaB = b - color.rgb[2];
+                
+                // Weight channels based on human perception
                 const distance = Math.sqrt(
-                    Math.pow(r - color.rgb[0], 2) +
-                    Math.pow(g - color.rgb[1], 2) +
-                    Math.pow(b - color.rgb[2], 2)
+                    2 * deltaR * deltaR +        // Red weight
+                    4 * deltaG * deltaG +        // Green weight (human eye most sensitive)
+                    3 * deltaB * deltaB          // Blue weight
                 );
+                
                 if (distance < minDistance) {
                     minDistance = distance;
                     closest = color;
