@@ -65,17 +65,23 @@ int bufferHead = 0;
 int bufferCount = 0;
 SerialStreamState serialStream;
 
-// Simple base64 decoder
+// Improved base64 decoder with pre-allocated buffer
 String base64_decode(String input)
 {
     const char *chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    String output = "";
-
+    
     // Remove any padding
     while (input.endsWith("="))
     {
         input.remove(input.length() - 1);
     }
+
+    // Calculate output size and pre-allocate
+    int outputSize = (input.length() * 3) / 4;
+    String output;
+    output.reserve(outputSize + 100); // Reserve memory to avoid reallocations
+
+    Debug("Base64 input length: " + String(input.length()) + ", estimated output: " + String(outputSize) + "\r\n");
 
     for (int i = 0; i < input.length(); i += 4)
     {
@@ -88,14 +94,17 @@ String base64_decode(String input)
             char c = input.charAt(i + j);
             int val = 0;
 
-            // Find character in base64 alphabet
-            for (int k = 0; k < 64; k++)
-            {
-                if (chars[k] == c)
-                {
-                    val = k;
-                    break;
-                }
+            // Find character in base64 alphabet using faster lookup
+            if (c >= 'A' && c <= 'Z') {
+                val = c - 'A';
+            } else if (c >= 'a' && c <= 'z') {
+                val = c - 'a' + 26;
+            } else if (c >= '0' && c <= '9') {
+                val = c - '0' + 52;
+            } else if (c == '+') {
+                val = 62;
+            } else if (c == '/') {
+                val = 63;
             }
 
             combined = (combined << 6) | val;
@@ -115,8 +124,14 @@ String base64_decode(String input)
         {
             output += (char)(combined & 0xFF);
         }
+
+        // Reset watchdog periodically during long decode
+        if (i % 1000 == 0) {
+            esp_task_wdt_reset();
+        }
     }
 
+    Debug("Base64 decode completed, actual output length: " + String(output.length()) + "\r\n");
     return output;
 }
 
@@ -390,13 +405,18 @@ bool fetchCurrentImage()
         if (imageBase64.length() > 0)
         {
             Debug("Processing image data...\r\n");
+            Debug("Base64 length: " + String(imageBase64.length()) + "\r\n");
+            Debug("Free heap before decode: " + String(ESP.getFreeHeap()) + "\r\n");
 
             // Decode base64 image
             String decoded = base64_decode(imageBase64);
+            Debug("Free heap after decode: " + String(ESP.getFreeHeap()) + "\r\n");
 
             if (decoded.length() > 0)
             {
                 Debug("Data decoded successfully\r\n");
+                Debug("Decoded data length: " + String(decoded.length()) + "\r\n");
+                Debug("Expected length: " + String(1200 * 1600) + "\r\n");
 
                 // Clear display first
                 EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
@@ -411,8 +431,13 @@ bool fetchCurrentImage()
                 }
                 else
                 {
-                    // This looks like text data
-                    Debug("Processing as text data\r\n");
+                    // This looks like text data - but let's show more debug info
+                    Debug("Processing as text data (length mismatch)\r\n");
+                    Debug("First 10 bytes: ");
+                    for (int i = 0; i < min(10, (int)decoded.length()); i++) {
+                        Debug(String((unsigned char)decoded[i], HEX) + " ");
+                    }
+                    Debug("\r\n");
                     displayTextMessage(decoded);
                 }
 
@@ -444,13 +469,30 @@ bool fetchCurrentImage()
 void displayImageFromData(const uint8_t *imageData, int width, int height)
 {
     Debug("Displaying image: " + String(width) + "x" + String(height) + "\r\n");
+    Debug("Free heap before display: " + String(ESP.getFreeHeap()) + "\r\n");
 
-    // Calculate centering
-    UWORD x_offset = (EPD_13IN3E_WIDTH - width) / 2;
-    UWORD y_offset = (EPD_13IN3E_HEIGHT - height) / 2;
+    // For debugging, show first few bytes of image data
+    Debug("First 10 image bytes: ");
+    for (int i = 0; i < min(10, width * height); i++) {
+        Debug(String(imageData[i], HEX) + " ");
+    }
+    Debug("\r\n");
 
-    // Display the image
-    EPD_13IN3E_DisplayPart(imageData, x_offset, y_offset, width, height);
+    // Use full display instead of DisplayPart to avoid centering issues
+    if (width == EPD_13IN3E_WIDTH && height == EPD_13IN3E_HEIGHT) {
+        Debug("Using full display mode\r\n");
+        EPD_13IN3E_Display(imageData);
+    } else {
+        Debug("Using partial display mode with centering\r\n");
+        // Calculate centering
+        UWORD x_offset = (EPD_13IN3E_WIDTH - width) / 2;
+        UWORD y_offset = (EPD_13IN3E_HEIGHT - height) / 2;
+        
+        Debug("Display offsets: x=" + String(x_offset) + ", y=" + String(y_offset) + "\r\n");
+        
+        // Display the image
+        EPD_13IN3E_DisplayPart(imageData, x_offset, y_offset, width, height);
+    }
 
     Debug("Image display completed\r\n");
 }
