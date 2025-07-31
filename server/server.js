@@ -120,30 +120,54 @@ async function ensureDir(dir) {
 	}
 }
 
-// Image processing functions
+// Improved color mapping with better contrast preservation
 function findClosestColor(rgb) {
+	const [r, g, b] = rgb;
+	const brightness = (r + g + b) / 3;
+	
+	// Determine dominant color channel
+	const maxChannel = Math.max(r, g, b);
+	const minChannel = Math.min(r, g, b);
+	const saturation = maxChannel === 0 ? 0 : (maxChannel - minChannel) / maxChannel;
+	
+	// High saturation color mapping
+	if (saturation > 0.3) {
+		if (r > g && r > b && r > 100) {
+			return EINK_PALETTE.find(c => c.index === 0x3); // Red
+		}
+		if (g > r && g > b && g > 100) {
+			return EINK_PALETTE.find(c => c.index === 0x6); // Green
+		}
+		if (b > r && b > g && b > 100) {
+			return EINK_PALETTE.find(c => c.index === 0x5); // Blue
+		}
+		if (r > 120 && g > 120 && b < 80) {
+			return EINK_PALETTE.find(c => c.index === 0x2); // Yellow
+		}
+	}
+	
+	// Brightness-based mapping for low saturation
+	if (brightness > 200) {
+		return EINK_PALETTE.find(c => c.index === 0x1); // White
+	} else if (brightness < 80) {
+		return EINK_PALETTE.find(c => c.index === 0x0); // Black
+	}
+	
+	// Fall back to closest color for mid-tones
 	let minDistance = Infinity;
 	let closestColor = EINK_PALETTE[1]; // Default to white
 
 	for (const color of EINK_PALETTE) {
-		const [r, g, b] = color.rgb;
 		const distance = Math.sqrt(
-			Math.pow(rgb[0] - r, 2) +
-				Math.pow(rgb[1] - g, 2) +
-				Math.pow(rgb[2] - b, 2)
+			Math.pow(r - color.rgb[0], 2) +
+			Math.pow(g - color.rgb[1], 2) +
+			Math.pow(b - color.rgb[2], 2)
 		);
 
 		if (distance < minDistance) {
 			minDistance = distance;
 			closestColor = color;
 		}
-	}
-
-	// For bright images, prefer lighter colors over black
-	const brightness = (rgb[0] + rgb[1] + rgb[2]) / 3;
-	if (brightness > 200 && closestColor.index === 0x0) {
-		// If pixel is very bright but mapped to black, use white instead
-		closestColor = EINK_PALETTE[1]; // White
 	}
 
 	return closestColor;
@@ -221,21 +245,14 @@ async function convertImageToEink(
 			.raw()
 			.toBuffer();
 
-		// Apply Floyd-Steinberg dithering for better color conversion
-		console.log("Applying Floyd-Steinberg dithering...");
-		const ditheredBuffer = applyFloydSteinbergDithering(
-			imageBuffer,
-			targetWidth,
-			targetHeight
-		);
-
-		// Convert dithered image to e-ink format
+		// Convert directly to e-ink format with improved color mapping
+		console.log("Converting to e-ink colors with better contrast preservation...");
 		const pixels = [];
-		for (let i = 0; i < ditheredBuffer.length; i += 3) {
+		for (let i = 0; i < imageBuffer.length; i += 3) {
 			const rgb = [
-				ditheredBuffer[i],
-				ditheredBuffer[i + 1],
-				ditheredBuffer[i + 2],
+				imageBuffer[i],
+				imageBuffer[i + 1],
+				imageBuffer[i + 2],
 			];
 			const closestColor = findClosestColor(rgb);
 			pixels.push(closestColor.index);
@@ -265,20 +282,13 @@ async function createTextImage(text, targetWidth = 1200, targetHeight = 1600) {
 			.raw()
 			.toBuffer();
 
-		// Apply Floyd-Steinberg dithering for better color conversion
-		const ditheredBuffer = applyFloydSteinbergDithering(
-			imageBuffer,
-			targetWidth,
-			targetHeight
-		);
-
-		// Convert to e-ink format
+		// Convert directly to e-ink format
 		const pixels = [];
-		for (let i = 0; i < ditheredBuffer.length; i += 3) {
+		for (let i = 0; i < imageBuffer.length; i += 3) {
 			const rgb = [
-				ditheredBuffer[i],
-				ditheredBuffer[i + 1],
-				ditheredBuffer[i + 2],
+				imageBuffer[i],
+				imageBuffer[i + 1],
+				imageBuffer[i + 2],
 			];
 			const closestColor = findClosestColor(rgb);
 			pixels.push(closestColor.index);
