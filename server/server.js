@@ -282,13 +282,13 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 	return ditheredData;
 }
 
-async function convertImageToEink(
+async function convertImageToRGB(
 	imagePath,
 	targetWidth = 1200,
 	targetHeight = 1600
 ) {
 	try {
-		// Load and process image with Sharp
+		// Load and process image with Sharp - just resize, no color conversion
 		const imageBuffer = await sharp(imagePath)
 			.resize(targetWidth, targetHeight, {
 				fit: "contain",
@@ -297,26 +297,13 @@ async function convertImageToEink(
 			.raw()
 			.toBuffer();
 
-		// Create adaptive color mapper based on this specific image
-		const adaptiveMapper = createAdaptiveColorMapper(imageBuffer, targetWidth, targetHeight);
+		console.log(`Processed ${imageBuffer.length / 3} pixels as RGB data`);
+		console.log(`Image size: ${targetWidth}x${targetHeight}, data: ${imageBuffer.length} bytes`);
 		
-		// Convert to e-ink format using adaptive mapping
-		console.log("Converting to e-ink colors with adaptive mapping...");
-		const pixels = [];
-		for (let i = 0; i < imageBuffer.length; i += 3) {
-			const rgb = [
-				imageBuffer[i],
-				imageBuffer[i + 1],
-				imageBuffer[i + 2],
-			];
-			const closestColor = adaptiveMapper(rgb);
-			pixels.push(closestColor.index);
-		}
-
-		console.log(`Converted ${pixels.length} pixels to e-ink format`);
-		return Buffer.from(pixels);
+		// Return raw RGB data for ESP32 to process
+		return imageBuffer;
 	} catch (error) {
-		console.error("Error converting image:", error);
+		console.error("Error processing image:", error);
 		throw error;
 	}
 }
@@ -337,19 +324,10 @@ async function createTextImage(text, targetWidth = 1200, targetHeight = 1600) {
 			.raw()
 			.toBuffer();
 
-		// Convert directly to e-ink format
-		const pixels = [];
-		for (let i = 0; i < imageBuffer.length; i += 3) {
-			const rgb = [
-				imageBuffer[i],
-				imageBuffer[i + 1],
-				imageBuffer[i + 2],
-			];
-			const closestColor = findClosestColor(rgb);
-			pixels.push(closestColor.index);
-		}
-
-		return Buffer.from(pixels);
+		console.log(`Created text image: ${imageBuffer.length / 3} pixels as RGB data`);
+		
+		// Return raw RGB data for ESP32 to process
+		return imageBuffer;
 	} catch (error) {
 		console.error("Error creating text image:", error);
 		throw error;
@@ -448,9 +426,9 @@ app.post("/api/current", async (req, res) => {
 				await ensureDir(UPLOAD_DIR);
 				await fs.writeFile(tempPath, imageBuffer);
 
-				// Convert to e-ink format
-				const einkBuffer = await convertImageToEink(tempPath);
-				imageData = einkBuffer.toString("base64");
+				// Convert to RGB format for ESP32 processing
+				const rgbBuffer = await convertImageToRGB(tempPath);
+				imageData = rgbBuffer.toString("base64");
 
 				// Clean up temp file
 				await fs.unlink(tempPath);
@@ -497,8 +475,8 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 			.png()
 			.toBuffer();
 
-		// Convert to e-ink format for size estimation
-		const einkBuffer = await convertImageToEink(req.file.path);
+		// Convert to RGB format for size estimation
+		const rgbBuffer = await convertImageToRGB(req.file.path);
 
 		// Clean up uploaded file
 		await fs.unlink(req.file.path);
@@ -506,7 +484,7 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 		res.json({
 			success: true,
 			preview: `data:image/png;base64,${previewBuffer.toString("base64")}`,
-			einkSize: Math.round(einkBuffer.length / 1024), // Size in KB
+			rgbSize: Math.round(rgbBuffer.length / 1024), // Size in KB
 			originalName: req.file.originalname,
 		});
 	} catch (error) {
@@ -539,9 +517,9 @@ app.post(
 			const sanitizedTitle = sanitizeInput(title);
 			const sleepMs = parseInt(sleepDuration) || 3600000000;
 
-			// Convert uploaded image to e-ink format
-			const einkBuffer = await convertImageToEink(req.file.path);
-			const imageData = einkBuffer.toString("base64");
+			// Convert uploaded image to RGB format
+			const rgbBuffer = await convertImageToRGB(req.file.path);
+			const imageData = rgbBuffer.toString("base64");
 
 			const current = {
 				title: sanitizedTitle || `Uploaded: ${req.file.originalname}`,
