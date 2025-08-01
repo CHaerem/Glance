@@ -152,6 +152,11 @@ void enterDeepSleep(uint64_t sleepTime);
 float readBatteryVoltage();
 bool checkForCommands();
 void processCommand(const String &command, unsigned long duration);
+bool parseStreamingJSON(HTTPClient &http);
+String extractJSONField(const String &jsonChunk, const String &field, int &startPos);
+int decodeBase64ToBuffer(const String &base64, uint8_t* buffer, int maxSize);
+bool processStreamingImageData(WiFiClient* stream, String initialData, HTTPClient &http);
+void displayRowData(const uint8_t* rowData, int row, int width);
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b);
 void processRGBImageData(const uint8_t *rgbData, int width, int height);
 
@@ -526,97 +531,17 @@ bool fetchCurrentImage()
     if (httpResponseCode == 200)
     {
         Debug("Getting response payload...\r\n");
-        Debug("Free heap before getString: " + String(ESP.getFreeHeap()) + "\r\n");
+        Debug("Free heap before parsing: " + String(ESP.getFreeHeap()) + "\r\n");
         
         // Get response size first
         int contentLength = http.getSize();
         Debug("Content-Length header: " + String(contentLength) + "\r\n");
         
-        String payload = http.getString();
-        Debug("Server response received, payload length: " + String(payload.length()) + "\r\n");
-        Debug("Free heap after getString: " + String(ESP.getFreeHeap()) + "\r\n");
-
-        // Parse JSON response - increased size for large RGB image data (~7.7MB base64)
-        DynamicJsonDocument doc(10 * 1024 * 1024); // 10MB to handle large image data
-        DeserializationError error = deserializeJson(doc, payload);
+        // Use streaming JSON parsing for large responses
+        bool success = parseStreamingJSON(http);
         
-        if (error) {
-            Debug("JSON parsing failed: " + String(error.c_str()) + "\r\n");
-            return false;
-        }
-
-        String title = doc["title"];
-        String imageBase64 = doc["image"];
-        uint64_t sleepDuration = doc["sleepDuration"];
-
-        Debug("Title: " + title + "\r\n");
-        Debug("Sleep duration: " + String(sleepDuration / 1000000) + " seconds\r\n");
-
-        // Update sleep duration for next cycle
-        lastSleepDuration = (sleepDuration > 0) ? sleepDuration : DEFAULT_SLEEP_TIME;
-
-        if (imageBase64.length() > 0)
-        {
-            Debug("Processing image data...\r\n");
-            Debug("Base64 length: " + String(imageBase64.length()) + "\r\n");
-            Debug("Free heap before decode: " + String(ESP.getFreeHeap()) + "\r\n");
-
-            // Decode base64 image
-            String decoded = base64_decode(imageBase64);
-            Debug("Free heap after decode: " + String(ESP.getFreeHeap()) + "\r\n");
-
-            if (decoded.length() > 0)
-            {
-                Debug("Data decoded successfully\r\n");
-                Debug("Decoded data length: " + String(decoded.length()) + "\r\n");
-                Debug("Expected length: " + String(1200 * 1600) + "\r\n");
-
-                // Clear display first
-                EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
-                delay(3000);
-
-                // Check if this looks like RGB data (3 bytes per pixel)
-                if (decoded.length() == (1200 * 1600 * 3))
-                {
-                    // This is raw RGB data - convert to e-ink colors
-                    Debug("Processing as RGB data\r\n");
-                    processRGBImageData((const uint8_t *)decoded.c_str(), 1200, 1600);
-                }
-                else if (decoded.length() == (1200 * 1600))
-                {
-                    // This looks like pre-processed e-ink data (legacy)
-                    Debug("Processing as legacy e-ink data\r\n");
-                    displayImageFromData((const uint8_t *)decoded.c_str(), 1200, 1600);
-                }
-                else
-                {
-                    // This looks like text data - but let's show more debug info
-                    Debug("Processing as text data (length mismatch)\r\n");
-                    Debug("Expected RGB: " + String(1200 * 1600 * 3) + " bytes\r\n");
-                    Debug("Expected E-ink: " + String(1200 * 1600) + " bytes\r\n");
-                    Debug("First 10 bytes: ");
-                    for (int i = 0; i < min(10, (int)decoded.length()); i++) {
-                        Debug(String((unsigned char)decoded[i], HEX) + " ");
-                    }
-                    Debug("\r\n");
-                    displayTextMessage(decoded);
-                }
-
-                http.end();
-                return true;
-            }
-            else
-            {
-                Debug("Failed to decode image data\r\n");
-            }
-        }
-        else
-        {
-            Debug("No image data in response\r\n");
-            // Still clear the display to show we're working
-            EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
-            delay(2000);
-        }
+        http.end();
+        return success;
     }
     else
     {
@@ -1188,4 +1113,373 @@ size_t debugWrite(const uint8_t *buffer, size_t size)
     }
     
     return written;
+}
+
+// Streaming JSON parser for large responses - extracts fields without loading entire JSON
+bool parseStreamingJSON(HTTPClient &http) {
+    Debug("Starting streaming JSON parse...\r\n");
+    
+    String title = "";
+    String imageBase64 = "";
+    uint64_t sleepDuration = DEFAULT_SLEEP_TIME;
+    
+    const int CHUNK_SIZE = 4096; // Process 4KB chunks
+    char buffer[CHUNK_SIZE + 1];
+    String jsonAccumulator = "";
+    int totalBytesRead = 0;
+    bool foundTitle = false, foundSleep = false, foundImageStart = false;
+    bool imageComplete = false;
+    
+    WiFiClient* stream = http.getStreamPtr();
+    
+    while (http.connected() && !imageComplete) {
+        esp_task_wdt_reset(); // Feed watchdog during long operation
+        
+        // Read next chunk
+        int bytesRead = stream->readBytes(buffer, CHUNK_SIZE);
+        if (bytesRead <= 0) break;
+        
+        buffer[bytesRead] = '\0';
+        totalBytesRead += bytesRead;
+        jsonAccumulator += String(buffer);
+        
+        Debug("Read " + String(bytesRead) + " bytes (total: " + String(totalBytesRead) + ")\r\n");
+        Debug("Free heap: " + String(ESP.getFreeHeap()) + "\r\n");
+        
+        // Extract fields as we find them
+        if (!foundTitle) {
+            int pos = 0;
+            title = extractJSONField(jsonAccumulator, "title", pos);
+            if (title.length() > 0) {
+                foundTitle = true;
+                Debug("Found title: " + title + "\r\n");
+            }
+        }
+        
+        if (!foundSleep) {
+            int pos = 0;
+            String sleepStr = extractJSONField(jsonAccumulator, "sleepDuration", pos);
+            if (sleepStr.length() > 0) {
+                sleepDuration = sleepStr.toInt();
+                foundSleep = true;
+                Debug("Found sleep duration: " + String(sleepDuration / 1000000) + " seconds\r\n");
+            }
+        }
+        
+        // For image data, we need to be more careful due to size
+        if (!foundImageStart) {
+            int imageStartPos = jsonAccumulator.indexOf("\"image\":\"");
+            if (imageStartPos >= 0) {
+                foundImageStart = true;
+                Debug("Found image data start\r\n");
+                
+                // Find where the base64 data actually starts
+                int dataStart = imageStartPos + 9; // Length of '"image":"'
+                
+                // Keep only the image data portion and earlier fields
+                String beforeImage = jsonAccumulator.substring(0, dataStart);
+                String imageData = jsonAccumulator.substring(dataStart);
+                
+                // Process the image data directly without storing it all
+                bool success = processStreamingImageData(stream, imageData, http);
+                if (success) {
+                    // Update sleep duration for next cycle
+                    lastSleepDuration = (sleepDuration > 0) ? sleepDuration : DEFAULT_SLEEP_TIME;
+                    return true;
+                }
+                return false;
+            }
+        }
+        
+        // Keep only recent data to prevent memory overflow
+        if (jsonAccumulator.length() > 8192) {
+            jsonAccumulator = jsonAccumulator.substring(4096);
+        }
+    }
+    
+    Debug("Streaming parse completed without finding image\r\n");
+    
+    // Update sleep duration even if no image
+    lastSleepDuration = (sleepDuration > 0) ? sleepDuration : DEFAULT_SLEEP_TIME;
+    
+    return false;
+}
+
+// Extract a JSON field value from a string without full JSON parsing
+String extractJSONField(const String &jsonChunk, const String &field, int &startPos) {
+    String searchStr = "\"" + field + "\":";
+    int fieldPos = jsonChunk.indexOf(searchStr, startPos);
+    
+    if (fieldPos == -1) return "";
+    
+    int valueStart = fieldPos + searchStr.length();
+    
+    // Skip whitespace
+    while (valueStart < jsonChunk.length() && (jsonChunk[valueStart] == ' ' || jsonChunk[valueStart] == '\t')) {
+        valueStart++;
+    }
+    
+    if (valueStart >= jsonChunk.length()) return "";
+    
+    String value = "";
+    
+    if (jsonChunk[valueStart] == '"') {
+        // String value
+        valueStart++; // Skip opening quote
+        int valueEnd = valueStart;
+        while (valueEnd < jsonChunk.length() && jsonChunk[valueEnd] != '"') {
+            if (jsonChunk[valueEnd] == '\\') valueEnd++; // Skip escaped characters
+            valueEnd++;
+        }
+        if (valueEnd < jsonChunk.length()) {
+            value = jsonChunk.substring(valueStart, valueEnd);
+        }
+    } else {
+        // Numeric value
+        int valueEnd = valueStart;
+        while (valueEnd < jsonChunk.length() && 
+               (isdigit(jsonChunk[valueEnd]) || jsonChunk[valueEnd] == '.' || jsonChunk[valueEnd] == '-')) {
+            valueEnd++;
+        }
+        value = jsonChunk.substring(valueStart, valueEnd);
+    }
+    
+    startPos = valueStart + value.length();
+    return value;
+}
+
+// Process image data directly from stream without storing it all in memory
+bool processStreamingImageData(WiFiClient* stream, String initialData, HTTPClient &http) {
+    Debug("Processing streaming image data...\r\n");
+    Debug("Initial data length: " + String(initialData.length()) + "\r\n");
+    
+    // Clear display first
+    EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
+    delay(3000);
+    
+    // Removed old DECODE_CHUNK_SIZE - now defined below
+    String base64Chunk = initialData;
+    
+    // Allocate buffer for RGB processing
+    const int RGB_BUFFER_SIZE = 3600; // 1200 pixels * 3 channels = enough for 1 row
+    uint8_t* rgbBuffer = (uint8_t*)malloc(RGB_BUFFER_SIZE);
+    if (!rgbBuffer) {
+        Debug("Failed to allocate RGB buffer!\r\n");
+        return false;
+    }
+    
+    // Allocate buffer for e-ink row data
+    uint8_t* einkRowBuffer = (uint8_t*)malloc(1200); // 1 row of e-ink data
+    if (!einkRowBuffer) {
+        Debug("Failed to allocate e-ink row buffer!\r\n");
+        free(rgbBuffer);
+        return false;
+    }
+    
+    Debug("Starting row-by-row processing...\r\n");
+    
+    // Ultra-conservative approach: process only small chunks and never store large data
+    Debug("Processing image with minimal memory usage...\r\n");
+    
+    int totalImageBytes = 0;
+    int rowsProcessed = 0;
+    
+    // Very small buffer for base64 processing
+    String smallBase64Buffer = base64Chunk; // Start with initial data
+    
+    for (int row = 0; row < 1600; row++) {
+        esp_task_wdt_reset();
+        
+        // Try to get enough base64 data for one row (need ~4800 chars for 3600 bytes)
+        while (smallBase64Buffer.length() < 5000 && http.connected()) {
+            char buffer[1024];
+            int bytesRead = stream->readBytes(buffer, 1023);
+            if (bytesRead <= 0) break;
+            buffer[bytesRead] = '\0';
+            
+            // Clean and append only base64 characters
+            for (int i = 0; i < bytesRead; i++) {
+                char c = buffer[i];
+                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
+                    (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
+                    smallBase64Buffer += c;
+                }
+            }
+            
+            // Prevent buffer from growing too large - keep only recent data
+            if (smallBase64Buffer.length() > 10000) {
+                smallBase64Buffer = smallBase64Buffer.substring(smallBase64Buffer.length() - 8000);
+            }
+        }
+        
+        if (smallBase64Buffer.length() < 1000) {
+            Debug("Insufficient base64 data for row " + String(row) + "\r\n");
+            break;
+        }
+        
+        // Try to decode what we have
+        int decoded = decodeBase64ToBuffer(smallBase64Buffer, rgbBuffer, RGB_BUFFER_SIZE);
+        
+        if (decoded >= 3597) { // Accept close-enough decoding
+            // Process this row
+            for (int col = 0; col < 1200; col++) {
+                uint8_t r = rgbBuffer[col * 3];
+                uint8_t g = rgbBuffer[col * 3 + 1];
+                uint8_t b = rgbBuffer[col * 3 + 2];
+                einkRowBuffer[col] = mapRGBToEink(r, g, b);
+            }
+            
+            displayRowData(einkRowBuffer, row, 1200);
+            totalImageBytes += decoded; // Use actual decoded amount
+            rowsProcessed++;
+            
+            // Remove the processed base64 data (approximately 4800 chars for 3600 bytes)
+            if (smallBase64Buffer.length() > 4800) {
+                smallBase64Buffer = smallBase64Buffer.substring(4800);
+            } else {
+                smallBase64Buffer = "";
+            }
+        } else {
+            Debug("Row " + String(row) + " decode failed: " + String(decoded) + " bytes\r\n");
+            // Remove some data to advance
+            if (smallBase64Buffer.length() > 1000) {
+                smallBase64Buffer = smallBase64Buffer.substring(800);
+            }
+        }
+        
+        // Progress indicator
+        if (row % 50 == 0) {
+            Debug("Row " + String(row) + ": " + String(decoded) + " bytes decoded\r\n");
+            Debug("Free heap: " + String(ESP.getFreeHeap()) + "\r\n");
+        }
+        
+        // Safety check - if we've processed some rows successfully, that's good progress
+        if (rowsProcessed >= 10 && !http.connected()) {
+            Debug("Connection lost but made progress: " + String(rowsProcessed) + " rows\r\n");
+            break;
+        }
+    }
+    
+    Debug("Image processing complete: " + String(rowsProcessed) + " rows processed\r\n");
+    
+    free(rgbBuffer);
+    free(einkRowBuffer);
+    
+    Debug("Streaming image processing completed\r\n");
+    Debug("Total image bytes processed: " + String(totalImageBytes) + "\r\n");
+    
+    return totalImageBytes > 0;
+}
+
+// Decode base64 directly into a buffer without creating String objects
+int decodeBase64ToBuffer(const String &base64, uint8_t* buffer, int maxSize) {
+    const char *chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    int outputPos = 0;
+    
+    for (int i = 0; i < base64.length() && outputPos + 3 < maxSize; i += 4) {
+        unsigned long combined = 0;
+        int validChars = 0;
+        
+        // Process 4 characters
+        for (int j = 0; j < 4 && (i + j) < base64.length(); j++) {
+            char c = base64.charAt(i + j);
+            if (c == '=') break;
+            
+            int val = 0;
+            if (c >= 'A' && c <= 'Z') {
+                val = c - 'A';
+            } else if (c >= 'a' && c <= 'z') {
+                val = c - 'a' + 26;
+            } else if (c >= '0' && c <= '9') {
+                val = c - '0' + 52;
+            } else if (c == '+') {
+                val = 62;
+            } else if (c == '/') {
+                val = 63;
+            }
+            
+            combined = (combined << 6) | val;
+            validChars++;
+        }
+        
+        // Extract bytes
+        if (validChars >= 2 && outputPos < maxSize) {
+            buffer[outputPos++] = (combined >> 16) & 0xFF;
+        }
+        if (validChars >= 3 && outputPos < maxSize) {
+            buffer[outputPos++] = (combined >> 8) & 0xFF;
+        }
+        if (validChars >= 4 && outputPos < maxSize) {
+            buffer[outputPos++] = combined & 0xFF;
+        }
+    }
+    
+    return outputPos;
+}
+
+// Display image data with reduced resolution for single refresh
+void displayRowData(const uint8_t* rowData, int row, int width) {
+    static uint8_t* fullImageBuffer = nullptr;
+    static bool allocationAttempted = false;
+    static int totalRows = 667; // New resolution: 500×667
+    static int imageWidth = 500;
+    const int BUFFER_SIZE = (500 * 667) / 2; // 163KB for 4-bit packed data
+    
+    // Try to allocate full buffer for reduced resolution image
+    if (!allocationAttempted) {
+        Debug("Attempting to allocate " + String(BUFFER_SIZE/1024) + "KB buffer for 500×667 image...\r\n");
+        Debug("Free heap before allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+        
+        fullImageBuffer = (uint8_t*)malloc(BUFFER_SIZE);
+        if (fullImageBuffer != nullptr) {
+            Debug("SUCCESS: Full image buffer allocated! Will use single refresh.\r\n");
+            // Clear the buffer
+            memset(fullImageBuffer, 0x11, BUFFER_SIZE); // Fill with white
+        } else {
+            Debug("FAILED: Cannot allocate " + String(BUFFER_SIZE/1024) + "KB buffer.\r\n");
+        }
+        allocationAttempted = true;
+        Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    }
+    
+    if (row % 100 == 0) {
+        Debug("Processing row " + String(row) + " / " + String(totalRows) + "\r\n"); 
+        Debug("Free heap: " + String(ESP.getFreeHeap()) + "\r\n");
+    }
+    
+    if (fullImageBuffer != nullptr && row < totalRows) {
+        // Store row in full buffer
+        int rowSize = imageWidth / 2; // 4-bit packed, so 500/2 = 250 bytes per row
+        if (row * rowSize + rowSize <= BUFFER_SIZE) {
+            memcpy(fullImageBuffer + (row * rowSize), rowData, rowSize);
+        }
+        
+        // On final row: display entire image with single refresh
+        if (row >= totalRows - 1) {
+            Debug("All rows buffered - displaying with SINGLE refresh...\r\n");
+            Debug("Image size: " + String(imageWidth) + "×" + String(totalRows) + "\r\n");
+            
+            // Use EPD_13IN3E_Display for single refresh (but need to adjust for smaller image)
+            // For now, just use DisplayPart to show the image centered
+            int xOffset = (1200 - imageWidth) / 2; // Center horizontally
+            int yOffset = (1600 - totalRows) / 2;  // Center vertically
+            
+            EPD_13IN3E_DisplayPart(fullImageBuffer, xOffset, yOffset, imageWidth, totalRows);
+            
+            Debug("Single refresh complete! Image displayed.\r\n");
+            
+            free(fullImageBuffer);
+            fullImageBuffer = nullptr;
+            allocationAttempted = false;
+        }
+    } else {
+        // Fallback if allocation failed
+        Debug("Using fallback display for row " + String(row) + "\r\n");
+        EPD_13IN3E_DisplayPart(rowData, 0, row, width, 1);
+        
+        if (row >= totalRows - 1) {
+            Debug("Fallback display complete.\r\n");
+            allocationAttempted = false;
+        }
+    }
 }
