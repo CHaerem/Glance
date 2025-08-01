@@ -6,7 +6,6 @@ const { v4: uuidv4 } = require("uuid");
 const multer = require("multer");
 const sharp = require("sharp");
 const rateLimit = require("express-rate-limit");
-const { getBhutanFlagRGB } = require("./generate-bhutan-flag");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -381,26 +380,13 @@ async function writeJSONFile(filename, data) {
 // Get current image/schedule for ESP32
 app.get("/api/current.json", async (req, res) => {
 	try {
-		let current = (await readJSONFile("current.json")) || {
+		const current = (await readJSONFile("current.json")) || {
 			title: "Glance Display",
 			image: "",
 			imageId: "",
 			timestamp: Date.now(),
 			sleepDuration: 3600000000, // 1 hour in microseconds
 		};
-
-		// If no image is set, generate and return Bhutan flag
-		if (!current.image || current.image.length === 0) {
-			console.log("No image set, generating Bhutan flag as default...");
-			const bhutanFlagRGB = await getBhutanFlagRGB(1200, 1600);
-			current = {
-				title: "Bhutan Flag - Default Display",
-				image: bhutanFlagRGB.toString("base64"),
-				imageId: "bhutan-flag-default",
-				timestamp: Date.now(),
-				sleepDuration: 3600000000, // 1 hour in microseconds
-			};
-		}
 
 		res.json(current);
 	} catch (error) {
