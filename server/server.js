@@ -284,8 +284,8 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 
 async function convertImageToRGB(
 	imagePath,
-	targetWidth = 300,  // 300×400 = 60KB (definitely fits in 207KB ESP32 heap)
-	targetHeight = 400  // Maintains 3:4 aspect ratio
+	targetWidth = 1200,  // Back to full resolution like original Bhutan flag
+	targetHeight = 1600  // Full display resolution
 ) {
 	try {
 		// Load and process image with Sharp - just resize, no color conversion
@@ -308,7 +308,7 @@ async function convertImageToRGB(
 	}
 }
 
-async function createTextImage(text, targetWidth = 300, targetHeight = 400) {
+async function createTextImage(text, targetWidth = 1200, targetHeight = 1600) {
 	try {
 		// Create SVG text
 		const svg = `

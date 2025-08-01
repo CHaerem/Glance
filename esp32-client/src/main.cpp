@@ -1417,68 +1417,66 @@ int decodeBase64ToBuffer(const String &base64, uint8_t* buffer, int maxSize) {
     return outputPos;
 }
 
-// Display image data with reduced resolution for single refresh
+// Display row data - attempt full buffer allocation after HTTP processing is done
 void displayRowData(const uint8_t* rowData, int row, int width) {
     static uint8_t* fullImageBuffer = nullptr;
     static bool allocationAttempted = false;
-    static int totalRows = 400; // New resolution: 300×400
-    static int imageWidth = 300;
-    const int BUFFER_SIZE = (300 * 400) / 2; // 60KB for 4-bit packed data
+    static bool usingFullBuffer = false;
+    const int FULL_BUFFER_SIZE = (1200 * 1600) / 2; // 960KB for full resolution
     
-    // Try to allocate full buffer for reduced resolution image
+    // Try to allocate full buffer on first call (after HTTP overhead is released)
     if (!allocationAttempted) {
-        Debug("Attempting to allocate " + String(BUFFER_SIZE/1024) + "KB buffer for 300×400 image...\r\n");
+        Debug("HTTP processing complete - now attempting full 937KB buffer allocation...\r\n");
         Debug("Free heap before allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
         
-        fullImageBuffer = (uint8_t*)malloc(BUFFER_SIZE);
+        fullImageBuffer = (uint8_t*)malloc(FULL_BUFFER_SIZE);
         if (fullImageBuffer != nullptr) {
-            Debug("SUCCESS: Full image buffer allocated! Will use single refresh.\r\n");
-            // Clear the buffer
-            memset(fullImageBuffer, 0x11, BUFFER_SIZE); // Fill with white
+            Debug("SUCCESS: Full 1200×1600 buffer allocated! Single refresh mode enabled.\r\n");
+            usingFullBuffer = true;
+            memset(fullImageBuffer, 0x11, FULL_BUFFER_SIZE); // Fill with white
         } else {
-            Debug("FAILED: Cannot allocate " + String(BUFFER_SIZE/1024) + "KB buffer (60KB).\r\n");
+            Debug("INFO: Cannot allocate full buffer (" + String(ESP.getFreeHeap()) + " bytes available)\r\n");
+            Debug("Falling back to row-by-row display (multiple refreshes)\r\n");
+            usingFullBuffer = false;
         }
         allocationAttempted = true;
         Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
     }
     
-    if (row % 100 == 0) {
-        Debug("Processing row " + String(row) + " / " + String(totalRows) + "\r\n"); 
+    if (row % 200 == 0) {
+        Debug("Processing row " + String(row) + " / 1600\r\n");
         Debug("Free heap: " + String(ESP.getFreeHeap()) + "\r\n");
     }
     
-    if (fullImageBuffer != nullptr && row < totalRows) {
-        // Store row in full buffer
-        int rowSize = imageWidth / 2; // 4-bit packed, so 500/2 = 250 bytes per row
-        if (row * rowSize + rowSize <= BUFFER_SIZE) {
-            memcpy(fullImageBuffer + (row * rowSize), rowData, rowSize);
+    if (usingFullBuffer && fullImageBuffer != nullptr) {
+        // OPTIMAL PATH: Store in full buffer for single refresh
+        if (row < 1600) {
+            int rowSize = width / 2; // 4-bit packed
+            if (row * rowSize + rowSize <= FULL_BUFFER_SIZE) {
+                memcpy(fullImageBuffer + (row * rowSize), rowData, rowSize);
+            }
         }
         
         // On final row: display entire image with single refresh
-        if (row >= totalRows - 1) {
-            Debug("All rows buffered - displaying with SINGLE refresh...\r\n");
-            Debug("Image size: " + String(imageWidth) + "×" + String(totalRows) + "\r\n");
-            
-            // Use EPD_13IN3E_Display for single refresh (but need to adjust for smaller image)
-            // For now, just use DisplayPart to show the image centered
-            int xOffset = (1200 - imageWidth) / 2; // Center horizontally
-            int yOffset = (1600 - totalRows) / 2;  // Center vertically
-            
-            EPD_13IN3E_DisplayPart(fullImageBuffer, xOffset, yOffset, imageWidth, totalRows);
-            
-            Debug("Single refresh complete! Image displayed.\r\n");
+        if (row >= 1599) {
+            Debug("All 1600 rows buffered - displaying with SINGLE refresh using EPD_13IN3E_Display...\r\n");
+            EPD_13IN3E_Display(fullImageBuffer);
+            Debug("PERFECT: Single refresh complete! Full resolution image displayed.\r\n");
             
             free(fullImageBuffer);
             fullImageBuffer = nullptr;
             allocationAttempted = false;
+            usingFullBuffer = false;
         }
     } else {
-        // Fallback if allocation failed
-        Debug("Using fallback display for row " + String(row) + "\r\n");
+        // FALLBACK PATH: Row-by-row display (multiple refreshes)
+        if (row % 200 == 0) {
+            Debug("Fallback: Displaying row " + String(row) + " immediately\r\n");
+        }
         EPD_13IN3E_DisplayPart(rowData, 0, row, width, 1);
         
-        if (row >= totalRows - 1) {
-            Debug("Fallback display complete.\r\n");
+        if (row >= 1599) {
+            Debug("Fallback display complete (multiple refreshes used)\r\n");
             allocationAttempted = false;
         }
     }
