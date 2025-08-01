@@ -139,6 +139,38 @@ String base64_decode(String input)
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR uint64_t lastSleepDuration = DEFAULT_SLEEP_TIME;
 
+
+// Function declarations
+void setupPowerManagement();
+bool connectToWiFi();
+bool fetchCurrentImage();
+void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength);
+void sendLogToServer(const char *message, const char *level = "INFO");
+void displayImageFromData(const uint8_t *imageData, int width, int height);
+void displayTextMessage(const String &text);
+void enterDeepSleep(uint64_t sleepTime);
+float readBatteryVoltage();
+bool checkForCommands();
+void processCommand(const String &command, unsigned long duration);
+uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b);
+void processRGBImageData(const uint8_t *rgbData, int width, int height);
+
+// Enhanced communication functions
+bool makeHttpRequest(const String &url, const String &method, const String &payload, String &response, int customTimeout = 0);
+void bufferMessage(const String &endpoint, const String &payload);
+void flushOfflineBuffer();
+void updateCommState(bool success);
+void sendHeartbeat();
+bool isServerReachable();
+void adaptiveDelay(int baseDelay);
+
+// Serial streaming functions
+void enableSerialStreaming();
+void disableSerialStreaming();
+void captureSerialOutput(const String &output);
+void flushSerialStream();
+size_t debugWrite(const uint8_t *buffer, size_t size);
+
 // E-ink color palette (hardware defined)
 const uint8_t EINK_BLACK = 0x0;
 const uint8_t EINK_WHITE = 0x1;
@@ -271,35 +303,6 @@ void processRGBImageData(const uint8_t *rgbData, int width, int height) {
     // Free the allocated memory
     free(einkData);
 }
-
-// Function declarations
-void setupPowerManagement();
-bool connectToWiFi();
-bool fetchCurrentImage();
-void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength);
-void sendLogToServer(const char *message, const char *level = "INFO");
-void displayImageFromData(const uint8_t *imageData, int width, int height);
-void displayTextMessage(const String &text);
-void enterDeepSleep(uint64_t sleepTime);
-float readBatteryVoltage();
-bool checkForCommands();
-void processCommand(const String &command, unsigned long duration);
-
-// Enhanced communication functions
-bool makeHttpRequest(const String &url, const String &method, const String &payload, String &response, int customTimeout = 0);
-void bufferMessage(const String &endpoint, const String &payload);
-void flushOfflineBuffer();
-void updateCommState(bool success);
-void sendHeartbeat();
-bool isServerReachable();
-void adaptiveDelay(int baseDelay);
-
-// Serial streaming functions
-void enableSerialStreaming();
-void disableSerialStreaming();
-void captureSerialOutput(const String &output);
-void flushSerialStream();
-size_t debugWrite(const uint8_t *buffer, size_t size);
 
 void setup()
 {
