@@ -395,6 +395,36 @@ app.get("/api/current.json", async (req, res) => {
 	}
 });
 
+// NEW: Serve raw binary image data for PSRAM streaming
+app.get("/api/image.bin", async (req, res) => {
+	try {
+		const current = (await readJSONFile("current.json")) || {};
+		
+		if (!current || !current.image) {
+			return res.status(404).send("No image available");
+		}
+		
+		console.log("Serving raw binary image data for PSRAM streaming");
+		
+		// Convert base64 to binary buffer
+		const binaryData = Buffer.from(current.image, 'base64');
+		
+		// Set headers for binary data
+		res.set({
+			'Content-Type': 'application/octet-stream',
+			'Content-Length': binaryData.length,
+			'Cache-Control': 'no-cache'
+		});
+		
+		console.log(`Sending ${binaryData.length} bytes of raw image data`);
+		res.send(binaryData);
+		
+	} catch (error) {
+		console.error("Error serving binary image:", error);
+		res.status(500).send("Error serving binary image");
+	}
+});
+
 // Update current image (for web interface or manual updates)
 app.post("/api/current", async (req, res) => {
 	try {
