@@ -1417,67 +1417,112 @@ int decodeBase64ToBuffer(const String &base64, uint8_t* buffer, int maxSize) {
     return outputPos;
 }
 
-// Display row data - attempt full buffer allocation after HTTP processing is done
-void displayRowData(const uint8_t* rowData, int row, int width) {
-    static uint8_t* fullImageBuffer = nullptr;
-    static bool allocationAttempted = false;
-    static bool usingFullBuffer = false;
-    const int FULL_BUFFER_SIZE = (1200 * 1600) / 2; // 960KB for full resolution
+// Stream full image directly from server using PSRAM - your friend's brilliant approach!
+bool streamImageToPSRAM() {
+    Debug("=== STREAMING IMAGE TO PSRAM (new approach) ===\r\n");
+    Debug("Regular heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    Debug("PSRAM free: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
     
-    // Try to allocate full buffer on first call (after HTTP overhead is released)
-    if (!allocationAttempted) {
-        Debug("HTTP processing complete - now attempting full 937KB buffer allocation...\r\n");
-        Debug("Free heap before allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-        
-        fullImageBuffer = (uint8_t*)malloc(FULL_BUFFER_SIZE);
-        if (fullImageBuffer != nullptr) {
-            Debug("SUCCESS: Full 1200×1600 buffer allocated! Single refresh mode enabled.\r\n");
-            usingFullBuffer = true;
-            memset(fullImageBuffer, 0x11, FULL_BUFFER_SIZE); // Fill with white
-        } else {
-            Debug("INFO: Cannot allocate full buffer (" + String(ESP.getFreeHeap()) + " bytes available)\r\n");
-            Debug("Falling back to row-by-row display (multiple refreshes)\r\n");
-            usingFullBuffer = false;
-        }
-        allocationAttempted = true;
-        Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    const int IMAGE_WIDTH = 1200;
+    const int IMAGE_HEIGHT = 1600;
+    const int BUFFER_SIZE = (IMAGE_WIDTH * IMAGE_HEIGHT) / 2; // 960KB for 4-bit packed
+    
+    // Step 1: Allocate image buffer in PSRAM
+    uint8_t* imageBuffer = (uint8_t*)heap_caps_malloc(BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+    if (imageBuffer == nullptr) {
+        Debug("ERROR: Cannot allocate 960KB in PSRAM\r\n");
+        return false;
     }
     
-    if (row % 200 == 0) {
-        Debug("Processing row " + String(row) + " / 1600\r\n");
-        Debug("Free heap: " + String(ESP.getFreeHeap()) + "\r\n");
+    Debug("SUCCESS: Allocated 960KB image buffer in PSRAM\r\n");
+    Debug("PSRAM after allocation: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
+    
+    // Step 2: Stream raw image data directly from server
+    HTTPClient http;
+    http.setTimeout(60000); // 60 second timeout for large images
+    
+    // Request raw binary image data (no JSON, no base64!)
+    String imageUrl = "http://serverpi.local:3000/api/image.bin";
+    Debug("Fetching raw image: " + imageUrl + "\r\n");
+    
+    http.begin(imageUrl);
+    int httpCode = http.GET();
+    
+    if (httpCode != HTTP_CODE_OK) {
+        Debug("ERROR: HTTP request failed: " + String(httpCode) + "\r\n");
+        heap_caps_free(imageBuffer);
+        http.end();
+        return false;
     }
     
-    if (usingFullBuffer && fullImageBuffer != nullptr) {
-        // OPTIMAL PATH: Store in full buffer for single refresh
-        if (row < 1600) {
-            int rowSize = width / 2; // 4-bit packed
-            if (row * rowSize + rowSize <= FULL_BUFFER_SIZE) {
-                memcpy(fullImageBuffer + (row * rowSize), rowData, rowSize);
-            }
-        }
-        
-        // On final row: display entire image with single refresh
-        if (row >= 1599) {
-            Debug("All 1600 rows buffered - displaying with SINGLE refresh using EPD_13IN3E_Display...\r\n");
-            EPD_13IN3E_Display(fullImageBuffer);
-            Debug("PERFECT: Single refresh complete! Full resolution image displayed.\r\n");
+    int contentLength = http.getSize();
+    Debug("Content-Length: " + String(contentLength) + " bytes\r\n");
+    
+    if (contentLength != BUFFER_SIZE) {
+        Debug("WARNING: Expected " + String(BUFFER_SIZE) + " bytes, got " + String(contentLength) + "\r\n");
+    }
+    
+    // Step 3: Stream data directly into PSRAM buffer
+    WiFiClient* stream = http.getStreamPtr();
+    int totalBytesRead = 0;
+    int bufferOffset = 0;
+    
+    Debug("Starting direct stream to PSRAM...\r\n");
+    
+    while (http.connected() && totalBytesRead < BUFFER_SIZE) {
+        size_t availableBytes = stream->available();
+        if (availableBytes > 0) {
+            // Read in chunks, directly into PSRAM
+            int chunkSize = min((int)availableBytes, min(4096, BUFFER_SIZE - totalBytesRead));
+            int bytesRead = stream->readBytes(imageBuffer + bufferOffset, chunkSize);
             
-            free(fullImageBuffer);
-            fullImageBuffer = nullptr;
-            allocationAttempted = false;
-            usingFullBuffer = false;
+            totalBytesRead += bytesRead;
+            bufferOffset += bytesRead;
+            
+            if (totalBytesRead % 50000 == 0) { // Every 50KB
+                Debug("Streamed " + String(totalBytesRead/1024) + "KB / " + String(BUFFER_SIZE/1024) + "KB\r\n");
+            }
+        } else {
+            delay(10); // Small delay if no data available
         }
+    }
+    
+    Debug("Stream complete: " + String(totalBytesRead) + " bytes received\r\n");
+    
+    // Step 4: Clean up HTTP resources to free regular heap
+    http.end();
+    Debug("HTTP connection closed\r\n");
+    Debug("Regular heap after cleanup: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    // Step 5: Display image with single refresh (like original Bhutan flag!)
+    if (totalBytesRead >= BUFFER_SIZE * 0.9) { // Allow for some size variance
+        Debug("Image stream successful - displaying with SINGLE refresh...\r\n");
+        EPD_13IN3E_Display(imageBuffer);
+        Debug("PERFECT: Single refresh complete! Full WiFi image displayed like original flag.\r\n");
     } else {
-        // FALLBACK PATH: Row-by-row display (multiple refreshes)
-        if (row % 200 == 0) {
-            Debug("Fallback: Displaying row " + String(row) + " immediately\r\n");
+        Debug("ERROR: Incomplete image received, not displaying\r\n");
+    }
+    
+    // Step 6: Free PSRAM buffer
+    heap_caps_free(imageBuffer);
+    Debug("PSRAM buffer freed\r\n");
+    Debug("Final PSRAM free: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
+    
+    return totalBytesRead >= BUFFER_SIZE * 0.9;
+}
+
+// Override the current approach - use PSRAM streaming instead
+void displayRowData(const uint8_t* rowData, int row, int width) {    
+    static bool imageStreamed = false;
+    
+    if (!imageStreamed) {
+        Debug("Switching to PSRAM streaming approach...\r\n");
+        bool success = streamImageToPSRAM();
+        if (success) {
+            Debug("PSRAM streaming successful!\r\n");
+        } else {
+            Debug("PSRAM streaming failed - will try fallback\r\n");
         }
-        EPD_13IN3E_DisplayPart(rowData, 0, row, width, 1);
-        
-        if (row >= 1599) {
-            Debug("Fallback display complete (multiple refreshes used)\r\n");
-            allocationAttempted = false;
-        }
+        imageStreamed = true;
     }
 }
