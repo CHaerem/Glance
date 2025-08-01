@@ -284,8 +284,8 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 
 async function convertImageToRGB(
 	imagePath,
-	targetWidth = 1200,
-	targetHeight = 1600
+	targetWidth = 500,  // 500×667 = 163KB (fits in 207KB ESP32 heap)
+	targetHeight = 667  // Maintains 3:4 aspect ratio
 ) {
 	try {
 		// Load and process image with Sharp - just resize, no color conversion
@@ -308,7 +308,7 @@ async function convertImageToRGB(
 	}
 }
 
-async function createTextImage(text, targetWidth = 1200, targetHeight = 1600) {
+async function createTextImage(text, targetWidth = 500, targetHeight = 667) {
 	try {
 		// Create SVG text
 		const svg = `
