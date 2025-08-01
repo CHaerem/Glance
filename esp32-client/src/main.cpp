@@ -515,7 +515,9 @@ bool fetchCurrentImage()
     HTTPClient http;
     http.begin(API_BASE_URL "current.json");
     http.setTimeout(60000); // 60 second timeout for large image downloads
+    http.setConnectTimeout(10000); // 10 second connection timeout
     http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
+    http.addHeader("Connection", "close"); // Force connection close after request
 
     Debug("Sending HTTP GET request...\r\n");
     int httpResponseCode = http.GET();
@@ -524,8 +526,15 @@ bool fetchCurrentImage()
     if (httpResponseCode == 200)
     {
         Debug("Getting response payload...\r\n");
+        Debug("Free heap before getString: " + String(ESP.getFreeHeap()) + "\r\n");
+        
+        // Get response size first
+        int contentLength = http.getSize();
+        Debug("Content-Length header: " + String(contentLength) + "\r\n");
+        
         String payload = http.getString();
         Debug("Server response received, payload length: " + String(payload.length()) + "\r\n");
+        Debug("Free heap after getString: " + String(ESP.getFreeHeap()) + "\r\n");
 
         // Parse JSON response - increased size for large RGB image data (~7.7MB base64)
         DynamicJsonDocument doc(10 * 1024 * 1024); // 10MB to handle large image data
