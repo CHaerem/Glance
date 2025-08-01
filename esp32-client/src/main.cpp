@@ -1421,13 +1421,13 @@ int decodeBase64ToBuffer(const String &base64, uint8_t* buffer, int maxSize) {
 void displayRowData(const uint8_t* rowData, int row, int width) {
     static uint8_t* fullImageBuffer = nullptr;
     static bool allocationAttempted = false;
-    static int totalRows = 667; // New resolution: 500×667
-    static int imageWidth = 500;
-    const int BUFFER_SIZE = (500 * 667) / 2; // 163KB for 4-bit packed data
+    static int totalRows = 400; // New resolution: 300×400
+    static int imageWidth = 300;
+    const int BUFFER_SIZE = (300 * 400) / 2; // 60KB for 4-bit packed data
     
     // Try to allocate full buffer for reduced resolution image
     if (!allocationAttempted) {
-        Debug("Attempting to allocate " + String(BUFFER_SIZE/1024) + "KB buffer for 500×667 image...\r\n");
+        Debug("Attempting to allocate " + String(BUFFER_SIZE/1024) + "KB buffer for 300×400 image...\r\n");
         Debug("Free heap before allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
         
         fullImageBuffer = (uint8_t*)malloc(BUFFER_SIZE);
@@ -1436,7 +1436,7 @@ void displayRowData(const uint8_t* rowData, int row, int width) {
             // Clear the buffer
             memset(fullImageBuffer, 0x11, BUFFER_SIZE); // Fill with white
         } else {
-            Debug("FAILED: Cannot allocate " + String(BUFFER_SIZE/1024) + "KB buffer.\r\n");
+            Debug("FAILED: Cannot allocate " + String(BUFFER_SIZE/1024) + "KB buffer (60KB).\r\n");
         }
         allocationAttempted = true;
         Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
