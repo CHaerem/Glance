@@ -146,6 +146,9 @@ bool connectToWiFi();
 bool fetchCurrentImage();
 void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength);
 void sendLogToServer(const char *message, const char *level = "INFO");
+void generateAndDisplayBhutanFlag();
+void generateSmallBhutanFlag();
+bool streamImageWithCleanup();
 void displayImageFromData(const uint8_t *imageData, int width, int height);
 void displayTextMessage(const String &text);
 void enterDeepSleep(uint64_t sleepTime);
@@ -1427,15 +1430,33 @@ bool streamImageToPSRAM() {
     const int IMAGE_HEIGHT = 1600;
     const int BUFFER_SIZE = (IMAGE_WIDTH * IMAGE_HEIGHT) / 2; // 960KB for 4-bit packed
     
-    // Step 1: Allocate image buffer in PSRAM
-    uint8_t* imageBuffer = (uint8_t*)heap_caps_malloc(BUFFER_SIZE, MALLOC_CAP_SPIRAM);
-    if (imageBuffer == nullptr) {
-        Debug("ERROR: Cannot allocate 960KB in PSRAM\r\n");
-        return false;
+    // Step 1: Try PSRAM first, fallback to regular heap with smaller buffer
+    uint8_t* imageBuffer = nullptr;
+    int actualBufferSize = BUFFER_SIZE;
+    
+    // Try PSRAM first
+    if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > BUFFER_SIZE) {
+        imageBuffer = (uint8_t*)heap_caps_malloc(BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+        if (imageBuffer != nullptr) {
+            Debug("SUCCESS: Using PSRAM for full resolution\r\n");
+        }
     }
     
-    Debug("SUCCESS: Allocated 960KB image buffer in PSRAM\r\n");
-    Debug("PSRAM after allocation: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
+    // Fallback to regular heap with smaller buffer
+    if (imageBuffer == nullptr) {
+        Debug("PSRAM not available - trying regular heap with reduced resolution\r\n");
+        // Use 1/4 resolution: 600×800 = 240KB buffer
+        actualBufferSize = (600 * 800) / 2; 
+        imageBuffer = (uint8_t*)malloc(actualBufferSize);
+        if (imageBuffer == nullptr) {
+            Debug("ERROR: Cannot allocate even " + String(actualBufferSize/1024) + "KB in regular heap\r\n");
+            return false;
+        }
+        Debug("SUCCESS: Using regular heap with reduced resolution\r\n");
+    }
+    
+    Debug("Allocated " + String(actualBufferSize/1024) + "KB image buffer\r\n");
+    Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
     
     // Step 2: Stream raw image data directly from server
     HTTPClient http;
@@ -1469,18 +1490,18 @@ bool streamImageToPSRAM() {
     
     Debug("Starting direct stream to PSRAM...\r\n");
     
-    while (http.connected() && totalBytesRead < BUFFER_SIZE) {
+    while (http.connected() && totalBytesRead < actualBufferSize) {
         size_t availableBytes = stream->available();
         if (availableBytes > 0) {
-            // Read in chunks, directly into PSRAM
-            int chunkSize = min((int)availableBytes, min(4096, BUFFER_SIZE - totalBytesRead));
+            // Read in chunks
+            int chunkSize = min((int)availableBytes, min(4096, actualBufferSize - totalBytesRead));
             int bytesRead = stream->readBytes(imageBuffer + bufferOffset, chunkSize);
             
             totalBytesRead += bytesRead;
             bufferOffset += bytesRead;
             
             if (totalBytesRead % 50000 == 0) { // Every 50KB
-                Debug("Streamed " + String(totalBytesRead/1024) + "KB / " + String(BUFFER_SIZE/1024) + "KB\r\n");
+                Debug("Streamed " + String(totalBytesRead/1024) + "KB / " + String(actualBufferSize/1024) + "KB\r\n");
             }
         } else {
             delay(10); // Small delay if no data available
@@ -1495,34 +1516,267 @@ bool streamImageToPSRAM() {
     Debug("Regular heap after cleanup: " + String(ESP.getFreeHeap()) + " bytes\r\n");
     
     // Step 5: Display image with single refresh (like original Bhutan flag!)
-    if (totalBytesRead >= BUFFER_SIZE * 0.9) { // Allow for some size variance
+    if (totalBytesRead >= actualBufferSize * 0.9) { // Allow for some size variance
         Debug("Image stream successful - displaying with SINGLE refresh...\r\n");
-        EPD_13IN3E_Display(imageBuffer);
-        Debug("PERFECT: Single refresh complete! Full WiFi image displayed like original flag.\r\n");
+        
+        if (actualBufferSize == BUFFER_SIZE) {
+            // Full resolution display
+            EPD_13IN3E_Display(imageBuffer);
+            Debug("PERFECT: Single refresh complete! Full resolution image displayed.\r\n");
+        } else {
+            // Reduced resolution - center on display
+            int displayWidth = 600;
+            int displayHeight = 800;
+            int xOffset = (1200 - displayWidth) / 2;
+            int yOffset = (1600 - displayHeight) / 2;
+            EPD_13IN3E_DisplayPart(imageBuffer, xOffset, yOffset, displayWidth, displayHeight);
+            Debug("GOOD: Single refresh complete! Reduced resolution image displayed.\r\n");
+        }
     } else {
         Debug("ERROR: Incomplete image received, not displaying\r\n");
     }
     
-    // Step 6: Free PSRAM buffer
-    heap_caps_free(imageBuffer);
-    Debug("PSRAM buffer freed\r\n");
-    Debug("Final PSRAM free: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
+    // Step 6: Free buffer
+    if (actualBufferSize == BUFFER_SIZE) {
+        heap_caps_free(imageBuffer);
+    } else {
+        free(imageBuffer);
+    }
+    Debug("Buffer freed\r\n");
     
-    return totalBytesRead >= BUFFER_SIZE * 0.9;
+    return totalBytesRead >= actualBufferSize * 0.9;
 }
 
-// Override the current approach - use PSRAM streaming instead
+// Override current approach with proper WiFi streaming (your friend's brilliant method)
 void displayRowData(const uint8_t* rowData, int row, int width) {    
-    static bool imageStreamed = false;
+    static bool wifiStreamingAttempted = false;
     
-    if (!imageStreamed) {
-        Debug("Switching to PSRAM streaming approach...\r\n");
-        bool success = streamImageToPSRAM();
-        if (success) {
-            Debug("PSRAM streaming successful!\r\n");
-        } else {
-            Debug("PSRAM streaming failed - will try fallback\r\n");
+    if (!wifiStreamingAttempted) {
+        Debug("Attempting WiFi streaming with proper cleanup approach...\r\n");
+        bool success = streamImageWithCleanup();
+        if (!success) {
+            Debug("WiFi streaming failed - generating flag as fallback\r\n");
+            generateAndDisplayBhutanFlag();
         }
-        imageStreamed = true;
+        wifiStreamingAttempted = true;
     }
+}
+
+// Your friend's approach: Stream → RAM → Cleanup → Display
+bool streamImageWithCleanup() {
+    Debug("=== WIFI STREAMING WITH PROPER CLEANUP ===\r\n");
+    Debug("Step 1: Pre-allocate image buffer\r\n");
+    Debug("Free heap before allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    const int IMAGE_SIZE = (1200 * 1600) / 2; // 937KB for 4-bit packed
+    
+    // Step 1: Pre-allocate image buffer (while heap is still clean)
+    uint8_t* imageBuffer = (uint8_t*)malloc(IMAGE_SIZE);
+    if (imageBuffer == nullptr) {
+        Debug("ERROR: Cannot pre-allocate 937KB image buffer\r\n");
+        Debug("Available heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+        return false;
+    }
+    
+    Debug("SUCCESS: Pre-allocated 937KB image buffer\r\n");
+    Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    // Step 2: Stream raw binary data into the buffer
+    Debug("Step 2: Streaming raw binary image data\r\n");
+    
+    HTTPClient http;
+    http.setTimeout(60000);
+    http.begin("http://serverpi.local:3000/api/image.bin");
+    
+    int httpCode = http.GET();
+    if (httpCode != HTTP_CODE_OK) {
+        Debug("ERROR: HTTP failed: " + String(httpCode) + "\r\n");
+        free(imageBuffer);
+        http.end();
+        return false;
+    }
+    
+    int contentLength = http.getSize();
+    Debug("Content-Length: " + String(contentLength) + " bytes\r\n");
+    
+    // Stream data directly into pre-allocated buffer
+    WiFiClient* stream = http.getStreamPtr();
+    int totalBytesRead = 0;
+    
+    while (http.connected() && totalBytesRead < IMAGE_SIZE) {
+        size_t available = stream->available();
+        if (available > 0) {
+            int chunkSize = min((int)available, min(4096, IMAGE_SIZE - totalBytesRead));
+            int bytesRead = stream->readBytes(imageBuffer + totalBytesRead, chunkSize);
+            totalBytesRead += bytesRead;
+            
+            if (totalBytesRead % 100000 == 0) {
+                Debug("Downloaded " + String(totalBytesRead/1024) + "KB / " + String(IMAGE_SIZE/1024) + "KB\r\n");
+            }
+        } else {
+            delay(10);
+        }
+    }
+    
+    Debug("Download complete: " + String(totalBytesRead) + " bytes\r\n");
+    
+    // Step 3: CRITICAL - Completely release WiFi/HTTP resources
+    Debug("Step 3: Releasing ALL WiFi/HTTP resources\r\n");
+    Debug("Free heap before cleanup: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    http.end();              // Close HTTP connection
+    WiFi.disconnect(true);   // Disconnect WiFi
+    WiFi.mode(WIFI_OFF);     // Turn off WiFi completely
+    delay(100);              // Let WiFi stack clean up
+    
+    Debug("WiFi/HTTP completely released\r\n");
+    Debug("Free heap after cleanup: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    // Step 4: Now display with single refresh (heap is clean!)
+    if (totalBytesRead >= IMAGE_SIZE * 0.9) {
+        Debug("Step 4: Displaying with SINGLE refresh (clean heap)\r\n");
+        EPD_13IN3E_Display(imageBuffer);
+        Debug("PERFECT: WiFi image displayed with single refresh!\r\n");
+        
+        free(imageBuffer);
+        Debug("Image buffer freed. Mission accomplished!\r\n");
+        return true;
+    } else {
+        Debug("ERROR: Incomplete download\r\n");
+        free(imageBuffer);
+        return false;
+    }
+}
+
+// Generate Bhutan flag directly - the approach that worked originally
+void generateAndDisplayBhutanFlag() {
+    Debug("=== GENERATING BHUTAN FLAG DIRECTLY (original working approach) ===\r\n");
+    Debug("Free heap before generation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    const int width = 1200;
+    const int height = 1600;
+    const int BUFFER_SIZE = (width * height) / 2; // 960KB
+    
+    // Try to allocate the full buffer 
+    uint8_t* flagBuffer = (uint8_t*)malloc(BUFFER_SIZE);
+    if (flagBuffer == nullptr) {
+        Debug("Cannot allocate full buffer - WiFi/HTTP is using too much memory\r\n");
+        Debug("Generating smaller flag instead...\r\n");
+        
+        // Generate smaller flag that fits in available memory
+        generateSmallBhutanFlag();
+        return;
+    }
+    
+    Debug("SUCCESS: Allocated " + String(BUFFER_SIZE/1024) + "KB for Bhutan flag\r\n");
+    Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    // Generate Bhutan flag colors (same as original)
+    const uint8_t YELLOW = 0x2;
+    const uint8_t ORANGE = 0x3; 
+    const uint8_t WHITE_COLOR = 0x1;
+    
+    Debug("Generating flag pixels...\r\n");
+    
+    // Fill with diagonal split and dragon (exactly like original)
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int pixelIndex = y * width + x;
+            int byteIndex = pixelIndex / 2;
+            bool isEvenPixel = (pixelIndex % 2) == 0;
+            
+            uint8_t color;
+            int diagonalThreshold = (width + height) / 2;
+            if (x + y < diagonalThreshold) {
+                color = YELLOW;
+            } else {
+                color = ORANGE;
+            }
+            
+            // Simple dragon in center
+            int centerX = width / 2;
+            int centerY = height / 2;
+            int dragonRadius = 200;
+            int dx = x - centerX;
+            int dy = y - centerY;
+            if (dx*dx + dy*dy < dragonRadius*dragonRadius) {
+                color = WHITE_COLOR;
+            }
+            
+            // Pack color
+            if (isEvenPixel) {
+                flagBuffer[byteIndex] = (color << 4);
+            } else {
+                flagBuffer[byteIndex] |= color;
+            }
+        }
+        
+        if (y % 400 == 0) {
+            Debug("Generated " + String(y) + " rows\r\n");
+        }
+    }
+    
+    Debug("Flag generation complete - displaying with SINGLE refresh...\r\n");
+    EPD_13IN3E_Display(flagBuffer);
+    Debug("SUCCESS: Bhutan flag displayed with single refresh! Just like original.\r\n");
+    
+    free(flagBuffer);
+    Debug("Flag generation complete. Free heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+}
+
+void generateSmallBhutanFlag() {
+    Debug("Generating 600×800 Bhutan flag...\r\n");
+    const int width = 600;
+    const int height = 800;
+    const int BUFFER_SIZE = (width * height) / 2; // 240KB
+    
+    uint8_t* flagBuffer = (uint8_t*)malloc(BUFFER_SIZE);
+    if (flagBuffer == nullptr) {
+        Debug("ERROR: Cannot even allocate small flag buffer\r\n");
+        return;
+    }
+    
+    // Same flag generation logic but smaller
+    const uint8_t YELLOW = 0x2;
+    const uint8_t ORANGE = 0x3;
+    const uint8_t WHITE_COLOR = 0x1;
+    
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int pixelIndex = y * width + x;
+            int byteIndex = pixelIndex / 2;
+            bool isEvenPixel = (pixelIndex % 2) == 0;
+            
+            uint8_t color;
+            int diagonalThreshold = (width + height) / 2;
+            if (x + y < diagonalThreshold) {
+                color = YELLOW;
+            } else {
+                color = ORANGE;
+            }
+            
+            int centerX = width / 2;
+            int centerY = height / 2;
+            int dragonRadius = 100; // Smaller dragon
+            int dx = x - centerX;
+            int dy = y - centerY;
+            if (dx*dx + dy*dy < dragonRadius*dragonRadius) {
+                color = WHITE_COLOR;
+            }
+            
+            if (isEvenPixel) {
+                flagBuffer[byteIndex] = (color << 4);
+            } else {
+                flagBuffer[byteIndex] |= color;
+            }
+        }
+    }
+    
+    Debug("Small flag complete - displaying centered...\r\n");
+    int xOffset = (1200 - width) / 2;
+    int yOffset = (1600 - height) / 2;
+    EPD_13IN3E_DisplayPart(flagBuffer, xOffset, yOffset, width, height);
+    Debug("Small Bhutan flag displayed!\r\n");
+    
+    free(flagBuffer);
 }
