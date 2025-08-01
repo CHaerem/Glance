@@ -524,9 +524,14 @@ bool fetchCurrentImage()
         String payload = http.getString();
         Debug("Server response received\r\n");
 
-        // Parse JSON response
-        DynamicJsonDocument doc(8192);
-        deserializeJson(doc, payload);
+        // Parse JSON response - increased size for large RGB image data (~7.7MB base64)
+        DynamicJsonDocument doc(10 * 1024 * 1024); // 10MB to handle large image data
+        DeserializationError error = deserializeJson(doc, payload);
+        
+        if (error) {
+            Debug("JSON parsing failed: " + String(error.c_str()) + "\r\n");
+            return false;
+        }
 
         String title = doc["title"];
         String imageBase64 = doc["image"];
