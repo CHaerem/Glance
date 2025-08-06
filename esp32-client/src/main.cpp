@@ -4,182 +4,37 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include "soc/rtc_cntl_reg.h"
-#include "esp32-hal-cpu.h"
 #include "esp_sleep.h"
 #include "esp_task_wdt.h"
 
 // Configuration constants
 #define API_BASE_URL "http://serverpi.local:3000/api/"
 #define STATUS_URL "http://serverpi.local:3000/api/device-status"
-#define MIN_SLEEP_TIME 300000000ULL      // 5 minutes
-#define MAX_SLEEP_TIME 4294967295ULL     // Max value for 32-bit unsigned long (about 71 minutes)
+#define IMAGE_URL "http://serverpi.local:3000/api/image.bin"
 #define DEFAULT_SLEEP_TIME 3600000000ULL // 1 hour
 #define BATTERY_PIN A13
 #define LOW_BATTERY_THRESHOLD 3.3
 #define DEVICE_ID "esp32-001"
-#define FIRMWARE_VERSION "1.1.0"
+#define FIRMWARE_VERSION "v2-psram-1.0"
 
-// Enhanced communication constants
-#define MAX_RETRY_ATTEMPTS 3
-#define BASE_TIMEOUT 5000
-#define MAX_TIMEOUT 15000
-#define OFFLINE_BUFFER_SIZE 10
-#define HEARTBEAT_INTERVAL 30000  // 30 seconds when staying awake
-#define CONNECTION_CHECK_INTERVAL 5000  // 5 seconds
-
-// Serial streaming constants
-#define SERIAL_STREAM_BUFFER_SIZE 1024
-#define SERIAL_STREAM_INTERVAL 10000  // Stream every 10 seconds when awake
-#define SERIAL_STREAM_MIN_CHARS 50    // Minimum characters before streaming
-
-// Communication state tracking
-struct CommState {
-    unsigned long lastSuccessfulContact = 0;
-    unsigned long lastHeartbeat = 0;
-    int consecutiveFailures = 0;
-    bool serverReachable = false;
-    int adaptiveTimeout = BASE_TIMEOUT;
-};
-
-// Offline buffer for logs and status updates
-struct BufferedMessage {
-    String endpoint;
-    String payload;
-    unsigned long timestamp;
-    int retryCount;
-};
-
-// Serial streaming state
-struct SerialStreamState {
-    String buffer;
-    unsigned long lastStreamTime = 0;
-    boolean isStreaming = false;
-    boolean streamingEnabled = false;
-};
-
-// Global state
-CommState commState;
-BufferedMessage offlineBuffer[OFFLINE_BUFFER_SIZE];
-int bufferHead = 0;
-int bufferCount = 0;
-SerialStreamState serialStream;
-
-// Improved base64 decoder with pre-allocated buffer
-String base64_decode(String input)
-{
-    const char *chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    
-    // Remove any padding
-    while (input.endsWith("="))
-    {
-        input.remove(input.length() - 1);
-    }
-
-    // Calculate output size and pre-allocate
-    int outputSize = (input.length() * 3) / 4;
-    String output;
-    output.reserve(outputSize + 100); // Reserve memory to avoid reallocations
-
-    Debug("Base64 input length: " + String(input.length()) + ", estimated output: " + String(outputSize) + "\r\n");
-
-    for (int i = 0; i < input.length(); i += 4)
-    {
-        unsigned long combined = 0;
-        int chars_count = 0;
-
-        // Process 4 characters at a time
-        for (int j = 0; j < 4 && (i + j) < input.length(); j++)
-        {
-            char c = input.charAt(i + j);
-            int val = 0;
-
-            // Find character in base64 alphabet using faster lookup
-            if (c >= 'A' && c <= 'Z') {
-                val = c - 'A';
-            } else if (c >= 'a' && c <= 'z') {
-                val = c - 'a' + 26;
-            } else if (c >= '0' && c <= '9') {
-                val = c - '0' + 52;
-            } else if (c == '+') {
-                val = 62;
-            } else if (c == '/') {
-                val = 63;
-            }
-
-            combined = (combined << 6) | val;
-            chars_count++;
-        }
-
-        // Extract bytes
-        if (chars_count >= 2)
-        {
-            output += (char)((combined >> 16) & 0xFF);
-        }
-        if (chars_count >= 3)
-        {
-            output += (char)((combined >> 8) & 0xFF);
-        }
-        if (chars_count >= 4)
-        {
-            output += (char)(combined & 0xFF);
-        }
-
-        // Reset watchdog periodically during long decode
-        if (i % 1000 == 0) {
-            esp_task_wdt_reset();
-        }
-    }
-
-    Debug("Base64 decode completed, actual output length: " + String(output.length()) + "\r\n");
-    return output;
-}
-
-// Global variables for power management
-RTC_DATA_ATTR int bootCount = 0;
-RTC_DATA_ATTR uint64_t lastSleepDuration = DEFAULT_SLEEP_TIME;
-
+// Display dimensions
+#define DISPLAY_WIDTH 1200
+#define DISPLAY_HEIGHT 1600
+#define IMAGE_BUFFER_SIZE ((DISPLAY_WIDTH * DISPLAY_HEIGHT) / 2) // 960KB for 4-bit packed
 
 // Function declarations
 void setupPowerManagement();
 bool connectToWiFi();
-bool fetchCurrentImage();
+bool downloadAndDisplayImage();
+bool downloadImageToPSRAM();
+void generateAndDisplayBhutanFlag();
 void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength);
 void sendLogToServer(const char *message, const char *level = "INFO");
-void generateAndDisplayBhutanFlag();
-void generateSmallBhutanFlag();
-bool streamImageWithCleanup();
-void displayImageFromData(const uint8_t *imageData, int width, int height);
-void displayTextMessage(const String &text);
-void enterDeepSleep(uint64_t sleepTime);
 float readBatteryVoltage();
-bool checkForCommands();
-void processCommand(const String &command, unsigned long duration);
-bool parseStreamingJSON(HTTPClient &http);
-String extractJSONField(const String &jsonChunk, const String &field, int &startPos);
-int decodeBase64ToBuffer(const String &base64, uint8_t* buffer, int maxSize);
-bool processStreamingImageData(WiFiClient* stream, String initialData, HTTPClient &http);
-void displayRowData(const uint8_t* rowData, int row, int width);
+void enterDeepSleep(uint64_t sleepTime);
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b);
-void processRGBImageData(const uint8_t *rgbData, int width, int height);
 
-// Enhanced communication functions
-bool makeHttpRequest(const String &url, const String &method, const String &payload, String &response, int customTimeout = 0);
-void bufferMessage(const String &endpoint, const String &payload);
-void flushOfflineBuffer();
-void updateCommState(bool success);
-void sendHeartbeat();
-bool isServerReachable();
-void adaptiveDelay(int baseDelay);
-
-// Serial streaming functions
-void enableSerialStreaming();
-void disableSerialStreaming();
-void captureSerialOutput(const String &output);
-void flushSerialStream();
-size_t debugWrite(const uint8_t *buffer, size_t size);
-
-// E-ink color palette (hardware defined)
+// E-ink color palette
 const uint8_t EINK_BLACK = 0x0;
 const uint8_t EINK_WHITE = 0x1;
 const uint8_t EINK_YELLOW = 0x2;
@@ -187,1596 +42,471 @@ const uint8_t EINK_RED = 0x3;
 const uint8_t EINK_BLUE = 0x5;
 const uint8_t EINK_GREEN = 0x6;
 
-// Color mapping configuration - easily adjustable
-struct ColorMappingConfig {
-    int brightnessThresholdLow = 30;    // Below this -> black
-    int brightnessThresholdHigh = 230;  // Above this -> white
-    int colorfulnessThreshold = 50;     // Below this -> grayscale
-    int redThreshold = 150;             // For detecting strong reds
-    int blueThreshold = 100;            // For detecting blues
-    int yellowRedThreshold = 150;       // For yellow detection
-    int yellowGreenThreshold = 150;     // For yellow detection
-    int yellowBlueMax = 100;            // For yellow detection
-    bool usePerceptualWeighting = true; // Use human vision weights
-};
-
-ColorMappingConfig colorConfig;
-
-// ESP32 color mapping function - fully configurable
-uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b) {
-    int brightness = (r + g + b) / 3;
-    
-    // Very bright -> White
-    if (brightness > colorConfig.brightnessThresholdHigh) {
-        return EINK_WHITE;
-    }
-    
-    // Very dark -> Black
-    if (brightness < colorConfig.brightnessThresholdLow) {
-        return EINK_BLACK;
-    }
-    
-    // Check colorfulness
-    int maxChannel = max(r, max(g, b));
-    int minChannel = min(r, min(g, b));
-    int colorfulness = maxChannel - minChannel;
-    
-    // Low colorfulness -> grayscale
-    if (colorfulness < colorConfig.colorfulnessThreshold) {
-        return brightness > 128 ? EINK_WHITE : EINK_BLACK;
-    }
-    
-    // High colorfulness -> detect dominant color
-    if (g > r && g > b) {
-        return EINK_GREEN;  // Green dominant
-    } else if (r > g && r > b && r > colorConfig.redThreshold) {
-        return EINK_RED;    // Strong red
-    } else if (b > r && b > g && b > colorConfig.blueThreshold) {
-        return EINK_BLUE;   // Blue dominant
-    } else if (r > colorConfig.yellowRedThreshold && g > colorConfig.yellowGreenThreshold && b < colorConfig.yellowBlueMax) {
-        return EINK_YELLOW; // Yellow-ish
-    }
-    
-    // Fallback: use perceptual distance or simple distance
-    if (colorConfig.usePerceptualWeighting) {
-        // Perceptually weighted distance to each color
-        uint8_t colors[6][3] = {
-            {0, 0, 0},       // Black
-            {255, 255, 255}, // White
-            {255, 255, 0},   // Yellow
-            {255, 0, 0},     // Red
-            {0, 0, 255},     // Blue
-            {0, 255, 0}      // Green
-        };
-        uint8_t indices[6] = {EINK_BLACK, EINK_WHITE, EINK_YELLOW, EINK_RED, EINK_BLUE, EINK_GREEN};
-        
-        long minDistance = LONG_MAX;
-        uint8_t closestColor = EINK_WHITE;
-        
-        for (int i = 0; i < 6; i++) {
-            long deltaR = r - colors[i][0];
-            long deltaG = g - colors[i][1];
-            long deltaB = b - colors[i][2];
-            
-            // Human perception weights: green most sensitive
-            long distance = 2 * deltaR * deltaR + 4 * deltaG * deltaG + 3 * deltaB * deltaB;
-            
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestColor = indices[i];
-            }
-        }
-        
-        return closestColor;
-    }
-    
-    // Simple fallback
-    return EINK_WHITE;
-}
-
-// Process RGB image data and convert to e-ink display
-void processRGBImageData(const uint8_t *rgbData, int width, int height) {
-    Debug("Converting RGB to e-ink colors on ESP32...\r\n");
-    Debug("Free heap before conversion: " + String(ESP.getFreeHeap()) + "\r\n");
-    
-    // Allocate buffer for e-ink data
-    int pixelCount = width * height;
-    uint8_t *einkData = (uint8_t*)malloc(pixelCount);
-    
-    if (!einkData) {
-        Debug("Failed to allocate memory for e-ink conversion!\r\n");
-        return;
-    }
-    
-    // Convert each RGB pixel to e-ink color
-    for (int i = 0; i < pixelCount; i++) {
-        uint8_t r = rgbData[i * 3];
-        uint8_t g = rgbData[i * 3 + 1];
-        uint8_t b = rgbData[i * 3 + 2];
-        
-        einkData[i] = mapRGBToEink(r, g, b);
-        
-        // Reset watchdog periodically
-        if (i % 10000 == 0) {
-            esp_task_wdt_reset();
-        }
-    }
-    
-    Debug("RGB to e-ink conversion completed\r\n");
-    Debug("Free heap after conversion: " + String(ESP.getFreeHeap()) + "\r\n");
-    
-    // Display the converted image
-    displayImageFromData(einkData, width, height);
-    
-    // Free the allocated memory
-    free(einkData);
-}
-
-void setup()
-{
+void setup() {
     Serial.begin(115200);
     delay(1000);
-
-    // Increment boot number and print it every reboot
-    ++bootCount;
-    Debug("Boot number: " + String(bootCount) + "\r\n");
-
-    // Setup power management first
+    
+    Debug("=== ESP32 Feather v2 E-ink Display ===\r\n");
+    Debug("Device ID: " DEVICE_ID "\r\n");
+    Debug("Firmware: " FIRMWARE_VERSION "\r\n");
+    Debug("Display: Waveshare 13.3\" Spectra 6\r\n");
+    Debug("=======================================\r\n");
+    
+    // Check PSRAM availability (ESP32-PICO-V3 has embedded PSRAM)
+    Debug("Regular heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    
+    // Initialize PSRAM if available
+    if (psramInit()) {
+        Debug("PSRAM initialized successfully\r\n");
+        Debug("PSRAM size: " + String(ESP.getPsramSize()) + " bytes\r\n");
+        Debug("PSRAM free: " + String(ESP.getFreePsram()) + " bytes\r\n");
+    } else {
+        Debug("PSRAM initialization failed or not available\r\n");
+        Debug("PSRAM via heap_caps: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
+    }
+    
+    // Setup power management
     setupPowerManagement();
-
-    Debug("Glance ESP32 Client Starting...\r\n");
-    Debug("Device ID: ");
-    Debug(DEVICE_ID);
-    Debug("\r\n");
-    Debug("Firmware Version: ");
-    Debug(FIRMWARE_VERSION);
-    Debug("\r\n");
-
+    
     // Read battery voltage
     float batteryVoltage = readBatteryVoltage();
-    Debug("Battery Voltage: " + String(batteryVoltage) + "V\r\n");
-
-    // Check if we need to skip this cycle due to low battery
-    if (batteryVoltage < LOW_BATTERY_THRESHOLD)
-    {
+    Debug("Battery Voltage: " + String(batteryVoltage, 2) + "V\r\n");
+    
+    if (batteryVoltage < LOW_BATTERY_THRESHOLD) {
         Debug("Low battery detected, entering extended sleep\r\n");
-        sendLogToServer("Low battery - entering extended sleep", "WARN");
-        enterDeepSleep(MAX_SLEEP_TIME); // Sleep for maximum time to conserve power
+        enterDeepSleep(DEFAULT_SLEEP_TIME * 2); // Double sleep time for low battery
         return;
     }
-
+    
     // Connect to WiFi
-    if (!connectToWiFi())
-    {
-        Debug("WiFi connection failed, entering sleep\r\n");
-        sendLogToServer("WiFi connection failed", "ERROR");
-        enterDeepSleep(MIN_SLEEP_TIME); // Retry sooner on WiFi failure
+    if (!connectToWiFi()) {
+        Debug("WiFi connection failed, displaying fallback flag\r\n");
+        generateAndDisplayBhutanFlag();
+        enterDeepSleep(DEFAULT_SLEEP_TIME);
         return;
     }
-
-    // Report initial status
+    
+    // Report device status
     int signalStrength = WiFi.RSSI();
     reportDeviceStatus("awake", batteryVoltage, signalStrength);
-    sendLogToServer("Device awakened, checking for updates");
-
+    sendLogToServer("ESP32 v2 awakened, downloading image");
+    
     // Initialize e-Paper display
     Debug("Initializing e-Paper display...\r\n");
     DEV_Module_Init();
     delay(2000);
-
     EPD_13IN3E_Init();
     delay(2000);
-
-    // Check for pending commands first
-    esp_task_wdt_reset();
-    checkForCommands();
-
-    // Fetch and display current image
-    esp_task_wdt_reset();
-    bool imageUpdated = fetchCurrentImage();
-
-    if (imageUpdated)
-    {
+    
+    // Clear display with white background first
+    Debug("Clearing display...\r\n");
+    EPD_13IN3E_Clear(EINK_WHITE);
+    Debug("Display cleared\r\n");
+    delay(1000);
+    
+    // Download and display image from server
+    bool success = downloadAndDisplayImage();
+    
+    if (success) {
         reportDeviceStatus("display_updated", batteryVoltage, signalStrength);
-        sendLogToServer("Display updated successfully");
+        sendLogToServer("Image downloaded and displayed successfully");
+    } else {
+        reportDeviceStatus("display_fallback", batteryVoltage, signalStrength);
+        sendLogToServer("Download failed, displaying fallback flag");
+        generateAndDisplayBhutanFlag();
     }
-    else
-    {
-        reportDeviceStatus("no_update", batteryVoltage, signalStrength);
-        sendLogToServer("No display update needed");
-    }
-
+    
     // Power down display
     EPD_13IN3E_Sleep();
-
-    // Check for commands again before sleeping
-    bool shouldStayAwake = checkForCommands();
-
-    if (shouldStayAwake)
-    {
-        reportDeviceStatus("staying_awake", batteryVoltage, signalStrength);
-        sendLogToServer("Staying awake for remote commands");
-        
-        // Enable serial streaming while awake
-        enableSerialStreaming();
-        
-        // Stay awake for up to 5 minutes, checking for commands every 30 seconds
-        unsigned long stayAwakeStart = millis();
-        unsigned long stayAwakeTimeout = 5 * 60 * 1000; // 5 minutes
-        
-        while (millis() - stayAwakeStart < stayAwakeTimeout)
-        {
-            // Send heartbeat to maintain connection
-            sendHeartbeat();
-            
-            // Wait between heartbeats, but check for commands more frequently
-            unsigned long heartbeatStart = millis();
-            while (millis() - heartbeatStart < HEARTBEAT_INTERVAL && 
-                   millis() - stayAwakeStart < stayAwakeTimeout)
-            {
-                delay(CONNECTION_CHECK_INTERVAL); // Check every 5 seconds
-                esp_task_wdt_reset(); // Reset watchdog during stay awake period
-                
-                // Check for new commands
-                if (checkForCommands())
-                {
-                    // New commands received, continue staying awake
-                    stayAwakeStart = millis(); // Reset stay awake timer
-                }
-            }
-            
-            // If we haven't received commands for a while, check server reachability
-            if (!isServerReachable())
-            {
-                Debug("Server unreachable, ending stay awake period\r\n");
-                sendLogToServer("Ending stay awake - server unreachable", "WARN");
-                break;
-            }
-        }
-        
-        // Disable serial streaming before sleeping
-        disableSerialStreaming();
-    }
-
+    
     // Report going to sleep
     reportDeviceStatus("sleeping", batteryVoltage, signalStrength);
-    String sleepMessage = "Entering deep sleep for " + String(lastSleepDuration / 1000000) + " seconds";
-    sendLogToServer(sleepMessage.c_str());
-
+    sendLogToServer("Entering deep sleep");
+    
     // Enter deep sleep
-    enterDeepSleep(lastSleepDuration);
+    enterDeepSleep(DEFAULT_SLEEP_TIME);
 }
 
-void loop()
-{
-    // This should never be reached due to deep sleep
+void loop() {
+    // Should never be reached due to deep sleep
     delay(1000);
 }
 
-void setupPowerManagement()
-{
+void setupPowerManagement() {
     Debug("Setting up power management...\r\n");
-
-    // Set CPU frequency to 80MHz for power efficiency
-    setCpuFrequencyMhz(80);
-    Debug("CPU frequency set to 80MHz\r\n");
-
-    // Disable brownout detector for battery operation
-    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-    Debug("Brownout detector disabled\r\n");
-
-    // Configure watchdog timer (300 seconds = 5 minutes)
+    
+    // Configure watchdog timer
     esp_task_wdt_init(300, true);
     esp_task_wdt_add(NULL);
-    Debug("Watchdog timer configured (300s)\r\n");
-
+    
     // Configure wake-up source
     esp_sleep_enable_timer_wakeup(DEFAULT_SLEEP_TIME);
 }
 
-bool connectToWiFi()
-{
-    Debug("Connecting to WiFi: " WIFI_SSID "\r\n");
-
-    // Try WiFi connection with multiple attempts
-    for (int retry = 0; retry < 3; retry++)
-    {
-        WiFi.mode(WIFI_STA);
-        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-        int attempts = 0;
-        while (WiFi.status() != WL_CONNECTED && attempts < 20)
-        {
-            delay(500);
-            Debug(".");
-            attempts++;
-            
-            // Feed watchdog during long operations
-            esp_task_wdt_reset();
-        }
-
-        if (WiFi.status() == WL_CONNECTED)
-        {
-            Debug("\r\nWiFi connected!\r\n");
-            Debug("IP address: " + WiFi.localIP().toString() + "\r\n");
-            Debug("Signal strength: " + String(WiFi.RSSI()) + " dBm\r\n");
-            return true;
-        }
-        
-        Debug("\r\nWiFi connection attempt " + String(retry + 1) + " failed\r\n");
-        
-        if (retry < 2)
-        {
-            WiFi.disconnect();
-            delay(2000); // Wait before retry
-        }
+bool connectToWiFi() {
+    Debug("Connecting to WiFi: " + String(WIFI_SSID) + "\r\n");
+    
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+        delay(500);
+        Debug(".");
+        attempts++;
+        esp_task_wdt_reset();
     }
     
-    Debug("WiFi connection failed after 3 attempts!\r\n");
+    if (WiFi.status() == WL_CONNECTED) {
+        Debug("\r\nWiFi connected!\r\n");
+        Debug("IP address: " + WiFi.localIP().toString() + "\r\n");
+        Debug("Signal strength: " + String(WiFi.RSSI()) + " dBm\r\n");
+        return true;
+    }
+    
+    Debug("\r\nWiFi connection failed!\r\n");
     return false;
 }
 
-bool fetchCurrentImage()
-{
-    Debug("Fetching current image from server...\r\n");
-
+bool downloadAndDisplayImage() {
+    Debug("=== DOWNLOADING IMAGE FROM SERVER ===\r\n");
+    
+    // Try to download to PSRAM first
+    if (downloadImageToPSRAM()) {
+        return true;
+    }
+    
+    // If PSRAM download fails, try server's processed image endpoint
+    Debug("PSRAM download failed, trying processed image from server\r\n");
+    
     HTTPClient http;
     http.begin(API_BASE_URL "current.json");
-    http.setTimeout(60000); // 60 second timeout for large image downloads
-    http.setConnectTimeout(10000); // 10 second connection timeout
-    http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
-    http.addHeader("Connection", "close"); // Force connection close after request
-
-    Debug("Sending HTTP GET request...\r\n");
-    int httpResponseCode = http.GET();
-    Debug("HTTP response code: " + String(httpResponseCode) + "\r\n");
-
-    if (httpResponseCode == 200)
-    {
-        Debug("Getting response payload...\r\n");
-        Debug("Free heap before parsing: " + String(ESP.getFreeHeap()) + "\r\n");
-        
-        // Get response size first
-        int contentLength = http.getSize();
-        Debug("Content-Length header: " + String(contentLength) + "\r\n");
-        
-        // Use streaming JSON parsing for large responses
-        bool success = parseStreamingJSON(http);
-        
-        http.end();
-        return success;
-    }
-    else
-    {
-        Debug("HTTP Error: " + String(httpResponseCode) + "\r\n");
-    }
-
-    http.end();
-    return false;
-}
-
-void displayImageFromData(const uint8_t *imageData, int width, int height)
-{
-    Debug("Displaying image: " + String(width) + "x" + String(height) + "\r\n");
-    Debug("Free heap before display: " + String(ESP.getFreeHeap()) + "\r\n");
-
-    // For debugging, show first few bytes of image data
-    Debug("First 10 image bytes: ");
-    for (int i = 0; i < min(10, width * height); i++) {
-        Debug(String(imageData[i], HEX) + " ");
-    }
-    Debug("\r\n");
-
-    // Use full display instead of DisplayPart to avoid centering issues
-    if (width == EPD_13IN3E_WIDTH && height == EPD_13IN3E_HEIGHT) {
-        Debug("Using full display mode\r\n");
-        EPD_13IN3E_Display(imageData);
-    } else {
-        Debug("Using partial display mode with centering\r\n");
-        // Calculate centering
-        UWORD x_offset = (EPD_13IN3E_WIDTH - width) / 2;
-        UWORD y_offset = (EPD_13IN3E_HEIGHT - height) / 2;
-        
-        Debug("Display offsets: x=" + String(x_offset) + ", y=" + String(y_offset) + "\r\n");
-        
-        // Display the image
-        EPD_13IN3E_DisplayPart(imageData, x_offset, y_offset, width, height);
-    }
-
-    Debug("Image display completed\r\n");
-}
-
-void displayTextMessage(const String &text)
-{
-    Debug("Displaying text message: " + text + "\r\n");
-
-    // Create a simple text display
-    // For now, just clear the screen and show we got the message
-    EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
-    delay(2000);
-
-    // You can implement text rendering here if needed
-    // For now, just indicate success in logs
-    Debug("Text display completed: " + text + "\r\n");
-}
-
-void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength)
-{
-    Debug("Reporting device status: " + String(status) + "\r\n");
-
-    DynamicJsonDocument doc(1024);
-    doc["deviceId"] = DEVICE_ID;
-
-    JsonObject statusObj = doc.createNestedObject("status");
-    statusObj["status"] = status;
-    statusObj["batteryVoltage"] = batteryVoltage;
-    statusObj["signalStrength"] = signalStrength;
-    statusObj["firmwareVersion"] = FIRMWARE_VERSION;
-    statusObj["bootCount"] = bootCount;
-    statusObj["freeHeap"] = ESP.getFreeHeap();
-    statusObj["uptime"] = millis();
-
-    String jsonString;
-    serializeJson(doc, jsonString);
-
-    String response;
-    if (makeHttpRequest(STATUS_URL, "POST", jsonString, response))
-    {
-        Debug("Device status reported successfully\r\n");
-        
-        // Try to flush any buffered messages when we have connectivity
-        if (bufferCount > 0)
-        {
-            flushOfflineBuffer();
-        }
-    }
-    else
-    {
-        Debug("Device status reporting failed, buffering...\r\n");
-        bufferMessage("device-status", jsonString);
-    }
-}
-
-void sendLogToServer(const char *message, const char *level)
-{
-    Debug("Sending log: " + String(message) + "\r\n");
-
-    DynamicJsonDocument doc(1024);
-    doc["deviceId"] = DEVICE_ID;
-    doc["logs"] = message;
-    doc["logLevel"] = level;
-    doc["deviceTime"] = millis();
-
-    String jsonString;
-    serializeJson(doc, jsonString);
-
-    String response;
-    String logsUrl = String(API_BASE_URL) + "logs";
-    
-    if (makeHttpRequest(logsUrl, "POST", jsonString, response, BASE_TIMEOUT))
-    {
-        Debug("Log sent successfully\r\n");
-    }
-    else
-    {
-        // Don't buffer logs if we're already having connectivity issues to avoid infinite recursion
-        if (commState.consecutiveFailures < 2)
-        {
-            bufferMessage("logs", jsonString);
-        }
-    }
-}
-
-float readBatteryVoltage()
-{
-    // Read battery voltage from analog pin
-    int adcReading = analogRead(BATTERY_PIN);
-
-    // Convert ADC reading to voltage (3.3V reference, 12-bit ADC)
-    // Assuming voltage divider if needed
-    float voltage = (adcReading / 4095.0) * 3.3 * 2.0; // *2.0 if using voltage divider
-
-    return voltage;
-}
-
-void enterDeepSleep(uint64_t sleepTime)
-{
-    Debug("Entering deep sleep for " + String(sleepTime / 1000000) + " seconds\r\n");
-
-    // Configure timer wake-up
-    esp_sleep_enable_timer_wakeup(sleepTime);
-
-    // Enter deep sleep
-    esp_deep_sleep_start();
-}
-
-bool checkForCommands()
-{
-    Debug("Checking for pending commands...\r\n");
-
-    String commandsUrl = String(API_BASE_URL) + "commands/" + DEVICE_ID;
-    String response;
-    bool shouldStayAwake = false;
-
-    if (makeHttpRequest(commandsUrl, "GET", "", response))
-    {
-        Debug("Commands response received\r\n");
-
-        // Parse JSON response
-        DynamicJsonDocument doc(4096);
-        DeserializationError error = deserializeJson(doc, response);
-
-        if (!error)
-        {
-            JsonArray commands = doc["commands"];
-            
-            if (commands.size() > 0)
-            {
-                Debug("Found " + String(commands.size()) + " pending commands\r\n");
-                
-                for (JsonObject command : commands)
-                {
-                    String cmd = command["command"];
-                    unsigned long duration = command["duration"];
-                    
-                    Debug("Processing command: " + cmd + "\r\n");
-                    processCommand(cmd, duration);
-                    
-                    // If any command is "stay_awake", we should stay awake
-                    if (cmd == "stay_awake")
-                    {
-                        shouldStayAwake = true;
-                    }
-                }
-            }
-            else
-            {
-                Debug("No pending commands\r\n");
-            }
-        }
-        else
-        {
-            Debug("JSON parsing error: " + String(error.c_str()) + "\r\n");
-        }
-    }
-    else
-    {
-        Debug("Commands check failed - server not reachable\r\n");
-    }
-
-    return shouldStayAwake;
-}
-
-void processCommand(const String &command, unsigned long duration)
-{
-    Debug("Processing command: " + command + " (duration: " + String(duration) + "ms)\r\n");
-    
-    if (command == "stay_awake")
-    {
-        sendLogToServer(("Stay awake command received - duration: " + String(duration/1000) + "s").c_str());
-        // The stay awake logic is handled in the main loop
-    }
-    else if (command == "update_now" || command == "force_update")
-    {
-        sendLogToServer("Force update command received - refreshing display");
-        
-        // Re-initialize display if needed
-        EPD_13IN3E_Init();
-        delay(1000);
-        
-        // Force fetch current image
-        bool updated = fetchCurrentImage();
-        
-        if (updated)
-        {
-            sendLogToServer("Forced display update completed successfully");
-        }
-        else
-        {
-            sendLogToServer("Forced display update completed (no changes)", "WARN");
-        }
-        
-        // Power down display
-        EPD_13IN3E_Sleep();
-    }
-    else if (command == "enable_streaming")
-    {
-        sendLogToServer("Serial streaming enable command received");
-        enableSerialStreaming();
-    }
-    else if (command == "disable_streaming")
-    {
-        sendLogToServer("Serial streaming disable command received");
-        disableSerialStreaming();
-    }
-    else
-    {
-        sendLogToServer(("Unknown command received: " + command).c_str(), "WARN");
-    }
-}
-
-// Enhanced communication functions for robustness
-
-bool makeHttpRequest(const String &url, const String &method, const String &payload, String &response, int customTimeout)
-{
-    int timeout = customTimeout > 0 ? customTimeout : commState.adaptiveTimeout;
-    
-    for (int attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++)
-    {
-        HTTPClient http;
-        http.begin(url);
-        http.setTimeout(timeout);
-        http.addHeader("Content-Type", "application/json");
-        http.addHeader("User-Agent", "ESP32-Glance-Client/" FIRMWARE_VERSION);
-        
-        int httpResponseCode;
-        if (method == "POST")
-        {
-            httpResponseCode = http.POST(payload);
-        }
-        else
-        {
-            httpResponseCode = http.GET();
-        }
-        
-        if (httpResponseCode == 200 || httpResponseCode == 201)
-        {
-            response = http.getString();
-            http.end();
-            updateCommState(true);
-            return true;
-        }
-        else if (httpResponseCode > 0)
-        {
-            Debug("HTTP request failed with code: " + String(httpResponseCode) + " (attempt " + String(attempt + 1) + ")\r\n");
-        }
-        else
-        {
-            Debug("HTTP request failed: " + http.errorToString(httpResponseCode) + " (attempt " + String(attempt + 1) + ")\r\n");
-        }
-        
-        http.end();
-        
-        if (attempt < MAX_RETRY_ATTEMPTS - 1)
-        {
-            adaptiveDelay(1000 * (attempt + 1)); // Exponential backoff
-        }
-    }
-    
-    updateCommState(false);
-    return false;
-}
-
-void bufferMessage(const String &endpoint, const String &payload)
-{
-    if (bufferCount >= OFFLINE_BUFFER_SIZE)
-    {
-        // Buffer full, remove oldest message
-        bufferHead = (bufferHead + 1) % OFFLINE_BUFFER_SIZE;
-        bufferCount--;
-    }
-    
-    int index = (bufferHead + bufferCount) % OFFLINE_BUFFER_SIZE;
-    offlineBuffer[index].endpoint = endpoint;
-    offlineBuffer[index].payload = payload;
-    offlineBuffer[index].timestamp = millis();
-    offlineBuffer[index].retryCount = 0;
-    bufferCount++;
-    
-    Debug("Message buffered: " + endpoint + " (buffer count: " + String(bufferCount) + ")\r\n");
-}
-
-void flushOfflineBuffer()
-{
-    if (bufferCount == 0) return;
-    
-    Debug("Flushing offline buffer (" + String(bufferCount) + " messages)...\r\n");
-    
-    int processed = 0;
-    for (int i = 0; i < bufferCount && processed < 5; i++) // Limit to 5 messages per flush to avoid timeout
-    {
-        int index = (bufferHead + i) % OFFLINE_BUFFER_SIZE;
-        BufferedMessage &msg = offlineBuffer[index];
-        
-        if (msg.retryCount >= MAX_RETRY_ATTEMPTS)
-        {
-            Debug("Discarding message after max retries: " + msg.endpoint + "\r\n");
-            processed++;
-            continue;
-        }
-        
-        String response;
-        String fullUrl = String(API_BASE_URL) + msg.endpoint;
-        
-        if (makeHttpRequest(fullUrl, "POST", msg.payload, response, BASE_TIMEOUT))
-        {
-            Debug("Buffered message sent successfully: " + msg.endpoint + "\r\n");
-            processed++;
-        }
-        else
-        {
-            msg.retryCount++;
-            Debug("Buffered message retry " + String(msg.retryCount) + ": " + msg.endpoint + "\r\n");
-            break; // Stop processing if we can't reach server
-        }
-    }
-    
-    // Remove processed messages
-    if (processed > 0)
-    {
-        bufferHead = (bufferHead + processed) % OFFLINE_BUFFER_SIZE;
-        bufferCount -= processed;
-    }
-}
-
-void updateCommState(bool success)
-{
-    if (success)
-    {
-        commState.lastSuccessfulContact = millis();
-        commState.consecutiveFailures = 0;
-        commState.serverReachable = true;
-        
-        // Reduce timeout if we've been having issues
-        if (commState.adaptiveTimeout > BASE_TIMEOUT)
-        {
-            commState.adaptiveTimeout = max(BASE_TIMEOUT, commState.adaptiveTimeout - 1000);
-        }
-    }
-    else
-    {
-        commState.consecutiveFailures++;
-        commState.serverReachable = false;
-        
-        // Increase timeout for future requests
-        commState.adaptiveTimeout = min(MAX_TIMEOUT, commState.adaptiveTimeout + 2000);
-        
-        Debug("Communication failure #" + String(commState.consecutiveFailures) + 
-              ", timeout increased to " + String(commState.adaptiveTimeout) + "ms\r\n");
-    }
-}
-
-void sendHeartbeat()
-{
-    if (millis() - commState.lastHeartbeat < HEARTBEAT_INTERVAL)
-    {
-        return; // Too soon for next heartbeat
-    }
-    
-    float batteryVoltage = readBatteryVoltage();
-    int signalStrength = WiFi.RSSI();
-    
-    DynamicJsonDocument doc(1024);
-    doc["deviceId"] = DEVICE_ID;
-    
-    JsonObject statusObj = doc.createNestedObject("status");
-    statusObj["status"] = "heartbeat";
-    statusObj["batteryVoltage"] = batteryVoltage;
-    statusObj["signalStrength"] = signalStrength;
-    statusObj["firmwareVersion"] = FIRMWARE_VERSION;
-    statusObj["bootCount"] = bootCount;
-    statusObj["freeHeap"] = ESP.getFreeHeap();
-    statusObj["uptime"] = millis();
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    String response;
-    if (makeHttpRequest(STATUS_URL, "POST", jsonString, response, BASE_TIMEOUT))
-    {
-        Debug("Heartbeat sent successfully\r\n");
-    }
-    else
-    {
-        Debug("Heartbeat failed, buffering...\r\n");
-        bufferMessage("device-status", jsonString);
-    }
-    
-    commState.lastHeartbeat = millis();
-}
-
-bool isServerReachable()
-{
-    return commState.serverReachable || 
-           (millis() - commState.lastSuccessfulContact < 300000); // 5 minutes grace period
-}
-
-void adaptiveDelay(int baseDelay)
-{
-    // Use shorter delays if we have good connectivity, longer if poor
-    int actualDelay = baseDelay;
-    if (commState.consecutiveFailures > 2)
-    {
-        actualDelay *= 2; // Double delay if having connection issues
-    }
-    
-    unsigned long startTime = millis();
-    while (millis() - startTime < actualDelay)
-    {
-        esp_task_wdt_reset(); // Feed watchdog during delays
-        delay(100);
-    }
-}
-
-// Serial streaming functions for efficient real-time monitoring
-
-void enableSerialStreaming()
-{
-    if (!serialStream.streamingEnabled && isServerReachable())
-    {
-        serialStream.streamingEnabled = true;
-        serialStream.buffer.reserve(SERIAL_STREAM_BUFFER_SIZE);
-        serialStream.lastStreamTime = millis();
-        Debug("Serial streaming enabled\r\n");
-        
-        // Send initial stream enable notification
-        DynamicJsonDocument doc(512);
-        doc["deviceId"] = DEVICE_ID;
-        doc["streamEvent"] = "started";
-        doc["timestamp"] = millis();
-        
-        String jsonString;
-        serializeJson(doc, jsonString);
-        bufferMessage("serial-stream", jsonString);
-    }
-}
-
-void disableSerialStreaming()
-{
-    if (serialStream.streamingEnabled)
-    {
-        // Flush any remaining buffer content
-        if (serialStream.buffer.length() > 0)
-        {
-            flushSerialStream();
-        }
-        
-        serialStream.streamingEnabled = false;
-        serialStream.isStreaming = false;
-        serialStream.buffer = "";
-        Debug("Serial streaming disabled\r\n");
-        
-        // Send stream disable notification
-        DynamicJsonDocument doc(512);
-        doc["deviceId"] = DEVICE_ID;
-        doc["streamEvent"] = "stopped";
-        doc["timestamp"] = millis();
-        
-        String jsonString;
-        serializeJson(doc, jsonString);
-        bufferMessage("serial-stream", jsonString);
-    }
-}
-
-void captureSerialOutput(const String &output)
-{
-    if (!serialStream.streamingEnabled) return;
-    
-    // Add to buffer
-    serialStream.buffer += output;
-    
-    // If buffer is getting full or enough time has passed, flush it
-    if (serialStream.buffer.length() >= SERIAL_STREAM_MIN_CHARS ||
-        (serialStream.buffer.length() > 0 && 
-         millis() - serialStream.lastStreamTime >= SERIAL_STREAM_INTERVAL))
-    {
-        flushSerialStream();
-    }
-}
-
-void flushSerialStream()
-{
-    if (!serialStream.streamingEnabled || serialStream.buffer.length() == 0) return;
-    
-    DynamicJsonDocument doc(2048);
-    doc["deviceId"] = DEVICE_ID;
-    doc["serialOutput"] = serialStream.buffer;
-    doc["timestamp"] = millis();
-    doc["bufferSize"] = serialStream.buffer.length();
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    String response;
-    String streamUrl = String(API_BASE_URL) + "serial-stream";
-    
-    if (makeHttpRequest(streamUrl, "POST", jsonString, response, BASE_TIMEOUT))
-    {
-        // Successfully streamed, clear buffer
-        serialStream.buffer = "";
-        serialStream.lastStreamTime = millis();
-    }
-    else
-    {
-        // Failed to stream, keep buffer but prevent it from growing too large
-        if (serialStream.buffer.length() > SERIAL_STREAM_BUFFER_SIZE)
-        {
-            // Keep only the last half of the buffer to prevent memory issues
-            int keepLength = SERIAL_STREAM_BUFFER_SIZE / 2;
-            serialStream.buffer = serialStream.buffer.substring(serialStream.buffer.length() - keepLength);
-        }
-    }
-}
-
-// Custom debug write function that captures output for streaming
-size_t debugWrite(const uint8_t *buffer, size_t size)
-{
-    // Write to serial as normal
-    size_t written = Serial.write(buffer, size);
-    
-    // If streaming is enabled and we have good connectivity, capture the output
-    if (serialStream.streamingEnabled && isServerReachable())
-    {
-        String output = "";
-        for (size_t i = 0; i < size; i++)
-        {
-            output += (char)buffer[i];
-        }
-        captureSerialOutput(output);
-    }
-    
-    return written;
-}
-
-// Streaming JSON parser for large responses - extracts fields without loading entire JSON
-bool parseStreamingJSON(HTTPClient &http) {
-    Debug("Starting streaming JSON parse...\r\n");
-    
-    String title = "";
-    String imageBase64 = "";
-    uint64_t sleepDuration = DEFAULT_SLEEP_TIME;
-    
-    const int CHUNK_SIZE = 4096; // Process 4KB chunks
-    char buffer[CHUNK_SIZE + 1];
-    String jsonAccumulator = "";
-    int totalBytesRead = 0;
-    bool foundTitle = false, foundSleep = false, foundImageStart = false;
-    bool imageComplete = false;
-    
-    WiFiClient* stream = http.getStreamPtr();
-    
-    while (http.connected() && !imageComplete) {
-        esp_task_wdt_reset(); // Feed watchdog during long operation
-        
-        // Read next chunk
-        int bytesRead = stream->readBytes(buffer, CHUNK_SIZE);
-        if (bytesRead <= 0) break;
-        
-        buffer[bytesRead] = '\0';
-        totalBytesRead += bytesRead;
-        jsonAccumulator += String(buffer);
-        
-        Debug("Read " + String(bytesRead) + " bytes (total: " + String(totalBytesRead) + ")\r\n");
-        Debug("Free heap: " + String(ESP.getFreeHeap()) + "\r\n");
-        
-        // Extract fields as we find them
-        if (!foundTitle) {
-            int pos = 0;
-            title = extractJSONField(jsonAccumulator, "title", pos);
-            if (title.length() > 0) {
-                foundTitle = true;
-                Debug("Found title: " + title + "\r\n");
-            }
-        }
-        
-        if (!foundSleep) {
-            int pos = 0;
-            String sleepStr = extractJSONField(jsonAccumulator, "sleepDuration", pos);
-            if (sleepStr.length() > 0) {
-                sleepDuration = sleepStr.toInt();
-                foundSleep = true;
-                Debug("Found sleep duration: " + String(sleepDuration / 1000000) + " seconds\r\n");
-            }
-        }
-        
-        // For image data, we need to be more careful due to size
-        if (!foundImageStart) {
-            int imageStartPos = jsonAccumulator.indexOf("\"image\":\"");
-            if (imageStartPos >= 0) {
-                foundImageStart = true;
-                Debug("Found image data start\r\n");
-                
-                // Find where the base64 data actually starts
-                int dataStart = imageStartPos + 9; // Length of '"image":"'
-                
-                // Keep only the image data portion and earlier fields
-                String beforeImage = jsonAccumulator.substring(0, dataStart);
-                String imageData = jsonAccumulator.substring(dataStart);
-                
-                // Process the image data directly without storing it all
-                bool success = processStreamingImageData(stream, imageData, http);
-                if (success) {
-                    // Update sleep duration for next cycle
-                    lastSleepDuration = (sleepDuration > 0) ? sleepDuration : DEFAULT_SLEEP_TIME;
-                    return true;
-                }
-                return false;
-            }
-        }
-        
-        // Keep only recent data to prevent memory overflow
-        if (jsonAccumulator.length() > 8192) {
-            jsonAccumulator = jsonAccumulator.substring(4096);
-        }
-    }
-    
-    Debug("Streaming parse completed without finding image\r\n");
-    
-    // Update sleep duration even if no image
-    lastSleepDuration = (sleepDuration > 0) ? sleepDuration : DEFAULT_SLEEP_TIME;
-    
-    return false;
-}
-
-// Extract a JSON field value from a string without full JSON parsing
-String extractJSONField(const String &jsonChunk, const String &field, int &startPos) {
-    String searchStr = "\"" + field + "\":";
-    int fieldPos = jsonChunk.indexOf(searchStr, startPos);
-    
-    if (fieldPos == -1) return "";
-    
-    int valueStart = fieldPos + searchStr.length();
-    
-    // Skip whitespace
-    while (valueStart < jsonChunk.length() && (jsonChunk[valueStart] == ' ' || jsonChunk[valueStart] == '\t')) {
-        valueStart++;
-    }
-    
-    if (valueStart >= jsonChunk.length()) return "";
-    
-    String value = "";
-    
-    if (jsonChunk[valueStart] == '"') {
-        // String value
-        valueStart++; // Skip opening quote
-        int valueEnd = valueStart;
-        while (valueEnd < jsonChunk.length() && jsonChunk[valueEnd] != '"') {
-            if (jsonChunk[valueEnd] == '\\') valueEnd++; // Skip escaped characters
-            valueEnd++;
-        }
-        if (valueEnd < jsonChunk.length()) {
-            value = jsonChunk.substring(valueStart, valueEnd);
-        }
-    } else {
-        // Numeric value
-        int valueEnd = valueStart;
-        while (valueEnd < jsonChunk.length() && 
-               (isdigit(jsonChunk[valueEnd]) || jsonChunk[valueEnd] == '.' || jsonChunk[valueEnd] == '-')) {
-            valueEnd++;
-        }
-        value = jsonChunk.substring(valueStart, valueEnd);
-    }
-    
-    startPos = valueStart + value.length();
-    return value;
-}
-
-// Process image data directly from stream without storing it all in memory
-bool processStreamingImageData(WiFiClient* stream, String initialData, HTTPClient &http) {
-    Debug("Processing streaming image data...\r\n");
-    Debug("Initial data length: " + String(initialData.length()) + "\r\n");
-    
-    // Clear display first
-    EPD_13IN3E_Clear(EPD_13IN3E_WHITE);
-    delay(3000);
-    
-    // Removed old DECODE_CHUNK_SIZE - now defined below
-    String base64Chunk = initialData;
-    
-    // Allocate buffer for RGB processing
-    const int RGB_BUFFER_SIZE = 3600; // 1200 pixels * 3 channels = enough for 1 row
-    uint8_t* rgbBuffer = (uint8_t*)malloc(RGB_BUFFER_SIZE);
-    if (!rgbBuffer) {
-        Debug("Failed to allocate RGB buffer!\r\n");
-        return false;
-    }
-    
-    // Allocate buffer for e-ink row data
-    uint8_t* einkRowBuffer = (uint8_t*)malloc(1200); // 1 row of e-ink data
-    if (!einkRowBuffer) {
-        Debug("Failed to allocate e-ink row buffer!\r\n");
-        free(rgbBuffer);
-        return false;
-    }
-    
-    Debug("Starting row-by-row processing...\r\n");
-    
-    // Ultra-conservative approach: process only small chunks and never store large data
-    Debug("Processing image with minimal memory usage...\r\n");
-    
-    int totalImageBytes = 0;
-    int rowsProcessed = 0;
-    
-    // Very small buffer for base64 processing
-    String smallBase64Buffer = base64Chunk; // Start with initial data
-    
-    for (int row = 0; row < 1600; row++) {
-        esp_task_wdt_reset();
-        
-        // Try to get enough base64 data for one row (need ~4800 chars for 3600 bytes)
-        while (smallBase64Buffer.length() < 5000 && http.connected()) {
-            char buffer[1024];
-            int bytesRead = stream->readBytes(buffer, 1023);
-            if (bytesRead <= 0) break;
-            buffer[bytesRead] = '\0';
-            
-            // Clean and append only base64 characters
-            for (int i = 0; i < bytesRead; i++) {
-                char c = buffer[i];
-                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || 
-                    (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
-                    smallBase64Buffer += c;
-                }
-            }
-            
-            // Prevent buffer from growing too large - keep only recent data
-            if (smallBase64Buffer.length() > 10000) {
-                smallBase64Buffer = smallBase64Buffer.substring(smallBase64Buffer.length() - 8000);
-            }
-        }
-        
-        if (smallBase64Buffer.length() < 1000) {
-            Debug("Insufficient base64 data for row " + String(row) + "\r\n");
-            break;
-        }
-        
-        // Try to decode what we have
-        int decoded = decodeBase64ToBuffer(smallBase64Buffer, rgbBuffer, RGB_BUFFER_SIZE);
-        
-        if (decoded >= 3597) { // Accept close-enough decoding
-            // Process this row
-            for (int col = 0; col < 1200; col++) {
-                uint8_t r = rgbBuffer[col * 3];
-                uint8_t g = rgbBuffer[col * 3 + 1];
-                uint8_t b = rgbBuffer[col * 3 + 2];
-                einkRowBuffer[col] = mapRGBToEink(r, g, b);
-            }
-            
-            displayRowData(einkRowBuffer, row, 1200);
-            totalImageBytes += decoded; // Use actual decoded amount
-            rowsProcessed++;
-            
-            // Remove the processed base64 data (approximately 4800 chars for 3600 bytes)
-            if (smallBase64Buffer.length() > 4800) {
-                smallBase64Buffer = smallBase64Buffer.substring(4800);
-            } else {
-                smallBase64Buffer = "";
-            }
-        } else {
-            Debug("Row " + String(row) + " decode failed: " + String(decoded) + " bytes\r\n");
-            // Remove some data to advance
-            if (smallBase64Buffer.length() > 1000) {
-                smallBase64Buffer = smallBase64Buffer.substring(800);
-            }
-        }
-        
-        // Progress indicator
-        if (row % 50 == 0) {
-            Debug("Row " + String(row) + ": " + String(decoded) + " bytes decoded\r\n");
-            Debug("Free heap: " + String(ESP.getFreeHeap()) + "\r\n");
-        }
-        
-        // Safety check - if we've processed some rows successfully, that's good progress
-        if (rowsProcessed >= 10 && !http.connected()) {
-            Debug("Connection lost but made progress: " + String(rowsProcessed) + " rows\r\n");
-            break;
-        }
-    }
-    
-    Debug("Image processing complete: " + String(rowsProcessed) + " rows processed\r\n");
-    
-    free(rgbBuffer);
-    free(einkRowBuffer);
-    
-    Debug("Streaming image processing completed\r\n");
-    Debug("Total image bytes processed: " + String(totalImageBytes) + "\r\n");
-    
-    return totalImageBytes > 0;
-}
-
-// Decode base64 directly into a buffer without creating String objects
-int decodeBase64ToBuffer(const String &base64, uint8_t* buffer, int maxSize) {
-    const char *chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    int outputPos = 0;
-    
-    for (int i = 0; i < base64.length() && outputPos + 3 < maxSize; i += 4) {
-        unsigned long combined = 0;
-        int validChars = 0;
-        
-        // Process 4 characters
-        for (int j = 0; j < 4 && (i + j) < base64.length(); j++) {
-            char c = base64.charAt(i + j);
-            if (c == '=') break;
-            
-            int val = 0;
-            if (c >= 'A' && c <= 'Z') {
-                val = c - 'A';
-            } else if (c >= 'a' && c <= 'z') {
-                val = c - 'a' + 26;
-            } else if (c >= '0' && c <= '9') {
-                val = c - '0' + 52;
-            } else if (c == '+') {
-                val = 62;
-            } else if (c == '/') {
-                val = 63;
-            }
-            
-            combined = (combined << 6) | val;
-            validChars++;
-        }
-        
-        // Extract bytes
-        if (validChars >= 2 && outputPos < maxSize) {
-            buffer[outputPos++] = (combined >> 16) & 0xFF;
-        }
-        if (validChars >= 3 && outputPos < maxSize) {
-            buffer[outputPos++] = (combined >> 8) & 0xFF;
-        }
-        if (validChars >= 4 && outputPos < maxSize) {
-            buffer[outputPos++] = combined & 0xFF;
-        }
-    }
-    
-    return outputPos;
-}
-
-// Stream full image directly from server using PSRAM - your friend's brilliant approach!
-bool streamImageToPSRAM() {
-    Debug("=== STREAMING IMAGE TO PSRAM (new approach) ===\r\n");
-    Debug("Regular heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-    Debug("PSRAM free: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
-    
-    const int IMAGE_WIDTH = 1200;
-    const int IMAGE_HEIGHT = 1600;
-    const int BUFFER_SIZE = (IMAGE_WIDTH * IMAGE_HEIGHT) / 2; // 960KB for 4-bit packed
-    
-    // Step 1: Try PSRAM first, fallback to regular heap with smaller buffer
-    uint8_t* imageBuffer = nullptr;
-    int actualBufferSize = BUFFER_SIZE;
-    
-    // Try PSRAM first
-    if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > BUFFER_SIZE) {
-        imageBuffer = (uint8_t*)heap_caps_malloc(BUFFER_SIZE, MALLOC_CAP_SPIRAM);
-        if (imageBuffer != nullptr) {
-            Debug("SUCCESS: Using PSRAM for full resolution\r\n");
-        }
-    }
-    
-    // Fallback to regular heap with smaller buffer
-    if (imageBuffer == nullptr) {
-        Debug("PSRAM not available - trying regular heap with reduced resolution\r\n");
-        // Use 1/4 resolution: 600×800 = 240KB buffer
-        actualBufferSize = (600 * 800) / 2; 
-        imageBuffer = (uint8_t*)malloc(actualBufferSize);
-        if (imageBuffer == nullptr) {
-            Debug("ERROR: Cannot allocate even " + String(actualBufferSize/1024) + "KB in regular heap\r\n");
-            return false;
-        }
-        Debug("SUCCESS: Using regular heap with reduced resolution\r\n");
-    }
-    
-    Debug("Allocated " + String(actualBufferSize/1024) + "KB image buffer\r\n");
-    Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-    
-    // Step 2: Stream raw image data directly from server
-    HTTPClient http;
-    http.setTimeout(60000); // 60 second timeout for large images
-    
-    // Request raw binary image data (no JSON, no base64!)
-    String imageUrl = "http://serverpi.local:3000/api/image.bin";
-    Debug("Fetching raw image: " + imageUrl + "\r\n");
-    
-    http.begin(imageUrl);
-    int httpCode = http.GET();
-    
-    if (httpCode != HTTP_CODE_OK) {
-        Debug("ERROR: HTTP request failed: " + String(httpCode) + "\r\n");
-        heap_caps_free(imageBuffer);
-        http.end();
-        return false;
-    }
-    
-    int contentLength = http.getSize();
-    Debug("Content-Length: " + String(contentLength) + " bytes\r\n");
-    
-    if (contentLength != BUFFER_SIZE) {
-        Debug("WARNING: Expected " + String(BUFFER_SIZE) + " bytes, got " + String(contentLength) + "\r\n");
-    }
-    
-    // Step 3: Stream data directly into PSRAM buffer
-    WiFiClient* stream = http.getStreamPtr();
-    int totalBytesRead = 0;
-    int bufferOffset = 0;
-    
-    Debug("Starting direct stream to PSRAM...\r\n");
-    
-    while (http.connected() && totalBytesRead < actualBufferSize) {
-        size_t availableBytes = stream->available();
-        if (availableBytes > 0) {
-            // Read in chunks
-            int chunkSize = min((int)availableBytes, min(4096, actualBufferSize - totalBytesRead));
-            int bytesRead = stream->readBytes(imageBuffer + bufferOffset, chunkSize);
-            
-            totalBytesRead += bytesRead;
-            bufferOffset += bytesRead;
-            
-            if (totalBytesRead % 50000 == 0) { // Every 50KB
-                Debug("Streamed " + String(totalBytesRead/1024) + "KB / " + String(actualBufferSize/1024) + "KB\r\n");
-            }
-        } else {
-            delay(10); // Small delay if no data available
-        }
-    }
-    
-    Debug("Stream complete: " + String(totalBytesRead) + " bytes received\r\n");
-    
-    // Step 4: Clean up HTTP resources to free regular heap
-    http.end();
-    Debug("HTTP connection closed\r\n");
-    Debug("Regular heap after cleanup: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-    
-    // Step 5: Display image with single refresh (like original Bhutan flag!)
-    if (totalBytesRead >= actualBufferSize * 0.9) { // Allow for some size variance
-        Debug("Image stream successful - displaying with SINGLE refresh...\r\n");
-        
-        if (actualBufferSize == BUFFER_SIZE) {
-            // Full resolution display
-            EPD_13IN3E_Display(imageBuffer);
-            Debug("PERFECT: Single refresh complete! Full resolution image displayed.\r\n");
-        } else {
-            // Reduced resolution - center on display
-            int displayWidth = 600;
-            int displayHeight = 800;
-            int xOffset = (1200 - displayWidth) / 2;
-            int yOffset = (1600 - displayHeight) / 2;
-            EPD_13IN3E_DisplayPart(imageBuffer, xOffset, yOffset, displayWidth, displayHeight);
-            Debug("GOOD: Single refresh complete! Reduced resolution image displayed.\r\n");
-        }
-    } else {
-        Debug("ERROR: Incomplete image received, not displaying\r\n");
-    }
-    
-    // Step 6: Free buffer
-    if (actualBufferSize == BUFFER_SIZE) {
-        heap_caps_free(imageBuffer);
-    } else {
-        free(imageBuffer);
-    }
-    Debug("Buffer freed\r\n");
-    
-    return totalBytesRead >= actualBufferSize * 0.9;
-}
-
-// Override current approach with proper WiFi streaming (your friend's brilliant method)
-void displayRowData(const uint8_t* rowData, int row, int width) {    
-    static bool wifiStreamingAttempted = false;
-    
-    if (!wifiStreamingAttempted) {
-        Debug("Attempting WiFi streaming with proper cleanup approach...\r\n");
-        bool success = streamImageWithCleanup();
-        if (!success) {
-            Debug("WiFi streaming failed - generating flag as fallback\r\n");
-            generateAndDisplayBhutanFlag();
-        }
-        wifiStreamingAttempted = true;
-    }
-}
-
-// Your friend's approach: Stream → RAM → Cleanup → Display
-bool streamImageWithCleanup() {
-    Debug("=== WIFI STREAMING WITH PROPER CLEANUP ===\r\n");
-    Debug("Step 1: Pre-allocate image buffer\r\n");
-    Debug("Free heap before allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-    
-    const int IMAGE_SIZE = (1200 * 1600) / 2; // 937KB for 4-bit packed
-    
-    // Step 1: Pre-allocate image buffer (while heap is still clean)
-    uint8_t* imageBuffer = (uint8_t*)malloc(IMAGE_SIZE);
-    if (imageBuffer == nullptr) {
-        Debug("ERROR: Cannot pre-allocate 937KB image buffer\r\n");
-        Debug("Available heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-        return false;
-    }
-    
-    Debug("SUCCESS: Pre-allocated 937KB image buffer\r\n");
-    Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-    
-    // Step 2: Stream raw binary data into the buffer
-    Debug("Step 2: Streaming raw binary image data\r\n");
-    
-    HTTPClient http;
     http.setTimeout(60000);
-    http.begin("http://serverpi.local:3000/api/image.bin");
+    http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
+    
+    int httpResponseCode = http.GET();
+    Debug("HTTP response: " + String(httpResponseCode) + "\r\n");
+    
+    if (httpResponseCode == 200) {
+        String payload = http.getString();
+        http.end();
+        
+        // Parse JSON response (simplified - assuming server sends pre-processed e-ink data)
+        DynamicJsonDocument doc(1024);
+        DeserializationError error = deserializeJson(doc, payload);
+        
+        if (!error && doc.containsKey("hasImage") && doc["hasImage"]) {
+            Debug("Server has image available\r\n");
+            return downloadImageToPSRAM(); // Try PSRAM download again
+        }
+    }
+    
+    http.end();
+    return false;
+}
+
+bool downloadImageToPSRAM() {
+    Debug("=== DOWNLOADING IMAGE ===\r\n");
+    Debug("Regular heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    Debug("PSRAM free: " + String(ESP.getFreePsram()) + " bytes\r\n");
+    Debug("Heap caps PSRAM: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
+    
+    // Allocate buffers - RGB input buffer (5.76MB) and e-ink output buffer (960KB)  
+    const int RGB_BUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT * 3; // 5.76MB
+    const int EINK_BUFFER_SIZE = IMAGE_BUFFER_SIZE; // 960KB
+    
+    uint8_t* rgbBuffer = nullptr;
+    uint8_t* einkBuffer = nullptr;
+    
+    // Try to allocate both buffers in PSRAM
+    if (ESP.getFreePsram() > (RGB_BUFFER_SIZE + EINK_BUFFER_SIZE)) {
+        rgbBuffer = (uint8_t*)ps_malloc(RGB_BUFFER_SIZE);
+        einkBuffer = (uint8_t*)ps_malloc(EINK_BUFFER_SIZE);
+        if (rgbBuffer && einkBuffer) {
+            Debug("SUCCESS: Using PSRAM for both RGB (5.76MB) and e-ink (960KB) buffers\r\n");
+        }
+    }
+    
+    // Try heap_caps PSRAM allocation
+    if (!rgbBuffer || !einkBuffer) {
+        if (rgbBuffer) { free(rgbBuffer); rgbBuffer = nullptr; }
+        if (einkBuffer) { free(einkBuffer); einkBuffer = nullptr; }
+        
+        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > (RGB_BUFFER_SIZE + EINK_BUFFER_SIZE)) {
+            rgbBuffer = (uint8_t*)heap_caps_malloc(RGB_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+            einkBuffer = (uint8_t*)heap_caps_malloc(EINK_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+            if (rgbBuffer && einkBuffer) {
+                Debug("SUCCESS: Using heap_caps PSRAM for both buffers\r\n");
+            }
+        }
+    }
+    
+    if (!rgbBuffer || !einkBuffer) {
+        Debug("ERROR: Cannot allocate RGB and e-ink buffers!\r\n");
+        Debug("Need " + String((RGB_BUFFER_SIZE + EINK_BUFFER_SIZE) / 1024) + "KB total\r\n");
+        Debug("Available PSRAM: " + String(ESP.getFreePsram() / 1024) + "KB\r\n");
+        if (rgbBuffer) free(rgbBuffer);
+        if (einkBuffer) free(einkBuffer);
+        return false;
+    }
+    
+    // Download raw binary image data
+    HTTPClient http;
+    http.begin(IMAGE_URL);
+    http.setTimeout(60000);
+    http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
     
     int httpCode = http.GET();
+    Debug("Image download response: " + String(httpCode) + "\r\n");
+    
     if (httpCode != HTTP_CODE_OK) {
-        Debug("ERROR: HTTP failed: " + String(httpCode) + "\r\n");
-        free(imageBuffer);
+        Debug("Download failed with code: " + String(httpCode) + "\r\n");
+        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
+            heap_caps_free(rgbBuffer);
+            heap_caps_free(einkBuffer);
+        } else {
+            free(rgbBuffer);
+            free(einkBuffer);
+        }
         http.end();
         return false;
     }
     
-    int contentLength = http.getSize();
-    Debug("Content-Length: " + String(contentLength) + " bytes\r\n");
-    
-    // Stream data directly into pre-allocated buffer
+    // Stream RGB data into buffer
     WiFiClient* stream = http.getStreamPtr();
-    int totalBytesRead = 0;
+    int totalBytes = 0;
+    int contentLength = http.getSize();
+    Debug("Content length: " + String(contentLength) + " bytes (expecting RGB)\r\n");
     
-    while (http.connected() && totalBytesRead < IMAGE_SIZE) {
+    while (http.connected() && totalBytes < RGB_BUFFER_SIZE) {
         size_t available = stream->available();
         if (available > 0) {
-            int chunkSize = min((int)available, min(4096, IMAGE_SIZE - totalBytesRead));
-            int bytesRead = stream->readBytes(imageBuffer + totalBytesRead, chunkSize);
-            totalBytesRead += bytesRead;
+            int chunkSize = min((int)available, min(4096, RGB_BUFFER_SIZE - totalBytes));
+            int bytesRead = stream->readBytes(rgbBuffer + totalBytes, chunkSize);
+            totalBytes += bytesRead;
             
-            if (totalBytesRead % 100000 == 0) {
-                Debug("Downloaded " + String(totalBytesRead/1024) + "KB / " + String(IMAGE_SIZE/1024) + "KB\r\n");
+            if (totalBytes % 500000 == 0) {
+                Debug("Downloaded RGB: " + String(totalBytes / 1024) + "KB\r\n");
             }
         } else {
             delay(10);
         }
+        esp_task_wdt_reset();
     }
     
-    Debug("Download complete: " + String(totalBytesRead) + " bytes\r\n");
+    http.end();
+    Debug("Download complete: " + String(totalBytes) + " bytes\r\n");
     
-    // Step 3: CRITICAL - Completely release WiFi/HTTP resources
-    Debug("Step 3: Releasing ALL WiFi/HTTP resources\r\n");
-    Debug("Free heap before cleanup: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-    
-    http.end();              // Close HTTP connection
-    WiFi.disconnect(true);   // Disconnect WiFi
-    WiFi.mode(WIFI_OFF);     // Turn off WiFi completely
-    delay(100);              // Let WiFi stack clean up
-    
-    Debug("WiFi/HTTP completely released\r\n");
-    Debug("Free heap after cleanup: " + String(ESP.getFreeHeap()) + " bytes\r\n");
-    
-    // Step 4: Now display with single refresh (heap is clean!)
-    if (totalBytesRead >= IMAGE_SIZE * 0.9) {
-        Debug("Step 4: Displaying with SINGLE refresh (clean heap)\r\n");
-        EPD_13IN3E_Display(imageBuffer);
-        Debug("PERFECT: WiFi image displayed with single refresh!\r\n");
+    // Convert RGB to e-ink format if we got enough data
+    if (totalBytes >= RGB_BUFFER_SIZE * 0.9) {
+        Debug("Converting RGB to Spectra 6 e-ink format...\r\n");
         
-        free(imageBuffer);
-        Debug("Image buffer freed. Mission accomplished!\r\n");
+        // Convert RGB pixels to 4-bit packed e-ink colors (2 pixels per byte)
+        for (int i = 0; i < DISPLAY_WIDTH * DISPLAY_HEIGHT; i++) {
+            int rgbIndex = i * 3;  // RGB: 3 bytes per pixel
+            int einkByteIndex = i / 2;  // E-ink: 2 pixels per byte
+            bool isEvenPixel = (i % 2) == 0;
+            
+            // Extract RGB values
+            uint8_t r = rgbBuffer[rgbIndex];
+            uint8_t g = rgbBuffer[rgbIndex + 1];
+            uint8_t b = rgbBuffer[rgbIndex + 2];
+            
+            // Convert RGB to Spectra 6 color
+            uint8_t einkColor = mapRGBToEink(r, g, b);
+            
+            // Pack into 4-bit format
+            if (isEvenPixel) {
+                einkBuffer[einkByteIndex] = (einkColor << 4);  // Upper nibble
+            } else {
+                einkBuffer[einkByteIndex] |= einkColor;        // Lower nibble
+            }
+            
+            // Progress indicator
+            if (i % 200000 == 0) {
+                Debug("Converted: " + String(i / 1000) + "K pixels\r\n");
+                esp_task_wdt_reset();
+            }
+        }
+        
+        Debug("RGB conversion complete, displaying image...\r\n");
+        EPD_13IN3E_Display(einkBuffer);
+        Debug("SUCCESS: Converted image displayed!\r\n");
+        
+        // Clean up
+        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
+            heap_caps_free(rgbBuffer);
+            heap_caps_free(einkBuffer);
+        } else {
+            free(rgbBuffer);
+            free(einkBuffer);
+        }
         return true;
     } else {
-        Debug("ERROR: Incomplete download\r\n");
-        free(imageBuffer);
+        Debug("ERROR: Incomplete RGB download\r\n");
+        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
+            heap_caps_free(rgbBuffer);
+            heap_caps_free(einkBuffer);
+        } else {
+            free(rgbBuffer);
+            free(einkBuffer);
+        }
         return false;
     }
 }
 
-// Generate Bhutan flag directly - the approach that worked originally
 void generateAndDisplayBhutanFlag() {
-    Debug("=== GENERATING BHUTAN FLAG DIRECTLY (original working approach) ===\r\n");
-    Debug("Free heap before generation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    Debug("=== GENERATING BHUTAN FLAG (FALLBACK) ===\r\n");
     
-    const int width = 1200;
-    const int height = 1600;
-    const int BUFFER_SIZE = (width * height) / 2; // 960KB
-    
-    // Try to allocate the full buffer 
-    uint8_t* flagBuffer = (uint8_t*)malloc(BUFFER_SIZE);
-    if (flagBuffer == nullptr) {
-        Debug("Cannot allocate full buffer - WiFi/HTTP is using too much memory\r\n");
-        Debug("Generating smaller flag instead...\r\n");
-        
-        // Generate smaller flag that fits in available memory
-        generateSmallBhutanFlag();
-        return;
+    // Allocate buffer in PSRAM if available
+    uint8_t* flagBuffer = (uint8_t*)heap_caps_malloc(IMAGE_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+    if (!flagBuffer) {
+        flagBuffer = (uint8_t*)malloc(IMAGE_BUFFER_SIZE);
+        if (!flagBuffer) {
+            Debug("ERROR: Cannot allocate flag buffer\r\n");
+            return;
+        }
+        Debug("Using regular heap for flag\r\n");
+    } else {
+        Debug("Using PSRAM for flag\r\n");
     }
     
-    Debug("SUCCESS: Allocated " + String(BUFFER_SIZE/1024) + "KB for Bhutan flag\r\n");
-    Debug("Free heap after allocation: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    Debug("Generating Bhutan flag...\r\n");
     
-    // Generate Bhutan flag colors (same as original)
-    const uint8_t YELLOW = 0x2;
-    const uint8_t ORANGE = 0x3; 
-    const uint8_t WHITE_COLOR = 0x1;
+    // Clear buffer first
+    memset(flagBuffer, 0, IMAGE_BUFFER_SIZE);
     
-    Debug("Generating flag pixels...\r\n");
-    
-    // Fill with diagonal split and dragon (exactly like original)
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int pixelIndex = y * width + x;
+    // Generate Bhutan flag pixels (diagonal split: yellow upper left, red lower right)
+    for (int y = 0; y < DISPLAY_HEIGHT; y++) {
+        for (int x = 0; x < DISPLAY_WIDTH; x++) {
+            int pixelIndex = y * DISPLAY_WIDTH + x;
             int byteIndex = pixelIndex / 2;
             bool isEvenPixel = (pixelIndex % 2) == 0;
             
             uint8_t color;
-            int diagonalThreshold = (width + height) / 2;
-            if (x + y < diagonalThreshold) {
-                color = YELLOW;
+            
+            // Create diagonal split from top-left to bottom-right
+            // Bhutan flag: yellow upper triangle, red lower triangle
+            if (y < (DISPLAY_HEIGHT * x / DISPLAY_WIDTH)) {
+                color = EINK_YELLOW;  // Upper left triangle
             } else {
-                color = ORANGE;
+                color = EINK_RED;     // Lower right triangle
             }
             
-            // Simple dragon in center
-            int centerX = width / 2;
-            int centerY = height / 2;
-            int dragonRadius = 200;
+            // Add white dragon circle in center
+            int centerX = DISPLAY_WIDTH / 2;
+            int centerY = DISPLAY_HEIGHT / 2;
+            int dragonRadius = 250;  // Larger dragon
             int dx = x - centerX;
             int dy = y - centerY;
             if (dx*dx + dy*dy < dragonRadius*dragonRadius) {
-                color = WHITE_COLOR;
+                color = EINK_WHITE;
             }
             
-            // Pack color
+            // Pack color into 4-bit format (2 pixels per byte)
             if (isEvenPixel) {
-                flagBuffer[byteIndex] = (color << 4);
+                flagBuffer[byteIndex] = (color << 4);  // Upper nibble
             } else {
-                flagBuffer[byteIndex] |= color;
+                flagBuffer[byteIndex] |= color;        // Lower nibble
             }
         }
         
         if (y % 400 == 0) {
             Debug("Generated " + String(y) + " rows\r\n");
+            esp_task_wdt_reset();
         }
     }
     
-    Debug("Flag generation complete - displaying with SINGLE refresh...\r\n");
+    Debug("Displaying Bhutan flag fallback...\r\n");
     EPD_13IN3E_Display(flagBuffer);
-    Debug("SUCCESS: Bhutan flag displayed with single refresh! Just like original.\r\n");
+    Debug("SUCCESS: Bhutan flag fallback displayed!\r\n");
     
-    free(flagBuffer);
-    Debug("Flag generation complete. Free heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
+    // Clean up
+    if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
+        heap_caps_free(flagBuffer);
+    } else {
+        free(flagBuffer);
+    }
 }
 
-void generateSmallBhutanFlag() {
-    Debug("Generating 600×800 Bhutan flag...\r\n");
-    const int width = 600;
-    const int height = 800;
-    const int BUFFER_SIZE = (width * height) / 2; // 240KB
+void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength) {
+    Debug("Reporting status: " + String(status) + "\r\n");
     
-    uint8_t* flagBuffer = (uint8_t*)malloc(BUFFER_SIZE);
-    if (flagBuffer == nullptr) {
-        Debug("ERROR: Cannot even allocate small flag buffer\r\n");
-        return;
+    HTTPClient http;
+    http.begin(STATUS_URL);
+    http.setTimeout(10000);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
+    
+    DynamicJsonDocument doc(1024);
+    doc["deviceId"] = DEVICE_ID;
+    doc["status"] = status;
+    doc["batteryVoltage"] = batteryVoltage;
+    doc["signalStrength"] = signalStrength;
+    doc["firmwareVersion"] = FIRMWARE_VERSION;
+    doc["freeHeap"] = ESP.getFreeHeap();
+    doc["psramFree"] = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    doc["uptime"] = millis();
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    int httpCode = http.POST(jsonString);
+    if (httpCode > 0) {
+        Debug("Status reported: " + String(httpCode) + "\r\n");
+    } else {
+        Debug("Status report failed: " + String(httpCode) + "\r\n");
     }
     
-    // Same flag generation logic but smaller
-    const uint8_t YELLOW = 0x2;
-    const uint8_t ORANGE = 0x3;
-    const uint8_t WHITE_COLOR = 0x1;
+    http.end();
+}
+
+void sendLogToServer(const char *message, const char *level) {
+    Debug("Log: " + String(message) + "\r\n");
     
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            int pixelIndex = y * width + x;
-            int byteIndex = pixelIndex / 2;
-            bool isEvenPixel = (pixelIndex % 2) == 0;
-            
-            uint8_t color;
-            int diagonalThreshold = (width + height) / 2;
-            if (x + y < diagonalThreshold) {
-                color = YELLOW;
-            } else {
-                color = ORANGE;
-            }
-            
-            int centerX = width / 2;
-            int centerY = height / 2;
-            int dragonRadius = 100; // Smaller dragon
-            int dx = x - centerX;
-            int dy = y - centerY;
-            if (dx*dx + dy*dy < dragonRadius*dragonRadius) {
-                color = WHITE_COLOR;
-            }
-            
-            if (isEvenPixel) {
-                flagBuffer[byteIndex] = (color << 4);
-            } else {
-                flagBuffer[byteIndex] |= color;
-            }
-        }
-    }
+    HTTPClient http;
+    http.begin(API_BASE_URL "logs");
+    http.setTimeout(5000);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
     
-    Debug("Small flag complete - displaying centered...\r\n");
-    int xOffset = (1200 - width) / 2;
-    int yOffset = (1600 - height) / 2;
-    EPD_13IN3E_DisplayPart(flagBuffer, xOffset, yOffset, width, height);
-    Debug("Small Bhutan flag displayed!\r\n");
+    DynamicJsonDocument doc(1024);
+    doc["deviceId"] = DEVICE_ID;
+    doc["logs"] = message;
+    doc["logLevel"] = level;
+    doc["deviceTime"] = millis();
     
-    free(flagBuffer);
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    int httpCode = http.POST(jsonString);
+    http.end();
+}
+
+float readBatteryVoltage() {
+    int adcReading = analogRead(BATTERY_PIN);
+    float voltage = (adcReading / 4095.0) * 3.3 * 2.0; // Voltage divider factor
+    return voltage;
+}
+
+void enterDeepSleep(uint64_t sleepTime) {
+    Debug("Entering deep sleep for " + String(sleepTime / 1000000) + " seconds\r\n");
+    esp_sleep_enable_timer_wakeup(sleepTime);
+    esp_deep_sleep_start();
+}
+
+// Simple RGB to e-ink color mapping
+uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b) {
+    int brightness = (r + g + b) / 3;
+    
+    if (brightness < 30) return EINK_BLACK;
+    if (brightness > 230) return EINK_WHITE;
+    
+    // Color detection
+    if (r > g && r > b && r > 150) return EINK_RED;
+    if (g > r && g > b) return EINK_GREEN;
+    if (b > r && b > g && b > 100) return EINK_BLUE;
+    if (r > 150 && g > 150 && b < 100) return EINK_YELLOW;
+    
+    return brightness > 128 ? EINK_WHITE : EINK_BLACK;
 }
