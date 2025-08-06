@@ -44,16 +44,16 @@
 #define UDOUBLE uint32_t
 
 /**
- * GPIO config - ESP32 to 13.3" E6 Display (Your Original Wiring)
+ * GPIO config - ESP32 Feather v2 to 13.3" E6 HAT+ Display (All 10 pins)
 **/
-#define EPD_SCK_PIN     18    // SPI Clock (CLK)
-#define EPD_MOSI_PIN    23    // SPI MOSI (DIN)  
-#define EPD_CS_M_PIN    5     // Chip Select Master (ORANGE)
-#define EPD_CS_S_PIN    16    // Chip Select Slave (GREEN)
-#define EPD_RST_PIN     4     // Reset (PURPLE)
-#define EPD_DC_PIN      17    // Data/Command (WHITE)
-#define EPD_BUSY_PIN    15    // Busy Signal (BROWN)
-#define EPD_PWR_PIN     21    // Power Control (GRAY)
+#define EPD_SCK_PIN     5     // SPI Clock (CLK) - ESP32 v2 Pin 5 (was 18)
+#define EPD_MOSI_PIN    19    // SPI MOSI (DIN) - ESP32 v2 Pin 19 (was 23)
+#define EPD_CS_M_PIN    32    // Chip Select Master (ORANGE) - ESP32 v2 Pin 32 (was 5)
+#define EPD_CS_S_PIN    12    // Chip Select Slave (GREEN) - ESP32 v2 Pin 12 (was 16)
+#define EPD_RST_PIN     33    // Reset (PURPLE) - ESP32 v2 Pin 33 (was 4)
+#define EPD_DC_PIN      15    // Data/Command (WHITE) - ESP32 v2 Pin 15 (was 17)
+#define EPD_BUSY_PIN    27    // Busy Signal (BROWN) - ESP32 v2 Pin 27 (was 15)
+#define EPD_PWR_PIN     14    // Power Control (GRAY) - ESP32 v2 Pin 14 (was 21)
 
 
 
