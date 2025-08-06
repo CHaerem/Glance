@@ -206,49 +206,42 @@ bool downloadAndDisplayImage() {
 }
 
 bool downloadImageToPSRAM() {
-    Debug("=== DOWNLOADING IMAGE ===\r\n");
+    Debug("=== DOWNLOADING IMAGE (STREAMING) ===\r\n");
     Debug("Regular heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
     Debug("PSRAM free: " + String(ESP.getFreePsram()) + " bytes\r\n");
     Debug("Heap caps PSRAM: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
     
-    // Allocate buffers - RGB input buffer (5.76MB) and e-ink output buffer (960KB)  
-    const int RGB_BUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT * 3; // 5.76MB
+    // Use streaming approach: only allocate e-ink output buffer (960KB)
     const int EINK_BUFFER_SIZE = IMAGE_BUFFER_SIZE; // 960KB
+    const int CHUNK_SIZE = 4096; // 4KB chunks for streaming
     
-    uint8_t* rgbBuffer = nullptr;
     uint8_t* einkBuffer = nullptr;
+    uint8_t* rgbChunk = nullptr;
     
-    // Try to allocate both buffers in PSRAM
-    if (ESP.getFreePsram() > (RGB_BUFFER_SIZE + EINK_BUFFER_SIZE)) {
-        rgbBuffer = (uint8_t*)ps_malloc(RGB_BUFFER_SIZE);
+    // Allocate e-ink buffer in PSRAM
+    if (ESP.getFreePsram() > EINK_BUFFER_SIZE) {
         einkBuffer = (uint8_t*)ps_malloc(EINK_BUFFER_SIZE);
-        if (rgbBuffer && einkBuffer) {
-            Debug("SUCCESS: Using PSRAM for both RGB (5.76MB) and e-ink (960KB) buffers\r\n");
-        }
+    }
+    if (!einkBuffer && heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > EINK_BUFFER_SIZE) {
+        einkBuffer = (uint8_t*)heap_caps_malloc(EINK_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+    }
+    if (!einkBuffer) {
+        einkBuffer = (uint8_t*)malloc(EINK_BUFFER_SIZE);
     }
     
-    // Try heap_caps PSRAM allocation
-    if (!rgbBuffer || !einkBuffer) {
-        if (rgbBuffer) { free(rgbBuffer); rgbBuffer = nullptr; }
-        if (einkBuffer) { free(einkBuffer); einkBuffer = nullptr; }
-        
-        if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > (RGB_BUFFER_SIZE + EINK_BUFFER_SIZE)) {
-            rgbBuffer = (uint8_t*)heap_caps_malloc(RGB_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
-            einkBuffer = (uint8_t*)heap_caps_malloc(EINK_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
-            if (rgbBuffer && einkBuffer) {
-                Debug("SUCCESS: Using heap_caps PSRAM for both buffers\r\n");
-            }
-        }
-    }
+    // Allocate small RGB chunk buffer in regular heap
+    rgbChunk = (uint8_t*)malloc(CHUNK_SIZE);
     
-    if (!rgbBuffer || !einkBuffer) {
-        Debug("ERROR: Cannot allocate RGB and e-ink buffers!\r\n");
-        Debug("Need " + String((RGB_BUFFER_SIZE + EINK_BUFFER_SIZE) / 1024) + "KB total\r\n");
+    if (!einkBuffer || !rgbChunk) {
+        Debug("ERROR: Cannot allocate streaming buffers!\r\n");
+        Debug("E-ink buffer: " + String(EINK_BUFFER_SIZE / 1024) + "KB needed\r\n");
         Debug("Available PSRAM: " + String(ESP.getFreePsram() / 1024) + "KB\r\n");
-        if (rgbBuffer) free(rgbBuffer);
         if (einkBuffer) free(einkBuffer);
+        if (rgbChunk) free(rgbChunk);
         return false;
     }
+    
+    Debug("SUCCESS: Using streaming approach - e-ink buffer: " + String(EINK_BUFFER_SIZE / 1024) + "KB\r\n");
     
     // Download raw binary image data
     HTTPClient http;
@@ -262,31 +255,63 @@ bool downloadImageToPSRAM() {
     if (httpCode != HTTP_CODE_OK) {
         Debug("Download failed with code: " + String(httpCode) + "\r\n");
         if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
-            heap_caps_free(rgbBuffer);
             heap_caps_free(einkBuffer);
         } else {
-            free(rgbBuffer);
             free(einkBuffer);
         }
+        free(rgbChunk);
         http.end();
         return false;
     }
     
-    // Stream RGB data into buffer
+    // Stream and convert RGB data on-the-fly
     WiFiClient* stream = http.getStreamPtr();
-    int totalBytes = 0;
+    int totalBytesRead = 0;
+    int pixelIndex = 0;
     int contentLength = http.getSize();
-    Debug("Content length: " + String(contentLength) + " bytes (expecting RGB)\r\n");
+    Debug("Content length: " + String(contentLength) + " bytes (streaming RGB)\r\n");
     
-    while (http.connected() && totalBytes < RGB_BUFFER_SIZE) {
+    // Clear e-ink buffer
+    memset(einkBuffer, 0, EINK_BUFFER_SIZE);
+    
+    while (http.connected() && totalBytesRead < contentLength) {
         size_t available = stream->available();
         if (available > 0) {
-            int chunkSize = min((int)available, min(4096, RGB_BUFFER_SIZE - totalBytes));
-            int bytesRead = stream->readBytes(rgbBuffer + totalBytes, chunkSize);
-            totalBytes += bytesRead;
+            // Read chunk (ensure we read RGB triplets - multiple of 3)
+            int readSize = min((int)available, CHUNK_SIZE);
+            readSize = (readSize / 3) * 3; // Align to RGB triplets
+            if (readSize < 3) readSize = 3; // Minimum one RGB triplet
             
-            if (totalBytes % 500000 == 0) {
-                Debug("Downloaded RGB: " + String(totalBytes / 1024) + "KB\r\n");
+            int bytesRead = stream->readBytes(rgbChunk, readSize);
+            totalBytesRead += bytesRead;
+            
+            // Process RGB triplets in this chunk
+            for (int i = 0; i < bytesRead && pixelIndex < (DISPLAY_WIDTH * DISPLAY_HEIGHT); i += 3) {
+                if (i + 2 < bytesRead) { // Ensure we have full RGB triplet
+                    uint8_t r = rgbChunk[i];
+                    uint8_t g = rgbChunk[i + 1];
+                    uint8_t b = rgbChunk[i + 2];
+                    
+                    // Convert RGB to Spectra 6 color
+                    uint8_t einkColor = mapRGBToEink(r, g, b);
+                    
+                    // Pack into 4-bit format (2 pixels per byte)
+                    int einkByteIndex = pixelIndex / 2;
+                    bool isEvenPixel = (pixelIndex % 2) == 0;
+                    
+                    if (isEvenPixel) {
+                        einkBuffer[einkByteIndex] = (einkColor << 4);  // Upper nibble
+                    } else {
+                        einkBuffer[einkByteIndex] |= einkColor;        // Lower nibble
+                    }
+                    
+                    pixelIndex++;
+                }
+            }
+            
+            // Progress indicator
+            if (totalBytesRead % 500000 == 0) {
+                Debug("Streamed: " + String(totalBytesRead / 1024) + "KB, pixels: " + String(pixelIndex / 1000) + "K\r\n");
             }
         } else {
             delay(10);
@@ -295,62 +320,30 @@ bool downloadImageToPSRAM() {
     }
     
     http.end();
-    Debug("Download complete: " + String(totalBytes) + " bytes\r\n");
+    Debug("Stream complete: " + String(totalBytesRead) + " bytes, " + String(pixelIndex) + " pixels\r\n");
     
-    // Convert RGB to e-ink format if we got enough data
-    if (totalBytes >= RGB_BUFFER_SIZE * 0.9) {
-        Debug("Converting RGB to Spectra 6 e-ink format...\r\n");
-        
-        // Convert RGB pixels to 4-bit packed e-ink colors (2 pixels per byte)
-        for (int i = 0; i < DISPLAY_WIDTH * DISPLAY_HEIGHT; i++) {
-            int rgbIndex = i * 3;  // RGB: 3 bytes per pixel
-            int einkByteIndex = i / 2;  // E-ink: 2 pixels per byte
-            bool isEvenPixel = (i % 2) == 0;
-            
-            // Extract RGB values
-            uint8_t r = rgbBuffer[rgbIndex];
-            uint8_t g = rgbBuffer[rgbIndex + 1];
-            uint8_t b = rgbBuffer[rgbIndex + 2];
-            
-            // Convert RGB to Spectra 6 color
-            uint8_t einkColor = mapRGBToEink(r, g, b);
-            
-            // Pack into 4-bit format
-            if (isEvenPixel) {
-                einkBuffer[einkByteIndex] = (einkColor << 4);  // Upper nibble
-            } else {
-                einkBuffer[einkByteIndex] |= einkColor;        // Lower nibble
-            }
-            
-            // Progress indicator
-            if (i % 200000 == 0) {
-                Debug("Converted: " + String(i / 1000) + "K pixels\r\n");
-                esp_task_wdt_reset();
-            }
-        }
-        
-        Debug("RGB conversion complete, displaying image...\r\n");
+    // Display if we got most of the image
+    if (pixelIndex >= (DISPLAY_WIDTH * DISPLAY_HEIGHT * 0.9)) {
+        Debug("Displaying streamed image...\r\n");
         EPD_13IN3E_Display(einkBuffer);
-        Debug("SUCCESS: Converted image displayed!\r\n");
+        Debug("SUCCESS: Streamed image displayed!\r\n");
         
         // Clean up
         if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
-            heap_caps_free(rgbBuffer);
             heap_caps_free(einkBuffer);
         } else {
-            free(rgbBuffer);
             free(einkBuffer);
         }
+        free(rgbChunk);
         return true;
     } else {
-        Debug("ERROR: Incomplete RGB download\r\n");
+        Debug("ERROR: Incomplete streaming download\r\n");
         if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
-            heap_caps_free(rgbBuffer);
             heap_caps_free(einkBuffer);
         } else {
-            free(rgbBuffer);
             free(einkBuffer);
         }
+        free(rgbChunk);
         return false;
     }
 }
@@ -370,25 +363,55 @@ void generateAndDisplayBhutanFlag() {
     if (httpCode == 200) {
         Debug("Server has Bhutan flag, downloading...\r\n");
         
-        // Allocate buffers for RGB and e-ink conversion  
-        const int RGB_BUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT * 3;
-        uint8_t* rgbBuffer = (uint8_t*)heap_caps_malloc(RGB_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
-        uint8_t* einkBuffer = (uint8_t*)heap_caps_malloc(IMAGE_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+        // Use streaming approach for Bhutan flag too
+        const int CHUNK_SIZE = 4096;
+        const int EINK_BUFFER_SIZE = IMAGE_BUFFER_SIZE; // 960KB
         
-        if (!rgbBuffer) rgbBuffer = (uint8_t*)malloc(RGB_BUFFER_SIZE);
-        if (!einkBuffer) einkBuffer = (uint8_t*)malloc(IMAGE_BUFFER_SIZE);
+        uint8_t* einkBuffer = (uint8_t*)heap_caps_malloc(EINK_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+        if (!einkBuffer) einkBuffer = (uint8_t*)malloc(EINK_BUFFER_SIZE);
         
-        if (rgbBuffer && einkBuffer) {
-            // Download RGB data
-            WiFiClient* stream = http.getStreamPtr();
-            int totalBytes = 0;
+        uint8_t* rgbChunk = (uint8_t*)malloc(CHUNK_SIZE);
+        
+        if (einkBuffer && rgbChunk) {
+            Debug("Streaming Bhutan flag conversion...\r\n");
+            memset(einkBuffer, 0, EINK_BUFFER_SIZE);
             
-            while (http.connected() && totalBytes < RGB_BUFFER_SIZE) {
+            // Stream and convert on-the-fly
+            WiFiClient* stream = http.getStreamPtr();
+            int totalBytesRead = 0;
+            int pixelIndex = 0;
+            int contentLength = http.getSize();
+            
+            while (http.connected() && totalBytesRead < contentLength) {
                 size_t available = stream->available();
                 if (available > 0) {
-                    int chunkSize = min((int)available, min(4096, RGB_BUFFER_SIZE - totalBytes));
-                    int bytesRead = stream->readBytes(rgbBuffer + totalBytes, chunkSize);
-                    totalBytes += bytesRead;
+                    int readSize = min((int)available, CHUNK_SIZE);
+                    readSize = (readSize / 3) * 3; // Align to RGB triplets
+                    if (readSize < 3) readSize = 3;
+                    
+                    int bytesRead = stream->readBytes(rgbChunk, readSize);
+                    totalBytesRead += bytesRead;
+                    
+                    // Process RGB triplets
+                    for (int i = 0; i < bytesRead && pixelIndex < (DISPLAY_WIDTH * DISPLAY_HEIGHT); i += 3) {
+                        if (i + 2 < bytesRead) {
+                            uint8_t r = rgbChunk[i];
+                            uint8_t g = rgbChunk[i + 1];
+                            uint8_t b = rgbChunk[i + 2];
+                            uint8_t einkColor = mapRGBToEink(r, g, b);
+                            
+                            int einkByteIndex = pixelIndex / 2;
+                            bool isEvenPixel = (pixelIndex % 2) == 0;
+                            
+                            if (isEvenPixel) {
+                                einkBuffer[einkByteIndex] = (einkColor << 4);
+                            } else {
+                                einkBuffer[einkByteIndex] |= einkColor;
+                            }
+                            
+                            pixelIndex++;
+                        }
+                    }
                 } else {
                     delay(10);
                 }
@@ -397,56 +420,28 @@ void generateAndDisplayBhutanFlag() {
             
             http.end();
             
-            if (totalBytes >= RGB_BUFFER_SIZE * 0.9) {
-                Debug("Converting Bhutan flag RGB to e-ink...\r\n");
-                
-                // Convert RGB to e-ink format
-                for (int i = 0; i < DISPLAY_WIDTH * DISPLAY_HEIGHT; i++) {
-                    int rgbIndex = i * 3;
-                    int einkByteIndex = i / 2;
-                    bool isEvenPixel = (i % 2) == 0;
-                    
-                    uint8_t r = rgbBuffer[rgbIndex];
-                    uint8_t g = rgbBuffer[rgbIndex + 1];
-                    uint8_t b = rgbBuffer[rgbIndex + 2];
-                    uint8_t einkColor = mapRGBToEink(r, g, b);
-                    
-                    if (isEvenPixel) {
-                        einkBuffer[einkByteIndex] = (einkColor << 4);
-                    } else {
-                        einkBuffer[einkByteIndex] |= einkColor;
-                    }
-                    
-                    if (i % 200000 == 0) {
-                        esp_task_wdt_reset();
-                    }
-                }
-                
+            if (pixelIndex >= (DISPLAY_WIDTH * DISPLAY_HEIGHT * 0.9)) {
                 Debug("Displaying actual Bhutan flag...\r\n");
                 EPD_13IN3E_Display(einkBuffer);
                 Debug("SUCCESS: Actual Bhutan flag displayed!\r\n");
                 
                 // Cleanup
                 if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
-                    heap_caps_free(rgbBuffer);
                     heap_caps_free(einkBuffer);
                 } else {
-                    free(rgbBuffer);
                     free(einkBuffer);
                 }
+                free(rgbChunk);
                 return;
             }
         }
         
         // Cleanup on failure
-        if (rgbBuffer) {
-            if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) heap_caps_free(rgbBuffer);
-            else free(rgbBuffer);
-        }
         if (einkBuffer) {
             if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) heap_caps_free(einkBuffer);
             else free(einkBuffer);
         }
+        if (rgbChunk) free(rgbChunk);
     }
     
     http.end();
