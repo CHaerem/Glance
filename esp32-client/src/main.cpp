@@ -517,13 +517,16 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
     
     DynamicJsonDocument doc(1024);
     doc["deviceId"] = DEVICE_ID;
-    doc["status"] = status;
-    doc["batteryVoltage"] = batteryVoltage;
-    doc["signalStrength"] = signalStrength;
-    doc["firmwareVersion"] = FIRMWARE_VERSION;
-    doc["freeHeap"] = ESP.getFreeHeap();
-    doc["psramFree"] = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-    doc["uptime"] = millis();
+    
+    // Create status object as expected by server
+    JsonObject statusObj = doc.createNestedObject("status");
+    statusObj["status"] = status;
+    statusObj["batteryVoltage"] = batteryVoltage;
+    statusObj["signalStrength"] = signalStrength;
+    statusObj["firmwareVersion"] = FIRMWARE_VERSION;
+    statusObj["freeHeap"] = ESP.getFreeHeap();
+    statusObj["psramFree"] = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+    statusObj["uptime"] = millis();
     
     String jsonString;
     serializeJson(doc, jsonString);
@@ -572,18 +575,35 @@ void enterDeepSleep(uint64_t sleepTime) {
     esp_deep_sleep_start();
 }
 
-// Simple RGB to e-ink color mapping
+// Simple RGB distance-based color mapping - finds closest e-ink color
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b) {
-    int brightness = (r + g + b) / 3;
+    // E-ink palette with RGB values
+    const uint8_t palette[][3] = {
+        {0, 0, 0},       // Black
+        {255, 255, 255}, // White  
+        {255, 255, 0},   // Yellow
+        {255, 0, 0},     // Red
+        {0, 0, 255},     // Blue
+        {0, 255, 0}      // Green
+    };
     
-    if (brightness < 30) return EINK_BLACK;
-    if (brightness > 230) return EINK_WHITE;
+    const uint8_t colors[] = {EINK_BLACK, EINK_WHITE, EINK_YELLOW, EINK_RED, EINK_BLUE, EINK_GREEN};
     
-    // Color detection
-    if (r > g && r > b && r > 150) return EINK_RED;
-    if (g > r && g > b) return EINK_GREEN;
-    if (b > r && b > g && b > 100) return EINK_BLUE;
-    if (r > 150 && g > 150 && b < 100) return EINK_YELLOW;
+    uint32_t minDistance = UINT32_MAX;
+    uint8_t closestColor = EINK_WHITE;
     
-    return brightness > 128 ? EINK_WHITE : EINK_BLACK;
+    // Find closest color using simple RGB distance
+    for (int i = 0; i < 6; i++) {
+        int dr = r - palette[i][0];
+        int dg = g - palette[i][1]; 
+        int db = b - palette[i][2];
+        uint32_t distance = dr*dr + dg*dg + db*db;
+        
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestColor = colors[i];
+        }
+    }
+    
+    return closestColor;
 }
