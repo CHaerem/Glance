@@ -69,14 +69,13 @@ BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 docker buildx build \
     --platform linux/amd64,linux/arm64,linux/arm/v7 \
     --file server/Dockerfile \
-    --context server \
     --build-arg IMAGE_VERSION="$GIT_COMMIT" \
     --build-arg BUILD_DATE="$BUILD_DATE" \
     --tag "${FULL_IMAGE_NAME}:${VERSION}" \
     --tag "${FULL_IMAGE_NAME}:${GIT_COMMIT}" \
     --tag "${FULL_IMAGE_NAME}:${LATEST_TAG}" \
     --push \
-    .
+    server
 
 echo "✅ Successfully built and pushed:"
 echo "   - ${FULL_IMAGE_NAME}:${VERSION}"
