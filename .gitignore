@@ -56,6 +56,15 @@ ehthumbs.db
 .clang_complete
 .gcc-flags.json
 
-# Server data directory
+# Server data directory  
 server/data/
 server/uploads/
+
+# Development and debugging files
+*.bak
+*.old
+*.tmp
+*~debug*
+monitor.py
+debug-*.py
+test-*.py
