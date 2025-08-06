@@ -949,6 +949,48 @@ app.get("/", async (_req, res) => {
 	}
 });
 
+// Bhutan flag endpoint for ESP32 fallback display
+app.get("/api/bhutan.bin", async (req, res) => {
+	try {
+		const svgPath = path.join(__dirname, "bhutan.svg");
+		
+		// Check if bhutan.svg exists
+		if (!await fs.access(svgPath).then(() => true).catch(() => false)) {
+			return res.status(404).json({ error: "Bhutan SVG not found" });
+		}
+		
+		// Read SVG file
+		const svgBuffer = await fs.readFile(svgPath);
+		
+		// Convert SVG to PNG using sharp
+		const pngBuffer = await sharp(svgBuffer)
+			.resize(1200, 1600, { 
+				fit: 'fill',
+				background: { r: 255, g: 255, b: 255, alpha: 1 }
+			})
+			.png()
+			.toBuffer();
+		
+		// Convert PNG to RGB buffer (1200x1600x3 = 5,760,000 bytes)
+		const { data: rgbData } = await sharp(pngBuffer)
+			.raw()
+			.toBuffer({ resolveWithObject: true });
+		
+		res.set({
+			'Content-Type': 'application/octet-stream',
+			'Content-Length': rgbData.length,
+			'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+		});
+		
+		res.send(rgbData);
+		console.log(`📍 Served Bhutan flag RGB data: ${rgbData.length} bytes`);
+		
+	} catch (error) {
+		console.error("Error serving Bhutan flag:", error);
+		res.status(500).json({ error: "Failed to process Bhutan flag" });
+	}
+});
+
 // Start server
 async function startServer() {
 	await ensureDataDir();
