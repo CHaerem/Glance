@@ -82,22 +82,13 @@ const upload = multer({
 	},
 });
 
-// Rate limiting
-const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // limit each IP to 100 requests per windowMs
-	message: "Too many requests from this IP, please try again later.",
-});
+// Rate limiting disabled for development
 
-const uploadLimiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 10, // limit uploads to 10 per 15 minutes
-	message: "Too many uploads, please try again later.",
-});
+// Upload rate limiting also disabled for development
 
 // Middleware
 app.use(cors());
-app.use(limiter);
+// app.use(limiter); // Rate limiting disabled for development
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static("public"));
 app.use("/uploads", express.static(UPLOAD_DIR));
@@ -533,7 +524,7 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 // File upload endpoint
 app.post(
 	"/api/upload",
-	uploadLimiter,
+	// uploadLimiter, // Rate limiting disabled for development
 	upload.single("image"),
 	async (req, res) => {
 		try {
