@@ -273,13 +273,100 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 	return ditheredData;
 }
 
+// E-ink Spectra 6 optimized color palette for art reproduction
+const SPECTRA_6_PALETTE = [
+	{ r: 0, g: 0, b: 0 },       // Black
+	{ r: 255, g: 255, b: 255 }, // White  
+	{ r: 255, g: 255, b: 0 },   // Yellow
+	{ r: 255, g: 0, b: 0 },     // Red
+	{ r: 0, g: 0, b: 255 },     // Blue
+	{ r: 0, g: 255, b: 0 }      // Green
+];
+
+// Find closest color in Spectra 6 palette using perceptual color distance
+function findClosestSpectraColor(r, g, b) {
+	let minDistance = Infinity;
+	let closestColor = SPECTRA_6_PALETTE[1]; // Default to white
+	
+	for (const color of SPECTRA_6_PALETTE) {
+		// Use perceptual color distance (weighted RGB)
+		const dr = r - color.r;
+		const dg = g - color.g;
+		const db = b - color.b;
+		
+		// Weight green higher as human eye is more sensitive to green
+		const distance = Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+		
+		if (distance < minDistance) {
+			minDistance = distance;
+			closestColor = color;
+		}
+	}
+	
+	return closestColor;
+}
+
+// Floyd-Steinberg dithering for art reproduction on E Ink Spectra 6
+function applyFloydSteinbergDithering(imageData, width, height) {
+	console.log("Applying Floyd-Steinberg dithering for art reproduction...");
+	const ditheredData = new Uint8ClampedArray(imageData);
+	
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const idx = (y * width + x) * 3;
+			const oldR = ditheredData[idx];
+			const oldG = ditheredData[idx + 1];
+			const oldB = ditheredData[idx + 2];
+			
+			// Find closest color in Spectra 6 palette
+			const newColor = findClosestSpectraColor(oldR, oldG, oldB);
+			const newR = newColor.r;
+			const newG = newColor.g;
+			const newB = newColor.b;
+			
+			// Set new color
+			ditheredData[idx] = newR;
+			ditheredData[idx + 1] = newG;
+			ditheredData[idx + 2] = newB;
+			
+			// Calculate quantization error
+			const errR = oldR - newR;
+			const errG = oldG - newG;
+			const errB = oldB - newB;
+			
+			// Distribute error using Floyd-Steinberg coefficients
+			const distributeError = (dx, dy, factor) => {
+				const nx = x + dx;
+				const ny = y + dy;
+				if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+					const nIdx = (ny * width + nx) * 3;
+					ditheredData[nIdx] = Math.max(0, Math.min(255, ditheredData[nIdx] + errR * factor));
+					ditheredData[nIdx + 1] = Math.max(0, Math.min(255, ditheredData[nIdx + 1] + errG * factor));
+					ditheredData[nIdx + 2] = Math.max(0, Math.min(255, ditheredData[nIdx + 2] + errB * factor));
+				}
+			};
+			
+			// Floyd-Steinberg error diffusion pattern
+			distributeError(1, 0, 7/16);  // Right
+			distributeError(-1, 1, 3/16); // Below-left
+			distributeError(0, 1, 5/16);  // Below
+			distributeError(1, 1, 1/16);  // Below-right
+		}
+	}
+	
+	console.log("Floyd-Steinberg dithering completed");
+	return ditheredData;
+}
+
 async function convertImageToRGB(
 	imagePath,
-	targetWidth = 1200,  // Back to full resolution like original Bhutan flag
-	targetHeight = 1600  // Full display resolution
+	targetWidth = 1200,  
+	targetHeight = 1600  
 ) {
 	try {
-		// Load and process image with Sharp - just resize, no color conversion
+		console.log(`Processing image for art reproduction: ${imagePath}`);
+		
+		// Load and resize image
 		const imageBuffer = await sharp(imagePath)
 			.resize(targetWidth, targetHeight, {
 				fit: "contain",
@@ -287,14 +374,17 @@ async function convertImageToRGB(
 			})
 			.raw()
 			.toBuffer();
-
-		console.log(`Processed ${imageBuffer.length / 3} pixels as RGB data`);
-		console.log(`Image size: ${targetWidth}x${targetHeight}, data: ${imageBuffer.length} bytes`);
 		
-		// Return raw RGB data for ESP32 to process
-		return imageBuffer;
+		console.log(`Image loaded: ${imageBuffer.length / 3} pixels`);
+		
+		// Apply Floyd-Steinberg dithering for optimal art reproduction
+		const ditheredBuffer = applyFloydSteinbergDithering(imageBuffer, targetWidth, targetHeight);
+		
+		console.log(`Art-optimized image ready: ${targetWidth}x${targetHeight}, ${ditheredBuffer.length} bytes`);
+		return ditheredBuffer;
+		
 	} catch (error) {
-		console.error("Error processing image:", error);
+		console.error("Error processing image for art reproduction:", error);
 		throw error;
 	}
 }

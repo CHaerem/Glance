@@ -575,35 +575,31 @@ void enterDeepSleep(uint64_t sleepTime) {
     esp_deep_sleep_start();
 }
 
-// Simple RGB distance-based color mapping - finds closest e-ink color
+// Direct color mapping for server-dithered images
+// Server sends Floyd-Steinberg dithered images using exact Spectra 6 palette
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b) {
-    // E-ink palette with RGB values
-    const uint8_t palette[][3] = {
-        {0, 0, 0},       // Black
-        {255, 255, 255}, // White  
-        {255, 255, 0},   // Yellow
-        {255, 0, 0},     // Red
-        {0, 0, 255},     // Blue
-        {0, 255, 0}      // Green
-    };
+    // Server sends pre-dithered images with exact palette colors
+    // Just match to closest exact palette color
     
-    const uint8_t colors[] = {EINK_BLACK, EINK_WHITE, EINK_YELLOW, EINK_RED, EINK_BLUE, EINK_GREEN};
+    // Black (0,0,0)
+    if (r < 10 && g < 10 && b < 10) return EINK_BLACK;
     
-    uint32_t minDistance = UINT32_MAX;
-    uint8_t closestColor = EINK_WHITE;
+    // White (255,255,255)  
+    if (r > 245 && g > 245 && b > 245) return EINK_WHITE;
     
-    // Find closest color using simple RGB distance
-    for (int i = 0; i < 6; i++) {
-        int dr = r - palette[i][0];
-        int dg = g - palette[i][1]; 
-        int db = b - palette[i][2];
-        uint32_t distance = dr*dr + dg*dg + db*db;
-        
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestColor = colors[i];
-        }
-    }
+    // Pure Red (255,0,0)
+    if (r > 245 && g < 10 && b < 10) return EINK_RED;
     
-    return closestColor;
+    // Pure Green (0,255,0)
+    if (r < 10 && g > 245 && b < 10) return EINK_GREEN;
+    
+    // Pure Blue (0,0,255)
+    if (r < 10 && g < 10 && b > 245) return EINK_BLUE;
+    
+    // Pure Yellow (255,255,0)
+    if (r > 245 && g > 245 && b < 10) return EINK_YELLOW;
+    
+    // Fallback for any remaining colors (shouldn't happen with proper dithering)
+    int brightness = (r + g + b) / 3;
+    return brightness > 128 ? EINK_WHITE : EINK_BLACK;
 }
