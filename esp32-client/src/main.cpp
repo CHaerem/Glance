@@ -356,27 +356,115 @@ bool downloadImageToPSRAM() {
 }
 
 void generateAndDisplayBhutanFlag() {
-    Debug("=== GENERATING BHUTAN FLAG (FALLBACK) ===\r\n");
+    Debug("=== DOWNLOADING BHUTAN FLAG (FALLBACK) ===\r\n");
     
-    // Allocate buffer in PSRAM if available
+    // Try to download the actual Bhutan flag from server first
+    HTTPClient http;
+    http.begin("http://serverpi.local:3000/api/bhutan.bin");
+    http.setTimeout(30000);
+    http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
+    
+    int httpCode = http.GET();
+    Debug("Bhutan flag download response: " + String(httpCode) + "\r\n");
+    
+    if (httpCode == 200) {
+        Debug("Server has Bhutan flag, downloading...\r\n");
+        
+        // Allocate buffers for RGB and e-ink conversion  
+        const int RGB_BUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT * 3;
+        uint8_t* rgbBuffer = (uint8_t*)heap_caps_malloc(RGB_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+        uint8_t* einkBuffer = (uint8_t*)heap_caps_malloc(IMAGE_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+        
+        if (!rgbBuffer) rgbBuffer = (uint8_t*)malloc(RGB_BUFFER_SIZE);
+        if (!einkBuffer) einkBuffer = (uint8_t*)malloc(IMAGE_BUFFER_SIZE);
+        
+        if (rgbBuffer && einkBuffer) {
+            // Download RGB data
+            WiFiClient* stream = http.getStreamPtr();
+            int totalBytes = 0;
+            
+            while (http.connected() && totalBytes < RGB_BUFFER_SIZE) {
+                size_t available = stream->available();
+                if (available > 0) {
+                    int chunkSize = min((int)available, min(4096, RGB_BUFFER_SIZE - totalBytes));
+                    int bytesRead = stream->readBytes(rgbBuffer + totalBytes, chunkSize);
+                    totalBytes += bytesRead;
+                } else {
+                    delay(10);
+                }
+                esp_task_wdt_reset();
+            }
+            
+            http.end();
+            
+            if (totalBytes >= RGB_BUFFER_SIZE * 0.9) {
+                Debug("Converting Bhutan flag RGB to e-ink...\r\n");
+                
+                // Convert RGB to e-ink format
+                for (int i = 0; i < DISPLAY_WIDTH * DISPLAY_HEIGHT; i++) {
+                    int rgbIndex = i * 3;
+                    int einkByteIndex = i / 2;
+                    bool isEvenPixel = (i % 2) == 0;
+                    
+                    uint8_t r = rgbBuffer[rgbIndex];
+                    uint8_t g = rgbBuffer[rgbIndex + 1];
+                    uint8_t b = rgbBuffer[rgbIndex + 2];
+                    uint8_t einkColor = mapRGBToEink(r, g, b);
+                    
+                    if (isEvenPixel) {
+                        einkBuffer[einkByteIndex] = (einkColor << 4);
+                    } else {
+                        einkBuffer[einkByteIndex] |= einkColor;
+                    }
+                    
+                    if (i % 200000 == 0) {
+                        esp_task_wdt_reset();
+                    }
+                }
+                
+                Debug("Displaying actual Bhutan flag...\r\n");
+                EPD_13IN3E_Display(einkBuffer);
+                Debug("SUCCESS: Actual Bhutan flag displayed!\r\n");
+                
+                // Cleanup
+                if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
+                    heap_caps_free(rgbBuffer);
+                    heap_caps_free(einkBuffer);
+                } else {
+                    free(rgbBuffer);
+                    free(einkBuffer);
+                }
+                return;
+            }
+        }
+        
+        // Cleanup on failure
+        if (rgbBuffer) {
+            if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) heap_caps_free(rgbBuffer);
+            else free(rgbBuffer);
+        }
+        if (einkBuffer) {
+            if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) heap_caps_free(einkBuffer);
+            else free(einkBuffer);
+        }
+    }
+    
+    http.end();
+    Debug("Server Bhutan flag failed, using simple fallback...\r\n");
+    
+    // Fallback: simple geometric flag if server fails
     uint8_t* flagBuffer = (uint8_t*)heap_caps_malloc(IMAGE_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
     if (!flagBuffer) {
         flagBuffer = (uint8_t*)malloc(IMAGE_BUFFER_SIZE);
         if (!flagBuffer) {
-            Debug("ERROR: Cannot allocate flag buffer\r\n");
+            Debug("ERROR: Cannot allocate simple flag buffer\r\n");
             return;
         }
-        Debug("Using regular heap for flag\r\n");
-    } else {
-        Debug("Using PSRAM for flag\r\n");
     }
     
-    Debug("Generating Bhutan flag...\r\n");
-    
-    // Clear buffer first
     memset(flagBuffer, 0, IMAGE_BUFFER_SIZE);
     
-    // Generate Bhutan flag pixels (diagonal split: yellow upper left, red lower right)
+    // Simple diagonal Bhutan-inspired pattern
     for (int y = 0; y < DISPLAY_HEIGHT; y++) {
         for (int x = 0; x < DISPLAY_WIDTH; x++) {
             int pixelIndex = y * DISPLAY_WIDTH + x;
@@ -384,44 +472,38 @@ void generateAndDisplayBhutanFlag() {
             bool isEvenPixel = (pixelIndex % 2) == 0;
             
             uint8_t color;
-            
-            // Create diagonal split from top-left to bottom-right
-            // Bhutan flag: yellow upper triangle, red lower triangle
             if (y < (DISPLAY_HEIGHT * x / DISPLAY_WIDTH)) {
-                color = EINK_YELLOW;  // Upper left triangle
+                color = EINK_YELLOW;
             } else {
-                color = EINK_RED;     // Lower right triangle
+                color = EINK_RED;
             }
             
-            // Add white dragon circle in center
+            // Simple white circle for dragon
             int centerX = DISPLAY_WIDTH / 2;
             int centerY = DISPLAY_HEIGHT / 2;
-            int dragonRadius = 250;  // Larger dragon
+            int dragonRadius = 200;
             int dx = x - centerX;
             int dy = y - centerY;
             if (dx*dx + dy*dy < dragonRadius*dragonRadius) {
                 color = EINK_WHITE;
             }
             
-            // Pack color into 4-bit format (2 pixels per byte)
             if (isEvenPixel) {
-                flagBuffer[byteIndex] = (color << 4);  // Upper nibble
+                flagBuffer[byteIndex] = (color << 4);
             } else {
-                flagBuffer[byteIndex] |= color;        // Lower nibble
+                flagBuffer[byteIndex] |= color;
             }
         }
         
         if (y % 400 == 0) {
-            Debug("Generated " + String(y) + " rows\r\n");
             esp_task_wdt_reset();
         }
     }
     
-    Debug("Displaying Bhutan flag fallback...\r\n");
+    Debug("Displaying simple Bhutan flag fallback...\r\n");
     EPD_13IN3E_Display(flagBuffer);
-    Debug("SUCCESS: Bhutan flag fallback displayed!\r\n");
+    Debug("SUCCESS: Simple Bhutan flag displayed!\r\n");
     
-    // Clean up
     if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
         heap_caps_free(flagBuffer);
     } else {
