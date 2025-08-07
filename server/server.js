@@ -274,28 +274,64 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 }
 
 // E-ink Spectra 6 optimized color palette for art reproduction
+// Colors calibrated for actual Waveshare 13.3" Spectra 6 display characteristics
 const SPECTRA_6_PALETTE = [
-	{ r: 0, g: 0, b: 0 },       // Black
-	{ r: 255, g: 255, b: 255 }, // White  
-	{ r: 255, g: 255, b: 0 },   // Yellow
-	{ r: 255, g: 0, b: 0 },     // Red
-	{ r: 0, g: 0, b: 255 },     // Blue
-	{ r: 0, g: 255, b: 0 }      // Green
+	{ r: 0, g: 0, b: 0, name: "Black" },           // Pure black
+	{ r: 255, g: 255, b: 255, name: "White" },     // Pure white  
+	{ r: 255, g: 235, b: 0, name: "Yellow" },      // Slightly warmer yellow for better art reproduction
+	{ r: 220, g: 0, b: 0, name: "Red" },           // Slightly muted red (more natural for art)
+	{ r: 0, g: 0, b: 200, name: "Blue" },          // Slightly muted blue (better for shadows)
+	{ r: 0, g: 180, b: 0, name: "Green" }          // More natural green tone
 ];
 
-// Find closest color in Spectra 6 palette using perceptual color distance
+// Convert RGB to LAB color space for better perceptual color matching
+function rgbToLab(r, g, b) {
+	// Normalize RGB to 0-1
+	r = r / 255;
+	g = g / 255;
+	b = b / 255;
+	
+	// Apply gamma correction
+	r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+	g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+	b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+	
+	// Convert to XYZ
+	let x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+	let y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+	let z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+	
+	// Normalize by D65 illuminant
+	x = x / 0.95047;
+	y = y / 1.00000;
+	z = z / 1.08883;
+	
+	// Convert to LAB
+	x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x + 16/116);
+	y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y + 16/116);
+	z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z + 16/116);
+	
+	const L = 116 * y - 16;
+	const A = 500 * (x - y);
+	const B = 200 * (y - z);
+	
+	return [L, A, B];
+}
+
+// Find closest color using perceptual LAB color space distance
 function findClosestSpectraColor(r, g, b) {
+	const [L1, A1, B1] = rgbToLab(r, g, b);
 	let minDistance = Infinity;
 	let closestColor = SPECTRA_6_PALETTE[1]; // Default to white
 	
 	for (const color of SPECTRA_6_PALETTE) {
-		// Use perceptual color distance (weighted RGB)
-		const dr = r - color.r;
-		const dg = g - color.g;
-		const db = b - color.b;
+		const [L2, A2, B2] = rgbToLab(color.r, color.g, color.b);
 		
-		// Weight green higher as human eye is more sensitive to green
-		const distance = Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+		// Delta E CIE76 formula - perceptually uniform color difference
+		const deltaL = L1 - L2;
+		const deltaA = A1 - A2;
+		const deltaB = B1 - B2;
+		const distance = Math.sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
 		
 		if (distance < minDistance) {
 			minDistance = distance;
@@ -306,10 +342,21 @@ function findClosestSpectraColor(r, g, b) {
 	return closestColor;
 }
 
-// Floyd-Steinberg dithering for art reproduction on E Ink Spectra 6
-function applyFloydSteinbergDithering(imageData, width, height) {
-	console.log("Applying Floyd-Steinberg dithering for art reproduction...");
+// Art-optimized dithering algorithms for E Ink Spectra 6
+function applyDithering(imageData, width, height, algorithm = 'floyd-steinberg') {
+	console.log(`Applying ${algorithm} dithering for art reproduction...`);
 	const ditheredData = new Uint8ClampedArray(imageData);
+	
+	const distributeError = (x, y, errR, errG, errB, dx, dy, factor) => {
+		const nx = x + dx;
+		const ny = y + dy;
+		if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+			const nIdx = (ny * width + nx) * 3;
+			ditheredData[nIdx] = Math.max(0, Math.min(255, ditheredData[nIdx] + errR * factor));
+			ditheredData[nIdx + 1] = Math.max(0, Math.min(255, ditheredData[nIdx + 1] + errG * factor));
+			ditheredData[nIdx + 2] = Math.max(0, Math.min(255, ditheredData[nIdx + 2] + errB * factor));
+		}
+	};
 	
 	for (let y = 0; y < height; y++) {
 		for (let x = 0; x < width; x++) {
@@ -318,7 +365,7 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 			const oldG = ditheredData[idx + 1];
 			const oldB = ditheredData[idx + 2];
 			
-			// Find closest color in Spectra 6 palette
+			// Find closest color in Spectra 6 palette using perceptual LAB distance
 			const newColor = findClosestSpectraColor(oldR, oldG, oldB);
 			const newR = newColor.r;
 			const newG = newColor.g;
@@ -334,57 +381,75 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 			const errG = oldG - newG;
 			const errB = oldB - newB;
 			
-			// Distribute error using Floyd-Steinberg coefficients
-			const distributeError = (dx, dy, factor) => {
-				const nx = x + dx;
-				const ny = y + dy;
-				if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-					const nIdx = (ny * width + nx) * 3;
-					ditheredData[nIdx] = Math.max(0, Math.min(255, ditheredData[nIdx] + errR * factor));
-					ditheredData[nIdx + 1] = Math.max(0, Math.min(255, ditheredData[nIdx + 1] + errG * factor));
-					ditheredData[nIdx + 2] = Math.max(0, Math.min(255, ditheredData[nIdx + 2] + errB * factor));
-				}
-			};
-			
-			// Floyd-Steinberg error diffusion pattern
-			distributeError(1, 0, 7/16);  // Right
-			distributeError(-1, 1, 3/16); // Below-left
-			distributeError(0, 1, 5/16);  // Below
-			distributeError(1, 1, 1/16);  // Below-right
+			// Apply error diffusion pattern based on algorithm
+			if (algorithm === 'floyd-steinberg') {
+				// Floyd-Steinberg pattern (good for general art)
+				distributeError(x, y, errR, errG, errB, 1, 0, 7/16);   // Right
+				distributeError(x, y, errR, errG, errB, -1, 1, 3/16);  // Below-left
+				distributeError(x, y, errR, errG, errB, 0, 1, 5/16);   // Below
+				distributeError(x, y, errR, errG, errB, 1, 1, 1/16);   // Below-right
+			} else if (algorithm === 'atkinson') {
+				// Atkinson dithering (better for high-contrast art, mentioned in blog)
+				distributeError(x, y, errR, errG, errB, 1, 0, 1/8);    // Right
+				distributeError(x, y, errR, errG, errB, 2, 0, 1/8);    // Right+2
+				distributeError(x, y, errR, errG, errB, -1, 1, 1/8);   // Below-left
+				distributeError(x, y, errR, errG, errB, 0, 1, 1/8);    // Below
+				distributeError(x, y, errR, errG, errB, 1, 1, 1/8);    // Below-right
+				distributeError(x, y, errR, errG, errB, 0, 2, 1/8);    // Below+2
+			}
 		}
 	}
 	
-	console.log("Floyd-Steinberg dithering completed");
+	console.log(`${algorithm} dithering completed for art optimization`);
 	return ditheredData;
 }
 
 async function convertImageToRGB(
 	imagePath,
 	targetWidth = 1200,  
-	targetHeight = 1600  
+	targetHeight = 1600,
+	options = {}
 ) {
 	try {
-		console.log(`Processing image for art reproduction: ${imagePath}`);
+		console.log(`Processing image for art gallery display: ${imagePath}`);
 		
-		// Load and resize image
-		const imageBuffer = await sharp(imagePath)
+		// Art-specific preprocessing options
+		const {
+			ditherAlgorithm = 'floyd-steinberg', // or 'atkinson' for high-contrast art
+			enhanceContrast = true,              // Boost contrast for better e-ink display
+			sharpen = false                      // Optional sharpening for line art
+		} = options;
+		
+		// Build Sharp processing pipeline for art optimization
+		let sharpPipeline = sharp(imagePath)
 			.resize(targetWidth, targetHeight, {
 				fit: "contain",
 				background: { r: 255, g: 255, b: 255, alpha: 1 },
-			})
-			.raw()
-			.toBuffer();
+			});
 		
-		console.log(`Image loaded: ${imageBuffer.length / 3} pixels`);
+		// Art-specific enhancements
+		if (enhanceContrast) {
+			// Enhance contrast for better e-ink reproduction
+			sharpPipeline = sharpPipeline.linear(1.2, -(128 * 0.2));
+		}
 		
-		// Apply Floyd-Steinberg dithering for optimal art reproduction
-		const ditheredBuffer = applyFloydSteinbergDithering(imageBuffer, targetWidth, targetHeight);
+		if (sharpen) {
+			// Sharpen for line art and detailed artwork
+			sharpPipeline = sharpPipeline.sharpen();
+		}
 		
-		console.log(`Art-optimized image ready: ${targetWidth}x${targetHeight}, ${ditheredBuffer.length} bytes`);
+		// Convert to raw RGB
+		const imageBuffer = await sharpPipeline.raw().toBuffer();
+		console.log(`Art preprocessing complete: ${imageBuffer.length / 3} pixels`);
+		
+		// Apply professional dithering for art gallery quality
+		const ditheredBuffer = applyDithering(imageBuffer, targetWidth, targetHeight, ditherAlgorithm);
+		
+		console.log(`Art gallery image ready: ${targetWidth}x${targetHeight}, algorithm: ${ditherAlgorithm}`);
 		return ditheredBuffer;
 		
 	} catch (error) {
-		console.error("Error processing image for art reproduction:", error);
+		console.error("Error processing image for art gallery:", error);
 		throw error;
 	}
 }
@@ -569,25 +634,38 @@ app.post("/api/current", async (req, res) => {
 	}
 });
 
-// Image preview endpoint
+// Art gallery preview endpoint - shows exact e-ink display output
 app.post("/api/preview", upload.single("image"), async (req, res) => {
 	try {
 		if (!req.file) {
 			return res.status(400).json({ error: "No file uploaded" });
 		}
 
-		// Generate preview (standard RGB image)
-		const previewBuffer = await sharp(req.file.path)
-			.resize(600, 800, {
-				// Half size for web preview
-				fit: "contain",
-				background: { r: 255, g: 255, b: 255, alpha: 1 },
-			})
-			.png()
-			.toBuffer();
+		console.log(`Generating art gallery preview for: ${req.file.originalname}`);
 
-		// Convert to RGB format for size estimation
-		const rgbBuffer = await convertImageToRGB(req.file.path);
+		// Get dithering options from request
+		const ditherAlgorithm = req.body.ditherAlgorithm || 'floyd-steinberg';
+		const enhanceContrast = req.body.enhanceContrast !== 'false';
+		const sharpen = req.body.sharpen === 'true';
+
+		// Process image exactly as it will be sent to ESP32
+		const ditheredRgbBuffer = await convertImageToRGB(req.file.path, 1200, 1600, {
+			ditherAlgorithm,
+			enhanceContrast,
+			sharpen
+		});
+
+		// Create preview PNG from the dithered RGB data (half size for web)
+		const previewBuffer = await sharp(ditheredRgbBuffer, {
+			raw: {
+				width: 1200,
+				height: 1600,
+				channels: 3
+			}
+		})
+		.resize(600, 800, { fit: "fill" })
+		.png()
+		.toBuffer();
 
 		// Clean up uploaded file
 		await fs.unlink(req.file.path);
@@ -595,11 +673,17 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 		res.json({
 			success: true,
 			preview: `data:image/png;base64,${previewBuffer.toString("base64")}`,
-			rgbSize: Math.round(rgbBuffer.length / 1024), // Size in KB
+			rgbSize: Math.round(ditheredRgbBuffer.length / 1024), // Size in KB
 			originalName: req.file.originalname,
+			processingInfo: {
+				algorithm: ditherAlgorithm,
+				enhanceContrast,
+				sharpen,
+				paletteColors: SPECTRA_6_PALETTE.length
+			}
 		});
 	} catch (error) {
-		console.error("Error generating preview:", error);
+		console.error("Error generating art gallery preview:", error);
 		if (req.file?.path) {
 			try {
 				await fs.unlink(req.file.path);
@@ -607,7 +691,7 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 		}
 		res
 			.status(500)
-			.json({ error: "Error generating preview: " + error.message });
+			.json({ error: "Error generating art preview: " + error.message });
 	}
 });
 
