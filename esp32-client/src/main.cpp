@@ -575,31 +575,48 @@ void enterDeepSleep(uint64_t sleepTime) {
     esp_deep_sleep_start();
 }
 
-// Direct color mapping for server-dithered images
-// Server sends Floyd-Steinberg dithered images using exact Spectra 6 palette
+// Art gallery optimized color mapping for server-processed images
+// Handles refined Spectra 6 palette with LAB color space dithering
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b) {
-    // Server sends pre-dithered images with exact palette colors
-    // Just match to closest exact palette color
+    // Server sends pre-dithered images with refined palette colors
+    // Match to closest palette colors with some tolerance for transmission/processing variations
     
-    // Black (0,0,0)
-    if (r < 10 && g < 10 && b < 10) return EINK_BLACK;
+    // Black (0,0,0) - exact match
+    if (r < 15 && g < 15 && b < 15) return EINK_BLACK;
     
-    // White (255,255,255)  
-    if (r > 245 && g > 245 && b > 245) return EINK_WHITE;
+    // White (255,255,255) - exact match  
+    if (r > 240 && g > 240 && b > 240) return EINK_WHITE;
     
-    // Pure Red (255,0,0)
-    if (r > 245 && g < 10 && b < 10) return EINK_RED;
+    // Art-optimized Red (220,0,0) - slightly muted for natural art reproduction
+    if (r > 200 && r <= 255 && g < 20 && b < 20) return EINK_RED;
     
-    // Pure Green (0,255,0)
-    if (r < 10 && g > 245 && b < 10) return EINK_GREEN;
+    // Art-optimized Green (0,180,0) - more natural green tone
+    if (r < 20 && g > 160 && g <= 200 && b < 20) return EINK_GREEN;
     
-    // Pure Blue (0,0,255)
-    if (r < 10 && g < 10 && b > 245) return EINK_BLUE;
+    // Art-optimized Blue (0,0,200) - better for shadows and depth
+    if (r < 20 && g < 20 && b > 180 && b <= 220) return EINK_BLUE;
     
-    // Pure Yellow (255,255,0)
-    if (r > 245 && g > 245 && b < 10) return EINK_YELLOW;
+    // Art-optimized Yellow (255,235,0) - warmer yellow for better art reproduction
+    if (r > 240 && g > 220 && g <= 255 && b < 20) return EINK_YELLOW;
     
-    // Fallback for any remaining colors (shouldn't happen with proper dithering)
-    int brightness = (r + g + b) / 3;
-    return brightness > 128 ? EINK_WHITE : EINK_BLACK;
+    // Distance-based fallback for edge cases (uses simple RGB distance)
+    const uint8_t colors[] = {0, 0, 0, 255, 255, 255, 255, 235, 0, 220, 0, 0, 0, 0, 200, 0, 180, 0};
+    const uint8_t eink_colors[] = {EINK_BLACK, EINK_WHITE, EINK_YELLOW, EINK_RED, EINK_BLUE, EINK_GREEN};
+    
+    uint32_t minDistance = UINT32_MAX;
+    uint8_t closestColor = EINK_WHITE;
+    
+    for (int i = 0; i < 6; i++) {
+        int dr = r - colors[i*3];
+        int dg = g - colors[i*3 + 1];
+        int db = b - colors[i*3 + 2];
+        uint32_t distance = dr*dr + dg*dg + db*db;
+        
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestColor = eink_colors[i];
+        }
+    }
+    
+    return closestColor;
 }
