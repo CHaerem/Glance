@@ -57,6 +57,17 @@ npm test
 - **Interface**: SPI between ESP32 and display, WiFi to server
 - **Power**: LiPo battery with ultra-low power deep sleep
 
+### Power Supply Requirements
+
+**Critical**: E-ink displays draw high peak current (>1A) during refresh cycles. For stable operation:
+
+- **LiPo Battery**: Use high-discharge rate battery (≥10C rating, 2000mAh+ recommended)
+- **Power Decoupling**: Add large electrolytic capacitor (1000-4700μF, 6.3V) across VCC/GND near display
+- **Wiring**: Use short, thick wires (≤10cm, 18-22 AWG) between battery and ESP32
+- **USB Power**: If using USB, ensure supply can provide 2A+ during display refresh
+
+**Symptoms of insufficient power**: Brownout resets during display refresh, incomplete updates, system restarts
+
 ## Development Notes
 
 - ESP32 wakes up periodically to check for new images
