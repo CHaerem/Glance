@@ -9,37 +9,31 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: server/node_modules
-        key: ${{ runner.os }}-node-${{ hashFiles('server/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
-        
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+
     - name: Install dependencies
       working-directory: ./server
       run: |
         if [ -f package-lock.json ]; then
-          npm ci --include=optional
+          npm ci --include=optional --no-audit --no-fund
         else
-          npm install --include=optional
+          npm install --include=optional --no-audit --no-fund
         fi
-      
+
     - name: Run tests
       working-directory: ./server
       run: npm run test:ci
-      
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
@@ -48,6 +42,15 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+
+    - name: Run security audit
+      working-directory: ./server
+      run: npm audit --audit-level high
+
+    - name: Run dependency check
+      working-directory: ./server
+      run: |
+        npx audit-ci --config audit-ci.json || true
 
   build-and-deploy:
     needs: test
@@ -83,7 +86,7 @@ jobs:
       with:
         context: ./server
         file: ./server/Dockerfile
-        platforms: linux/amd64,linux/arm64,linux/arm/v7
+        platforms: linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -106,42 +109,4 @@ jobs:
         SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
         tailscale ssh chris@100.74.55.82 \
           "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose up -d"
-
-  security-scan:
-    needs: test
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: server/node_modules
-        key: ${{ runner.os }}-node-${{ hashFiles('server/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-
-        
-    - name: Install dependencies
-      working-directory: ./server
-      run: |
-        if [ -f package-lock.json ]; then
-          npm ci --include=optional
-        else
-          npm install --include=optional
-        fi
-      
-    - name: Run security audit
-      working-directory: ./server
-      run: npm audit --audit-level high
-      
-    - name: Run dependency check
-      working-directory: ./server
-      run: |
-        npx audit-ci --config audit-ci.json || true
+
