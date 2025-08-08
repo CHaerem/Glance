@@ -6,6 +6,9 @@
 #include <ArduinoJson.h>
 #include "esp_sleep.h"
 #include "esp_task_wdt.h"
+#include "driver/rtc_io.h"
+#include "esp_wifi.h"
+#include "esp_bt.h"
 
 // Configuration constants
 #define API_BASE_URL "http://serverpi.local:3000/api/"
@@ -24,6 +27,8 @@
 
 // Function declarations
 void setupPowerManagement();
+void teardownRadios();
+void powerDownDisplay();
 bool connectToWiFi();
 bool downloadAndDisplayImage();
 bool downloadImageToPSRAM();
@@ -116,8 +121,9 @@ void setup() {
         generateAndDisplayBhutanFlag();
     }
     
-    // Power down display
-    EPD_13IN3E_Sleep();
+    // Power down display and radios
+    powerDownDisplay();
+    teardownRadios();
     
     // Report going to sleep
     reportDeviceStatus("sleeping", batteryVoltage, signalStrength);
@@ -139,6 +145,13 @@ void setupPowerManagement() {
     esp_task_wdt_init(300, true);
     esp_task_wdt_add(NULL);
     
+    // Prefer modem sleep while connected to reduce peak current
+    WiFi.setSleep(true);
+
+    // ADC config for better voltage readings
+    analogReadResolution(12);
+    analogSetPinAttenuation(BATTERY_PIN, ADC_11db);
+    
     // Configure wake-up source
     esp_sleep_enable_timer_wakeup(DEFAULT_SLEEP_TIME);
 }
@@ -147,6 +160,7 @@ bool connectToWiFi() {
     Debug("Connecting to WiFi: " + String(WIFI_SSID) + "\r\n");
     
     WiFi.mode(WIFI_STA);
+    WiFi.setSleep(true);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     
     int attempts = 0;
@@ -292,7 +306,7 @@ bool downloadImageToPSRAM() {
                     uint8_t g = rgbChunk[i + 1];
                     uint8_t b = rgbChunk[i + 2];
                     
-                    // Convert RGB to Spectra 6 color
+                    // Convert RGB/BGR to Spectra 6 color
                     uint8_t einkColor = mapRGBToEink(r, g, b);
                     
                     // Pack into 4-bit format (2 pixels per byte)
@@ -511,6 +525,27 @@ void generateAndDisplayBhutanFlag() {
     }
 }
 
+// Cleanly power down the e-paper panel and cut its power rail
+void powerDownDisplay() {
+    Debug("Powering down e-Paper panel...\r\n");
+    // Put panel into deep sleep
+    EPD_13IN3E_Sleep();
+    // Cut panel power rail
+    DEV_Module_Exit();
+    // Ensure the power pin is driven low and held through deep sleep
+    pinMode(EPD_PWR_PIN, OUTPUT);
+    digitalWrite(EPD_PWR_PIN, LOW);
+}
+
+// Cleanly shut down WiFi/BT to minimize sleep current
+void teardownRadios() {
+    Debug("Shutting down radios...\r\n");
+    WiFi.disconnect(true, true);
+    WiFi.mode(WIFI_OFF);
+    esp_wifi_stop();
+    btStop();
+}
+
 void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength) {
     Debug("Reporting status: " + String(status) + "\r\n");
     
@@ -570,41 +605,69 @@ void sendLogToServer(const char *message, const char *level) {
 
 float readBatteryVoltage() {
     int adcReading = analogRead(BATTERY_PIN);
-    float voltage = (adcReading / 4095.0) * 3.3 * 2.0; // Voltage divider factor
+    // Using 12-bit ADC, 11dB attenuation (~0-3.3V), and a 2:1 divider on the board
+    float voltage = (adcReading / 4095.0f) * 3.3f * 2.0f;
     return voltage;
 }
 
 void enterDeepSleep(uint64_t sleepTime) {
     Debug("Entering deep sleep for " + String(sleepTime / 1000000) + " seconds\r\n");
+
+    // Hold display power rail off during deep sleep to prevent leakage
+    rtc_gpio_init((gpio_num_t)EPD_PWR_PIN);
+    rtc_gpio_set_direction((gpio_num_t)EPD_PWR_PIN, RTC_GPIO_MODE_OUTPUT_ONLY);
+    rtc_gpio_set_level((gpio_num_t)EPD_PWR_PIN, 0);
+    rtc_gpio_hold_en((gpio_num_t)EPD_PWR_PIN);
+    gpio_deep_sleep_hold_en();
+
     esp_sleep_enable_timer_wakeup(sleepTime);
     esp_deep_sleep_start();
 }
 
+// If your server sends BGR instead of RGB, set this to 1.
+#ifndef COLOR_ORDER_BGR
+#define COLOR_ORDER_BGR 0
+#endif
+
+// Six-color palette used by server dithering (must match server's conversion palette)
+// These are the target RGBs the server chooses during dithering; we classify to these indices.
+struct SpectraColor { uint8_t r, g, b, idx; };
+static const SpectraColor SPECTRA6_PALETTE[] = {
+    { 0,   0,   0,   0x0 }, // Black
+    { 255, 255, 255, 0x1 }, // White
+    { 255, 255, 0,   0x2 }, // Yellow
+    { 255, 0,   0,   0x3 }, // Red
+    { 0,   0,   255, 0x5 }, // Blue
+    { 0,   255, 0,   0x6 }  // Green
+};
+
 // Direct color mapping for server-dithered images
-// Server sends Floyd-Steinberg dithered images using exact Spectra 6 palette
+// Classify incoming 24-bit pixel to closest Spectra-6 palette index.
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b) {
-    // Server sends pre-dithered images with exact palette colors
-    // Just match to closest exact palette color
-    
-    // Black (0,0,0)
-    if (r < 10 && g < 10 && b < 10) return EINK_BLACK;
-    
-    // White (255,255,255)  
-    if (r > 245 && g > 245 && b > 245) return EINK_WHITE;
-    
-    // Pure Red (255,0,0)
-    if (r > 245 && g < 10 && b < 10) return EINK_RED;
-    
-    // Pure Green (0,255,0)
-    if (r < 10 && g > 245 && b < 10) return EINK_GREEN;
-    
-    // Pure Blue (0,0,255)
-    if (r < 10 && g < 10 && b > 245) return EINK_BLUE;
-    
-    // Pure Yellow (255,255,0)
-    if (r > 245 && g > 245 && b < 10) return EINK_YELLOW;
-    
-    // Fallback for any remaining colors (shouldn't happen with proper dithering)
-    int brightness = (r + g + b) / 3;
-    return brightness > 128 ? EINK_WHITE : EINK_BLACK;
+    // Optionally swap to handle BGR streams
+#if COLOR_ORDER_BGR
+    uint8_t rr = b; uint8_t gg = g; uint8_t bb = r;
+#else
+    uint8_t rr = r; uint8_t gg = g; uint8_t bb = b;
+#endif
+
+    // Fast-path exact matches to reduce computation
+    if (rr < 8 && gg < 8 && bb < 8) return EINK_BLACK;
+    if (rr > 247 && gg > 247 && bb > 247) return EINK_WHITE;
+
+    // Compute nearest neighbor in RGB space
+    uint32_t bestDist = UINT32_MAX;
+    uint8_t bestIdx = EINK_WHITE;
+    for (const auto &pc : SPECTRA6_PALETTE) {
+        int dr = (int)rr - (int)pc.r;
+        int dg = (int)gg - (int)pc.g;
+        int db = (int)bb - (int)pc.b;
+        uint32_t dist = (uint32_t)(dr*dr + dg*dg + db*db);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = pc.idx;
+            if (bestDist == 0) break;
+        }
+    }
+    return bestIdx;
 }
