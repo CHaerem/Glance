@@ -426,7 +426,7 @@ async function convertImageToRGB(
 				fit: "contain",
 				background: { r: 255, g: 255, b: 255, alpha: 1 },
 			})
-			.toColorspace('rgb'); // ensure RGB color space
+			.toColourspace('srgb'); // ensure standard sRGB color space (3-channel raw)
 		
 		// Art-specific enhancements
 		if (enhanceContrast) {
@@ -473,7 +473,7 @@ async function createTextImage(text, targetWidth = 1200, targetHeight = 1600) {
 
 const { data: imageBuffer, info } = await sharp(Buffer.from(svg))
 			.resize(targetWidth, targetHeight)
-			.toColorspace('rgb')
+			.toColourspace('srgb')
 			.raw()
 			.toBuffer({ resolveWithObject: true });
 		if (info.channels !== 3) {
@@ -1157,7 +1157,7 @@ app.get("/api/bhutan.bin", async (req, res) => {
 		
 // Convert PNG to RGB buffer (1200x1600x3 = 5,760,000 bytes)
 const { data: rgbData, info } = await sharp(pngBuffer)
-			.toColorspace('rgb')
+			.toColourspace('srgb')
 			.raw()
 			.toBuffer({ resolveWithObject: true });
 		if (info.channels !== 3) {
