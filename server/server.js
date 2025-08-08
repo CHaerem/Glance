@@ -425,7 +425,8 @@ async function convertImageToRGB(
 			.resize(targetWidth, targetHeight, {
 				fit: "contain",
 				background: { r: 255, g: 255, b: 255, alpha: 1 },
-			});
+			})
+			.toColorspace('rgb'); // ensure RGB color space
 		
 		// Art-specific enhancements
 		if (enhanceContrast) {
@@ -438,9 +439,14 @@ async function convertImageToRGB(
 			sharpPipeline = sharpPipeline.sharpen();
 		}
 		
-		// Convert to raw RGB
-		const imageBuffer = await sharpPipeline.raw().toBuffer();
-		console.log(`Art preprocessing complete: ${imageBuffer.length / 3} pixels`);
+		// Convert to raw RGB with explicit 3 channels
+		const { data: imageBuffer, info } = await sharpPipeline
+			.raw()
+			.toBuffer({ resolveWithObject: true });
+		if (info.channels !== 3) {
+			throw new Error(`Expected 3 channels (RGB), got ${info.channels}`);
+		}
+		console.log(`Art preprocessing complete: ${info.width}x${info.height}, ${imageBuffer.length / 3} pixels`);
 		
 		// Apply professional dithering for art gallery quality
 		const ditheredBuffer = applyDithering(imageBuffer, targetWidth, targetHeight, ditherAlgorithm);
@@ -465,10 +471,14 @@ async function createTextImage(text, targetWidth = 1200, targetHeight = 1600) {
             </svg>
         `;
 
-		const imageBuffer = await sharp(Buffer.from(svg))
+const { data: imageBuffer, info } = await sharp(Buffer.from(svg))
 			.resize(targetWidth, targetHeight)
+			.toColorspace('rgb')
 			.raw()
-			.toBuffer();
+			.toBuffer({ resolveWithObject: true });
+		if (info.channels !== 3) {
+			throw new Error(`Text image generated ${info.channels} channels, expected 3`);
+		}
 
 		console.log(`Created text image: ${imageBuffer.length / 3} pixels as RGB data`);
 		
@@ -1145,10 +1155,14 @@ app.get("/api/bhutan.bin", async (req, res) => {
 			.png()
 			.toBuffer();
 		
-		// Convert PNG to RGB buffer (1200x1600x3 = 5,760,000 bytes)
-		const { data: rgbData } = await sharp(pngBuffer)
+// Convert PNG to RGB buffer (1200x1600x3 = 5,760,000 bytes)
+const { data: rgbData, info } = await sharp(pngBuffer)
+			.toColorspace('rgb')
 			.raw()
 			.toBuffer({ resolveWithObject: true });
+		if (info.channels !== 3) {
+			throw new Error(`Bhutan PNG conversion produced ${info.channels} channels, expected 3`);
+		}
 		
 		res.set({
 			'Content-Type': 'application/octet-stream',
