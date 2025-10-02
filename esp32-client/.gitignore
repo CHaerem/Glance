@@ -3,3 +3,9 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Good Display example code (reference only)
+GDEP133C02*example*
+
+# NFC example code
+NFC*example*
