@@ -1,0 +1,8 @@
+{
+  "name": "GoodDisplay",
+  "version": "1.0.0",
+  "description": "Good Display GDEP133C02 e-ink driver for ESP32-S3",
+  "build": {
+    "flags": ["-Wno-unused-variable", "-Wno-unused-function"]
+  }
+}
