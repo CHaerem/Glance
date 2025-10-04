@@ -11,6 +11,7 @@
 #include "esp_sleep.h"
 #include "esp_mac.h"
 #include "nvs_flash.h"
+#include "nvs.h"
 #include "cJSON.h"
 
 #include "GDEP133C02.h"
@@ -35,10 +36,65 @@
 static EventGroupHandle_t s_wifi_event_group;
 static char device_id[32] = {0};
 
-// RTC memory survives deep sleep - store last downloaded image ID and boot count
-RTC_DATA_ATTR static char last_image_id[64] = {0};
+// RTC memory survives deep sleep - boot count only
 RTC_DATA_ATTR static uint32_t boot_count = 0;
-RTC_DATA_ATTR static uint32_t rtc_magic = 0;
+
+// NVS keys for persistent storage (survives power cycle)
+#define NVS_NAMESPACE "glance"
+#define NVS_KEY_IMAGE_ID "image_id"
+
+// Load last image ID from NVS (persistent storage)
+bool load_last_image_id(char* image_id, size_t max_len) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+
+    if (err != ESP_OK) {
+        printf("NVS open failed (first boot?): %s\n", esp_err_to_name(err));
+        return false;
+    }
+
+    size_t required_size = max_len;
+    err = nvs_get_str(nvs_handle, NVS_KEY_IMAGE_ID, image_id, &required_size);
+    nvs_close(nvs_handle);
+
+    if (err == ESP_OK) {
+        printf("Loaded last image ID from NVS: %s\n", image_id);
+        return true;
+    } else if (err == ESP_ERR_NVS_NOT_FOUND) {
+        printf("No previous image ID in NVS (first boot)\n");
+        return false;
+    } else {
+        printf("NVS read error: %s\n", esp_err_to_name(err));
+        return false;
+    }
+}
+
+// Save image ID to NVS (persistent storage)
+void save_last_image_id(const char* image_id) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+
+    if (err != ESP_OK) {
+        printf("ERROR: Failed to open NVS for write: %s\n", esp_err_to_name(err));
+        return;
+    }
+
+    err = nvs_set_str(nvs_handle, NVS_KEY_IMAGE_ID, image_id);
+    if (err != ESP_OK) {
+        printf("ERROR: Failed to write image ID to NVS: %s\n", esp_err_to_name(err));
+        nvs_close(nvs_handle);
+        return;
+    }
+
+    err = nvs_commit(nvs_handle);
+    if (err != ESP_OK) {
+        printf("ERROR: Failed to commit NVS: %s\n", esp_err_to_name(err));
+    } else {
+        printf("Saved image ID to NVS: %s\n", image_id);
+    }
+
+    nvs_close(nvs_handle);
+}
 
 void get_device_id(void) {
     uint8_t mac[6];
@@ -165,8 +221,19 @@ bool fetch_metadata(metadata_t* metadata) {
         printf("Found sleepDuration: %llu us\n", metadata->sleep_duration);
     }
 
-    // Check if we have a new image
-    metadata->has_new_image = (strlen(last_image_id) == 0 || strcmp(metadata->image_id, last_image_id) != 0);
+    // Load last image ID from NVS and check if we have a new image
+    char last_image_id[64] = {0};
+    bool has_previous = load_last_image_id(last_image_id, sizeof(last_image_id));
+
+    if (!has_previous) {
+        printf("No previous image found - will download\n");
+        metadata->has_new_image = true;
+    } else {
+        metadata->has_new_image = (strcmp(metadata->image_id, last_image_id) != 0);
+        printf("Comparing: server='%s' vs stored='%s' -> %s\n",
+               metadata->image_id, last_image_id,
+               metadata->has_new_image ? "NEW" : "SAME");
+    }
 
     cJSON_Delete(json);
     free(buffer);
@@ -377,20 +444,15 @@ void app_main(void)
     printf("Initializing (WHITE)...\n");
     epdDisplayColor(WHITE);
 
-    // Check if this is a power cycle (RTC memory reset) or deep sleep wake
-    const uint32_t RTC_MAGIC = 0xCAFEBABE;
-    bool is_power_cycle = (rtc_magic != RTC_MAGIC);
+    // Check boot reason
+    esp_reset_reason_t reset_reason = esp_reset_reason();
 
-    if (is_power_cycle) {
-        printf("=== POWER CYCLE DETECTED ===\n");
-        printf("Resetting RTC state - will force display update\n");
-        rtc_magic = RTC_MAGIC;
+    if (reset_reason == ESP_RST_POWERON) {
+        printf("=== POWER ON RESET ===\n");
         boot_count = 0;
-        memset(last_image_id, 0, sizeof(last_image_id));
     } else {
         boot_count++;
-        printf("=== DEEP SLEEP WAKE #%lu ===\n", boot_count);
-        printf("Last image ID: %s\n", last_image_id);
+        printf("=== BOOT #%lu (from deep sleep) ===\n", boot_count);
     }
 
     // Get device ID
@@ -430,7 +492,8 @@ void app_main(void)
 
             if (download_and_display_image()) {
                 printf("=== SUCCESS ===\n");
-                strncpy(last_image_id, metadata.image_id, sizeof(last_image_id) - 1);
+                // Save to NVS so it persists across power cycles
+                save_last_image_id(metadata.image_id);
                 report_device_status("display_updated");
             } else {
                 printf("Download failed - showing color bars\n");
