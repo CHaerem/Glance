@@ -560,6 +560,25 @@ app.get("/api/current.json", async (req, res) => {
 	}
 });
 
+// Get current image with full data for web UI
+app.get("/api/current-full.json", async (req, res) => {
+	try {
+		const current = (await readJSONFile("current.json")) || {
+			title: "Glance Display",
+			imageId: "",
+			timestamp: Date.now(),
+			sleepDuration: 3600000000,
+		};
+
+		// Return full data including image for web UI
+		console.log(`Serving full current data for web UI: imageId=${current.imageId}`);
+		res.json(current);
+	} catch (error) {
+		console.error("Error getting current full:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
 // NEW: Serve raw binary image data for PSRAM streaming
 app.get("/api/image.bin", async (req, res) => {
 	try {
@@ -734,7 +753,12 @@ app.post(
 			const sanitizedTitle = sanitizeInput(title);
 			const sleepMs = parseInt(sleepDuration) || 3600000000;
 
-			// Convert uploaded image to RGB format
+			// Read original uploaded file for thumbnail
+			const originalImageBuffer = await fs.readFile(req.file.path);
+			const originalImageBase64 = originalImageBuffer.toString("base64");
+			const mimeType = req.file.mimetype || "image/jpeg";
+
+			// Convert uploaded image to RGB format for e-ink display
 			const rgbBuffer = await convertImageToRGB(req.file.path);
 			console.log(`RGB buffer size: ${rgbBuffer.length} bytes`);
 			console.log(`RGB buffer type: ${typeof rgbBuffer}, is Buffer: ${Buffer.isBuffer(rgbBuffer)}`);
@@ -746,6 +770,8 @@ app.post(
 			const current = {
 				title: sanitizedTitle || `Uploaded: ${req.file.originalname}`,
 				image: imageData,
+				originalImage: originalImageBase64,
+				originalImageMime: mimeType,
 				imageId: uuidv4(),
 				timestamp: Date.now(),
 				sleepDuration: sleepMs,
