@@ -440,9 +440,8 @@ void app_main(void)
     setPinCsAll(GPIO_HIGH);
     initEPD();
 
-    // Show white during initialization
-    printf("Initializing (WHITE)...\n");
-    epdDisplayColor(WHITE);
+    // Don't clear display on boot - preserve existing image!
+    printf("Hardware initialized, display preserved\n");
 
     // Check boot reason
     esp_reset_reason_t reset_reason = esp_reset_reason();
