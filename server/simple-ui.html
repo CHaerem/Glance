@@ -307,6 +307,16 @@
             <h2><i class="fas fa-image"></i> Currently Displaying</h2>
             <div id="currentTitle" class="current-title">Loading...</div>
             <div id="currentMeta" class="current-meta">Checking display status...</div>
+
+            <!-- Current Image Preview -->
+            <div id="currentImagePreview" style="margin-top: 20px; display: none;">
+                <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; display: inline-block;">
+                    <img id="currentImageThumb" style="max-width: 300px; max-height: 400px; border-radius: 4px; border: 2px solid rgba(255,255,255,0.3);" />
+                    <div style="margin-top: 10px; font-size: 0.9rem; opacity: 0.9;">
+                        <i class="fas fa-clock"></i> Image ID: <span id="currentImageId">-</span>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- ESP32 Status -->
@@ -381,20 +391,6 @@
                     </button>
                 </div>
             </form>
-            
-            <!-- E-ink Preview -->
-            <div id="previewSection" class="preview-section" style="display: none;">
-                <h3><i class="fas fa-eye"></i> E-ink Display Preview</h3>
-                <div class="preview-container">
-                    <div class="preview-display">
-                        <canvas id="previewCanvas" width="600" height="800"></canvas>
-                        <div class="preview-info">
-                            <p><strong>Preview:</strong> How your image will appear on the 6-color e-ink display</p>
-                            <p><strong>Colors:</strong> <span class="color-dot black"></span>Black, <span class="color-dot white"></span>White, <span class="color-dot red"></span>Red, <span class="color-dot yellow"></span>Yellow, <span class="color-dot blue"></span>Blue, <span class="color-dot green"></span>Green</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -402,19 +398,120 @@
         let selectedFile = null;
         let deviceData = null;
         
+        // Live countdown timer
+        let nextWakeTimestamp = null;
+
+        function updateCountdown() {
+            if (!nextWakeTimestamp) return;
+
+            const now = Date.now();
+            const timeUntilWake = nextWakeTimestamp - now;
+
+            if (timeUntilWake <= 0) {
+                document.getElementById('nextWake').textContent = 'Overdue';
+                return;
+            }
+
+            const totalMinutes = Math.floor(timeUntilWake / 60000);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            const seconds = Math.floor((timeUntilWake % 60000) / 1000);
+
+            if (hours > 0) {
+                document.getElementById('nextWake').textContent = `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+                document.getElementById('nextWake').textContent = `${minutes}m ${seconds}s`;
+            } else {
+                document.getElementById('nextWake').textContent = `${seconds}s`;
+            }
+        }
+
+        // Update countdown every second
+        setInterval(updateCountdown, 1000);
+
+        // Render current image from RGB base64 data
+        function renderCurrentImage(base64RgbData) {
+            const canvas = document.getElementById('currentImageThumb');
+            const ctx = canvas.getContext('2d');
+
+            try {
+                // Decode base64 to binary using fetch API (handles large strings better)
+                const byteCharacters = atob(base64RgbData.substring(0, Math.min(base64RgbData.length, 10000000)));
+                const byteNumbers = new Uint8Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+
+                // E-ink display is 1200x1600, scale down to 300x400 for thumbnail
+                const srcWidth = 1200;
+                const srcHeight = 1600;
+                const dstWidth = 300;
+                const dstHeight = 400;
+
+                canvas.width = dstWidth;
+                canvas.height = dstHeight;
+
+                const imageData = ctx.createImageData(dstWidth, dstHeight);
+
+                // Simple nearest-neighbor downsampling (every 4th pixel)
+                for (let y = 0; y < dstHeight; y++) {
+                    for (let x = 0; x < dstWidth; x++) {
+                        const srcX = x * 4;
+                        const srcY = y * 4;
+                        const srcIndex = (srcY * srcWidth + srcX) * 3;
+                        const dstIndex = (y * dstWidth + x) * 4;
+
+                        if (srcIndex + 2 < byteNumbers.length) {
+                            imageData.data[dstIndex] = byteNumbers[srcIndex];         // R
+                            imageData.data[dstIndex + 1] = byteNumbers[srcIndex + 1]; // G
+                            imageData.data[dstIndex + 2] = byteNumbers[srcIndex + 2]; // B
+                            imageData.data[dstIndex + 3] = 255;                       // A
+                        }
+                    }
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+            } catch (error) {
+                console.error('Error rendering image:', error);
+                ctx.fillStyle = '#f3f4f6';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Preview unavailable', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
         // Load initial data
         async function loadStatus() {
             try {
-                // Load current display info
-                const currentResponse = await fetch('/api/current.json');
+                // Load current display info (full data with image for web UI)
+                const currentResponse = await fetch('/api/current-full.json');
                 const current = await currentResponse.json();
-                
+
                 document.getElementById('currentTitle').textContent = current.title || 'No content';
                 const lastUpdate = current.timestamp ? new Date(current.timestamp).toLocaleString() : 'Never';
                 const sleepHours = current.sleepDuration ? Math.round(current.sleepDuration / 3600000000) : 1;
-                document.getElementById('currentMeta').innerHTML = 
+                document.getElementById('currentMeta').innerHTML =
                     `Last updated: ${lastUpdate} • Sleep: ${sleepHours}h • ${current.image ? 'Has image' : 'No image'}`;
-                
+
+                // Show current image if available
+                if (current.originalImage) {
+                    // Use original uploaded image for thumbnail (much cleaner!)
+                    const imgElement = document.getElementById('currentImageThumb');
+                    const mimeType = current.originalImageMime || 'image/jpeg';
+                    imgElement.src = `data:${mimeType};base64,${current.originalImage}`;
+                    document.getElementById('currentImageId').textContent = current.imageId || 'unknown';
+                    document.getElementById('currentImagePreview').style.display = 'block';
+                } else if (current.image) {
+                    // Fallback to RGB data if no original (old format)
+                    renderCurrentImage(current.image);
+                    document.getElementById('currentImageId').textContent = current.imageId || 'unknown';
+                    document.getElementById('currentImagePreview').style.display = 'block';
+                } else {
+                    document.getElementById('currentImagePreview').style.display = 'none';
+                }
+
                 // Load device status
                 const devicesResponse = await fetch('/api/devices');
                 const devices = await devicesResponse.json();
@@ -452,40 +549,48 @@
             
             const now = Date.now();
             const lastSeen = device.lastSeen;
-            const isOnline = now - lastSeen < 300000; // 5 minutes
-            
-            // Connection status
-            if (isOnline) {
+            const isRecentlyActive = now - lastSeen < 60000; // 1 minute (very recent activity)
+
+            // Next wake time calculation
+            const sleepDuration = current.sleepDuration || 3600000000; // Default 1 hour in microseconds
+            const nextWakeTime = lastSeen + (sleepDuration / 1000); // Convert microseconds to milliseconds
+            const isSleeping = now < nextWakeTime;
+
+            console.log('Device status:', {
+                lastSeen: new Date(lastSeen),
+                sleepDuration: sleepDuration / 60000000 + ' min',
+                nextWakeTime: new Date(nextWakeTime),
+                isRecentlyActive,
+                isSleeping,
+                now: new Date(now)
+            });
+
+            // Connection status - show sleeping if we're before next wake time
+            if (isSleeping && !isRecentlyActive) {
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle"></i> Sleeping';
+                document.getElementById('connectionStatus').className = 'status-value status-offline';
+            } else if (isRecentlyActive) {
                 document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle"></i> Online';
                 document.getElementById('connectionStatus').className = 'status-value status-online';
             } else {
-                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle"></i> Sleeping';
+                document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-circle"></i> Offline';
                 document.getElementById('connectionStatus').className = 'status-value status-offline';
             }
-            
+
             // Battery
-            document.getElementById('batteryLevel').textContent = 
+            document.getElementById('batteryLevel').textContent =
                 device.batteryVoltage ? device.batteryVoltage.toFixed(2) + 'V' : '--V';
-            
-            // Next wake time calculation
-            const sleepDuration = current.sleepDuration || 3600000000; // Default 1 hour
-            const nextWakeTime = lastSeen + (sleepDuration / 1000); // Convert to milliseconds
-            const timeUntilWake = nextWakeTime - now;
-            
-            if (isOnline) {
+
+            // Show countdown if sleeping, otherwise show status
+            if (isSleeping && now < nextWakeTime) {
+                nextWakeTimestamp = nextWakeTime; // Set for live countdown
+                updateCountdown(); // Update immediately
+            } else if (isRecentlyActive) {
                 document.getElementById('nextWake').textContent = 'Awake Now';
-            } else if (timeUntilWake > 0) {
-                const minutes = Math.round(timeUntilWake / 60000);
-                const hours = Math.floor(minutes / 60);
-                const mins = minutes % 60;
-                
-                if (hours > 0) {
-                    document.getElementById('nextWake').textContent = `${hours}h ${mins}m`;
-                } else {
-                    document.getElementById('nextWake').textContent = `${mins}m`;
-                }
+                nextWakeTimestamp = null;
             } else {
                 document.getElementById('nextWake').textContent = 'Overdue';
+                nextWakeTimestamp = null;
             }
             
             // Signal strength
@@ -527,92 +632,9 @@
                     <div class="upload-text">${file.name}</div>
                     <div class="upload-hint">Ready to upload (${Math.round(file.size/1024)}KB)</div>
                 `;
-                
-                // Generate preview
-                generateEinkPreview(file);
             }
         }
-        
-        // E-ink color palette
-        const EINK_COLORS = [
-            { index: 0x0, rgb: [0, 0, 0], name: 'black' },      // Black
-            { index: 0x1, rgb: [255, 255, 255], name: 'white' }, // White
-            { index: 0x2, rgb: [255, 255, 0], name: 'yellow' },  // Yellow
-            { index: 0x3, rgb: [255, 0, 0], name: 'red' },       // Red
-            { index: 0x5, rgb: [0, 0, 255], name: 'blue' },      // Blue
-            { index: 0x6, rgb: [0, 255, 0], name: 'green' }      // Green
-        ];
-        
-        function findClosestEinkColor(r, g, b) {
-            // Use perceptually weighted color distance matching the server
-            let minDistance = Infinity;
-            let closest = EINK_COLORS[1]; // Default to white
-            
-            for (const color of EINK_COLORS) {
-                // Perceptually weighted color distance (matches server logic)
-                const deltaR = r - color.rgb[0];
-                const deltaG = g - color.rgb[1];
-                const deltaB = b - color.rgb[2];
-                
-                // Weight channels based on human perception
-                const distance = Math.sqrt(
-                    2 * deltaR * deltaR +        // Red weight
-                    4 * deltaG * deltaG +        // Green weight (human eye most sensitive)
-                    3 * deltaB * deltaB          // Blue weight
-                );
-                
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closest = color;
-                }
-            }
-            
-            return closest;
-        }
-        
-        function generateEinkPreview(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.getElementById('previewCanvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // Set canvas size to match e-ink display aspect ratio (1200x1600 -> 600x800)
-                    canvas.width = 600;
-                    canvas.height = 800;
-                    
-                    // Draw and resize image to fit
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    // Get image data
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const data = imageData.data;
-                    
-                    // Convert to e-ink colors
-                    for (let i = 0; i < data.length; i += 4) {
-                        const r = data[i];
-                        const g = data[i + 1];
-                        const b = data[i + 2];
-                        
-                        const einkColor = findClosestEinkColor(r, g, b);
-                        data[i] = einkColor.rgb[0];     // R
-                        data[i + 1] = einkColor.rgb[1]; // G
-                        data[i + 2] = einkColor.rgb[2]; // B
-                        // Alpha stays the same
-                    }
-                    
-                    // Put the converted image back
-                    ctx.putImageData(imageData, 0, 0);
-                    
-                    // Show preview section
-                    document.getElementById('previewSection').style.display = 'block';
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-        
+
         // Form submission
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -638,10 +660,22 @@
                 });
                 
                 const result = await response.json();
-                
+
                 if (response.ok) {
-                    alert('Display updated successfully!');
-                    
+                    // Calculate when image will appear
+                    const sleepDuration = parseInt(document.getElementById('sleepDuration').value);
+                    const sleepMinutes = Math.round(sleepDuration / 60000000);
+                    let timeMessage = '';
+
+                    if (sleepMinutes < 60) {
+                        timeMessage = `Image will appear on display in ~${sleepMinutes} minutes`;
+                    } else {
+                        const hours = Math.floor(sleepMinutes / 60);
+                        timeMessage = `Image will appear on display in ~${hours} hour${hours > 1 ? 's' : ''}`;
+                    }
+
+                    alert(`✓ Display updated successfully!\n\n${timeMessage}\n\nThe ESP32 will download and display this image on its next wake cycle.`);
+
                     // Reset form
                     selectedFile = null;
                     document.getElementById('uploadForm').reset();
