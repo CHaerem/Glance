@@ -422,25 +422,18 @@ async function convertImageToRGB(
 			sharpen = false                      // Optional sharpening for line art
 		} = options;
 
-		// Adjust target dimensions based on rotation
-		let finalWidth = targetWidth;
-		let finalHeight = targetHeight;
-		if (rotation === 90 || rotation === 270) {
-			// Swap width/height for 90° and 270° rotations
-			finalWidth = targetHeight;
-			finalHeight = targetWidth;
-		}
-
 		// Build Sharp processing pipeline for art optimization
 		let sharpPipeline = sharp(imagePath);
 
-		// Apply rotation if needed
+		// Apply rotation FIRST if needed (before resize)
 		if (rotation !== 0) {
 			sharpPipeline = sharpPipeline.rotate(rotation);
 		}
 
+		// Always resize to target dimensions (e-ink display expects 1200x1600)
+		// Rotation is applied to the INPUT, output is always 1200x1600
 		sharpPipeline = sharpPipeline
-			.resize(finalWidth, finalHeight, {
+			.resize(targetWidth, targetHeight, {
 				fit: "contain",
 				background: { r: 255, g: 255, b: 255, alpha: 1 },
 			})
@@ -466,10 +459,15 @@ async function convertImageToRGB(
 		}
 		console.log(`Art preprocessing complete: ${info.width}x${info.height}, ${imageBuffer.length / 3} pixels`);
 
-		// Apply professional dithering for art gallery quality (use actual dimensions)
-		const ditheredBuffer = applyDithering(imageBuffer, info.width, info.height, ditherAlgorithm);
+		// Verify output dimensions match target (should always be 1200x1600 after resize)
+		if (info.width !== targetWidth || info.height !== targetHeight) {
+			throw new Error(`Unexpected dimensions: got ${info.width}x${info.height}, expected ${targetWidth}x${targetHeight}`);
+		}
 
-		console.log(`Art gallery image ready: ${info.width}x${info.height}, algorithm: ${ditherAlgorithm}`);
+		// Apply professional dithering for art gallery quality
+		const ditheredBuffer = applyDithering(imageBuffer, targetWidth, targetHeight, ditherAlgorithm);
+
+		console.log(`Art gallery image ready: ${targetWidth}x${targetHeight}, algorithm: ${ditherAlgorithm}, rotation: ${rotation}°`);
 		return ditheredBuffer;
 		
 	} catch (error) {
