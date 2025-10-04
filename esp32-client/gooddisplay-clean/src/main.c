@@ -34,7 +34,11 @@
 
 static EventGroupHandle_t s_wifi_event_group;
 static char device_id[32] = {0};
-static char last_image_id[64] = {0};
+
+// RTC memory survives deep sleep - store last downloaded image ID and boot count
+RTC_DATA_ATTR static char last_image_id[64] = {0};
+RTC_DATA_ATTR static uint32_t boot_count = 0;
+RTC_DATA_ATTR static uint32_t rtc_magic = 0;
 
 void get_device_id(void) {
     uint8_t mac[6];
@@ -54,13 +58,13 @@ void report_device_status(const char* status_msg) {
         "\"batteryVoltage\":%.2f,"
         "\"signalStrength\":%d,"
         "\"freeHeap\":%lu,"
-        "\"bootCount\":%d,"
+        "\"bootCount\":%lu,"
         "\"status\":\"%s\"}}",
         device_id,
         3.7,  // TODO: Read actual battery voltage
         ap_info.rssi,
         (unsigned long)esp_get_free_heap_size(),
-        0,  // TODO: Read boot count from RTC memory
+        (unsigned long)boot_count,
         status_msg
     );
 
@@ -373,6 +377,22 @@ void app_main(void)
     printf("Initializing (WHITE)...\n");
     epdDisplayColor(WHITE);
 
+    // Check if this is a power cycle (RTC memory reset) or deep sleep wake
+    const uint32_t RTC_MAGIC = 0xCAFEBABE;
+    bool is_power_cycle = (rtc_magic != RTC_MAGIC);
+
+    if (is_power_cycle) {
+        printf("=== POWER CYCLE DETECTED ===\n");
+        printf("Resetting RTC state - will force display update\n");
+        rtc_magic = RTC_MAGIC;
+        boot_count = 0;
+        memset(last_image_id, 0, sizeof(last_image_id));
+    } else {
+        boot_count++;
+        printf("=== DEEP SLEEP WAKE #%lu ===\n", boot_count);
+        printf("Last image ID: %s\n", last_image_id);
+    }
+
     // Get device ID
     get_device_id();
 
@@ -405,8 +425,8 @@ void app_main(void)
         sleep_duration = metadata.sleep_duration;
 
         // Only download if we have a new image
-        if (metadata.has_new_image || strlen(last_image_id) == 0) {
-            printf("New image available, downloading...\n");
+        if (metadata.has_new_image) {
+            printf("New image detected (ID: %s), downloading...\n", metadata.image_id);
 
             if (download_and_display_image()) {
                 printf("=== SUCCESS ===\n");
