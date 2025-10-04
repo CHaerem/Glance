@@ -377,6 +377,15 @@
                         <input type="text" id="displayTitle" class="form-control" placeholder="My awesome image">
                     </div>
                     <div class="form-group">
+                        <label for="rotation">Rotation</label>
+                        <select id="rotation" class="form-control">
+                            <option value="0" selected>0° (No rotation)</option>
+                            <option value="90">90° (Clockwise)</option>
+                            <option value="180">180° (Upside down)</option>
+                            <option value="270">270° (Counter-clockwise)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="sleepDuration">Sleep Duration</label>
                         <select id="sleepDuration" class="form-control">
                             <option value="300000000">5 minutes (testing)</option>
@@ -647,6 +656,7 @@
             const formData = new FormData();
             formData.append('image', selectedFile);
             formData.append('title', document.getElementById('displayTitle').value || selectedFile.name);
+            formData.append('rotation', document.getElementById('rotation').value);
             formData.append('sleepDuration', document.getElementById('sleepDuration').value);
             
             try {
