@@ -284,11 +284,59 @@
         #imageFile { display: none; }
         
         /* Mobile responsive */
-        @media (max-width: 640px) {
-            .container { padding: 15px; }
-            .status-grid { grid-template-columns: 1fr; }
-            .form-row { flex-direction: column; }
-            .quick-actions { justify-content: center; }
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+                max-width: 100%;
+            }
+            .header {
+                padding: 15px 0;
+                margin-bottom: 20px;
+            }
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            .header p {
+                font-size: 0.9rem;
+            }
+            .current-status {
+                padding: 20px;
+            }
+            .current-title {
+                font-size: 1.3rem;
+            }
+            .status-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .status-item {
+                padding: 10px;
+            }
+            .status-value {
+                font-size: 1.1rem;
+            }
+            .status-label {
+                font-size: 0.8rem;
+            }
+            .form-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .btn {
+                width: 100%;
+                justify-content: center;
+                padding: 15px 24px;
+                font-size: 1rem;
+            }
+            .upload-area {
+                padding: 30px 15px;
+            }
+            .upload-icon {
+                font-size: 2.5rem;
+            }
+            #currentImageThumb {
+                max-width: 100% !important;
+            }
         }
     </style>
 </head>
@@ -343,19 +391,6 @@
                 </div>
             </div>
             
-            <div id="commandsQueue" class="commands-queue" style="display: none;">
-                <h4><i class="fas fa-clock"></i> Queued Commands</h4>
-                <p id="queuedCommandText">No commands queued</p>
-            </div>
-            
-            <div class="quick-actions">
-                <button class="btn btn-secondary" onclick="sendCommand('stay_awake')">
-                    <i class="fas fa-eye"></i> Keep Awake (5min)
-                </button>
-                <button class="btn btn-primary" onclick="sendCommand('update_now')">
-                    <i class="fas fa-sync"></i> Force Update
-                </button>
-            </div>
         </div>
         
         <!-- Simple Upload -->
