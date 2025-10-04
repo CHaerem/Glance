@@ -407,23 +407,40 @@ function applyDithering(imageData, width, height, algorithm = 'floyd-steinberg')
 
 async function convertImageToRGB(
 	imagePath,
-	targetWidth = 1200,  
+	rotation = 0,
+	targetWidth = 1200,
 	targetHeight = 1600,
 	options = {}
 ) {
 	try {
-		console.log(`Processing image for art gallery display: ${imagePath}`);
-		
+		console.log(`Processing image for art gallery display: ${imagePath} (rotation: ${rotation}°)`);
+
 		// Art-specific preprocessing options
 		const {
 			ditherAlgorithm = 'floyd-steinberg', // or 'atkinson' for high-contrast art
 			enhanceContrast = true,              // Boost contrast for better e-ink display
 			sharpen = false                      // Optional sharpening for line art
 		} = options;
-		
+
+		// Adjust target dimensions based on rotation
+		let finalWidth = targetWidth;
+		let finalHeight = targetHeight;
+		if (rotation === 90 || rotation === 270) {
+			// Swap width/height for 90° and 270° rotations
+			finalWidth = targetHeight;
+			finalHeight = targetWidth;
+		}
+
 		// Build Sharp processing pipeline for art optimization
-		let sharpPipeline = sharp(imagePath)
-			.resize(targetWidth, targetHeight, {
+		let sharpPipeline = sharp(imagePath);
+
+		// Apply rotation if needed
+		if (rotation !== 0) {
+			sharpPipeline = sharpPipeline.rotate(rotation);
+		}
+
+		sharpPipeline = sharpPipeline
+			.resize(finalWidth, finalHeight, {
 				fit: "contain",
 				background: { r: 255, g: 255, b: 255, alpha: 1 },
 			})
@@ -549,7 +566,8 @@ app.get("/api/current.json", async (req, res) => {
 			title: current.title || "Glance Display",
 			imageId: current.imageId || "default",
 			timestamp: current.timestamp || Date.now(),
-			sleepDuration: current.sleepDuration || 3600000000
+			sleepDuration: current.sleepDuration || 3600000000,
+			rotation: current.rotation || 0
 		};
 
 		console.log(`Serving metadata: imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us`);
@@ -747,19 +765,20 @@ app.post(
 				return res.status(400).json({ error: "No file uploaded" });
 			}
 
-			const { title, sleepDuration } = req.body;
+			const { title, sleepDuration, rotation } = req.body;
 
 			// Input validation
 			const sanitizedTitle = sanitizeInput(title);
 			const sleepMs = parseInt(sleepDuration) || 3600000000;
+			const rotationDegrees = parseInt(rotation) || 0;
 
 			// Read original uploaded file for thumbnail
 			const originalImageBuffer = await fs.readFile(req.file.path);
 			const originalImageBase64 = originalImageBuffer.toString("base64");
 			const mimeType = req.file.mimetype || "image/jpeg";
 
-			// Convert uploaded image to RGB format for e-ink display
-			const rgbBuffer = await convertImageToRGB(req.file.path);
+			// Convert uploaded image to RGB format for e-ink display (with rotation)
+			const rgbBuffer = await convertImageToRGB(req.file.path, rotationDegrees);
 			console.log(`RGB buffer size: ${rgbBuffer.length} bytes`);
 			console.log(`RGB buffer type: ${typeof rgbBuffer}, is Buffer: ${Buffer.isBuffer(rgbBuffer)}`);
 
@@ -775,6 +794,7 @@ app.post(
 				imageId: uuidv4(),
 				timestamp: Date.now(),
 				sleepDuration: sleepMs,
+				rotation: rotationDegrees,
 			};
 
 			await writeJSONFile("current.json", current);
