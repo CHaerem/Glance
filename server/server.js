@@ -465,11 +465,11 @@ async function convertImageToRGB(
 			throw new Error(`Expected 3 channels (RGB), got ${info.channels}`);
 		}
 		console.log(`Art preprocessing complete: ${info.width}x${info.height}, ${imageBuffer.length / 3} pixels`);
-		
-		// Apply professional dithering for art gallery quality
-		const ditheredBuffer = applyDithering(imageBuffer, targetWidth, targetHeight, ditherAlgorithm);
-		
-		console.log(`Art gallery image ready: ${targetWidth}x${targetHeight}, algorithm: ${ditherAlgorithm}`);
+
+		// Apply professional dithering for art gallery quality (use actual dimensions)
+		const ditheredBuffer = applyDithering(imageBuffer, info.width, info.height, ditherAlgorithm);
+
+		console.log(`Art gallery image ready: ${info.width}x${info.height}, algorithm: ${ditherAlgorithm}`);
 		return ditheredBuffer;
 		
 	} catch (error) {
