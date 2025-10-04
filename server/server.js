@@ -533,18 +533,26 @@ async function writeJSONFile(filename, data) {
 
 // API Routes
 
-// Get current image/schedule for ESP32
+// Get current image metadata for ESP32 (without image data)
 app.get("/api/current.json", async (req, res) => {
 	try {
 		const current = (await readJSONFile("current.json")) || {
 			title: "Glance Display",
-			image: "",
 			imageId: "",
 			timestamp: Date.now(),
 			sleepDuration: 3600000000, // 1 hour in microseconds
 		};
 
-		res.json(current);
+		// Send metadata only (no image data)
+		const metadata = {
+			title: current.title || "Glance Display",
+			imageId: current.imageId || "default",
+			timestamp: current.timestamp || Date.now(),
+			sleepDuration: current.sleepDuration || 3600000000
+		};
+
+		console.log(`Serving metadata: imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us`);
+		res.json(metadata);
 	} catch (error) {
 		console.error("Error getting current:", error);
 		res.status(500).json({ error: "Internal server error" });
