@@ -401,7 +401,8 @@ function applyDithering(imageData, width, height, algorithm = 'floyd-steinberg')
 	}
 	
 	console.log(`${algorithm} dithering completed for art optimization`);
-	return ditheredData;
+	// Convert Uint8ClampedArray to Buffer for base64 encoding
+	return Buffer.from(ditheredData);
 }
 
 async function convertImageToRGB(
@@ -622,7 +623,10 @@ app.post("/api/current", async (req, res) => {
 
 				// Convert to RGB format for ESP32 processing
 				const rgbBuffer = await convertImageToRGB(tempPath);
+				console.log(`RGB buffer size: ${rgbBuffer.length} bytes`);
+				console.log(`RGB buffer type: ${typeof rgbBuffer}, is Buffer: ${Buffer.isBuffer(rgbBuffer)}`);
 				imageData = rgbBuffer.toString("base64");
+				console.log(`Base64 length: ${imageData.length}, first 50 chars: ${imageData.substring(0, 50)}`);
 
 				// Clean up temp file
 				await fs.unlink(tempPath);
@@ -732,7 +736,12 @@ app.post(
 
 			// Convert uploaded image to RGB format
 			const rgbBuffer = await convertImageToRGB(req.file.path);
+			console.log(`RGB buffer size: ${rgbBuffer.length} bytes`);
+			console.log(`RGB buffer type: ${typeof rgbBuffer}, is Buffer: ${Buffer.isBuffer(rgbBuffer)}`);
+
 			const imageData = rgbBuffer.toString("base64");
+			console.log(`Base64 length: ${imageData.length}, first 50 chars: ${imageData.substring(0, 50)}`);
+			console.log(`Expected base64 size: ${Math.ceil(rgbBuffer.length * 4/3)} bytes`);
 
 			const current = {
 				title: sanitizedTitle || `Uploaded: ${req.file.originalname}`,
