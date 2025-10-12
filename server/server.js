@@ -6,11 +6,16 @@ const { v4: uuidv4 } = require("uuid");
 const multer = require("multer");
 const sharp = require("sharp");
 const rateLimit = require("express-rate-limit");
+const OpenAI = require("openai");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const IMAGE_VERSION = process.env.IMAGE_VERSION || "local";
 const BUILD_DATE = process.env.BUILD_DATE || "unknown";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || null;
+
+// Initialize OpenAI client if API key is available
+const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
 function formatBuildDate(dateStr) {
     if (!dateStr || dateStr === "unknown") return dateStr;
@@ -749,6 +754,91 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 		res
 			.status(500)
 			.json({ error: "Error generating art preview: " + error.message });
+	}
+});
+
+// AI Image Generation endpoint
+app.post("/api/generate-art", async (req, res) => {
+	try {
+		if (!openai) {
+			return res.status(503).json({
+				error: "AI generation not available. OPENAI_API_KEY not configured."
+			});
+		}
+
+		const { prompt, rotation, sleepDuration } = req.body;
+
+		if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+			return res.status(400).json({ error: "Prompt is required" });
+		}
+
+		console.log(`Generating AI art with prompt: "${prompt}"`);
+
+		// Input validation
+		const sleepMs = parseInt(sleepDuration) || 3600000000;
+		const rotationDegrees = parseInt(rotation) || 0;
+
+		// Enhance prompt for e-ink art gallery display
+		const enhancedPrompt = `${prompt}. High contrast, minimalist art style suitable for black and white display with limited colors. Clean, gallery-quality artwork.`;
+
+		// Generate image with DALL-E 3
+		const response = await openai.images.generate({
+			model: "dall-e-3",
+			prompt: enhancedPrompt,
+			n: 1,
+			size: "1024x1024", // Standard size, we'll resize for e-ink
+			quality: "standard", // Use 'hd' for better quality but costs 2x
+			response_format: "url"
+		});
+
+		const imageUrl = response.data[0].url;
+		console.log(`AI image generated: ${imageUrl}`);
+
+		// Download the generated image
+		const fetch = (await import('node-fetch')).default;
+		const imageResponse = await fetch(imageUrl);
+		const imageBuffer = await imageResponse.buffer();
+
+		// Save to temporary file
+		const tempFilePath = path.join(UPLOAD_DIR, `ai-gen-${Date.now()}.png`);
+		await fs.writeFile(tempFilePath, imageBuffer);
+
+		// Convert to RGB format for e-ink display (with rotation)
+		const rgbBuffer = await convertImageToRGB(tempFilePath, rotationDegrees);
+
+		// Save original for thumbnail
+		const originalImageBase64 = imageBuffer.toString("base64");
+
+		const current = {
+			title: `AI Generated: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
+			image: rgbBuffer.toString("base64"),
+			originalImage: originalImageBase64,
+			originalImageMime: "image/png",
+			imageId: uuidv4(),
+			timestamp: Date.now(),
+			sleepDuration: sleepMs,
+			rotation: rotationDegrees,
+			aiGenerated: true,
+			originalPrompt: prompt
+		};
+
+		await writeJSONFile("current.json", current);
+
+		// Clean up temp file
+		await fs.unlink(tempFilePath);
+
+		console.log(`AI art generated and processed successfully`);
+
+		res.json({
+			success: true,
+			current,
+			revisedPrompt: response.data[0].revised_prompt
+		});
+	} catch (error) {
+		console.error("Error generating AI art:", error);
+		res.status(500).json({
+			error: "Error generating AI art: " + error.message
+		});
 	}
 });
 

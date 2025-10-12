@@ -103,9 +103,46 @@
         .status-online { color: #10b981; }
         .status-offline { color: #6b7280; }
 
+        /* Mode Selector */
+        .mode-selector {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 40px;
+            justify-content: center;
+        }
+        .mode-btn {
+            padding: 12px 24px;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            background: #ffffff;
+            color: #666;
+            font-size: 0.875rem;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .mode-btn:hover {
+            border-color: #1a1a1a;
+            color: #1a1a1a;
+        }
+        .mode-btn.active {
+            background: #1a1a1a;
+            color: #ffffff;
+            border-color: #1a1a1a;
+        }
+
         /* Upload Area - Ultra minimal */
         .upload-section {
             margin-bottom: 40px;
+        }
+
+        /* AI Prompt textarea */
+        .ai-prompt {
+            min-height: 120px;
+            font-family: inherit;
+            resize: vertical;
         }
 
         .upload-area {
@@ -337,8 +374,14 @@
             </div>
         </div>
 
-        <!-- Simple Upload -->
-        <div class="upload-section">
+        <!-- Mode Selector -->
+        <div class="mode-selector">
+            <button type="button" class="mode-btn active" id="uploadModeBtn" onclick="switchMode('upload')">Upload Image</button>
+            <button type="button" class="mode-btn" id="aiModeBtn" onclick="switchMode('ai')">Generate AI Art</button>
+        </div>
+
+        <!-- Upload Mode -->
+        <div class="upload-section" id="uploadMode">
             <form id="uploadForm" enctype="multipart/form-data">
                 <div class="upload-area" onclick="document.getElementById('imageFile').click()"
                      ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
@@ -374,6 +417,44 @@
                     </div>
                     <input type="hidden" id="displayTitle" value="">
                     <button type="submit" class="btn btn-success">Update</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- AI Generation Mode -->
+        <div class="upload-section" id="aiMode" style="display: none;">
+            <form id="aiForm">
+                <div class="form-group">
+                    <textarea id="aiPrompt" class="form-control ai-prompt" placeholder="Describe the art you want to generate...&#10;&#10;Example: A minimalist landscape with mountains at sunset, high contrast black and white style" rows="5"></textarea>
+                </div>
+
+                <div class="options-toggle">
+                    <button type="button" onclick="toggleAiOptions()">⚙ Options</button>
+                </div>
+
+                <div class="form-row">
+                    <div class="advanced-options" id="aiAdvancedOptions">
+                        <div class="form-group">
+                            <label for="aiRotation">Rotation</label>
+                            <select id="aiRotation" class="form-control">
+                                <option value="0" selected>0° (No rotation)</option>
+                                <option value="90">90° Clockwise</option>
+                                <option value="180">180° Upside down</option>
+                                <option value="270">270° Counter-clockwise</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiSleepDuration">Update Interval</label>
+                            <select id="aiSleepDuration" class="form-control">
+                                <option value="300000000">5 minutes</option>
+                                <option value="1800000000">30 minutes</option>
+                                <option value="3600000000" selected>1 hour</option>
+                                <option value="21600000000">6 hours</option>
+                                <option value="43200000000">12 hours</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Generate</button>
                 </div>
             </form>
         </div>
@@ -416,6 +497,11 @@
             options.classList.toggle('show');
         }
 
+        function toggleAiOptions() {
+            const options = document.getElementById('aiAdvancedOptions');
+            options.classList.toggle('show');
+        }
+
         function toggleDetails() {
             const details = document.getElementById('statusDetails');
             const button = document.querySelector('.details-toggle');
@@ -425,6 +511,26 @@
             } else {
                 details.style.display = 'block';
                 button.textContent = 'Hide Details';
+            }
+        }
+
+        // Mode switching
+        function switchMode(mode) {
+            const uploadMode = document.getElementById('uploadMode');
+            const aiMode = document.getElementById('aiMode');
+            const uploadBtn = document.getElementById('uploadModeBtn');
+            const aiBtn = document.getElementById('aiModeBtn');
+
+            if (mode === 'upload') {
+                uploadMode.style.display = 'block';
+                aiMode.style.display = 'none';
+                uploadBtn.classList.add('active');
+                aiBtn.classList.remove('active');
+            } else {
+                uploadMode.style.display = 'none';
+                aiMode.style.display = 'block';
+                uploadBtn.classList.remove('active');
+                aiBtn.classList.add('active');
             }
         }
 
@@ -648,7 +754,57 @@
             }
         }
 
-        // Form submission
+        // AI Form submission
+        document.getElementById('aiForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const prompt = document.getElementById('aiPrompt').value.trim();
+            if (!prompt) {
+                alert('Please enter a prompt for the AI to generate art');
+                return;
+            }
+
+            try {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.textContent = 'Generating...';
+                button.disabled = true;
+
+                const response = await fetch('/api/generate-art', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        rotation: document.getElementById('aiRotation').value,
+                        sleepDuration: document.getElementById('aiSleepDuration').value
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Reset form
+                    document.getElementById('aiForm').reset();
+
+                    // Reload status to show new image
+                    loadStatus();
+
+                    // Show success message with revised prompt if available
+                    if (result.revisedPrompt) {
+                        console.log('DALL-E revised prompt:', result.revisedPrompt);
+                    }
+                } else {
+                    alert('AI generation failed: ' + result.error);
+                }
+            } catch (error) {
+                alert('AI generation error: ' + error.message);
+            } finally {
+                const button = e.target.querySelector('button[type="submit"]');
+                button.textContent = 'Generate';
+                button.disabled = false;
+            }
+        });
+
+        // Upload Form submission
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
