@@ -794,9 +794,10 @@ app.post("/api/generate-art", async (req, res) => {
 		// Input validation
 		const sleepMs = parseInt(sleepDuration) || 3600000000;
 		const rotationDegrees = parseInt(rotation) || 0;
-		const imageQuality = quality === 'hd' ? 'hd' : 'standard';
+		// gpt-image-1 quality: 'low', 'medium', 'high', 'auto'
+		// Map old 'standard'/'hd' to new quality levels
+		const imageQuality = quality === 'hd' ? 'high' : 'medium';
 		const artStyle = style || 'balanced';
-		const dalleStyle = imageStyle === 'natural' ? 'natural' : 'vivid'; // vivid or natural
 
 		// Enhanced prompt engineering for e-ink display optimization
 		// DALL-E 3 tends to add margins/whitespace, so we need VERY explicit instructions
@@ -833,26 +834,28 @@ app.post("/api/generate-art", async (req, res) => {
 
 		console.log(`Enhanced prompt: ${enhancedPrompt}`);
 
-		// Generate image with DALL-E 3
-		// Using 1024x1792 (portrait, 9:16) - closest to display's 3:4 ratio
-		// Will be center-cropped from 9:16 to 3:4 (crops ~14% from top/bottom)
+		// Generate image with GPT-4o image generation (gpt-image-1)
+		// This is OpenAI's most advanced image generator (replaced DALL-E 3 in March 2025)
+		// Better at: text rendering, prompt following, diverse styles, world knowledge
+		// Supported sizes: 1024x1024, 1024x1536 (portrait), 1536x1024 (landscape)
+		// Using 1024x1536 (portrait, 2:3) - closest available to display's 3:4 ratio
+		// Will be center-cropped from 2:3 to 3:4 (crops ~11% from left/right)
+		// Note: gpt-image-1 only supports: model, prompt, n, size, quality
+		// Does NOT support: style, response_format, background (use separate parameters for those)
 		const response = await openai.images.generate({
-			model: "dall-e-3",
+			model: "gpt-image-1", // Latest GPT-4o image generation (March 2025+)
 			prompt: enhancedPrompt,
 			n: 1,
-			size: "1024x1792", // Portrait format (9:16) - best match for portrait display
-			quality: imageQuality, // 'standard' or 'hd' (hd costs 2x)
-			style: dalleStyle, // 'vivid' (more artistic/colorful) or 'natural' (more realistic)
-			response_format: "url"
+			size: "1024x1536", // Portrait format (2:3) - closest match to display's 3:4 ratio
+			quality: imageQuality // 'low', 'medium', 'high', or 'auto'
 		});
 
-		const imageUrl = response.data[0].url;
-		console.log(`AI image generated: ${imageUrl}`);
+		// gpt-image-1 returns base64-encoded image data directly (not a URL like DALL-E 3)
+		const imageBase64 = response.data[0].b64_json;
+		console.log(`AI image generated (base64, ${imageBase64 ? imageBase64.length : 0} chars)`);
 
-		// Download the generated image
-		const fetch = (await import('node-fetch')).default;
-		const imageResponse = await fetch(imageUrl);
-		const imageBuffer = await imageResponse.buffer();
+		// Decode base64 to buffer
+		const imageBuffer = Buffer.from(imageBase64, 'base64');
 
 		// Save to temporary file
 		const tempFilePath = path.join(UPLOAD_DIR, `ai-gen-${Date.now()}.png`);
@@ -868,20 +871,52 @@ app.post("/api/generate-art", async (req, res) => {
 		// Save original for thumbnail
 		const originalImageBase64 = imageBuffer.toString("base64");
 
+		const imageId = uuidv4();
 		const current = {
 			title: `AI Generated: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
 			image: rgbBuffer.toString("base64"),
 			originalImage: originalImageBase64,
 			originalImageMime: "image/png",
-			imageId: uuidv4(),
+			imageId: imageId,
 			timestamp: Date.now(),
 			sleepDuration: sleepMs,
 			rotation: rotationDegrees,
 			aiGenerated: true,
-			originalPrompt: prompt
+			originalPrompt: prompt,
+			artStyle: artStyle,
+			quality: imageQuality
 		};
 
 		await writeJSONFile("current.json", current);
+
+		// Store full image in images archive for history access
+		const imagesArchive = (await readJSONFile("images.json")) || {};
+		imagesArchive[imageId] = current; // Store complete image data
+		await writeJSONFile("images.json", imagesArchive);
+
+		// Add to history (only metadata + thumbnail)
+		const history = (await readJSONFile("history.json")) || [];
+		history.unshift({
+			imageId: imageId,
+			title: current.title,
+			thumbnail: originalImageBase64, // Store original for thumbnail
+			timestamp: current.timestamp,
+			aiGenerated: true,
+			originalPrompt: prompt,
+			artStyle: artStyle,
+			quality: imageQuality,
+			rotation: rotationDegrees
+		});
+		// Keep only last 50 images in history
+		if (history.length > 50) {
+			const removedItems = history.splice(50);
+			// Clean up old images from archive
+			for (const item of removedItems) {
+				delete imagesArchive[item.imageId];
+			}
+			await writeJSONFile("images.json", imagesArchive);
+		}
+		await writeJSONFile("history.json", history);
 
 		// Clean up temp file
 		await fs.unlink(tempFilePath);
@@ -933,18 +968,48 @@ app.post(
 			console.log(`Base64 length: ${imageData.length}, first 50 chars: ${imageData.substring(0, 50)}`);
 			console.log(`Expected base64 size: ${Math.ceil(rgbBuffer.length * 4/3)} bytes`);
 
+			const imageId = uuidv4();
 			const current = {
 				title: sanitizedTitle || `Uploaded: ${req.file.originalname}`,
 				image: imageData,
 				originalImage: originalImageBase64,
 				originalImageMime: mimeType,
-				imageId: uuidv4(),
+				imageId: imageId,
 				timestamp: Date.now(),
 				sleepDuration: sleepMs,
 				rotation: rotationDegrees,
+				aiGenerated: false,
+				uploadedFilename: req.file.originalname
 			};
 
 			await writeJSONFile("current.json", current);
+
+			// Store full image in images archive for history access
+			const imagesArchive = (await readJSONFile("images.json")) || {};
+			imagesArchive[imageId] = current;
+			await writeJSONFile("images.json", imagesArchive);
+
+			// Add to history (only metadata + thumbnail)
+			const history = (await readJSONFile("history.json")) || [];
+			history.unshift({
+				imageId: imageId,
+				title: current.title,
+				thumbnail: originalImageBase64,
+				timestamp: current.timestamp,
+				aiGenerated: false,
+				uploadedFilename: req.file.originalname,
+				rotation: rotationDegrees
+			});
+			// Keep only last 50 images in history
+			if (history.length > 50) {
+				const removedItems = history.splice(50);
+				// Clean up old images from archive
+				for (const item of removedItems) {
+					delete imagesArchive[item.imageId];
+				}
+				await writeJSONFile("images.json", imagesArchive);
+			}
+			await writeJSONFile("history.json", history);
 
 			// Clean up uploaded file
 			await fs.unlink(req.file.path);
@@ -1286,6 +1351,70 @@ app.get("/api/devices", async (_req, res) => {
 		res.json(devices);
 	} catch (error) {
 		console.error("Error getting devices:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Get image history
+app.get("/api/history", async (_req, res) => {
+	try {
+		const history = (await readJSONFile("history.json")) || [];
+		res.json(history);
+	} catch (error) {
+		console.error("Error getting history:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Load image from history by ID
+app.post("/api/history/:imageId/load", async (req, res) => {
+	try {
+		const { imageId } = req.params;
+
+		// Get full image data from images archive
+		const imagesArchive = (await readJSONFile("images.json")) || {};
+		const imageData = imagesArchive[imageId];
+
+		if (!imageData) {
+			return res.status(404).json({ error: "Image not found in archive" });
+		}
+
+		// Set this image as current
+		await writeJSONFile("current.json", imageData);
+		console.log(`Loaded image ${imageId} from history: ${imageData.title}`);
+
+		res.json({ success: true, current: imageData });
+	} catch (error) {
+		console.error("Error loading from history:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Delete image from history
+app.delete("/api/history/:imageId", async (req, res) => {
+	try {
+		const { imageId } = req.params;
+		let history = (await readJSONFile("history.json")) || [];
+
+		const originalLength = history.length;
+		history = history.filter(item => item.imageId !== imageId);
+
+		if (history.length === originalLength) {
+			return res.status(404).json({ error: "Image not found in history" });
+		}
+
+		await writeJSONFile("history.json", history);
+
+		// Also delete from images archive
+		const imagesArchive = (await readJSONFile("images.json")) || {};
+		delete imagesArchive[imageId];
+		await writeJSONFile("images.json", imagesArchive);
+
+		console.log(`Deleted image ${imageId} from history and archive`);
+
+		res.json({ success: true, message: "Image deleted from history" });
+	} catch (error) {
+		console.error("Error deleting from history:", error);
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
