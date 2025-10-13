@@ -425,7 +425,7 @@
         <div class="upload-section" id="aiMode" style="display: none;">
             <form id="aiForm">
                 <div class="form-group">
-                    <textarea id="aiPrompt" class="form-control ai-prompt" placeholder="Describe the art you want to generate...&#10;&#10;Example: A minimalist landscape with mountains at sunset, high contrast black and white style" rows="5"></textarea>
+                    <textarea id="aiPrompt" class="form-control ai-prompt" placeholder="Describe the art you want to generate...&#10;&#10;Tips: Focus on bold, full-frame compositions with high contrast&#10;&#10;Examples:&#10;• Close-up of a sunflower filling the entire frame&#10;• Dramatic mountain peaks under stormy clouds&#10;• Bold geometric mandala pattern&#10;• Japanese wave in the style of Hokusai&#10;• Dense forest with strong light and shadow contrast" rows="7"></textarea>
                 </div>
 
                 <div class="options-toggle">
@@ -434,6 +434,30 @@
 
                 <div class="form-row">
                     <div class="advanced-options" id="aiAdvancedOptions">
+                        <div class="form-group">
+                            <label for="aiStyle">Art Style</label>
+                            <select id="aiStyle" class="form-control">
+                                <option value="balanced" selected>Balanced (Recommended)</option>
+                                <option value="minimalist">Minimalist - Clean & Simple</option>
+                                <option value="detailed">Detailed - Rich Textures</option>
+                                <option value="abstract">Abstract - Bold Shapes</option>
+                                <option value="line-art">Line Art - Ink Drawing</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiQuality">Image Quality</label>
+                            <select id="aiQuality" class="form-control">
+                                <option value="standard" selected>Standard (Faster, Lower Cost)</option>
+                                <option value="hd">HD (Slower, 2x Cost, Better Detail)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="aiImageStyle">DALL-E Style</label>
+                            <select id="aiImageStyle" class="form-control">
+                                <option value="vivid" selected>Vivid (More Artistic & Colorful)</option>
+                                <option value="natural">Natural (More Realistic)</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label for="aiRotation">Rotation</label>
                             <select id="aiRotation" class="form-control">
@@ -650,8 +674,11 @@
                 // Load build info
                 const buildResponse = await fetch('/api/build-info');
                 const buildInfo = await buildResponse.json();
-                document.getElementById('buildInfo').innerHTML = 
-                    `<i class="fas fa-code-branch"></i> Version: ${buildInfo.version} • Built: ${buildInfo.buildDateHuman}`;
+                const buildInfoElement = document.getElementById('buildInfo');
+                if (buildInfoElement) {
+                    buildInfoElement.innerHTML =
+                        `<i class="fas fa-code-branch"></i> Version: ${buildInfo.version} • Built: ${buildInfo.buildDateHuman}`;
+                }
 
             } catch (error) {
                 console.error('Error loading status:', error);
@@ -774,6 +801,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: prompt,
+                        style: document.getElementById('aiStyle').value,
+                        quality: document.getElementById('aiQuality').value,
+                        imageStyle: document.getElementById('aiImageStyle').value,
                         rotation: document.getElementById('aiRotation').value,
                         sleepDuration: document.getElementById('aiSleepDuration').value
                     })

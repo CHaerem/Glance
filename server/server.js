@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs").promises;
@@ -424,7 +427,8 @@ async function convertImageToRGB(
 		const {
 			ditherAlgorithm = 'floyd-steinberg', // or 'atkinson' for high-contrast art
 			enhanceContrast = true,              // Boost contrast for better e-ink display
-			sharpen = false                      // Optional sharpening for line art
+			sharpen = false,                     // Optional sharpening for line art
+			autoCropWhitespace = true            // Auto-crop whitespace margins from AI images
 		} = options;
 
 		// Build Sharp processing pipeline for art optimization
@@ -435,11 +439,24 @@ async function convertImageToRGB(
 			sharpPipeline = sharpPipeline.rotate(rotation);
 		}
 
+		// Auto-crop whitespace/margins if enabled (helps with AI-generated images)
+		if (autoCropWhitespace) {
+			try {
+				// Trim edges that are close to white (within 10% threshold)
+				sharpPipeline = sharpPipeline.trim({ threshold: 25 });
+				console.log('Auto-cropped whitespace margins from AI image');
+			} catch (trimError) {
+				console.log('No significant whitespace to crop');
+			}
+		}
+
 		// Always resize to target dimensions (e-ink display expects 1200x1600)
+		// Using "cover" instead of "contain" to ensure full-frame fill
 		// Rotation is applied to the INPUT, output is always 1200x1600
 		sharpPipeline = sharpPipeline
 			.resize(targetWidth, targetHeight, {
-				fit: "contain",
+				fit: "cover",  // Changed from "contain" to "cover" for full-frame fill
+				position: "center",
 				background: { r: 255, g: 255, b: 255, alpha: 1 },
 			})
 			.toColourspace('srgb'); // ensure standard sRGB color space (3-channel raw)
@@ -766,7 +783,7 @@ app.post("/api/generate-art", async (req, res) => {
 			});
 		}
 
-		const { prompt, rotation, sleepDuration } = req.body;
+		const { prompt, rotation, sleepDuration, quality, style, imageStyle } = req.body;
 
 		if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
 			return res.status(400).json({ error: "Prompt is required" });
@@ -777,17 +794,55 @@ app.post("/api/generate-art", async (req, res) => {
 		// Input validation
 		const sleepMs = parseInt(sleepDuration) || 3600000000;
 		const rotationDegrees = parseInt(rotation) || 0;
+		const imageQuality = quality === 'hd' ? 'hd' : 'standard';
+		const artStyle = style || 'balanced';
+		const dalleStyle = imageStyle === 'natural' ? 'natural' : 'vivid'; // vivid or natural
 
-		// Enhance prompt for e-ink art gallery display
-		const enhancedPrompt = `${prompt}. High contrast, minimalist art style suitable for black and white display with limited colors. Clean, gallery-quality artwork.`;
+		// Enhanced prompt engineering for e-ink display optimization
+		// DALL-E 3 tends to add margins/whitespace, so we need VERY explicit instructions
+		let styleGuidance = '';
+		let compositionRules = '';
+
+		switch(artStyle) {
+			case 'minimalist':
+				styleGuidance = 'Minimalist style with clean geometric shapes, strong contrast between elements';
+				compositionRules = 'The composition extends to all four edges of the canvas with no empty margins or borders. Content bleeds off the edges naturally.';
+				break;
+			case 'detailed':
+				styleGuidance = 'Highly detailed artwork with intricate patterns, rich textures, and complex visual elements throughout';
+				compositionRules = 'Every part of the canvas from edge to edge is filled with detailed elements. The pattern or subject extends beyond the visible frame.';
+				break;
+			case 'abstract':
+				styleGuidance = 'Bold abstract art with strong geometric or organic shapes, high contrast colors and forms';
+				compositionRules = 'Abstract shapes and patterns fill the entire canvas edge to edge, bleeding off all sides. No negative space at the borders.';
+				break;
+			case 'line-art':
+				styleGuidance = 'Pen and ink drawing style with confident linework, similar to woodblock prints or linocuts';
+				compositionRules = 'The illustration fills the frame completely with the subject extending to the edges. Think full-bleed poster design.';
+				break;
+			default: // balanced
+				styleGuidance = 'Artistic composition optimized for digital display with good contrast and visual interest';
+				compositionRules = 'Use a full-bleed composition where the subject or pattern extends to all edges. No white borders or empty margins around the artwork.';
+		}
+
+		// CRITICAL: Very explicit instructions to avoid DALL-E's known issue with portrait borders
+		// DALL-E 3 1024x1792 (portrait) is the closest to our 3:4 display ratio
+		// Known issue: DALL-E 3 portrait images often have colored borders/spaces
+		// Solution: Extremely explicit prompts + auto-crop whitespace + use "cover" resize
+		const enhancedPrompt = `${prompt}. ${styleGuidance}. COMPOSITION RULES: ${compositionRules} This artwork must fill a tall vertical portrait frame completely with NO empty borders, NO colored bars on top or bottom, NO whitespace margins. The subject extends naturally beyond all four edges of the frame like a full-bleed poster or magazine cover. Absolutely NO letterboxing or pillarboxing.`;
+
+		console.log(`Enhanced prompt: ${enhancedPrompt}`);
 
 		// Generate image with DALL-E 3
+		// Using 1024x1792 (portrait, 9:16) - closest to display's 3:4 ratio
+		// Will be center-cropped from 9:16 to 3:4 (crops ~14% from top/bottom)
 		const response = await openai.images.generate({
 			model: "dall-e-3",
 			prompt: enhancedPrompt,
 			n: 1,
-			size: "1024x1024", // Standard size, we'll resize for e-ink
-			quality: "standard", // Use 'hd' for better quality but costs 2x
+			size: "1024x1792", // Portrait format (9:16) - best match for portrait display
+			quality: imageQuality, // 'standard' or 'hd' (hd costs 2x)
+			style: dalleStyle, // 'vivid' (more artistic/colorful) or 'natural' (more realistic)
 			response_format: "url"
 		});
 
@@ -803,8 +858,12 @@ app.post("/api/generate-art", async (req, res) => {
 		const tempFilePath = path.join(UPLOAD_DIR, `ai-gen-${Date.now()}.png`);
 		await fs.writeFile(tempFilePath, imageBuffer);
 
-		// Convert to RGB format for e-ink display (with rotation)
-		const rgbBuffer = await convertImageToRGB(tempFilePath, rotationDegrees);
+		// Convert to RGB format for e-ink display (with rotation and auto-crop)
+		const rgbBuffer = await convertImageToRGB(tempFilePath, rotationDegrees, 1200, 1600, {
+			autoCropWhitespace: true,  // Auto-crop whitespace margins from AI images
+			enhanceContrast: true,     // Boost contrast for e-ink
+			ditherAlgorithm: 'floyd-steinberg'
+		});
 
 		// Save original for thumbnail
 		const originalImageBase64 = imageBuffer.toString("base64");
