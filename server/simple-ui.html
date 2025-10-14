@@ -772,10 +772,10 @@
             <!-- Curated collections -->
             <div style="margin-bottom: 16px; font-size: 10px; color: #999;">
                 <span style="opacity: 0.6;">Collections:</span>
-                <a href="#" onclick="startCuratedPlaylist(event, 'impressionism', 'Impressionist Masters')" class="subtle-link" style="margin: 0 6px;">Impressionist Masters</a>
-                <a href="#" onclick="startCuratedPlaylist(event, 'abstract', 'Modern Abstract')" class="subtle-link" style="margin: 0 6px;">Modern Abstract</a>
-                <a href="#" onclick="startCuratedPlaylist(event, 'landscape', 'Landscapes')" class="subtle-link" style="margin: 0 6px;">Landscapes</a>
-                <a href="#" onclick="startCuratedPlaylist(event, 'portrait', 'Portraits')" class="subtle-link" style="margin: 0 6px;">Portraits</a>
+                <a href="#" onclick="quickSearch(event, 'impressionism')" class="subtle-link" style="margin: 0 6px;">Impressionist Masters</a>
+                <a href="#" onclick="quickSearch(event, 'abstract')" class="subtle-link" style="margin: 0 6px;">Modern Abstract</a>
+                <a href="#" onclick="quickSearch(event, 'landscape')" class="subtle-link" style="margin: 0 6px;">Landscapes</a>
+                <a href="#" onclick="quickSearch(event, 'portrait')" class="subtle-link" style="margin: 0 6px;">Portraits</a>
             </div>
 
             <div class="input-area">
@@ -791,6 +791,11 @@
 
             <!-- Source status feedback -->
             <div id="sourceStatus" style="margin-top: 12px; font-size: 9px; color: #999; display: none;"></div>
+
+            <!-- Save as playlist button (shown when results exist) -->
+            <div id="savePlaylistSection" style="display: none; text-align: center; margin-top: 16px; font-size: 10px;">
+                <a href="#" class="subtle-link" onclick="saveSearchAsPlaylist(event)">save as playlist</a>
+            </div>
 
             <div id="artResults" class="history-grid" style="margin-top: 20px; display: none;">
                 <!-- Search results will appear here -->
@@ -1296,6 +1301,13 @@
                 loadingDiv.style.display = 'none';
 
                 if (data.results && data.results.length > 0) {
+                    // Store results for playlist creation (but only for new searches, not pagination)
+                    if (!append) {
+                        currentSearchResults = data.results;
+                    } else {
+                        currentSearchResults = currentSearchResults.concat(data.results);
+                    }
+
                     // Helper to get source badge color
                     const getSourceColor = (source) => {
                         if (source === 'The Met Museum') return '#0066cc';
@@ -1336,6 +1348,11 @@
                     }
 
                     resultsDiv.style.display = 'grid';
+
+                    // Show "save as playlist" button when results are shown (not when appending)
+                    if (!append && data.results && data.results.length > 0) {
+                        document.getElementById('savePlaylistSection').style.display = 'block';
+                    }
 
                     // Show source status if available
                     if (data.sources && !append) {
@@ -1399,47 +1416,69 @@
             searchArt();
         }
 
-        // Start a curated playlist from a search query
-        async function startCuratedPlaylist(e, searchQuery, playlistName) {
+        // Global to store current search results for playlist creation
+        let currentSearchResults = [];
+
+        // Save current search results as a playlist
+        async function saveSearchAsPlaylist(e) {
             e.preventDefault();
 
-            try {
-                // Search for artworks matching the query
-                const response = await fetch(`/api/art/search?query=${encodeURIComponent(searchQuery)}&limit=20`);
-                const data = await response.json();
+            if (!currentSearchResults || currentSearchResults.length === 0) {
+                alert('No search results to save. Please search for artwork first.');
+                return;
+            }
 
-                if (!data.results || data.results.length === 0) {
-                    alert(`No artworks found for "${playlistName}"`);
+            try {
+                // Import each artwork first, then create playlist from imported images
+                const importPromises = currentSearchResults.map(async (art) => {
+                    try {
+                        const response = await fetch('/api/art/import', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                imageUrl: art.imageUrl,
+                                title: art.title,
+                                artist: art.artist,
+                                source: art.source
+                            })
+                        });
+                        const result = await response.json();
+                        return response.ok ? result.imageId : null;
+                    } catch (error) {
+                        console.error('Failed to import:', art.title, error);
+                        return null;
+                    }
+                });
+
+                alert(`Importing ${currentSearchResults.length} artworks... This may take a moment.`);
+                const imageIds = await Promise.all(importPromises);
+                const validIds = imageIds.filter(id => id !== null);
+
+                if (validIds.length === 0) {
+                    alert('Failed to import any artworks. Please try again.');
                     return;
                 }
 
-                // Create playlist from search results
-                const images = data.results.map(art => ({
-                    imageUrl: art.imageUrl,
-                    title: art.title,
-                    artist: art.artist,
-                    source: art.source
-                }));
-
+                // Create playlist from imported imageIds
                 const playlistResponse = await fetch('/api/playlist', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        images,
+                        images: validIds,  // Just array of imageIds from history
                         mode: 'sequential',
                         interval: 3600000000 // 1 hour in microseconds
                     })
                 });
 
                 if (playlistResponse.ok) {
-                    alert(`Started "${playlistName}" playlist with ${images.length} artworks`);
-                    switchToMode(e, 'generate'); // Switch to show current image
+                    alert(`Started playlist with ${validIds.length} artworks`);
+                    switchToMode(e, 'playlist'); // Switch to playlist mode
                 } else {
                     const error = await playlistResponse.json();
-                    alert('Failed to start playlist: ' + error.error);
+                    alert('Failed to create playlist: ' + error.error);
                 }
             } catch (error) {
-                alert('Error starting playlist: ' + error.message);
+                alert('Error creating playlist: ' + error.message);
             }
         }
 
