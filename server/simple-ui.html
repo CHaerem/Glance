@@ -531,124 +531,103 @@
             </div>
         </div>
 
-        <!-- Mode Selector -->
-        <div class="mode-selector">
-            <button type="button" class="mode-btn active" id="uploadModeBtn" onclick="switchMode('upload')">Upload Image</button>
-            <button type="button" class="mode-btn" id="aiModeBtn" onclick="switchMode('ai')">Generate AI Art</button>
-        </div>
-
-        <!-- Upload Mode -->
-        <div class="upload-section" id="uploadMode">
-            <form id="uploadForm" enctype="multipart/form-data">
-                <div class="upload-area" onclick="document.getElementById('imageFile').click()"
-                     ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                    <div class="upload-text">Upload New Image</div>
-                    <input type="file" id="imageFile" name="image" accept="image/*" onchange="handleFileSelect(event)">
+        <!-- Unified Input Section -->
+        <div class="main-input">
+            <form id="mainForm">
+                <!-- Unified textarea/drop zone -->
+                <div class="input-area"
+                     ondrop="handleDrop(event)"
+                     ondragover="handleDragOver(event)"
+                     ondragleave="handleDragLeave(event)"
+                     onclick="handleInputClick(event)">
+                    <textarea id="mainInput"
+                              class="main-textarea"
+                              placeholder="Describe art to generate, or drop image here"
+                              rows="5"></textarea>
+                    <input type="file" id="imageFile" name="image" accept="image/*"
+                           onchange="handleFileSelect(event)" style="display: none;">
                 </div>
 
-                <div class="options-toggle">
-                    <button type="button" onclick="toggleOptions()">⚙ Options</button>
+                <!-- Action bar -->
+                <div class="action-bar">
+                    <button type="submit" class="primary-action">Generate</button>
+                    <a href="#" class="subtle-link" onclick="feelingLucky(event)">feeling lucky</a>
                 </div>
 
-                <div class="form-row">
-                    <div class="advanced-options" id="advancedOptions">
-                        <div class="form-group">
-                            <label for="rotation">Rotation</label>
-                            <select id="rotation" class="form-control">
-                                <option value="0" selected>0° (No rotation)</option>
-                                <option value="90">90° Clockwise</option>
-                                <option value="180">180° Upside down</option>
-                                <option value="270">270° Counter-clockwise</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="sleepDuration">Update Interval</label>
-                            <select id="sleepDuration" class="form-control">
-                                <option value="300000000">5 minutes</option>
-                                <option value="1800000000">30 minutes</option>
-                                <option value="3600000000" selected>1 hour</option>
-                                <option value="21600000000">6 hours</option>
-                                <option value="43200000000">12 hours</option>
-                            </select>
-                        </div>
-                    </div>
-                    <input type="hidden" id="displayTitle" value="">
-                    <button type="submit" class="btn btn-success">Update</button>
+                <!-- Playlist status -->
+                <div class="playlist-status">
+                    <span id="playlistIndicator">Playlist: <span id="playlistState">off</span></span>
+                    <a href="#" class="subtle-link" onclick="togglePlaylist(event)">configure</a>
                 </div>
             </form>
         </div>
 
-        <!-- AI Generation Mode -->
-        <div class="upload-section" id="aiMode" style="display: none;">
-            <form id="aiForm">
-                <div class="form-group">
-                    <textarea id="aiPrompt" class="form-control ai-prompt" placeholder="Describe what you want—or leave it blank and hit Feeling Lucky." rows="7"></textarea>
-                </div>
-
-                <div class="lucky-inline">
-                    <button type="button" class="lucky-button" id="luckyButton" onclick="generateLuckyPrompt()">Feeling Lucky</button>
-                    <span class="lucky-status" id="luckyStatus" data-default-status="Type a few words above, then press Feeling Lucky—or leave it blank for a surprise.">Type a few words above, then press Feeling Lucky—or leave it blank for a surprise.</span>
-                </div>
-
-                <div class="options-toggle">
-                    <button type="button" onclick="toggleAiOptions()">⚙ Options</button>
-                </div>
-
-                <div class="form-row">
-                    <div class="advanced-options" id="aiAdvancedOptions">
-                        <div class="form-group">
-                            <label for="aiStyle">Art Style</label>
-                            <select id="aiStyle" class="form-control">
-                                <option value="balanced" selected>Balanced (Recommended)</option>
-                                <option value="minimalist">Minimalist - Clean & Simple</option>
-                                <option value="detailed">Detailed - Rich Textures</option>
-                                <option value="abstract">Abstract - Bold Shapes</option>
-                                <option value="line-art">Line Art - Ink Drawing</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="aiQuality">Image Quality</label>
-                            <select id="aiQuality" class="form-control">
-                                <option value="standard" selected>Standard (Faster, Lower Cost)</option>
-                                <option value="hd">HD (Slower, 2x Cost, Better Detail)</option>
-                            </select>
-                        </div>
-                        <!-- Note: GPT-4o (gpt-image-1) does not support style parameter -->
-                        <!-- Keeping this for potential future DALL-E 3 fallback -->
-                        <input type="hidden" id="aiImageStyle" value="vivid">
-                        <div class="form-group">
-                            <label for="aiRotation">Rotation</label>
-                            <select id="aiRotation" class="form-control">
-                                <option value="0" selected>0° (No rotation)</option>
-                                <option value="90">90° Clockwise</option>
-                                <option value="180">180° Upside down</option>
-                                <option value="270">270° Counter-clockwise</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="aiSleepDuration">Update Interval</label>
-                            <select id="aiSleepDuration" class="form-control">
-                                <option value="300000000">5 minutes</option>
-                                <option value="1800000000">30 minutes</option>
-                                <option value="3600000000" selected>1 hour</option>
-                                <option value="21600000000">6 hours</option>
-                                <option value="43200000000">12 hours</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-success">Generate</button>
-                </div>
-            </form>
-        </div>
-
-        <!-- History Section -->
-        <div class="history-section">
-            <div class="options-toggle">
-                <button type="button" onclick="toggleHistory()">📜 History</button>
+        <!-- Hidden advanced options -->
+        <div class="advanced-section" id="advancedSection" style="display: none;">
+            <div class="form-group">
+                <label>Rotation</label>
+                <select id="rotation" class="form-control">
+                    <option value="0" selected>0°</option>
+                    <option value="90">90°</option>
+                    <option value="180">180°</option>
+                    <option value="270">270°</option>
+                </select>
             </div>
-            <div class="history-container" id="historyContainer" style="display: none;">
-                <div id="historyGrid" class="history-grid">
-                    <!-- History items will be populated here -->
+            <div class="form-group">
+                <label>Update Interval</label>
+                <select id="updateInterval" class="form-control">
+                    <option value="300000000">5 minutes</option>
+                    <option value="1800000000">30 minutes</option>
+                    <option value="3600000000" selected>1 hour</option>
+                    <option value="21600000000">6 hours</option>
+                    <option value="43200000000">12 hours</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Art Style</label>
+                <select id="artStyle" class="form-control">
+                    <option value="balanced" selected>Balanced</option>
+                    <option value="minimalist">Minimalist</option>
+                    <option value="detailed">Detailed</option>
+                    <option value="abstract">Abstract</option>
+                    <option value="line-art">Line Art</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Quality</label>
+                <select id="quality" class="form-control">
+                    <option value="standard" selected>Standard</option>
+                    <option value="hd">HD</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="history-section" id="historySection" style="display: none;">
+            <div id="historyGrid" class="history-grid">
+                <!-- History items populated by JS -->
+            </div>
+        </div>
+
+        <!-- Playlist configuration -->
+        <div class="playlist-section" id="playlistSection" style="display: none;">
+            <div class="playlist-config">
+                <p style="color: #666; font-size: 0.85rem; margin-bottom: 12px;">
+                    Select images from history to create a rotating playlist
+                </p>
+                <div id="playlistImages" class="playlist-images">
+                    <!-- Playlist items -->
+                </div>
+                <div class="form-group" style="margin-top: 16px;">
+                    <label>Playlist mode</label>
+                    <select id="playlistMode" class="form-control">
+                        <option value="sequential">Sequential</option>
+                        <option value="random">Random</option>
+                    </select>
+                </div>
+                <div class="action-bar" style="margin-top: 16px;">
+                    <button type="button" onclick="savePlaylist()" class="primary-action">Save Playlist</button>
+                    <a href="#" class="subtle-link" onclick="cancelPlaylist(event)">cancel</a>
                 </div>
             </div>
         </div>
