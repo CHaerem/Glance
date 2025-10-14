@@ -783,11 +783,6 @@
             <!-- Source status feedback -->
             <div id="sourceStatus" style="margin-top: 12px; font-size: 9px; color: #999; display: none;"></div>
 
-            <!-- Save as playlist button (shown when results exist) -->
-            <div id="savePlaylistSection" style="display: none; text-align: center; margin-top: 16px; font-size: 10px;">
-                <a href="#" class="subtle-link" onclick="saveSearchAsPlaylist(event)">save as playlist</a>
-            </div>
-
             <div id="artResults" class="history-grid" style="margin-top: 20px; display: none;">
                 <!-- Search results will appear here -->
             </div>
@@ -1339,11 +1334,6 @@
                     }
 
                     resultsDiv.style.display = 'grid';
-
-                    // Show "save as playlist" button when results are shown (not when appending)
-                    if (!append && data.results && data.results.length > 0) {
-                        document.getElementById('savePlaylistSection').style.display = 'block';
-                    }
 
                     // Show source status if available
                     if (data.sources && !append) {
