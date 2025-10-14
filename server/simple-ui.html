@@ -769,12 +769,6 @@
                 <a href="#" onclick="quickSearch(event, 'Rembrandt')" class="subtle-link" style="margin: 0 6px;">Rembrandt</a>
                 <a href="#" onclick="quickSearch(event, 'impressionism')" class="subtle-link" style="margin: 0 6px;">Impressionism</a>
             </div>
-            <!-- Curated museum exhibitions -->
-            <div id="curatedExhibitions" style="margin-bottom: 16px; font-size: 10px; color: #999;">
-                <span style="opacity: 0.6;">Exhibitions:</span>
-                <span style="opacity: 0.5; margin-left: 6px;">Loading...</span>
-            </div>
-
             <div class="input-area">
                 <input type="text" id="artSearchQuery" class="main-textarea"
                        placeholder="Search museum collections (e.g. 'Monet', 'impressionism', 'landscape')"
@@ -2132,9 +2126,8 @@
         // Auto-refresh every 30 seconds
         setInterval(loadStatus, 30000);
 
-        // Load initial status and exhibitions
+        // Load initial status
         loadStatus();
-        loadCuratedExhibitions();
     </script>
 </body>
 </html>
