@@ -283,15 +283,15 @@ docker exec glance-server env | grep IMAGE_VERSION
 - [x] Comprehensive test coverage
 
 ### 🚧 In Progress
-- [ ] User authentication and device pairing
-- [ ] Solar charging integration
-- [ ] Weather and calendar widgets
+- [ ] Optimize Good Display ESP32-S3 board integration
+- [ ] Improve AI art prompt quality and variety
+- [ ] Fine-tune Floyd-Steinberg dithering for better e-ink output
 
-### 🔮 Future
-- [ ] Mobile app for device management
-- [ ] Multi-zone content layouts
-- [ ] Voice control integration
-- [ ] Mesh networking for multiple displays
+### 🔮 Future Ideas
+- [ ] Multiple art styles/themes selector
+- [ ] Scheduling different art for different times of day
+- [ ] Local image library management
+- [ ] Battery usage analytics and optimization
 
 ## 📚 Documentation
 
