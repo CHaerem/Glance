@@ -950,6 +950,27 @@
         </div>
     </div>
 
+    <!-- Art Preview Modal -->
+    <div id="artPreviewModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1000; overflow: auto;" onclick="closePreviewModal(event)">
+        <div style="max-width: 1200px; margin: 40px auto; padding: 20px; position: relative;">
+            <div style="position: absolute; top: 20px; right: 20px;">
+                <button onclick="closePreviewModal(event)" style="background: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 16px;">✕ Close</button>
+            </div>
+            <div style="background: white; padding: 24px; border-radius: 8px; margin-top: 60px;" onclick="event.stopPropagation()">
+                <img id="previewImage" src="" alt="" style="width: 100%; height: auto; display: block; margin-bottom: 20px; border-radius: 4px;">
+                <div style="margin-bottom: 20px;">
+                    <h2 id="previewTitle" style="margin: 0 0 8px 0; color: #1a1a1a;"></h2>
+                    <div id="previewArtist" style="color: #666; font-size: 14px; margin-bottom: 8px;"></div>
+                    <div id="previewSource" style="display: inline-block; padding: 4px 8px; background: #f0f0f0; color: #666; font-size: 12px; border-radius: 3px;"></div>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button onclick="closePreviewModal(event)" style="padding: 10px 20px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; color: #666;">Cancel</button>
+                    <button id="applyArtButton" onclick="applyPreviewedArt()" style="padding: 10px 20px; background: #1a1a1a; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply to Display</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let selectedFile = null;
         let deviceData = null;
@@ -1288,7 +1309,7 @@
                     };
 
                     const artworkHTML = data.results.map(art => `
-                        <div class="history-item" onclick="importArtwork(\`${art.imageUrl}\`, \`${escapeHtml(art.title)}\`, \`${escapeHtml(art.artist)}\`, '${art.source}')">
+                        <div class="history-item" onclick="previewArtwork(\`${art.imageUrl}\`, \`${escapeHtml(art.title)}\`, \`${escapeHtml(art.artist)}\`, '${art.source}')">
                             <img src="${art.thumbnailUrl}" alt="${escapeHtml(art.title)}" style="background: #f5f5f5;">
                             <div class="history-item-info">
                                 <div style="font-weight: 500;">${escapeHtml(art.title)}</div>
@@ -1396,6 +1417,35 @@
                 loadingDiv.style.display = 'none';
                 alert('Failed to get random artwork: ' + error.message);
             }
+        }
+
+        // Preview artwork before applying
+        let currentPreviewData = null;
+
+        function previewArtwork(imageUrl, title, artist, source) {
+            currentPreviewData = { imageUrl, title, artist, source };
+
+            document.getElementById('previewImage').src = imageUrl;
+            document.getElementById('previewTitle').textContent = title;
+            document.getElementById('previewArtist').textContent = artist;
+            document.getElementById('previewSource').textContent = source;
+            document.getElementById('artPreviewModal').style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closePreviewModal(event) {
+            if (event) event.stopPropagation();
+            document.getElementById('artPreviewModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+            currentPreviewData = null;
+        }
+
+        async function applyPreviewedArt() {
+            if (!currentPreviewData) return;
+
+            const { imageUrl, title, artist, source } = currentPreviewData;
+            closePreviewModal();
+            await importArtwork(imageUrl, title, artist, source);
         }
 
         async function importArtwork(imageUrl, title, artist, source) {
