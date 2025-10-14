@@ -310,11 +310,11 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 // Colors calibrated for actual Waveshare 13.3" Spectra 6 display characteristics
 const SPECTRA_6_PALETTE = [
 	{ r: 0, g: 0, b: 0, name: "Black" },           // Pure black
-	{ r: 255, g: 255, b: 255, name: "White" },     // Pure white  
-	{ r: 255, g: 235, b: 0, name: "Yellow" },      // Slightly warmer yellow for better art reproduction
-	{ r: 220, g: 0, b: 0, name: "Red" },           // Slightly muted red (more natural for art)
-	{ r: 0, g: 0, b: 200, name: "Blue" },          // Slightly muted blue (better for shadows)
-	{ r: 0, g: 180, b: 0, name: "Green" }          // More natural green tone
+	{ r: 255, g: 255, b: 255, name: "White" },     // Pure white
+	{ r: 255, g: 235, b: 0, name: "Yellow" },      // Warm yellow for visibility
+	{ r: 255, g: 0, b: 0, name: "Red" },           // Vibrant red (boosted from 220)
+	{ r: 0, g: 0, b: 255, name: "Blue" },          // Vivid blue (boosted from 200)
+	{ r: 0, g: 200, b: 0, name: "Green" }          // Vibrant green (boosted from 180)
 ];
 
 // Convert RGB to LAB color space for better perceptual color matching
@@ -375,10 +375,75 @@ function findClosestSpectraColor(r, g, b) {
 	return closestColor;
 }
 
+// Boost saturation to compensate for limited e-ink color palette
+// This makes colors more vibrant before quantization to the 6-color palette
+function boostSaturation(imageData, boostFactor = 1.3) {
+	console.log(`Boosting saturation by ${boostFactor}x for more vibrant colors...`);
+	const boostedData = new Uint8ClampedArray(imageData);
+
+	for (let i = 0; i < boostedData.length; i += 3) {
+		const r = boostedData[i] / 255;
+		const g = boostedData[i + 1] / 255;
+		const b = boostedData[i + 2] / 255;
+
+		// Convert RGB to HSL
+		const max = Math.max(r, g, b);
+		const min = Math.min(r, g, b);
+		const l = (max + min) / 2;
+
+		if (max !== min) {
+			const d = max - min;
+			let s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+			// Calculate hue
+			let h;
+			if (max === r) {
+				h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+			} else if (max === g) {
+				h = ((b - r) / d + 2) / 6;
+			} else {
+				h = ((r - g) / d + 4) / 6;
+			}
+
+			// Boost saturation
+			s = Math.min(1, s * boostFactor);
+
+			// Convert HSL back to RGB
+			const hue2rgb = (p, q, t) => {
+				if (t < 0) t += 1;
+				if (t > 1) t -= 1;
+				if (t < 1/6) return p + (q - p) * 6 * t;
+				if (t < 1/2) return q;
+				if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+				return p;
+			};
+
+			let newR, newG, newB;
+			if (s === 0) {
+				newR = newG = newB = l;
+			} else {
+				const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+				const p = 2 * l - q;
+				newR = hue2rgb(p, q, h + 1/3);
+				newG = hue2rgb(p, q, h);
+				newB = hue2rgb(p, q, h - 1/3);
+			}
+
+			boostedData[i] = Math.round(newR * 255);
+			boostedData[i + 1] = Math.round(newG * 255);
+			boostedData[i + 2] = Math.round(newB * 255);
+		}
+	}
+
+	return boostedData;
+}
+
 // Art-optimized dithering algorithms for E Ink Spectra 6
-function applyDithering(imageData, width, height, algorithm = 'floyd-steinberg') {
+function applyDithering(imageData, width, height, algorithm = 'floyd-steinberg', saturationBoost = 1.3) {
 	console.log(`Applying ${algorithm} dithering for art reproduction...`);
-	const ditheredData = new Uint8ClampedArray(imageData);
+
+	// Apply saturation boost before dithering for more vibrant colors
+	let ditheredData = saturationBoost > 1.0 ? boostSaturation(imageData, saturationBoost) : new Uint8ClampedArray(imageData);
 	
 	const distributeError = (x, y, errR, errG, errB, dx, dy, factor) => {
 		const nx = x + dx;
@@ -488,8 +553,8 @@ async function convertImageToRGB(
 		
 		// Art-specific enhancements
 		if (enhanceContrast) {
-			// Enhance contrast for better e-ink reproduction
-			sharpPipeline = sharpPipeline.linear(1.2, -(128 * 0.2));
+			// Enhance contrast for better e-ink reproduction (boosted to 1.25 for more punch)
+			sharpPipeline = sharpPipeline.linear(1.25, -(128 * 0.25));
 		}
 		
 		if (sharpen) {
