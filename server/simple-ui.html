@@ -1489,8 +1489,12 @@
                     const exhibitionsDiv = document.getElementById('curatedExhibitions');
                     let html = '<span style="opacity: 0.6;">Exhibitions:</span>';
 
+                    // Simple escape for HTML attributes
+                    const escape = (str) => str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
                     data.exhibitions.forEach(ex => {
-                        html += `<a href="#" onclick="browseExhibition(event, ${ex.id}, '${escapeHtml(ex.title)}')" class="subtle-link" style="margin: 0 6px;" title="${escapeHtml(ex.description)}">${escapeHtml(ex.title)}</a>`;
+                        const safeTitle = escape(ex.title);
+                        html += `<a href="#" onclick="browseExhibition(event, ${ex.id}, '${safeTitle}')" class="subtle-link" style="margin: 0 6px;" title="${escape(ex.description)}">${ex.title}</a>`;
                     });
 
                     exhibitionsDiv.innerHTML = html;
