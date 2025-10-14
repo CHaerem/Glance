@@ -61,6 +61,13 @@ Environment variables `IMAGE_VERSION` and `BUILD_DATE` are automatically set dur
 - **Live Preview**: View current display and prompt information
 - **Device Status**: Monitor ESP32 battery, WiFi signal, and display health
 
+### Art Gallery Browsing
+- **Museum Integration**: Search 5 major art sources (Met, ARTIC, Cleveland, Rijksmuseum, Wikimedia Commons)
+- **100M+ Artworks**: Access to Wikimedia Commons aggregating artwork from museums worldwide
+- **Famous Artists**: Comprehensive coverage of Picasso, Da Vinci, Monet, Van Gogh, and more
+- **Source Transparency**: Visual badges show which museum provided each artwork
+- **Smart Filtering**: Automatic quality filtering to exclude book pages and low-resolution images
+
 ## API Endpoints
 
 ### Image Management
@@ -74,6 +81,9 @@ Environment variables `IMAGE_VERSION` and `BUILD_DATE` are automatically set dur
 ### AI Generation
 - `POST /api/generate-art` – Generate AI artwork via OpenAI GPT-4o image models
 - `POST /api/lucky-prompt` – Expand simple ideas into detailed art prompts using GPT-4o-mini
+
+### Art Gallery
+- `GET /api/art/search` – Search 5 museum APIs for artworks (query, limit, offset parameters)
 
 ### Device Management
 - `POST /api/device-status` – Submit device status information (battery, WiFi, errors)
