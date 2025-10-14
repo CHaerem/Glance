@@ -4,12 +4,14 @@
 
 ## ✨ Features
 
-🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles  
-🌐 **Local Server** - Runs on your Raspberry Pi, no cloud dependencies  
-🎨 **6-Color Display** - Beautiful Spectra 6 e-paper technology  
-📱 **Web Dashboard** - Upload images and monitor devices remotely  
-⚡ **Smart Scheduling** - Server controls update frequency dynamically  
-🎛️ **Remote Control** - Stay awake and force update commands  
+🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles
+🌐 **Local Server** - Runs on your Raspberry Pi, no cloud dependencies
+🎨 **6-Color Display** - Beautiful Spectra 6 e-paper technology
+🤖 **AI Art Generation** - GPT-4o powered artwork optimized for e-ink displays
+🎲 **Feeling Lucky** - Expand simple prompts into detailed AI art ideas (or get surprised)
+📱 **Web Dashboard** - Upload images, generate art, and monitor devices remotely
+⚡ **Smart Scheduling** - Server controls update frequency dynamically
+🎛️ **Remote Control** - Stay awake and force update commands
 🐳 **Docker Ready** - Easy server deployment with published Docker images
 
 ## 🏗️ Architecture
@@ -87,6 +89,8 @@ docker run -d \
 Access the dashboard at: `http://your-pi-ip:3000`
 
 - 🖼️ Upload and optimize images for e-paper display
+- 🤖 Generate AI artwork with GPT-4o (requires `OPENAI_API_KEY`)
+- 🎲 Use "Feeling Lucky" to expand simple prompts into art
 - ⏰ Set sleep schedules (5 minutes to 12 hours)
 - 📊 Monitor ESP32 battery levels and status
 - 📋 View real-time device logs
@@ -168,13 +172,23 @@ Glance/
 └── docker-compose.yml     # Local development
 ```
 
-## 🎨 Image Processing
+## 🎨 Image Processing & AI Art
 
-- **🌈 6-Color Optimization** - Automatic conversion to e-paper palette
-- **✨ Floyd-Steinberg Dithering** - Professional quality color mapping
+### Image Processing
+- **🌈 6-Color Optimization** - Automatic conversion to Spectra 6 palette (black, white, yellow, red, blue, green)
+- **✨ Floyd-Steinberg Dithering** - Professional quality color mapping for art reproduction
 - **📦 Server-Side Processing** - Reduces ESP32 memory usage
-- **🗜️ Base64 Transfer** - Efficient image transmission
+- **✂️ Auto-Crop** - Removes whitespace margins from AI-generated images
+- **🔆 Contrast Enhancement** - Optimizes images for e-ink characteristics
+- **🔄 Rotation Support** - 0°, 90°, 180°, or 270° rotation
 - **📺 Full Resolution** - 1150×1550 pixels (93% screen coverage)
+
+### AI Art Generation
+- **🤖 GPT-4o Integration** - Generate custom artwork via OpenAI image models
+- **🎲 Feeling Lucky** - GPT-4o-mini expands simple prompts into detailed art descriptions
+- **📜 Prompt History** - View the original prompt used to generate any artwork
+- **🎨 E-Ink Optimized** - AI prompts emphasize full-bleed, high-contrast compositions
+- **💾 Image Archive** - Automatically stores last 50 generated images with metadata
 
 ## 📊 Performance & Power
 

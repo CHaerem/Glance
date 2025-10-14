@@ -41,19 +41,55 @@ docker run -p 3000:3000 glance-server
 
 Environment variables `IMAGE_VERSION` and `BUILD_DATE` are automatically set during Docker builds to provide version information.
 
+## Features
+
+### AI Art Generation
+- **GPT-4o Image Generation**: Create full-screen artwork optimized for e-ink displays
+- **Feeling Lucky**: Expand simple prompts into detailed art generation prompts using GPT-4o-mini
+- **Prompt History**: View the original prompt used to generate any AI artwork
+- **Floyd-Steinberg Dithering**: Advanced color processing for high-quality e-ink reproduction
+
+### Image Processing
+- **Auto-crop**: Removes whitespace margins from AI-generated images
+- **Contrast Enhancement**: Optimizes images for e-ink display characteristics
+- **Rotation Support**: Images can be rotated 0°, 90°, 180°, or 270°
+- **Spectra 6 Palette**: Precise color mapping to hardware e-ink colors (black, white, yellow, red, blue, green)
+
+### Web Interface
+- **Minimalist Design**: Clean, monochrome aesthetic with hidden details
+- **Dual Mode**: Upload existing images or generate new AI artwork
+- **Live Preview**: View current display and prompt information
+- **Device Status**: Monitor ESP32 battery, WiFi signal, and display health
+
 ## API Endpoints
 
-- `GET /api/current.json` – Fetch the current image data for the ESP32
+### Image Management
+- `GET /api/current.json` – Fetch current image metadata for ESP32 (without image data)
+- `GET /api/current-full.json` – Fetch complete current image data for web UI
+- `GET /api/image.bin` – Stream raw binary image data for PSRAM (ESP32 optimized)
 - `POST /api/current` – Update the current image
-- `POST /api/upload` – Upload a new image to convert for the display
-- `POST /api/preview` – Generate a preview and e‑ink size estimate
-- `POST /api/generate-art` – Generate AI artwork via OpenAI image models
-- `POST /api/lucky-prompt` – Expand quick notes (or blank requests) into full AI art prompts
-- `POST /api/device-status` – Submit device status information
-- `GET /api/devices` – Retrieve known devices
-- `GET /health` – Health check
+- `POST /api/upload` – Upload and process an image for the display
+- `POST /api/preview` – Generate a preview and e-ink size estimate
 
-The root route `/` serves a simple web dashboard for manual operation.
+### AI Generation
+- `POST /api/generate-art` – Generate AI artwork via OpenAI GPT-4o image models
+- `POST /api/lucky-prompt` – Expand simple ideas into detailed art prompts using GPT-4o-mini
+
+### Device Management
+- `POST /api/device-status` – Submit device status information (battery, WiFi, errors)
+- `GET /api/devices` – Retrieve known devices and their status
+
+### System
+- `GET /health` – Health check endpoint
+- `GET /` – Web dashboard for manual operation
+
+## Configuration
+
+### Environment Variables
+- `PORT` – Server port (default: 3000)
+- `OPENAI_API_KEY` – Required for AI art generation features
+- `IMAGE_VERSION` – Set automatically during Docker builds
+- `BUILD_DATE` – Set automatically during Docker builds
 
 ## Testing
 
