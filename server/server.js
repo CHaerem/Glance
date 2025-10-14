@@ -1756,9 +1756,13 @@ app.get("/api/art/search", async (req, res) => {
 						const objectData = await objectResponse.json();
 
 						// Filter for actual artworks from art departments
-						const isArtworkDept = objectData.primaryImage &&
-						                      objectData.isPublicDomain &&
-						                      artDepartments.includes(objectData.department);
+						// Relax public domain requirement - museums often can't digitize copyrighted works,
+						// but we want to show quality reproductions and photos of famous paintings
+						const hasImage = objectData.primaryImage;
+						const isArtDept = artDepartments.includes(objectData.department);
+
+						// Prefer public domain, but allow copyrighted works from major art departments
+						const isPublicOrMuseumQuality = objectData.isPublicDomain || isArtDept;
 
 						// Also check if it's an original artwork (not photo/reproduction)
 						const isOriginal = isOriginalArtwork(
@@ -1768,7 +1772,7 @@ app.get("/api/art/search", async (req, res) => {
 							objectData.medium
 						);
 
-						if (isArtworkDept && isOriginal) {
+						if (hasImage && isPublicOrMuseumQuality && isArtDept && isOriginal) {
 							metArtworks.push({
 								id: `met-${objectData.objectID}`,
 								title: objectData.title || "Untitled",
@@ -1824,7 +1828,8 @@ app.get("/api/art/search", async (req, res) => {
 
 				const articArtworks = articData.data
 					.filter(artwork => {
-						if (!artwork.image_id || !artwork.is_public_domain || !artwork.department_title) {
+						// Require image and department, but relax public domain requirement
+						if (!artwork.image_id || !artwork.department_title) {
 							return false;
 						}
 
