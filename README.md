@@ -201,6 +201,7 @@ Glance/
 ### AI Art Generation
 - **🤖 GPT-4o Integration** - Generate custom artwork via OpenAI image models
 - **🎲 Feeling Lucky** - GPT-4o-mini expands simple prompts into detailed art descriptions
+- **✏️ Edit & Refine** - Iterate on generated images: add colors, change elements, adjust style
 - **📜 Prompt History** - View the original prompt used to generate any artwork
 - **🎨 E-Ink Optimized** - AI prompts emphasize full-bleed, high-contrast compositions
 - **💾 Image Archive** - Automatically stores last 50 generated images with metadata
