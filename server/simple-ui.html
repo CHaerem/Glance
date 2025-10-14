@@ -710,6 +710,8 @@
             <span style="margin: 0 12px; color: #ddd;">•</span>
             <a href="#" class="mode-link" id="modeUpload" onclick="switchToMode(event, 'upload')">upload</a>
             <span style="margin: 0 12px; color: #ddd;">•</span>
+            <a href="#" class="mode-link" id="modeBrowse" onclick="switchToMode(event, 'browse')">browse</a>
+            <span style="margin: 0 12px; color: #ddd;">•</span>
             <a href="#" class="mode-link" id="modePlaylist" onclick="switchToMode(event, 'playlist')">playlist</a>
         </div>
 
@@ -754,6 +756,32 @@
                     <button type="submit" class="primary-action">Upload</button>
                 </div>
             </form>
+        </div>
+
+        <!-- Browse Mode - External Art Sources -->
+        <div class="mode-content" id="browseMode" style="display: none;">
+            <div class="input-area">
+                <input type="text" id="artSearchQuery" class="main-textarea"
+                       placeholder="Search museum collections (e.g. 'Monet', 'impressionism', 'landscape')"
+                       style="padding: 12px 16px; min-height: auto;"
+                       onkeypress="if(event.key==='Enter'){searchArt();}">
+            </div>
+            <div class="action-bar">
+                <button type="button" onclick="searchArt()" class="primary-action">Search</button>
+                <a href="#" class="subtle-link" onclick="randomArt(event)">surprise me</a>
+            </div>
+
+            <div id="artResults" class="history-grid" style="margin-top: 20px; display: none;">
+                <!-- Search results will appear here -->
+            </div>
+
+            <div id="artPagination" style="display: none; text-align: center; margin-top: 20px;">
+                <a href="#" class="subtle-link" onclick="loadMoreArt(event)">load more</a>
+            </div>
+
+            <div id="artLoading" style="display: none; text-align: center; padding: 40px; color: #999;">
+                Loading artwork...
+            </div>
         </div>
 
         <!-- Playlist Mode -->
@@ -921,6 +949,7 @@
             // Hide all modes
             document.getElementById('generateMode').style.display = 'none';
             document.getElementById('uploadMode').style.display = 'none';
+            document.getElementById('browseMode').style.display = 'none';
             document.getElementById('playlistMode').style.display = 'none';
 
             // Remove active class from all links
@@ -935,6 +964,14 @@
             } else if (mode === 'upload') {
                 document.getElementById('uploadMode').style.display = 'block';
                 document.getElementById('modeUpload').classList.add('active');
+            } else if (mode === 'browse') {
+                document.getElementById('browseMode').style.display = 'block';
+                document.getElementById('modeBrowse').classList.add('active');
+                // Only load featured artworks if results are not already displayed
+                const resultsDiv = document.getElementById('artResults');
+                if (resultsDiv.style.display === 'none' || !resultsDiv.innerHTML || resultsDiv.innerHTML.trim() === '') {
+                    loadFeaturedArt();
+                }
             } else if (mode === 'playlist') {
                 document.getElementById('playlistMode').style.display = 'block';
                 document.getElementById('modePlaylist').classList.add('active');
@@ -1182,6 +1219,155 @@
                 ctx.textAlign = 'center';
                 ctx.fillText('Preview unavailable', canvas.width / 2, canvas.height / 2);
             }
+        }
+
+        // Browse external art functionality
+        let currentArtSearch = {
+            query: 'impressionism',
+            offset: 0,
+            limit: 20,
+            hasMore: true
+        };
+
+        async function loadFeaturedArt() {
+            // Reset pagination state
+            currentArtSearch = { query: 'impressionism', offset: 0, limit: 20, hasMore: true };
+            await performArtSearch(false);
+        }
+
+        async function performArtSearch(append = false) {
+            const resultsDiv = document.getElementById('artResults');
+            const loadingDiv = document.getElementById('artLoading');
+            const paginationDiv = document.getElementById('artPagination');
+
+            if (!append) {
+                resultsDiv.style.display = 'none';
+            }
+            paginationDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/art/search?query=${encodeURIComponent(currentArtSearch.query)}&limit=${currentArtSearch.limit}&offset=${currentArtSearch.offset}`);
+                const data = await response.json();
+
+                console.log('Art search response:', data);
+                loadingDiv.style.display = 'none';
+
+                if (data.results && data.results.length > 0) {
+                    const artworkHTML = data.results.map(art => `
+                        <div class="history-item" onclick="importArtwork(\`${art.imageUrl}\`, \`${escapeHtml(art.title)}\`, \`${escapeHtml(art.artist)}\`, '${art.source}')">
+                            <img src="${art.thumbnailUrl}" alt="${escapeHtml(art.title)}" style="background: #f5f5f5;">
+                            <div class="history-item-info">
+                                <div style="font-weight: 500;">${escapeHtml(art.title)}</div>
+                                <div style="opacity: 0.7; font-size: 9px;">${escapeHtml(art.artist)}</div>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    if (append) {
+                        resultsDiv.innerHTML += artworkHTML;
+                    } else {
+                        resultsDiv.innerHTML = artworkHTML;
+                    }
+
+                    resultsDiv.style.display = 'grid';
+
+                    // Show "load more" if API indicates more results available
+                    if (data.hasMore) {
+                        paginationDiv.style.display = 'block';
+                        currentArtSearch.hasMore = true;
+                        currentArtSearch.offset += data.results.length;
+                    } else {
+                        currentArtSearch.hasMore = false;
+                    }
+                } else if (!append) {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No artworks found</p>';
+                    resultsDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading art:', error);
+                loadingDiv.style.display = 'none';
+                if (!append) {
+                    resultsDiv.innerHTML = `<p style="text-align: center; color: #999; padding: 40px;">Error loading artworks</p>`;
+                    resultsDiv.style.display = 'block';
+                }
+            }
+        }
+
+        async function loadMoreArt(e) {
+            e.preventDefault();
+            if (currentArtSearch.hasMore) {
+                await performArtSearch(true);
+            }
+        }
+
+        async function searchArt() {
+            const query = document.getElementById('artSearchQuery').value.trim();
+            // Reset pagination state for new search
+            currentArtSearch = { query: query || 'painting', offset: 0, limit: 20, hasMore: true };
+            await performArtSearch(false);
+        }
+
+        async function randomArt(e) {
+            e.preventDefault();
+
+            const loadingDiv = document.getElementById('artLoading');
+            const resultsDiv = document.getElementById('artResults');
+
+            resultsDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/art/random`);
+                const art = await response.json();
+
+                console.log('Random art response:', art);
+                loadingDiv.style.display = 'none';
+
+                if (art && art.imageUrl) {
+                    await importArtwork(art.imageUrl, art.title, art.artist, art.source);
+                } else {
+                    alert('No artwork returned. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error getting random art:', error);
+                loadingDiv.style.display = 'none';
+                alert('Failed to get random artwork: ' + error.message);
+            }
+        }
+
+        async function importArtwork(imageUrl, title, artist, source) {
+            try {
+                const response = await fetch('/api/art/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageUrl,
+                        title,
+                        artist,
+                        source
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Refresh current image display
+                    await loadStatus();
+                    // Switch to generate mode to show the imported artwork
+                    switchToMode({ preventDefault: () => {} }, 'generate');
+                } else {
+                    alert('Failed to import artwork: ' + result.error);
+                }
+            } catch (error) {
+                alert('Import error: ' + error.message);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Load initial data
