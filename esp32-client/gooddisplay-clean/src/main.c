@@ -18,9 +18,21 @@
 #include "comm.h"
 #include "pindefine.h"
 
-#define WIFI_SSID      "Skynet"
-#define WIFI_PASSWORD  "2013sverreCFO"
-#define SERVER_BASE    "http://192.168.86.40:3000"
+// WiFi credentials - set via environment variables during build
+// Example: export WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword"
+#ifndef WIFI_SSID
+#define WIFI_SSID      "YourNetwork"
+#endif
+#ifndef WIFI_PASSWORD
+#define WIFI_PASSWORD  "YourPassword"
+#endif
+
+// Server URL - use serverpi.local for production, can override with SERVER_URL env var
+#ifndef SERVER_URL
+#define SERVER_BASE    "http://serverpi.local:3000"
+#else
+#define SERVER_BASE    SERVER_URL
+#endif
 #define SERVER_METADATA_URL  SERVER_BASE "/api/current.json"
 #define SERVER_IMAGE_URL     SERVER_BASE "/api/image.bin"
 #define SERVER_STATUS_URL    SERVER_BASE "/api/device-status"

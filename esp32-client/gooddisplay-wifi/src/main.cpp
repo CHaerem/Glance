@@ -13,9 +13,20 @@ extern "C" {
 #define RGB_SIZE       (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3)
 #define EINK_SIZE      (DISPLAY_WIDTH * DISPLAY_HEIGHT / 2)
 
+// WiFi credentials - should be set via environment variables during build
+#ifndef WIFI_SSID
 const char* WIFI_SSID = "YourNetwork";
+#else
+const char* WIFI_SSID = WIFI_SSID;
+#endif
+
+#ifndef WIFI_PASSWORD
 const char* WIFI_PASSWORD = "YourPassword";
-const char* SERVER_URL = "http://192.168.86.40:3000/api/image.bin";
+#else
+const char* WIFI_PASSWORD = WIFI_PASSWORD;
+#endif
+
+const char* SERVER_URL = "http://serverpi.local:3000/api/image.bin";
 
 uint8_t* rgb_buffer = NULL;
 uint8_t* eink_buffer = NULL;

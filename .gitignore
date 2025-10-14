@@ -21,6 +21,11 @@ build/
 esp32-client/.env*
 !esp32-client/.env.example
 
+# Scripts with credentials (should use environment variables instead)
+**/flash-*.sh
+**/*credentials*.sh
+**/*secrets*.sh
+
 # IDE files
 .DS_Store
 *.swp

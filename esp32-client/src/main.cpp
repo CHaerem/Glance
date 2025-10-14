@@ -11,13 +11,19 @@
 #include "esp_bt.h"
 
 // Configuration constants
-#define API_BASE_URL "http://serverpi.local:3000/api/"
-#define STATUS_URL "http://serverpi.local:3000/api/device-status"
-#define IMAGE_URL "http://serverpi.local:3000/api/image.bin"
+// Use serverpi.local for production, or set SERVER_HOST env var for development
+#ifndef SERVER_HOST
+#define SERVER_HOST "serverpi.local:3000"
+#endif
+#define API_BASE_URL "http://" SERVER_HOST "/api/"
+#define STATUS_URL "http://" SERVER_HOST "/api/device-status"
+#define IMAGE_URL "http://" SERVER_HOST "/api/image.bin"
 #define DEFAULT_SLEEP_TIME 3600000000ULL // 1 hour
 #define BATTERY_PIN A13
 #define LOW_BATTERY_THRESHOLD 3.3
+#ifndef DEVICE_ID
 #define DEVICE_ID "esp32-001"
+#endif
 #define FIRMWARE_VERSION "v2-psram-1.0"
 
 // Display dimensions
@@ -604,10 +610,16 @@ void sendLogToServer(const char *message, const char *level) {
 }
 
 float readBatteryVoltage() {
+#ifdef BOARD_GOODDISPLAY_ESP32_133C02
+    // Good Display board doesn't have battery monitoring on A13
+    // When USB powered, return a safe voltage to bypass low battery check
+    return 4.2f; // Simulate full battery voltage
+#else
     int adcReading = analogRead(BATTERY_PIN);
     // Using 12-bit ADC, 11dB attenuation (~0-3.3V), and a 2:1 divider on the board
     float voltage = (adcReading / 4095.0f) * 3.3f * 2.0f;
     return voltage;
+#endif
 }
 
 void enterDeepSleep(uint64_t sleepTime) {

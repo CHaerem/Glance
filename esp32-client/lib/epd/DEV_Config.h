@@ -44,16 +44,32 @@
 #define UDOUBLE uint32_t
 
 /**
- * GPIO config - ESP32 Feather v2 to 13.3" E6 HAT+ Display (All 10 pins)
+ * GPIO config - Board-specific pin assignments
 **/
-#define EPD_SCK_PIN     5     // SPI Clock (CLK) - ESP32 v2 Pin 5 (was 18)
-#define EPD_MOSI_PIN    19    // SPI MOSI (DIN) - ESP32 v2 Pin 19 (was 23)
-#define EPD_CS_M_PIN    32    // Chip Select Master (ORANGE) - ESP32 v2 Pin 32 (was 5)
-#define EPD_CS_S_PIN    12    // Chip Select Slave (GREEN) - ESP32 v2 Pin 12 (was 16)
-#define EPD_RST_PIN     33    // Reset (PURPLE) - ESP32 v2 Pin 33 (was 4)
-#define EPD_DC_PIN      15    // Data/Command (WHITE) - ESP32 v2 Pin 15 (was 17)
-#define EPD_BUSY_PIN    27    // Busy Signal (BROWN) - ESP32 v2 Pin 27 (was 15)
-#define EPD_PWR_PIN     14    // Power Control (GRAY) - ESP32 v2 Pin 14 (was 21)
+#ifdef BOARD_GOODDISPLAY_ESP32_133C02
+// Good Display ESP32-133C02 with ESP32-S3 and QSPI interface
+#define EPD_SCK_PIN     9     // QSPI Clock
+#define EPD_MOSI_PIN    41    // QSPI Data0 (MOSI)
+#define EPD_CS_M_PIN    18    // Chip Select 0
+#define EPD_CS_S_PIN    17    // Chip Select 1
+#define EPD_RST_PIN     6     // Reset
+#define EPD_DC_PIN      40    // QSPI Data1 (used as DC in some modes)
+#define EPD_BUSY_PIN    7     // Busy Signal
+#define EPD_PWR_PIN     45    // Power Control (LOAD_SW)
+// Additional QSPI data pins for quad mode
+#define EPD_DATA2_PIN   39    // QSPI Data2
+#define EPD_DATA3_PIN   38    // QSPI Data3
+#else
+// ESP32 Feather v2 to 13.3" E6 HAT+ Display (Standard SPI)
+#define EPD_SCK_PIN     5     // SPI Clock (CLK)
+#define EPD_MOSI_PIN    19    // SPI MOSI (DIN)
+#define EPD_CS_M_PIN    32    // Chip Select Master
+#define EPD_CS_S_PIN    12    // Chip Select Slave
+#define EPD_RST_PIN     33    // Reset
+#define EPD_DC_PIN      15    // Data/Command
+#define EPD_BUSY_PIN    27    // Busy Signal
+#define EPD_PWR_PIN     14    // Power Control
+#endif
 
 
 

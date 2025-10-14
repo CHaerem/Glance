@@ -31,9 +31,6 @@
 
 void GPIO_Config(void)
 {
-    
-    
-
     pinMode(EPD_BUSY_PIN,  INPUT);
     pinMode(EPD_RST_PIN , OUTPUT);
     pinMode(EPD_DC_PIN  , OUTPUT);
@@ -43,6 +40,12 @@ void GPIO_Config(void)
     pinMode(EPD_MOSI_PIN, OUTPUT);
     pinMode(EPD_CS_M_PIN , OUTPUT);
     pinMode(EPD_CS_S_PIN , OUTPUT);
+
+#ifdef BOARD_GOODDISPLAY_ESP32_133C02
+    // Good Display QSPI additional data pins
+    pinMode(EPD_DATA2_PIN, OUTPUT);
+    pinMode(EPD_DATA3_PIN, OUTPUT);
+#endif
 
     digitalWrite(EPD_CS_M_PIN , HIGH);
     digitalWrite(EPD_CS_S_PIN , HIGH);
