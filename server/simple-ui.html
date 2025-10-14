@@ -125,34 +125,148 @@
         .status-online { color: #10b981; }
         .status-offline { color: #6b7280; }
 
-        /* Mode Selector */
-        .mode-selector {
-            display: flex;
-            gap: 12px;
+        /* Main input section - minimal and clean */
+        .main-input {
             margin-bottom: 40px;
-            justify-content: center;
         }
-        .mode-btn {
-            padding: 12px 24px;
+
+        .input-area {
+            position: relative;
             border: 1px solid #e5e5e5;
             border-radius: 4px;
             background: #ffffff;
-            color: #666;
-            font-size: 0.875rem;
-            font-weight: 400;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            transition: border-color 0.2s ease;
         }
-        .mode-btn:hover {
+
+        .input-area:hover {
+            border-color: #999;
+        }
+
+        .input-area.dragover {
             border-color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .main-textarea {
+            width: 100%;
+            border: none;
+            padding: 16px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            resize: vertical;
+            background: transparent;
             color: #1a1a1a;
         }
-        .mode-btn.active {
+
+        .main-textarea:focus {
+            outline: none;
+        }
+
+        .main-textarea::placeholder {
+            color: #999;
+        }
+
+        /* Action bar - minimal button + subtle links */
+        .action-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .primary-action {
+            padding: 10px 20px;
+            border: 1px solid #1a1a1a;
+            border-radius: 4px;
             background: #1a1a1a;
             color: #ffffff;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: 0.3px;
+        }
+
+        .primary-action:hover {
+            background: #333;
+            border-color: #333;
+        }
+
+        .primary-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .subtle-link {
+            color: #999;
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: color 0.2s ease;
+        }
+
+        .subtle-link:hover {
+            color: #666;
+        }
+
+        /* Playlist status line */
+        .playlist-status {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 0.85rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        #playlistState {
+            color: #999;
+        }
+
+        /* Advanced section - hidden by default */
+        .advanced-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 4px;
+            border: 1px solid #e5e5e5;
+        }
+
+        /* Playlist section */
+        .playlist-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 4px;
+            border: 1px solid #e5e5e5;
+        }
+
+        .playlist-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .playlist-item {
+            position: relative;
+            aspect-ratio: 3/4;
+            border-radius: 4px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s ease;
+        }
+
+        .playlist-item.selected {
             border-color: #1a1a1a;
+        }
+
+        .playlist-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         /* Upload Area - Ultra minimal */
@@ -634,7 +748,11 @@
 
         <!-- Hidden details section -->
         <div class="show-details">
-            <button class="details-toggle" onclick="toggleDetails()">Show Details</button>
+            <a href="#" class="subtle-link" onclick="toggleDetails(event)">show details</a>
+            <span style="margin: 0 8px; color: #ddd;">•</span>
+            <a href="#" class="subtle-link" onclick="toggleHistory(event)">history</a>
+            <span style="margin: 0 8px; color: #ddd;">•</span>
+            <a href="#" class="subtle-link" onclick="toggleAdvanced(event)">options</a>
         </div>
 
         <div class="esp32-status" id="statusDetails">
@@ -675,26 +793,10 @@
             options.classList.toggle('show');
         }
 
-        function toggleDetails() {
+        function toggleDetails(e) {
+            e.preventDefault();
             const details = document.getElementById('statusDetails');
-            const button = document.querySelector('.details-toggle');
-            if (details.style.display === 'block') {
-                details.style.display = 'none';
-                button.textContent = 'Show Details';
-            } else {
-                details.style.display = 'block';
-                button.textContent = 'Hide Details';
-            }
-        }
-
-        async function toggleHistory() {
-            const container = document.getElementById('historyContainer');
-            if (container.style.display === 'none') {
-                container.style.display = 'block';
-                await loadHistory();
-            } else {
-                container.style.display = 'none';
-            }
+            details.style.display = details.style.display === 'block' ? 'none' : 'block';
         }
 
         async function loadHistory() {
@@ -766,23 +868,48 @@
             }
         }
 
-        // Mode switching
-        function switchMode(mode) {
-            const uploadMode = document.getElementById('uploadMode');
-            const aiMode = document.getElementById('aiMode');
-            const uploadBtn = document.getElementById('uploadModeBtn');
-            const aiBtn = document.getElementById('aiModeBtn');
+        // New unified form handling
+        let currentFile = null;
 
-            if (mode === 'upload') {
-                uploadMode.style.display = 'block';
-                aiMode.style.display = 'none';
-                uploadBtn.classList.add('active');
-                aiBtn.classList.remove('active');
+        function handleInputClick(e) {
+            // If clicking the textarea itself, do nothing (allow typing)
+            if (e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            // If clicking the container area, trigger file picker
+            document.getElementById('imageFile').click();
+        }
+
+        function feelingLucky(e) {
+            e.preventDefault();
+            generateLuckyPrompt();
+        }
+
+        function toggleAdvanced(e) {
+            e.preventDefault();
+            const section = document.getElementById('advancedSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function toggleHistory(e) {
+            e.preventDefault();
+            const section = document.getElementById('historySection');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                loadHistory();
             } else {
-                uploadMode.style.display = 'none';
-                aiMode.style.display = 'block';
-                uploadBtn.classList.remove('active');
-                aiBtn.classList.add('active');
+                section.style.display = 'none';
+            }
+        }
+
+        function togglePlaylist(e) {
+            e.preventDefault();
+            const section = document.getElementById('playlistSection');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                loadPlaylistConfig();
+            } else {
+                section.style.display = 'none';
             }
         }
 
