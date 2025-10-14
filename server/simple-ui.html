@@ -170,6 +170,7 @@
         .action-bar {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 16px;
             margin-top: 12px;
         }
@@ -255,12 +256,33 @@
             border-radius: 4px;
             overflow: hidden;
             cursor: pointer;
-            border: 2px solid transparent;
-            transition: border-color 0.2s ease;
+            border: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .playlist-item:hover {
+            border-color: #999;
         }
 
         .playlist-item.selected {
             border-color: #1a1a1a;
+        }
+
+        .playlist-item.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #1a1a1a;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
         }
 
         .playlist-item img {
@@ -594,6 +616,38 @@
             font-weight: 500;
         }
 
+        /* Mode switcher */
+        .mode-switcher {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .mode-link {
+            color: #999;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s ease;
+        }
+
+        .mode-link:hover {
+            color: #666;
+        }
+
+        .mode-link.active {
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+
+        .mode-content {
+            margin-bottom: 40px;
+        }
+
+        /* Upload drop zone */
+        .upload-drop-zone {
+            min-height: 200px;
+            cursor: pointer;
+        }
+
         /* Mobile responsive */
         @media (max-width: 768px) {
             .container {
@@ -645,40 +699,113 @@
             </div>
         </div>
 
-        <!-- Unified Input Section -->
-        <div class="main-input">
-            <form id="mainForm">
-                <!-- Unified textarea/drop zone -->
-                <div class="input-area"
-                     ondrop="handleDrop(event)"
-                     ondragover="handleDragOver(event)"
-                     ondragleave="handleDragLeave(event)">
-                    <textarea id="mainInput"
-                              class="main-textarea"
-                              placeholder="Describe art to generate, or drop image here"
-                              rows="5"></textarea>
-                    <input type="file" id="imageFile" name="image" accept="image/*"
-                           onchange="handleFileSelect(event)" style="display: none;">
-                    <div id="fileIndicator" style="display: none; padding: 8px 16px; background: #f0f0f0; border-top: 1px solid #e5e5e5; font-size: 0.85rem; color: #666;">
-                        📎 <span id="fileName"></span>
-                        <a href="#" onclick="clearFile(event)" style="margin-left: 12px; color: #999; text-decoration: none; font-size: 0.8rem;">remove</a>
-                    </div>
-                </div>
+        <!-- Playlist indicator (shown when playlist is active) -->
+        <div id="globalPlaylistIndicator" style="display: none; text-align: center; margin-bottom: 16px; font-size: 0.75rem; color: #999;">
+            Playlist: <span id="globalPlaylistInfo"></span>
+        </div>
 
-                <!-- Action bar -->
+        <!-- Mode switcher - minimal and subtle -->
+        <div class="mode-switcher">
+            <a href="#" class="mode-link active" id="modeGenerate" onclick="switchToMode(event, 'generate')">generate</a>
+            <span style="margin: 0 12px; color: #ddd;">•</span>
+            <a href="#" class="mode-link" id="modeUpload" onclick="switchToMode(event, 'upload')">upload</a>
+            <span style="margin: 0 12px; color: #ddd;">•</span>
+            <a href="#" class="mode-link" id="modePlaylist" onclick="switchToMode(event, 'playlist')">playlist</a>
+        </div>
+
+        <!-- Generate Mode -->
+        <div class="mode-content" id="generateMode">
+            <form id="generateForm">
+                <div class="input-area">
+                    <textarea id="aiInput"
+                              class="main-textarea"
+                              placeholder="Describe the art you want to generate"
+                              rows="5"></textarea>
+                </div>
                 <div class="action-bar">
                     <button type="submit" class="primary-action">Generate</button>
                     <a href="#" class="subtle-link" onclick="feelingLucky(event)">feeling lucky</a>
-                    <span style="color: #ddd;">•</span>
-                    <a href="#" class="subtle-link" onclick="browseFiles(event)">upload image</a>
-                </div>
-
-                <!-- Playlist status -->
-                <div class="playlist-status">
-                    <span id="playlistIndicator">Playlist: <span id="playlistState">off</span></span>
-                    <a href="#" class="subtle-link" onclick="togglePlaylist(event)">configure</a>
                 </div>
             </form>
+        </div>
+
+        <!-- Upload Mode -->
+        <div class="mode-content" id="uploadMode" style="display: none;">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="input-area upload-drop-zone"
+                     ondrop="handleDrop(event)"
+                     ondragover="handleDragOver(event)"
+                     ondragleave="handleDragLeave(event)"
+                     onclick="browseFiles(event)">
+                    <div style="padding: 60px 20px; text-align: center; color: #999; cursor: pointer;">
+                        <div style="font-size: 2rem; margin-bottom: 12px;">📎</div>
+                        <div>Drop image here or click to browse</div>
+                    </div>
+                    <input type="file" id="imageFile" name="image" accept="image/*"
+                           onchange="handleFileSelect(event)" style="display: none;">
+                    <div id="fileIndicator" style="display: none; padding: 16px; background: #f0f0f0; border-top: 1px solid #e5e5e5; font-size: 0.85rem; color: #666;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>📎 <span id="fileName"></span></span>
+                            <a href="#" onclick="clearFile(event)" class="subtle-link">remove</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="action-bar">
+                    <button type="submit" class="primary-action">Upload</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Playlist Mode -->
+        <div class="mode-content" id="playlistMode" style="display: none;">
+            <div id="playlistContent">
+                <!-- Active playlist status -->
+                <div id="playlistStatus" style="display: none; padding: 16px; margin-bottom: 20px; background: #f0f0f0; border-radius: 4px; border-left: 3px solid #1a1a1a;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="font-weight: 500; color: #1a1a1a;">Playlist Active</div>
+                        <a href="#" class="subtle-link" onclick="stopPlaylist(event)">stop</a>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">
+                        <span id="playlistImageCount">0</span> images •
+                        <span id="playlistModeText">sequential</span> •
+                        <span id="playlistIntervalText">1 hour</span> interval
+                    </div>
+                    <!-- Playlist images preview -->
+                    <div id="playlistPreview" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px; margin-top: 12px;">
+                        <!-- Will be populated with playlist images -->
+                    </div>
+                </div>
+
+                <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">
+                    Select images from history to create a rotating playlist
+                </p>
+                <div id="playlistGrid" class="history-grid" style="margin-bottom: 20px;">
+                    <!-- Will be populated from history -->
+                </div>
+                <div class="form-group">
+                    <label>Rotation</label>
+                    <select id="playlistRotation" class="form-control">
+                        <option value="sequential">Sequential</option>
+                        <option value="random">Random</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Update Interval</label>
+                    <select id="playlistInterval" class="form-control">
+                        <option value="300000000">5 minutes</option>
+                        <option value="600000000">10 minutes</option>
+                        <option value="1800000000">30 minutes</option>
+                        <option value="3600000000">1 hour</option>
+                        <option value="21600000000">6 hours</option>
+                        <option value="43200000000">12 hours</option>
+                        <option value="86400000000">24 hours</option>
+                    </select>
+                </div>
+                <div class="action-bar">
+                    <button type="button" onclick="savePlaylist()" class="primary-action">Start Playlist</button>
+                    <a href="#" class="subtle-link" onclick="stopPlaylist(event)">stop</a>
+                </div>
+            </div>
         </div>
 
         <!-- Hidden advanced options -->
@@ -787,6 +914,34 @@
         let deviceData = null;
         let nextWakeTimestamp = null;
 
+        // Mode switching
+        function switchToMode(e, mode) {
+            e.preventDefault();
+
+            // Hide all modes
+            document.getElementById('generateMode').style.display = 'none';
+            document.getElementById('uploadMode').style.display = 'none';
+            document.getElementById('playlistMode').style.display = 'none';
+
+            // Remove active class from all links
+            document.querySelectorAll('.mode-link').forEach(link => {
+                link.classList.remove('active');
+            });
+
+            // Show selected mode and activate link
+            if (mode === 'generate') {
+                document.getElementById('generateMode').style.display = 'block';
+                document.getElementById('modeGenerate').classList.add('active');
+            } else if (mode === 'upload') {
+                document.getElementById('uploadMode').style.display = 'block';
+                document.getElementById('modeUpload').classList.add('active');
+            } else if (mode === 'playlist') {
+                document.getElementById('playlistMode').style.display = 'block';
+                document.getElementById('modePlaylist').classList.add('active');
+                loadPlaylistConfig(); // Load history for selection
+            }
+        }
+
         // Toggle functions
         function toggleOptions() {
             const options = document.getElementById('advancedOptions');
@@ -888,14 +1043,13 @@
             document.getElementById('imageFile').click();
         }
 
+        // File handling for upload mode
         function handleFileSelect(e) {
             const file = e.target.files[0];
             if (file) {
                 currentFile = file;
                 document.getElementById('fileName').textContent = file.name;
                 document.getElementById('fileIndicator').style.display = 'block';
-                // Clear the textarea when image is selected
-                document.getElementById('mainInput').value = '';
             }
         }
 
@@ -904,28 +1058,6 @@
             currentFile = null;
             document.getElementById('imageFile').value = '';
             document.getElementById('fileIndicator').style.display = 'none';
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('dragover');
-        }
-
-        function handleDragLeave(e) {
-            e.currentTarget.classList.remove('dragover');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                currentFile = file;
-                document.getElementById('fileName').textContent = file.name;
-                document.getElementById('fileIndicator').style.display = 'block';
-                document.getElementById('mainInput').value = '';
-            }
         }
 
         function feelingLucky(e) {
@@ -1055,6 +1187,30 @@
         // Load initial data
         async function loadStatus() {
             try {
+                // Check for active playlist
+                const playlistResponse = await fetch('/api/playlist');
+                const playlist = await playlistResponse.json();
+
+                const indicator = document.getElementById('globalPlaylistIndicator');
+                if (playlist && playlist.active) {
+                    const intervalMs = playlist.interval / 1000;
+                    const minutes = intervalMs / (1000 * 60);
+                    const hours = minutes / 60;
+                    let intervalText;
+                    if (hours >= 24) {
+                        intervalText = (hours / 24) + ' day' + (hours / 24 > 1 ? 's' : '');
+                    } else if (hours >= 1) {
+                        intervalText = hours + ' hour' + (hours > 1 ? 's' : '');
+                    } else {
+                        intervalText = minutes + ' minute' + (minutes > 1 ? 's' : '');
+                    }
+                    document.getElementById('globalPlaylistInfo').textContent =
+                        `${playlist.images.length} images, ${playlist.mode}, ${intervalText}`;
+                    indicator.style.display = 'block';
+                } else {
+                    indicator.style.display = 'none';
+                }
+
                 // Load current display info (full data with image for web UI)
                 const currentResponse = await fetch('/api/current-full.json');
                 const current = await currentResponse.json();
@@ -1175,47 +1331,11 @@
                 device.signalStrength ? device.signalStrength + ' dBm' : '-- dBm';
         }
         
-        // File handling
-        function handleDrop(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.target.classList.remove('dragover');
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileSelect({ target: { files: files } });
-            }
-        }
-        
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.target.classList.add('dragover');
-        }
-        
-        function handleDragLeave(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.target.classList.remove('dragover');
-        }
-        
-        function handleFileSelect(e) {
-            const file = e.target.files[0];
-            if (file) {
-                selectedFile = file;
-                const uploadArea = document.querySelector('.upload-area');
-                uploadArea.innerHTML = `
-                    <div class="upload-text">${file.name}</div>
-                `;
-            }
-        }
 
         async function generateLuckyPrompt() {
-            const button = document.getElementById('luckyButton');
-            const status = document.getElementById('luckyStatus');
-            const promptArea = document.getElementById('aiPrompt');
+            const promptArea = document.getElementById('aiInput');
 
-            if (!button || !status || !promptArea) {
+            if (!promptArea) {
                 return;
             }
 
@@ -1226,13 +1346,6 @@
                 payload.idea = cueText;
             }
 
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = 'Thinking...';
-            status.textContent = cueText
-                ? 'Shaping your idea into a detailed prompt...'
-                : 'Rolling the dice for a fresh surprise prompt...';
-
             try {
                 const response = await fetch('/api/lucky-prompt', {
                     method: 'POST',
@@ -1240,12 +1353,7 @@
                     body: JSON.stringify(payload)
                 });
 
-                let data = null;
-                try {
-                    data = await response.json();
-                } catch {
-                    data = null;
-                }
+                const data = await response.json();
 
                 if (!response.ok || !data || !data.prompt) {
                     throw new Error(data?.error || 'Unable to generate prompt');
@@ -1254,34 +1362,17 @@
                 promptArea.value = data.prompt;
                 promptArea.focus();
                 promptArea.setSelectionRange(promptArea.value.length, promptArea.value.length);
-
-                status.textContent = 'Prompt updated—press Generate to create the artwork.';
             } catch (error) {
                 console.error('Feeling Lucky error:', error);
-                status.textContent = 'Could not build a prompt right now. Please try again in a moment.';
                 alert('Feeling Lucky failed: ' + error.message);
-            } finally {
-                button.disabled = false;
-                button.textContent = originalText;
             }
         }
 
-        const aiPromptField = document.getElementById('aiPrompt');
-        const luckyStatus = document.getElementById('luckyStatus');
-        if (aiPromptField && luckyStatus) {
-            aiPromptField.addEventListener('input', () => {
-                const defaultStatus = luckyStatus.dataset.defaultStatus;
-                if (defaultStatus && luckyStatus.textContent !== defaultStatus) {
-                    luckyStatus.textContent = defaultStatus;
-                }
-            });
-        }
-
-        // AI Form submission
-        document.getElementById('aiForm').addEventListener('submit', async (e) => {
+        // Generate Form submission
+        document.getElementById('generateForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const prompt = document.getElementById('aiPrompt').value.trim();
+            const prompt = document.getElementById('aiInput').value.trim();
             if (!prompt) {
                 alert('Please enter a prompt for the AI to generate art');
                 return;
@@ -1297,11 +1388,10 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: prompt,
-                        style: document.getElementById('aiStyle').value,
-                        quality: document.getElementById('aiQuality').value,
-                        imageStyle: document.getElementById('aiImageStyle').value,
-                        rotation: document.getElementById('aiRotation').value,
-                        sleepDuration: document.getElementById('aiSleepDuration').value
+                        style: document.getElementById('artStyle')?.value || 'balanced',
+                        quality: document.getElementById('quality')?.value || 'standard',
+                        rotation: document.getElementById('rotation')?.value || '0',
+                        sleepDuration: document.getElementById('updateInterval')?.value || '3600000000'
                     })
                 });
 
@@ -1309,7 +1399,7 @@
 
                 if (response.ok) {
                     // Reset form
-                    document.getElementById('aiForm').reset();
+                    document.getElementById('generateForm').reset();
 
                     // Reload status to show new image
                     loadStatus();
@@ -1333,18 +1423,18 @@
         // Upload Form submission
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            if (!selectedFile) {
+
+            if (!currentFile) {
                 alert('Please select an image first');
                 return;
             }
-            
+
             const formData = new FormData();
-            formData.append('image', selectedFile);
-            formData.append('title', document.getElementById('displayTitle').value || selectedFile.name);
-            formData.append('rotation', document.getElementById('rotation').value);
-            formData.append('sleepDuration', document.getElementById('sleepDuration').value);
-            
+            formData.append('image', currentFile);
+            formData.append('title', currentFile.name);
+            formData.append('rotation', document.getElementById('rotation')?.value || '0');
+            formData.append('sleepDuration', document.getElementById('updateInterval')?.value || '3600000000');
+
             try {
                 const button = e.target.querySelector('button[type="submit"]');
                 button.textContent = 'Uploading...';
@@ -1359,12 +1449,9 @@
 
                 if (response.ok) {
                     // Reset form
-                    selectedFile = null;
-                    document.getElementById('uploadForm').reset();
-                    document.querySelector('.upload-area').innerHTML = `
-                        <div class="upload-text">Upload New Image</div>
-                        <input type="file" id="imageFile" name="image" accept="image/*" onchange="handleFileSelect(event)">
-                    `;
+                    currentFile = null;
+                    document.getElementById('imageFile').value = '';
+                    document.getElementById('fileIndicator').style.display = 'none';
 
                     // Reload status
                     loadStatus();
@@ -1375,7 +1462,7 @@
                 alert('Upload error: ' + error.message);
             } finally {
                 const button = e.target.querySelector('button[type="submit"]');
-                button.textContent = 'Update';
+                button.textContent = 'Upload';
                 button.disabled = false;
             }
         });
@@ -1431,16 +1518,149 @@
                 return;
             }
 
-            // Switch to AI mode
-            switchMode('ai');
+            // Switch to generate mode
+            switchToMode(e, 'generate');
 
-            // Pre-fill prompt with original + instruction to modify
-            const promptField = document.getElementById('aiPrompt');
+            // Pre-fill prompt with original
+            const promptField = document.getElementById('aiInput');
             promptField.value = window.currentImagePrompt + '. ';
             promptField.focus();
 
             // Move cursor to end
             promptField.setSelectionRange(promptField.value.length, promptField.value.length);
+        }
+
+        // Playlist functionality
+        let playlistSelectedImages = new Set();
+
+        async function loadPlaylistConfig() {
+            try {
+                // Load current playlist status
+                const playlistResponse = await fetch('/api/playlist');
+                const playlist = await playlistResponse.json();
+
+                // Update status display
+                const statusDiv = document.getElementById('playlistStatus');
+                if (playlist && playlist.active) {
+                    statusDiv.style.display = 'block';
+                    document.getElementById('playlistImageCount').textContent = playlist.images.length;
+                    document.getElementById('playlistModeText').textContent = playlist.mode;
+
+                    // Format interval
+                    const intervalMs = playlist.interval / 1000;
+                    const minutes = intervalMs / (1000 * 60);
+                    const hours = minutes / 60;
+                    let intervalText;
+                    if (hours >= 24) {
+                        intervalText = (hours / 24) + ' day' + (hours / 24 > 1 ? 's' : '');
+                    } else if (hours >= 1) {
+                        intervalText = hours + ' hour' + (hours > 1 ? 's' : '');
+                    } else {
+                        intervalText = minutes + ' minute' + (minutes > 1 ? 's' : '');
+                    }
+                    document.getElementById('playlistIntervalText').textContent = intervalText;
+
+                    // Pre-select the active playlist images
+                    playlistSelectedImages = new Set(playlist.images);
+
+                    // Load history to get thumbnails for playlist preview
+                    const historyResponse = await fetch('/api/history');
+                    const history = await historyResponse.json();
+
+                    // Display playlist image thumbnails
+                    const previewDiv = document.getElementById('playlistPreview');
+                    const playlistImages = history.filter(item => playlist.images.includes(item.imageId));
+                    previewDiv.innerHTML = playlistImages.map(item => `
+                        <div style="aspect-ratio: 3/4; border-radius: 4px; overflow: hidden; border: 1px solid #ddd;">
+                            <img src="data:image/png;base64,${item.thumbnail}"
+                                 alt="${item.title}"
+                                 style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    `).join('');
+                } else {
+                    statusDiv.style.display = 'none';
+                }
+
+                // Load history for image selection
+                const response = await fetch('/api/history');
+                const history = await response.json();
+
+                const grid = document.getElementById('playlistGrid');
+                if (history.length === 0) {
+                    grid.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No images in history</p>';
+                    return;
+                }
+
+                grid.innerHTML = history.map(item => `
+                    <div class="playlist-item ${playlistSelectedImages.has(item.imageId) ? 'selected' : ''}"
+                         onclick="togglePlaylistImage('${item.imageId}')">
+                        <img src="data:image/png;base64,${item.thumbnail}" alt="${item.title}">
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading playlist config:', error);
+            }
+        }
+
+        function togglePlaylistImage(imageId) {
+            if (playlistSelectedImages.has(imageId)) {
+                playlistSelectedImages.delete(imageId);
+            } else {
+                playlistSelectedImages.add(imageId);
+            }
+            loadPlaylistConfig(); // Refresh UI
+        }
+
+        async function savePlaylist() {
+            if (playlistSelectedImages.size === 0) {
+                alert('Please select at least one image');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/playlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        images: Array.from(playlistSelectedImages),
+                        mode: document.getElementById('playlistRotation').value,
+                        interval: parseInt(document.getElementById('playlistInterval').value)
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Reload playlist config to show active status
+                    loadPlaylistConfig();
+                    loadStatus(); // Also refresh current image
+                } else {
+                    alert('Failed to start playlist: ' + result.error);
+                }
+            } catch (error) {
+                alert('Playlist error: ' + error.message);
+            }
+        }
+
+        async function stopPlaylist(e) {
+            e.preventDefault();
+
+            try {
+                const response = await fetch('/api/playlist', {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    playlistSelectedImages.clear();
+                    loadPlaylistConfig(); // Refresh to hide status
+                } else {
+                    alert('Failed to stop playlist: ' + result.error);
+                }
+            } catch (error) {
+                alert('Stop playlist error: ' + error.message);
+            }
         }
 
         // Auto-refresh every 30 seconds

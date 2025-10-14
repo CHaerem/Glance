@@ -578,6 +578,47 @@ async function writeJSONFile(filename, data) {
 // Get current image metadata for ESP32 (without image data)
 app.get("/api/current.json", async (req, res) => {
 	try {
+		// Check if playlist is active and advance if needed
+		const playlist = await readJSONFile("playlist.json");
+		if (playlist && playlist.active && playlist.images && playlist.images.length > 0) {
+			const now = Date.now();
+			const timeSinceLastUpdate = now - (playlist.lastUpdate || 0);
+			const intervalMs = playlist.interval / 1000; // Convert microseconds to milliseconds
+
+			// If enough time has passed, advance to next image
+			if (timeSinceLastUpdate >= intervalMs) {
+				let nextImageId;
+
+				if (playlist.mode === "random") {
+					nextImageId = playlist.images[Math.floor(Math.random() * playlist.images.length)];
+				} else {
+					// Sequential mode
+					playlist.currentIndex = ((playlist.currentIndex || 0) + 1) % playlist.images.length;
+					nextImageId = playlist.images[playlist.currentIndex];
+				}
+
+				// Load the next image from archive
+				const imagesArchive = (await readJSONFile("images.json")) || {};
+				const imageData = imagesArchive[nextImageId];
+
+				if (imageData) {
+					// Update current.json with next playlist image
+					const currentData = {
+						...imageData,
+						sleepDuration: playlist.interval,
+						timestamp: now
+					};
+					await writeJSONFile("current.json", currentData);
+
+					// Update playlist with new timestamp
+					playlist.lastUpdate = now;
+					await writeJSONFile("playlist.json", playlist);
+
+					console.log(`Playlist advanced to image ${nextImageId} (${playlist.mode} mode)`);
+				}
+			}
+		}
+
 		const current = (await readJSONFile("current.json")) || {
 			title: "Glance Display",
 			imageId: "",
@@ -1491,6 +1532,106 @@ app.delete("/api/history/:imageId", async (req, res) => {
 		res.json({ success: true, message: "Image deleted from history" });
 	} catch (error) {
 		console.error("Error deleting from history:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Playlist management
+app.post("/api/playlist", async (req, res) => {
+	try {
+		const { images, mode, interval } = req.body;
+
+		if (!images || !Array.isArray(images) || images.length === 0) {
+			return res.status(400).json({ error: "Please provide an array of image IDs" });
+		}
+
+		if (!mode || !["sequential", "random"].includes(mode)) {
+			return res.status(400).json({ error: "Mode must be 'sequential' or 'random'" });
+		}
+
+		if (!interval || interval < 300000000) { // Minimum 5 minutes
+			return res.status(400).json({ error: "Interval must be at least 5 minutes (300000000 microseconds)" });
+		}
+
+		// Verify all images exist in history
+		const history = (await readJSONFile("history.json")) || [];
+		const validImages = images.filter(imageId =>
+			history.some(item => item.imageId === imageId)
+		);
+
+		if (validImages.length === 0) {
+			return res.status(400).json({ error: "No valid images found in history" });
+		}
+
+		// Save playlist configuration
+		const playlistConfig = {
+			images: validImages,
+			mode,
+			interval,
+			currentIndex: 0,
+			active: true,
+			createdAt: Date.now(),
+			lastUpdate: Date.now()
+		};
+
+		await writeJSONFile("playlist.json", playlistConfig);
+
+		// Load the first image immediately
+		const firstImageId = mode === "random"
+			? validImages[Math.floor(Math.random() * validImages.length)]
+			: validImages[0];
+
+		const imagesArchive = (await readJSONFile("images.json")) || {};
+		const imageData = imagesArchive[firstImageId];
+
+		if (imageData) {
+			// Create current.json with the first playlist image
+			const currentData = {
+				...imageData,
+				sleepDuration: interval,
+				timestamp: Date.now()
+			};
+
+			await writeJSONFile("current.json", currentData);
+			console.log(`Started playlist with ${validImages.length} images, first image: ${firstImageId}`);
+		}
+
+		res.json({
+			success: true,
+			message: `Playlist started with ${validImages.length} images`,
+			config: playlistConfig
+		});
+	} catch (error) {
+		console.error("Error creating playlist:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+app.get("/api/playlist", async (_req, res) => {
+	try {
+		const playlist = await readJSONFile("playlist.json");
+		if (!playlist) {
+			return res.json({ active: false });
+		}
+		res.json(playlist);
+	} catch (error) {
+		console.error("Error getting playlist:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+app.delete("/api/playlist", async (_req, res) => {
+	try {
+		// Just mark as inactive rather than deleting
+		const playlist = await readJSONFile("playlist.json");
+		if (playlist) {
+			playlist.active = false;
+			await writeJSONFile("playlist.json", playlist);
+		}
+
+		res.json({ success: true, message: "Playlist stopped" });
+	} catch (error) {
+		console.error("Error stopping playlist:", error);
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
