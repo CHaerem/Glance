@@ -769,13 +769,10 @@
                 <a href="#" onclick="quickSearch(event, 'Rembrandt')" class="subtle-link" style="margin: 0 6px;">Rembrandt</a>
                 <a href="#" onclick="quickSearch(event, 'impressionism')" class="subtle-link" style="margin: 0 6px;">Impressionism</a>
             </div>
-            <!-- Curated collections -->
-            <div style="margin-bottom: 16px; font-size: 10px; color: #999;">
-                <span style="opacity: 0.6;">Collections:</span>
-                <a href="#" onclick="quickSearch(event, 'impressionism')" class="subtle-link" style="margin: 0 6px;">Impressionist Masters</a>
-                <a href="#" onclick="quickSearch(event, 'abstract')" class="subtle-link" style="margin: 0 6px;">Modern Abstract</a>
-                <a href="#" onclick="quickSearch(event, 'landscape')" class="subtle-link" style="margin: 0 6px;">Landscapes</a>
-                <a href="#" onclick="quickSearch(event, 'portrait')" class="subtle-link" style="margin: 0 6px;">Portraits</a>
+            <!-- Curated museum exhibitions -->
+            <div id="curatedExhibitions" style="margin-bottom: 16px; font-size: 10px; color: #999;">
+                <span style="opacity: 0.6;">Exhibitions:</span>
+                <span style="opacity: 0.5; margin-left: 6px;">Loading...</span>
             </div>
 
             <div class="input-area">
@@ -1482,6 +1479,82 @@
             }
         }
 
+        // Load curated museum exhibitions on page load
+        async function loadCuratedExhibitions() {
+            try {
+                const response = await fetch('/api/exhibitions');
+                const data = await response.json();
+
+                if (data.exhibitions && data.exhibitions.length > 0) {
+                    const exhibitionsDiv = document.getElementById('curatedExhibitions');
+                    let html = '<span style="opacity: 0.6;">Exhibitions:</span>';
+
+                    data.exhibitions.forEach(ex => {
+                        html += `<a href="#" onclick="browseExhibition(event, ${ex.id}, '${escapeHtml(ex.title)}')" class="subtle-link" style="margin: 0 6px;" title="${escapeHtml(ex.description)}">${escapeHtml(ex.title)}</a>`;
+                    });
+
+                    exhibitionsDiv.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Failed to load exhibitions:', error);
+                document.getElementById('curatedExhibitions').style.display = 'none';
+            }
+        }
+
+        // Browse artworks from a curated exhibition
+        async function browseExhibition(e, exhibitionId, title) {
+            e.preventDefault();
+
+            const loadingDiv = document.getElementById('artLoading');
+            const resultsDiv = document.getElementById('artResults');
+
+            resultsDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            document.getElementById('savePlaylistSection').style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/exhibitions/${exhibitionId}/artworks`);
+                const data = await response.json();
+
+                loadingDiv.style.display = 'none';
+
+                if (data.results && data.results.length > 0) {
+                    currentSearchResults = data.results;
+
+                    const getSourceColor = (source) => {
+                        if (source === 'Art Institute of Chicago') return '#cc0000';
+                        return '#666';
+                    };
+
+                    const artworkHTML = data.results.map(art => `
+                        <div class="history-item" onclick="previewArtwork(\`${art.imageUrl}\`, \`${escapeHtml(art.title)}\`, \`${escapeHtml(art.artist)}\`, '${art.source}')">
+                            <img src="${art.thumbnailUrl}" alt="${escapeHtml(art.title)}" style="background: #f5f5f5;">
+                            <div class="history-item-info">
+                                <div style="font-weight: 500;">${escapeHtml(art.title)}</div>
+                                <div style="opacity: 0.7; font-size: 9px;">${escapeHtml(art.artist)}</div>
+                                <div style="margin-top: 4px;">
+                                    <span style="display: inline-block; padding: 2px 6px; background: ${getSourceColor(art.source)}; color: white; font-size: 8px; border-radius: 3px;">ARTIC</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    resultsDiv.innerHTML = artworkHTML;
+                    resultsDiv.style.display = 'grid';
+                    document.getElementById('savePlaylistSection').style.display = 'block';
+
+                    // Update search box with exhibition title for context
+                    document.getElementById('artSearchQuery').value = `Exhibition: ${title}`;
+                } else {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No artworks found in this exhibition</p>';
+                    resultsDiv.style.display = 'block';
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                alert('Failed to load exhibition: ' + error.message);
+            }
+        }
+
         async function randomArt(e) {
             e.preventDefault();
 
@@ -2055,8 +2128,9 @@
         // Auto-refresh every 30 seconds
         setInterval(loadStatus, 30000);
 
-        // Load initial status
+        // Load initial status and exhibitions
         loadStatus();
+        loadCuratedExhibitions();
     </script>
 </body>
 </html>

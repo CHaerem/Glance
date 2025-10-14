@@ -2310,6 +2310,103 @@ app.get("/api/art/search", async (req, res) => {
 	}
 });
 
+// Get curated museum exhibitions/collections
+app.get("/api/exhibitions", async (_req, res) => {
+	try {
+		console.log("Fetching curated museum exhibitions");
+
+		// Hardcoded featured exhibitions from ARTIC that work well for e-ink
+		const featuredExhibitions = [
+			{ id: 998, source: "artic", title: "Japanese Monochromatic Prints", description: "Ink on Paper collection" },
+			{ id: 3251, source: "artic", title: "Four Followers of Caravaggio", description: "Early 17th-century Roman painting" },
+			{ id: 1280, source: "artic", title: "Martin Puryear: Multiple Dimensions", description: "Drawings, prints and sculptures" }
+		];
+
+		// Fetch exhibition details including artwork IDs
+		const exhibitionPromises = featuredExhibitions.map(async (exhibition) => {
+			try {
+				const response = await fetch(`https://api.artic.edu/api/v1/exhibitions/${exhibition.id}?fields=id,title,description,artwork_ids`);
+				const data = await response.json();
+
+				if (data.data && data.data.artwork_ids && data.data.artwork_ids.length > 0) {
+					return {
+						id: exhibition.id,
+						title: data.data.title || exhibition.title,
+						description: exhibition.description,
+						source: exhibition.source,
+						artworkCount: data.data.artwork_ids.length,
+						artworkIds: data.data.artwork_ids.slice(0, 20) // Limit to first 20 artworks
+					};
+				}
+				return null;
+			} catch (error) {
+				console.error(`Error fetching exhibition ${exhibition.id}:`, error.message);
+				return null;
+			}
+		});
+
+		const exhibitions = (await Promise.all(exhibitionPromises)).filter(ex => ex !== null);
+
+		console.log(`Returning ${exhibitions.length} curated exhibitions`);
+		res.json({ exhibitions });
+	} catch (error) {
+		console.error("Error fetching exhibitions:", error);
+		res.status(500).json({ error: "Internal server error: " + error.message });
+	}
+});
+
+// Get artworks from a specific exhibition
+app.get("/api/exhibitions/:id/artworks", async (req, res) => {
+	try {
+		const exhibitionId = req.params.id;
+		console.log(`Fetching artworks for exhibition ${exhibitionId}`);
+
+		// Fetch exhibition to get artwork IDs
+		const exhibitionResponse = await fetch(`https://api.artic.edu/api/v1/exhibitions/${exhibitionId}?fields=id,title,artwork_ids`);
+		const exhibitionData = await exhibitionResponse.json();
+
+		if (!exhibitionData.data || !exhibitionData.data.artwork_ids || exhibitionData.data.artwork_ids.length === 0) {
+			return res.json({ results: [] });
+		}
+
+		const artworkIds = exhibitionData.data.artwork_ids.slice(0, 20); // Limit to 20
+
+		// Fetch artwork details for each ID
+		const artworkPromises = artworkIds.map(async (artworkId) => {
+			try {
+				const response = await fetch(`https://api.artic.edu/api/v1/artworks/${artworkId}?fields=id,title,artist_display,date_display,image_id,department_title`);
+				const data = await response.json();
+				const artwork = data.data;
+
+				if (artwork && artwork.image_id) {
+					return {
+						id: `artic-${artwork.id}`,
+						title: artwork.title || "Untitled",
+						artist: artwork.artist_display || "Unknown Artist",
+						date: artwork.date_display || "",
+						imageUrl: `https://www.artic.edu/iiif/2/${artwork.image_id}/full/1200,/0/default.jpg`,
+						thumbnailUrl: `https://www.artic.edu/iiif/2/${artwork.image_id}/full/400,/0/default.jpg`,
+						department: artwork.department_title || "",
+						source: "Art Institute of Chicago"
+					};
+				}
+				return null;
+			} catch (error) {
+				console.error(`Error fetching artwork ${artworkId}:`, error.message);
+				return null;
+			}
+		});
+
+		const artworks = (await Promise.all(artworkPromises)).filter(art => art !== null);
+
+		console.log(`Returning ${artworks.length} artworks from exhibition ${exhibitionId}`);
+		res.json({ results: artworks });
+	} catch (error) {
+		console.error("Error fetching exhibition artworks:", error);
+		res.status(500).json({ error: "Internal server error: " + error.message });
+	}
+});
+
 app.get("/api/art/random", async (req, res) => {
 	try {
 		console.log(`Getting random artwork from multiple sources`);
