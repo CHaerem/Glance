@@ -307,14 +307,14 @@ function applyFloydSteinbergDithering(imageData, width, height) {
 }
 
 // E-ink Spectra 6 optimized color palette for art reproduction
-// Colors calibrated for actual Waveshare 13.3" Spectra 6 display characteristics
+// MUST MATCH ESP32 client palette exactly (see esp32-client/src/main.cpp:647-654)
 const SPECTRA_6_PALETTE = [
 	{ r: 0, g: 0, b: 0, name: "Black" },           // Pure black
 	{ r: 255, g: 255, b: 255, name: "White" },     // Pure white
-	{ r: 255, g: 235, b: 0, name: "Yellow" },      // Warm yellow for visibility
-	{ r: 255, g: 0, b: 0, name: "Red" },           // Vibrant red (boosted from 220)
-	{ r: 0, g: 0, b: 255, name: "Blue" },          // Vivid blue (boosted from 200)
-	{ r: 0, g: 200, b: 0, name: "Green" }          // Vibrant green (boosted from 180)
+	{ r: 255, g: 255, b: 0, name: "Yellow" },      // Pure yellow (matches ESP32)
+	{ r: 255, g: 0, b: 0, name: "Red" },           // Pure red (matches ESP32)
+	{ r: 0, g: 0, b: 255, name: "Blue" },          // Pure blue (matches ESP32)
+	{ r: 0, g: 255, b: 0, name: "Green" }          // Pure green (matches ESP32)
 ];
 
 // Convert RGB to LAB color space for better perceptual color matching
