@@ -73,26 +73,6 @@
             font-style: normal;
             margin-bottom: 6px;
         }
-        .refine-button {
-            margin-top: 12px;
-            padding: 8px 16px;
-            border-radius: 4px;
-            border: 1px solid #d1d5db;
-            background: #ffffff;
-            color: #1f2937;
-            font-size: 0.75rem;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            width: 100%;
-        }
-        .refine-button:hover {
-            background: #f3f4f6;
-            border-color: #1a1a1a;
-        }
-
         /* Hide all status details by default */
         .esp32-status {
             display: none;
@@ -543,11 +523,11 @@
                 <img id="currentImageThumb" />
             </div>
             <div id="currentImagePrompt">
-                <div class="prompt-label">Generated from prompt</div>
+                <div class="prompt-label">
+                    Generated from prompt
+                    <a href="#" id="refineLink" onclick="refineCurrentImage(event)" style="display: none; margin-left: 8px; color: #999; text-decoration: none; font-size: 0.7rem; font-weight: normal;">refine</a>
+                </div>
                 <div id="currentImagePromptText"></div>
-                <button type="button" class="refine-button" id="refineButton" onclick="refineCurrentImage()" style="display: none;">
-                    Edit & Refine This Image
-                </button>
             </div>
         </div>
 
@@ -603,14 +583,6 @@
             <form id="aiForm">
                 <div class="form-group">
                     <textarea id="aiPrompt" class="form-control ai-prompt" placeholder="Describe what you want—or leave it blank and hit Feeling Lucky." rows="7"></textarea>
-                </div>
-
-                <div id="refinementSection" style="display: none; margin-top: 16px; padding: 16px; background: #fafafa; border-radius: 4px; border-left: 3px solid #4f46e5;">
-                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">✨ Refining existing image</div>
-                    <div id="basePromptDisplay" style="font-size: 0.85rem; color: #444; margin-bottom: 12px; font-style: italic;"></div>
-                    <label for="refinementPrompt" style="display: block; font-size: 0.8rem; color: #666; margin-bottom: 6px;">What would you like to change?</label>
-                    <textarea id="refinementPrompt" class="form-control" placeholder="Add more colors, remove the background, make it brighter, add flowers..." rows="3" style="font-size: 0.9rem;"></textarea>
-                    <button type="button" onclick="cancelRefinement()" style="margin-top: 8px; padding: 6px 12px; border: 1px solid #ccc; background: white; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">Cancel & Start Fresh</button>
                 </div>
 
                 <div class="lucky-inline">
@@ -939,16 +911,16 @@
                 // Show prompt if available (for AI-generated images)
                 const promptElement = document.getElementById('currentImagePrompt');
                 const promptTextElement = document.getElementById('currentImagePromptText');
-                const refineButton = document.getElementById('refineButton');
+                const refineLink = document.getElementById('refineLink');
                 if (current.originalPrompt) {
                     promptTextElement.textContent = current.originalPrompt;
                     promptElement.classList.add('show');
-                    refineButton.style.display = 'block';
+                    refineLink.style.display = 'inline';
                     // Store original prompt for refinement
                     window.currentImagePrompt = current.originalPrompt;
                 } else {
                     promptElement.classList.remove('show');
-                    refineButton.style.display = 'none';
+                    refineLink.style.display = 'none';
                     window.currentImagePrompt = null;
                 }
 
@@ -1145,26 +1117,10 @@
         document.getElementById('aiForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Check if we're in refinement mode
-            const refinementSection = document.getElementById('refinementSection');
-            const isRefining = refinementSection.style.display !== 'none';
-
-            let prompt;
-            if (isRefining) {
-                const basePrompt = window.currentImagePrompt;
-                const changes = document.getElementById('refinementPrompt').value.trim();
-                if (!changes) {
-                    alert('Please describe what you want to change');
-                    return;
-                }
-                // Combine base prompt with refinement instructions
-                prompt = `${basePrompt}. ${changes}`;
-            } else {
-                prompt = document.getElementById('aiPrompt').value.trim();
-                if (!prompt) {
-                    alert('Please enter a prompt for the AI to generate art');
-                    return;
-                }
+            const prompt = document.getElementById('aiPrompt').value.trim();
+            if (!prompt) {
+                alert('Please enter a prompt for the AI to generate art');
+                return;
             }
 
             try {
@@ -1190,11 +1146,6 @@
                 if (response.ok) {
                     // Reset form
                     document.getElementById('aiForm').reset();
-
-                    // Exit refinement mode if we were refining
-                    if (isRefining) {
-                        cancelRefinement();
-                    }
 
                     // Reload status to show new image
                     loadStatus();
@@ -1308,42 +1259,24 @@
             }
         }
         
-        // Refinement functions
-        function refineCurrentImage() {
+        // Refinement function - simple and minimal
+        function refineCurrentImage(e) {
+            e.preventDefault();
+
             if (!window.currentImagePrompt) {
-                alert('No AI-generated image to refine');
                 return;
             }
 
             // Switch to AI mode
             switchMode('ai');
 
-            // Show refinement section
-            document.getElementById('refinementSection').style.display = 'block';
-            document.getElementById('basePromptDisplay').textContent = `Base: "${window.currentImagePrompt}"`;
+            // Pre-fill prompt with original + instruction to modify
+            const promptField = document.getElementById('aiPrompt');
+            promptField.value = window.currentImagePrompt + '. ';
+            promptField.focus();
 
-            // Hide main prompt textarea
-            document.getElementById('aiPrompt').style.display = 'none';
-
-            // Focus on refinement textarea
-            document.getElementById('refinementPrompt').focus();
-
-            // Hide lucky button section during refinement
-            document.querySelector('.lucky-inline').style.display = 'none';
-        }
-
-        function cancelRefinement() {
-            // Hide refinement section
-            document.getElementById('refinementSection').style.display = 'none';
-
-            // Show main prompt textarea
-            document.getElementById('aiPrompt').style.display = 'block';
-
-            // Clear refinement input
-            document.getElementById('refinementPrompt').value = '';
-
-            // Show lucky button section
-            document.querySelector('.lucky-inline').style.display = 'flex';
+            // Move cursor to end
+            promptField.setSelectionRange(promptField.value.length, promptField.value.length);
         }
 
         // Auto-refresh every 30 seconds
