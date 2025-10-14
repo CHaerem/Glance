@@ -155,21 +155,36 @@ Send commands to sleeping devices via web dashboard:
 
 ```
 Glance/
-├── esp32-client/           # ESP32 firmware
-│   ├── src/main.cpp       # Main ESP32 application
-│   ├── lib/epd/           # Waveshare display drivers
-│   ├── config.h           # Hardware configuration
-│   ├── build.sh           # Build and upload script
+├── README.md              # This file
+├── CLAUDE.md              # Claude Code instructions
+├── docker-compose.yml     # Local development
+├── deploy-to-pi.sh        # Raspberry Pi deployment script
+│
+├── docs/                  # 📚 Documentation
+│   ├── DESIGN.md          # Design principles & philosophy
+│   ├── SECURITY.md        # Security guidelines
+│   ├── DEPLOYMENT.md      # Deployment instructions
+│   ├── HARDWARE.md        # Hardware documentation
+│   └── PROJECT_GOALS.md   # Project goals & roadmap
+│
+├── esp32-client/          # 🔧 ESP32 Firmware
+│   ├── src/main.cpp       # Main application
+│   ├── lib/epd/           # E-ink display drivers
+│   ├── build.sh           # Build & upload script
 │   └── platformio.ini     # PlatformIO configuration
-├── server/                 # Node.js server
-│   ├── server.js          # Express.js API server
+│
+├── server/                # 🖥️ Node.js Server
+│   ├── server.js          # Express.js API
+│   ├── simple-ui.html     # Web interface
 │   ├── __tests__/         # Test suite
-│   ├── package.json       # Dependencies
 │   └── Dockerfile         # Container build
-├── scripts/               # Deployment automation
-│   ├── deploy-to-pi.sh    # Raspberry Pi deployment
-│   └── build-and-push.sh  # Docker Hub publishing
-└── docker-compose.yml     # Local development
+│
+├── hardware/              # 🔌 PCB Design (KiCad)
+│   └── Glance.kicad_*     # Circuit board files
+│
+└── scripts/               # 🚀 Automation
+    ├── build-and-push.sh  # Docker Hub publishing
+    └── update-glance.sh   # Update helper
 ```
 
 ## 🎨 Image Processing & AI Art
@@ -277,6 +292,16 @@ docker exec glance-server env | grep IMAGE_VERSION
 - [ ] Multi-zone content layouts
 - [ ] Voice control integration
 - [ ] Mesh networking for multiple displays
+
+## 📚 Documentation
+
+Detailed documentation is available in the [`docs/`](docs/) directory:
+
+- **[DESIGN.md](docs/DESIGN.md)** - Design principles, UI guidelines, calm technology philosophy
+- **[SECURITY.md](docs/SECURITY.md)** - Security best practices, credential management
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Complete deployment guide (GitHub Actions, Docker, Tailscale)
+- **[HARDWARE.md](docs/HARDWARE.md)** - Hardware specifications and wiring diagrams
+- **[PROJECT_GOALS.md](docs/PROJECT_GOALS.md)** - Project goals and vision
 
 ---
 
