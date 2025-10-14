@@ -351,27 +351,96 @@ function rgbToLab(r, g, b) {
 	return [L, A, B];
 }
 
-// Find closest color using perceptual LAB color space distance
+// Delta E 2000 - Industry standard for perceptual color difference
+// More accurate than Delta E 76, especially for blues and neutrals
+function deltaE2000(L1, a1, b1, L2, a2, b2) {
+	const kL = 1.0, kC = 1.0, kH = 1.0;
+
+	// Calculate chroma and hue
+	const C1 = Math.sqrt(a1 * a1 + b1 * b1);
+	const C2 = Math.sqrt(a2 * a2 + b2 * b2);
+	const Cab = (C1 + C2) / 2;
+
+	const G = 0.5 * (1 - Math.sqrt(Math.pow(Cab, 7) / (Math.pow(Cab, 7) + Math.pow(25, 7))));
+	const a1p = a1 * (1 + G);
+	const a2p = a2 * (1 + G);
+
+	const C1p = Math.sqrt(a1p * a1p + b1 * b1);
+	const C2p = Math.sqrt(a2p * a2p + b2 * b2);
+
+	const h1p = (Math.atan2(b1, a1p) * 180 / Math.PI + 360) % 360;
+	const h2p = (Math.atan2(b2, a2p) * 180 / Math.PI + 360) % 360;
+
+	const dLp = L2 - L1;
+	const dCp = C2p - C1p;
+
+	let dhp;
+	if (C1p * C2p === 0) {
+		dhp = 0;
+	} else if (Math.abs(h2p - h1p) <= 180) {
+		dhp = h2p - h1p;
+	} else if (h2p - h1p > 180) {
+		dhp = h2p - h1p - 360;
+	} else {
+		dhp = h2p - h1p + 360;
+	}
+
+	const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(dhp * Math.PI / 360);
+
+	const Lp = (L1 + L2) / 2;
+	const Cp = (C1p + C2p) / 2;
+
+	let hp;
+	if (C1p * C2p === 0) {
+		hp = h1p + h2p;
+	} else if (Math.abs(h1p - h2p) <= 180) {
+		hp = (h1p + h2p) / 2;
+	} else if (h1p + h2p < 360) {
+		hp = (h1p + h2p + 360) / 2;
+	} else {
+		hp = (h1p + h2p - 360) / 2;
+	}
+
+	const T = 1 - 0.17 * Math.cos((hp - 30) * Math.PI / 180) +
+	          0.24 * Math.cos(2 * hp * Math.PI / 180) +
+	          0.32 * Math.cos((3 * hp + 6) * Math.PI / 180) -
+	          0.20 * Math.cos((4 * hp - 63) * Math.PI / 180);
+
+	const dTheta = 30 * Math.exp(-Math.pow((hp - 275) / 25, 2));
+	const RC = 2 * Math.sqrt(Math.pow(Cp, 7) / (Math.pow(Cp, 7) + Math.pow(25, 7)));
+	const SL = 1 + (0.015 * Math.pow(Lp - 50, 2)) / Math.sqrt(20 + Math.pow(Lp - 50, 2));
+	const SC = 1 + 0.045 * Cp;
+	const SH = 1 + 0.015 * Cp * T;
+	const RT = -Math.sin(2 * dTheta * Math.PI / 180) * RC;
+
+	const dE = Math.sqrt(
+		Math.pow(dLp / (kL * SL), 2) +
+		Math.pow(dCp / (kC * SC), 2) +
+		Math.pow(dHp / (kH * SH), 2) +
+		RT * (dCp / (kC * SC)) * (dHp / (kH * SH))
+	);
+
+	return dE;
+}
+
+// Find closest color using Delta E 2000 (CIEDE2000) - most accurate perceptual matching
 function findClosestSpectraColor(r, g, b) {
 	const [L1, A1, B1] = rgbToLab(r, g, b);
 	let minDistance = Infinity;
 	let closestColor = SPECTRA_6_PALETTE[1]; // Default to white
-	
+
 	for (const color of SPECTRA_6_PALETTE) {
 		const [L2, A2, B2] = rgbToLab(color.r, color.g, color.b);
-		
-		// Delta E CIE76 formula - perceptually uniform color difference
-		const deltaL = L1 - L2;
-		const deltaA = A1 - A2;
-		const deltaB = B1 - B2;
-		const distance = Math.sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
-		
+
+		// Use Delta E 2000 for industry-standard perceptual color difference
+		const distance = deltaE2000(L1, A1, B1, L2, A2, B2);
+
 		if (distance < minDistance) {
 			minDistance = distance;
 			closestColor = color;
 		}
 	}
-	
+
 	return closestColor;
 }
 
@@ -456,36 +525,43 @@ function applyDithering(imageData, width, height, algorithm = 'floyd-steinberg',
 		}
 	};
 	
+	// Serpentine scanning: alternate direction each row to reduce artifacts
 	for (let y = 0; y < height; y++) {
-		for (let x = 0; x < width; x++) {
+		const isRightToLeft = y % 2 === 1;
+		const xStart = isRightToLeft ? width - 1 : 0;
+		const xEnd = isRightToLeft ? -1 : width;
+		const xStep = isRightToLeft ? -1 : 1;
+
+		for (let x = xStart; x !== xEnd; x += xStep) {
 			const idx = (y * width + x) * 3;
 			const oldR = ditheredData[idx];
 			const oldG = ditheredData[idx + 1];
 			const oldB = ditheredData[idx + 2];
-			
-			// Find closest color in Spectra 6 palette using perceptual LAB distance
+
+			// Find closest color in Spectra 6 palette using Delta E 2000
 			const newColor = findClosestSpectraColor(oldR, oldG, oldB);
 			const newR = newColor.r;
 			const newG = newColor.g;
 			const newB = newColor.b;
-			
+
 			// Set new color
 			ditheredData[idx] = newR;
 			ditheredData[idx + 1] = newG;
 			ditheredData[idx + 2] = newB;
-			
+
 			// Calculate quantization error
 			const errR = oldR - newR;
 			const errG = oldG - newG;
 			const errB = oldB - newB;
-			
-			// Apply error diffusion pattern based on algorithm
+
+			// Apply error diffusion pattern based on algorithm (adjusted for scan direction)
+			const dir = xStep; // 1 for left-to-right, -1 for right-to-left
 			if (algorithm === 'floyd-steinberg') {
-				// Floyd-Steinberg pattern (good for general art)
-				distributeError(x, y, errR, errG, errB, 1, 0, 7/16);   // Right
-				distributeError(x, y, errR, errG, errB, -1, 1, 3/16);  // Below-left
-				distributeError(x, y, errR, errG, errB, 0, 1, 5/16);   // Below
-				distributeError(x, y, errR, errG, errB, 1, 1, 1/16);   // Below-right
+				// Floyd-Steinberg pattern (adjusted for serpentine scanning)
+				distributeError(x, y, errR, errG, errB, dir, 0, 7/16);      // Forward
+				distributeError(x, y, errR, errG, errB, -dir, 1, 3/16);     // Back-diagonal
+				distributeError(x, y, errR, errG, errB, 0, 1, 5/16);        // Below
+				distributeError(x, y, errR, errG, errB, dir, 1, 1/16);      // Forward-diagonal
 			} else if (algorithm === 'atkinson') {
 				// Atkinson dithering (better for high-contrast art, mentioned in blog)
 				distributeError(x, y, errR, errG, errB, 1, 0, 1/8);    // Right
