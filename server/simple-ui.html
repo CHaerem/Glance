@@ -652,20 +652,25 @@
                 <div class="input-area"
                      ondrop="handleDrop(event)"
                      ondragover="handleDragOver(event)"
-                     ondragleave="handleDragLeave(event)"
-                     onclick="handleInputClick(event)">
+                     ondragleave="handleDragLeave(event)">
                     <textarea id="mainInput"
                               class="main-textarea"
                               placeholder="Describe art to generate, or drop image here"
                               rows="5"></textarea>
                     <input type="file" id="imageFile" name="image" accept="image/*"
                            onchange="handleFileSelect(event)" style="display: none;">
+                    <div id="fileIndicator" style="display: none; padding: 8px 16px; background: #f0f0f0; border-top: 1px solid #e5e5e5; font-size: 0.85rem; color: #666;">
+                        📎 <span id="fileName"></span>
+                        <a href="#" onclick="clearFile(event)" style="margin-left: 12px; color: #999; text-decoration: none; font-size: 0.8rem;">remove</a>
+                    </div>
                 </div>
 
                 <!-- Action bar -->
                 <div class="action-bar">
                     <button type="submit" class="primary-action">Generate</button>
                     <a href="#" class="subtle-link" onclick="feelingLucky(event)">feeling lucky</a>
+                    <span style="color: #ddd;">•</span>
+                    <a href="#" class="subtle-link" onclick="browseFiles(event)">upload image</a>
                 </div>
 
                 <!-- Playlist status -->
@@ -748,11 +753,11 @@
 
         <!-- Hidden details section -->
         <div class="show-details">
-            <a href="#" class="subtle-link" onclick="toggleDetails(event)">show details</a>
+            <a href="#" class="subtle-link" id="detailsLink" onclick="toggleDetails(event)">show details</a>
             <span style="margin: 0 8px; color: #ddd;">•</span>
-            <a href="#" class="subtle-link" onclick="toggleHistory(event)">history</a>
+            <a href="#" class="subtle-link" id="historyLink" onclick="toggleHistory(event)">history</a>
             <span style="margin: 0 8px; color: #ddd;">•</span>
-            <a href="#" class="subtle-link" onclick="toggleAdvanced(event)">options</a>
+            <a href="#" class="subtle-link" id="optionsLink" onclick="toggleAdvanced(event)">options</a>
         </div>
 
         <div class="esp32-status" id="statusDetails">
@@ -796,7 +801,14 @@
         function toggleDetails(e) {
             e.preventDefault();
             const details = document.getElementById('statusDetails');
-            details.style.display = details.style.display === 'block' ? 'none' : 'block';
+            const link = document.getElementById('detailsLink');
+            if (details.style.display === 'block') {
+                details.style.display = 'none';
+                link.textContent = 'show details';
+            } else {
+                details.style.display = 'block';
+                link.textContent = 'hide details';
+            }
         }
 
         async function loadHistory() {
@@ -871,13 +883,49 @@
         // New unified form handling
         let currentFile = null;
 
-        function handleInputClick(e) {
-            // If clicking the textarea itself, do nothing (allow typing)
-            if (e.target.tagName === 'TEXTAREA') {
-                return;
-            }
-            // If clicking the container area, trigger file picker
+        function browseFiles(e) {
+            e.preventDefault();
             document.getElementById('imageFile').click();
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                currentFile = file;
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileIndicator').style.display = 'block';
+                // Clear the textarea when image is selected
+                document.getElementById('mainInput').value = '';
+            }
+        }
+
+        function clearFile(e) {
+            e.preventDefault();
+            currentFile = null;
+            document.getElementById('imageFile').value = '';
+            document.getElementById('fileIndicator').style.display = 'none';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                currentFile = file;
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileIndicator').style.display = 'block';
+                document.getElementById('mainInput').value = '';
+            }
         }
 
         function feelingLucky(e) {
@@ -888,17 +936,27 @@
         function toggleAdvanced(e) {
             e.preventDefault();
             const section = document.getElementById('advancedSection');
-            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            const link = document.getElementById('optionsLink');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                link.textContent = 'hide options';
+            } else {
+                section.style.display = 'none';
+                link.textContent = 'options';
+            }
         }
 
         function toggleHistory(e) {
             e.preventDefault();
             const section = document.getElementById('historySection');
+            const link = document.getElementById('historyLink');
             if (section.style.display === 'none') {
                 section.style.display = 'block';
+                link.textContent = 'hide history';
                 loadHistory();
             } else {
                 section.style.display = 'none';
+                link.textContent = 'history';
             }
         }
 
