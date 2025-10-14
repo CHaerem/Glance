@@ -760,6 +760,16 @@
 
         <!-- Browse Mode - External Art Sources -->
         <div class="mode-content" id="browseMode" style="display: none;">
+            <!-- Popular searches -->
+            <div style="margin-bottom: 16px; font-size: 10px; color: #999;">
+                <span style="opacity: 0.6;">Popular:</span>
+                <a href="#" onclick="quickSearch(event, 'Monet')" class="subtle-link" style="margin: 0 6px;">Monet</a>
+                <a href="#" onclick="quickSearch(event, 'Van Gogh')" class="subtle-link" style="margin: 0 6px;">Van Gogh</a>
+                <a href="#" onclick="quickSearch(event, 'Picasso')" class="subtle-link" style="margin: 0 6px;">Picasso</a>
+                <a href="#" onclick="quickSearch(event, 'Rembrandt')" class="subtle-link" style="margin: 0 6px;">Rembrandt</a>
+                <a href="#" onclick="quickSearch(event, 'impressionism')" class="subtle-link" style="margin: 0 6px;">Impressionism</a>
+            </div>
+
             <div class="input-area">
                 <input type="text" id="artSearchQuery" class="main-textarea"
                        placeholder="Search museum collections (e.g. 'Monet', 'impressionism', 'landscape')"
@@ -770,6 +780,9 @@
                 <button type="button" onclick="searchArt()" class="primary-action">Search</button>
                 <a href="#" class="subtle-link" onclick="randomArt(event)">surprise me</a>
             </div>
+
+            <!-- Source status feedback -->
+            <div id="sourceStatus" style="margin-top: 12px; font-size: 9px; color: #999; display: none;"></div>
 
             <div id="artResults" class="history-grid" style="margin-top: 20px; display: none;">
                 <!-- Search results will appear here -->
@@ -1254,12 +1267,33 @@
                 loadingDiv.style.display = 'none';
 
                 if (data.results && data.results.length > 0) {
+                    // Helper to get source badge color
+                    const getSourceColor = (source) => {
+                        if (source === 'The Met Museum') return '#0066cc';
+                        if (source === 'Art Institute of Chicago') return '#cc0000';
+                        if (source === 'Cleveland Museum of Art') return '#009933';
+                        if (source === 'Rijksmuseum') return '#ff6600';
+                        return '#666';
+                    };
+
+                    // Helper to get short source name
+                    const getSourceShort = (source) => {
+                        if (source === 'The Met Museum') return 'Met';
+                        if (source === 'Art Institute of Chicago') return 'ARTIC';
+                        if (source === 'Cleveland Museum of Art') return 'CMA';
+                        if (source === 'Rijksmuseum') return 'Rijks';
+                        return source;
+                    };
+
                     const artworkHTML = data.results.map(art => `
                         <div class="history-item" onclick="importArtwork(\`${art.imageUrl}\`, \`${escapeHtml(art.title)}\`, \`${escapeHtml(art.artist)}\`, '${art.source}')">
                             <img src="${art.thumbnailUrl}" alt="${escapeHtml(art.title)}" style="background: #f5f5f5;">
                             <div class="history-item-info">
                                 <div style="font-weight: 500;">${escapeHtml(art.title)}</div>
                                 <div style="opacity: 0.7; font-size: 9px;">${escapeHtml(art.artist)}</div>
+                                <div style="margin-top: 4px;">
+                                    <span style="display: inline-block; padding: 2px 6px; background: ${getSourceColor(art.source)}; color: white; font-size: 8px; border-radius: 3px;">${getSourceShort(art.source)}</span>
+                                </div>
                             </div>
                         </div>
                     `).join('');
@@ -1271,6 +1305,25 @@
                     }
 
                     resultsDiv.style.display = 'grid';
+
+                    // Show source status if available
+                    if (data.sources && !append) {
+                        const statusDiv = document.getElementById('sourceStatus');
+                        const sources = data.sources;
+                        let statusText = 'Results from: ';
+                        const sourceParts = [];
+
+                        if (sources.met && sources.met.count > 0) sourceParts.push(`Met (${sources.met.count})`);
+                        if (sources.artic && sources.artic.count > 0) sourceParts.push(`ARTIC (${sources.artic.count})`);
+                        if (sources.cleveland && sources.cleveland.count > 0) sourceParts.push(`Cleveland (${sources.cleveland.count})`);
+                        if (sources.rijksmuseum && sources.rijksmuseum.count > 0) sourceParts.push(`Rijksmuseum (${sources.rijksmuseum.count})`);
+
+                        if (sourceParts.length > 0) {
+                            statusText += sourceParts.join(', ');
+                            statusDiv.textContent = statusText;
+                            statusDiv.style.display = 'block';
+                        }
+                    }
 
                     // Show "load more" if API indicates more results available
                     if (data.hasMore) {
@@ -1306,6 +1359,12 @@
             // Reset pagination state for new search
             currentArtSearch = { query: query || 'painting', offset: 0, limit: 20, hasMore: true };
             await performArtSearch(false);
+        }
+
+        function quickSearch(e, query) {
+            e.preventDefault();
+            document.getElementById('artSearchQuery').value = query;
+            searchArt();
         }
 
         async function randomArt(e) {

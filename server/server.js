@@ -1712,6 +1712,10 @@ app.get("/api/art/search", async (req, res) => {
 
 		// Helper to search Met Museum with error handling
 		const searchMet = async () => {
+			const cacheKey = `met-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
 			try {
 				const searchUrl = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(query || "painting")}`;
 				console.log(`Searching Met Museum: ${searchUrl}`);
@@ -1784,6 +1788,7 @@ app.get("/api/art/search", async (req, res) => {
 				}
 
 				console.log(`Met Museum returned ${metArtworks.length} artworks`);
+				setCachedResult(cacheKey, metArtworks);
 				return metArtworks;
 			} catch (error) {
 				console.error("Error searching Met Museum:", error.message);
@@ -1793,6 +1798,10 @@ app.get("/api/art/search", async (req, res) => {
 
 		// Helper to search Art Institute of Chicago
 		const searchArtic = async () => {
+			const cacheKey = `artic-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
 			try {
 				const articUrl = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query || "painting")}&limit=${targetCount * 3}&fields=id,title,artist_display,date_display,image_id,is_public_domain,department_title,artwork_type_title,classification_title,medium_display`;
 				console.log(`Searching Art Institute of Chicago: ${articUrl}`);
@@ -1841,6 +1850,7 @@ app.get("/api/art/search", async (req, res) => {
 					}));
 
 				console.log(`ARTIC returned ${articArtworks.length} artworks`);
+				setCachedResult(cacheKey, articArtworks);
 				return articArtworks;
 			} catch (error) {
 				console.error("Error searching ARTIC:", error.message);
@@ -1850,6 +1860,10 @@ app.get("/api/art/search", async (req, res) => {
 
 		// Helper to search Cleveland Museum of Art
 		const searchCleveland = async () => {
+			const cacheKey = `cma-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
 			try {
 				const cmaUrl = `https://openaccess-api.clevelandart.org/api/artworks/?q=${encodeURIComponent(query || "painting")}&cc=1&has_image=1&limit=${targetCount * 3}`;
 				console.log(`Searching Cleveland Museum: ${cmaUrl}`);
@@ -1898,6 +1912,7 @@ app.get("/api/art/search", async (req, res) => {
 					}));
 
 				console.log(`CMA returned ${cmaArtworks.length} artworks`);
+				setCachedResult(cacheKey, cmaArtworks);
 				return cmaArtworks;
 			} catch (error) {
 				console.error("Error searching CMA:", error.message);
@@ -1907,6 +1922,10 @@ app.get("/api/art/search", async (req, res) => {
 
 		// Helper to search Rijksmuseum
 		const searchRijksmuseum = async () => {
+			const cacheKey = `rijks-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
 			try {
 				const rijksUrl = `https://www.rijksmuseum.nl/api/en/collection?key=0fiuZFh4&q=${encodeURIComponent(query || "painting")}&imgonly=true&ps=${targetCount * 3}`;
 				console.log(`Searching Rijksmuseum: ${rijksUrl}`);
@@ -1955,6 +1974,7 @@ app.get("/api/art/search", async (req, res) => {
 					}));
 
 				console.log(`Rijksmuseum returned ${rijksArtworks.length} artworks`);
+				setCachedResult(cacheKey, rijksArtworks);
 				return rijksArtworks;
 			} catch (error) {
 				console.error("Error searching Rijksmuseum:", error.message);
@@ -1970,26 +1990,72 @@ app.get("/api/art/search", async (req, res) => {
 			searchRijksmuseum()
 		]);
 
-		// Merge and interleave results for diversity across all sources
-		const merged = [];
-		const maxLength = Math.max(metResults.length, articResults.length, cmaResults.length, rijksResults.length);
+		// Track source status for user feedback
+		const sources = {
+			met: { status: metResults.length > 0 ? "ok" : "no_results", count: metResults.length },
+			artic: { status: articResults.length > 0 ? "ok" : "no_results", count: articResults.length },
+			cleveland: { status: cmaResults.length > 0 ? "ok" : "no_results", count: cmaResults.length },
+			rijksmuseum: { status: rijksResults.length > 0 ? "ok" : "no_results", count: rijksResults.length }
+		};
 
-		for (let i = 0; i < maxLength; i++) {
-			if (i < metResults.length) merged.push(metResults[i]);
-			if (i < articResults.length) merged.push(articResults[i]);
-			if (i < cmaResults.length) merged.push(cmaResults[i]);
-			if (i < rijksResults.length) merged.push(rijksResults[i]);
-		}
+		// Ranking function to score artworks
+		const scoreArtwork = (artwork) => {
+			let score = 0;
+			const lowerQuery = (query || "").toLowerCase();
+			const lowerArtist = (artwork.artist || "").toLowerCase();
+			const lowerTitle = (artwork.title || "").toLowerCase();
+			const lowerDept = (artwork.department || "").toLowerCase();
 
-		// Apply offset and limit to merged results
-		const paginatedResults = merged.slice(offset, offset + targetCount);
+			// Exact artist match is highest priority
+			if (lowerArtist.includes(lowerQuery)) score += 10;
+
+			// Title match is important
+			if (lowerTitle.includes(lowerQuery)) score += 5;
+
+			// Paintings are preferred over other types
+			if (lowerDept.includes('painting')) score += 5;
+			if (lowerTitle.includes('painting')) score += 3;
+
+			// Prefer older works (estimate from date string)
+			const dateMatch = (artwork.date || "").match(/\d{4}/);
+			if (dateMatch) {
+				const year = parseInt(dateMatch[0]);
+				if (year < 1800) score += 4;
+				else if (year < 1900) score += 3;
+				else if (year < 1950) score += 2;
+			}
+
+			return score;
+		};
+
+		// Merge all results
+		const allResults = [
+			...metResults,
+			...articResults,
+			...cmaResults,
+			...rijksResults
+		];
+
+		// Sort by score (highest first), then interleave by source for diversity
+		allResults.forEach(artwork => {
+			artwork._score = scoreArtwork(artwork);
+		});
+
+		allResults.sort((a, b) => b._score - a._score);
+
+		// Remove score from output
+		allResults.forEach(artwork => delete artwork._score);
+
+		// Apply offset and limit to sorted results
+		const paginatedResults = allResults.slice(offset, offset + targetCount);
 
 		console.log(`Returning ${paginatedResults.length} artworks (Met: ${metResults.length}, ARTIC: ${articResults.length}, CMA: ${cmaResults.length}, Rijks: ${rijksResults.length})`);
 
 		res.json({
 			results: paginatedResults,
-			total: merged.length,
-			hasMore: merged.length > (offset + targetCount)
+			total: allResults.length,
+			hasMore: allResults.length > (offset + targetCount),
+			sources: sources
 		});
 	} catch (error) {
 		console.error("Error searching art:", error);
