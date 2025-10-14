@@ -1987,12 +1987,111 @@ app.get("/api/art/search", async (req, res) => {
 			}
 		};
 
+		// Helper to search Wikimedia Commons
+		const searchWikimedia = async () => {
+			const cacheKey = `wikimedia-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
+			try {
+				// Map common artist names to Wikimedia categories
+				const artistCategories = {
+					'picasso': 'Paintings_by_Pablo_Picasso',
+					'pablo picasso': 'Paintings_by_Pablo_Picasso',
+					'da vinci': 'Paintings_by_Leonardo_da_Vinci',
+					'leonardo da vinci': 'Paintings_by_Leonardo_da_Vinci',
+					'monet': 'Paintings_by_Claude_Monet',
+					'claude monet': 'Paintings_by_Claude_Monet',
+					'van gogh': 'Paintings_by_Vincent_van_Gogh',
+					'vincent van gogh': 'Paintings_by_Vincent_van_Gogh',
+					'rembrandt': 'Paintings_by_Rembrandt',
+					'matisse': 'Paintings_by_Henri_Matisse',
+					'kandinsky': 'Paintings_by_Wassily_Kandinsky'
+				};
+
+				const lowerQuery = (query || "").toLowerCase();
+				let category = artistCategories[lowerQuery];
+
+				// If not a known artist, try general painting search
+				if (!category) {
+					category = `${query}_paintings`.replace(/ /g, '_');
+				}
+
+				const wikimediaUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=categorymembers&gcmtitle=Category:${encodeURIComponent(category)}&gcmlimit=${targetCount * 2}&gcmtype=file&prop=imageinfo|categories&iiprop=url|extmetadata|size&iiurlwidth=400&format=json&origin=*`;
+				console.log(`Searching Wikimedia Commons: Category:${category}`);
+
+				const wikimediaResponse = await fetch(wikimediaUrl);
+
+				const contentType = wikimediaResponse.headers.get("content-type");
+				if (!contentType || !contentType.includes("application/json")) {
+					console.error("Wikimedia API returned non-JSON response");
+					return [];
+				}
+
+				const wikimediaData = await wikimediaResponse.json();
+
+				if (!wikimediaData.query || !wikimediaData.query.pages) {
+					console.log(`Wikimedia: No results for Category:${category}`);
+					return [];
+				}
+
+				const pages = Object.values(wikimediaData.query.pages);
+				const wikimediaArtworks = [];
+
+				for (const page of pages) {
+					if (wikimediaArtworks.length >= targetCount) break;
+
+					if (!page.imageinfo || !page.imageinfo[0]) continue;
+
+					const info = page.imageinfo[0];
+					const metadata = info.extmetadata || {};
+
+					// Extract artist and title from metadata
+					const artist = metadata.Artist?.value?.replace(/<[^>]*>/g, '') || "Unknown Artist";
+					const title = page.title?.replace(/^File:/, '').replace(/\.[^.]+$/, '') || "Untitled";
+
+					// Filter out very small images (likely thumbnails or icons)
+					if (info.width < 500 || info.height < 500) continue;
+
+					// Apply original artwork filter
+					const isOriginal = isOriginalArtwork(
+						title,
+						"",
+						"",
+						""
+					);
+
+					if (isOriginal && info.url) {
+						wikimediaArtworks.push({
+							id: `wikimedia-${page.pageid}`,
+							title: title,
+							artist: artist,
+							date: metadata.DateTimeOriginal?.value || "",
+							imageUrl: info.url,
+							thumbnailUrl: info.thumburl || info.url,
+							department: "Paintings",
+							culture: "",
+							source: "Wikimedia Commons"
+						});
+					}
+				}
+
+				console.log(`Wikimedia Commons returned ${wikimediaArtworks.length} artworks`);
+				setCachedResult(cacheKey, wikimediaArtworks);
+				return wikimediaArtworks;
+			} catch (error) {
+				console.error("Error searching Wikimedia Commons:", error.message);
+				return [];
+			}
+		};
+
 		// Search all sources in parallel
-		const [metResults, articResults, cmaResults, rijksResults] = await Promise.all([
+		const [metResults, articResults, cmaResults, rijksResults, wikimediaResults] = await Promise.all([
 			searchMet(),
 			searchArtic(),
 			searchCleveland(),
-			searchRijksmuseum()
+			searchRijksmuseum(),
+			searchWikimedia()
 		]);
 
 		// Track source status for user feedback
@@ -2000,7 +2099,8 @@ app.get("/api/art/search", async (req, res) => {
 			met: { status: metResults.length > 0 ? "ok" : "no_results", count: metResults.length },
 			artic: { status: articResults.length > 0 ? "ok" : "no_results", count: articResults.length },
 			cleveland: { status: cmaResults.length > 0 ? "ok" : "no_results", count: cmaResults.length },
-			rijksmuseum: { status: rijksResults.length > 0 ? "ok" : "no_results", count: rijksResults.length }
+			rijksmuseum: { status: rijksResults.length > 0 ? "ok" : "no_results", count: rijksResults.length },
+			wikimedia: { status: wikimediaResults.length > 0 ? "ok" : "no_results", count: wikimediaResults.length }
 		};
 
 		// Ranking function to score artworks
@@ -2038,7 +2138,8 @@ app.get("/api/art/search", async (req, res) => {
 			...metResults,
 			...articResults,
 			...cmaResults,
-			...rijksResults
+			...rijksResults,
+			...wikimediaResults
 		];
 
 		// Sort by score (highest first), then interleave by source for diversity
@@ -2054,7 +2155,7 @@ app.get("/api/art/search", async (req, res) => {
 		// Apply offset and limit to sorted results
 		const paginatedResults = allResults.slice(offset, offset + targetCount);
 
-		console.log(`Returning ${paginatedResults.length} artworks (Met: ${metResults.length}, ARTIC: ${articResults.length}, CMA: ${cmaResults.length}, Rijks: ${rijksResults.length})`);
+		console.log(`Returning ${paginatedResults.length} artworks (Met: ${metResults.length}, ARTIC: ${articResults.length}, CMA: ${cmaResults.length}, Rijks: ${rijksResults.length}, Wikimedia: ${wikimediaResults.length})`);
 
 		res.json({
 			results: paginatedResults,

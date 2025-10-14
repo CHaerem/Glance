@@ -1273,6 +1273,7 @@
                         if (source === 'Art Institute of Chicago') return '#cc0000';
                         if (source === 'Cleveland Museum of Art') return '#009933';
                         if (source === 'Rijksmuseum') return '#ff6600';
+                        if (source === 'Wikimedia Commons') return '#9933ff';
                         return '#666';
                     };
 
@@ -1282,6 +1283,7 @@
                         if (source === 'Art Institute of Chicago') return 'ARTIC';
                         if (source === 'Cleveland Museum of Art') return 'CMA';
                         if (source === 'Rijksmuseum') return 'Rijks';
+                        if (source === 'Wikimedia Commons') return 'Wiki';
                         return source;
                     };
 
@@ -1317,6 +1319,7 @@
                         if (sources.artic && sources.artic.count > 0) sourceParts.push(`ARTIC (${sources.artic.count})`);
                         if (sources.cleveland && sources.cleveland.count > 0) sourceParts.push(`Cleveland (${sources.cleveland.count})`);
                         if (sources.rijksmuseum && sources.rijksmuseum.count > 0) sourceParts.push(`Rijksmuseum (${sources.rijksmuseum.count})`);
+                        if (sources.wikimedia && sources.wikimedia.count > 0) sourceParts.push(`Wikimedia (${sources.wikimedia.count})`);
 
                         if (sourceParts.length > 0) {
                             statusText += sourceParts.join(', ');
