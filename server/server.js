@@ -544,6 +544,10 @@ function sanitizeInput(input) {
 	return input.replace(/[<>]/g, "").trim().substring(0, 1000);
 }
 
+function getRandomLuckyPrompt() {
+	return "Surprise me with a vivid portrait concept that feels full-bleed, high contrast, and made for a six-color e-ink display.";
+}
+
 // Helper functions
 async function readJSONFile(filename) {
 	try {
@@ -932,6 +936,78 @@ app.post("/api/generate-art", async (req, res) => {
 		console.error("Error generating AI art:", error);
 		res.status(500).json({
 			error: "Error generating AI art: " + error.message
+		});
+	}
+});
+
+// Lucky prompt helper - expands simple cues into a detailed art prompt
+app.post("/api/lucky-prompt", async (req, res) => {
+	const body = req.body || {};
+	const idea = sanitizeInput(body.idea || "");
+	const mood = sanitizeInput(body.mood || "");
+	const theme = sanitizeInput(body.theme || "");
+	const vibe = sanitizeInput(body.vibe || "");
+
+	const cueParts = [
+		idea && `Concept: ${idea}`,
+		theme && `Theme: ${theme}`,
+		mood && `Mood: ${mood}`,
+		vibe && `Vibe: ${vibe}`
+	].filter(Boolean);
+
+	if (!openai) {
+		return res.status(503).json({
+			error: "AI generation not available. OPENAI_API_KEY not configured."
+		});
+	}
+
+	const inspirationSeed =
+		cueParts.length > 0 ? cueParts.join(". ") : getRandomLuckyPrompt();
+
+	try {
+		const temperature = cueParts.length > 0 ? 0.9 : 1.1;
+		const response = await openai.chat.completions.create({
+			model: "gpt-4o-mini",
+			max_tokens: 220,
+			temperature,
+			messages: [
+				{
+					role: "system",
+					content:
+						"You are a creative director crafting prompts for an AI image generator that produces portrait-oriented art for a high-contrast six-color e-ink display. Every prompt must insist on full-bleed composition, rich textures, and bold contrast. Respond with a single prompt under 80 words."
+				},
+				{
+					role: "user",
+					content: cueParts.length > 0
+						? `Use the following loose guidance to create a vivid prompt:\n${cueParts.join(
+							"\n"
+						)}\n\nDeliver one complete prompt ready for image generation, highlighting full-bleed composition, dramatic lighting, and strong contrast suitable for an e-ink poster.`
+						: `Surprise me with a fresh, inspiring idea for a portrait-oriented AI artwork that would look striking on an e-ink display. Lean into ${inspirationSeed}. Make sure the prompt enforces full-bleed composition, edge-to-edge detail, and bold contrast.`
+				}
+			]
+		});
+
+		const candidate =
+			response?.choices?.[0]?.message?.content?.trim();
+
+		if (!candidate) {
+			console.warn("OpenAI returned no content for lucky prompt");
+			return res.status(502).json({
+				error: "AI did not return a prompt. Please try again."
+			});
+		}
+
+		const generatedPrompt = candidate.replace(/^"+|"+$/g, "");
+
+		res.json({
+			prompt: generatedPrompt,
+			source: "openai",
+			inspiration: cueParts.length > 0 ? cueParts : [inspirationSeed]
+		});
+	} catch (error) {
+		console.error("Error generating lucky prompt with OpenAI:", error);
+		res.status(502).json({
+			error: "Unable to generate prompt right now. Please try again shortly."
 		});
 	}
 });

@@ -306,6 +306,42 @@
             border-color: #1a1a1a;
         }
 
+        .lucky-inline {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .lucky-button {
+            padding: 10px 18px;
+            border-radius: 4px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #1f2937;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .lucky-button:hover {
+            background: #f3f4f6;
+            border-color: #1a1a1a;
+        }
+        .lucky-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .lucky-status {
+            font-size: 0.75rem;
+            color: #6b7280;
+            letter-spacing: 0.4px;
+            line-height: 1.5;
+        }
+
         /* Advanced options - hidden by default */
         .advanced-options {
             display: none;
@@ -439,6 +475,17 @@
             .upload-area {
                 padding: 60px 20px;
             }
+            .lucky-inline {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+            .lucky-button {
+                width: 100%;
+            }
+            .lucky-status {
+                text-align: left;
+            }
         }
     </style>
 </head>
@@ -506,7 +553,12 @@
         <div class="upload-section" id="aiMode" style="display: none;">
             <form id="aiForm">
                 <div class="form-group">
-                    <textarea id="aiPrompt" class="form-control ai-prompt" placeholder="Describe the art you want to generate...&#10;&#10;Tips: Focus on bold, full-frame compositions with high contrast&#10;&#10;Examples:&#10;• Close-up of a sunflower filling the entire frame&#10;• Dramatic mountain peaks under stormy clouds&#10;• Bold geometric mandala pattern&#10;• Japanese wave in the style of Hokusai&#10;• Dense forest with strong light and shadow contrast" rows="7"></textarea>
+                    <textarea id="aiPrompt" class="form-control ai-prompt" placeholder="Describe what you want—or leave it blank and hit Feeling Lucky." rows="7"></textarea>
+                </div>
+
+                <div class="lucky-inline">
+                    <button type="button" class="lucky-button" id="luckyButton" onclick="generateLuckyPrompt()">Feeling Lucky</button>
+                    <span class="lucky-status" id="luckyStatus" data-default-status="Type a few words above, then press Feeling Lucky—or leave it blank for a surprise.">Type a few words above, then press Feeling Lucky—or leave it blank for a surprise.</span>
                 </div>
 
                 <div class="options-toggle">
@@ -947,6 +999,73 @@
                     <div class="upload-text">${file.name}</div>
                 `;
             }
+        }
+
+        async function generateLuckyPrompt() {
+            const button = document.getElementById('luckyButton');
+            const status = document.getElementById('luckyStatus');
+            const promptArea = document.getElementById('aiPrompt');
+
+            if (!button || !status || !promptArea) {
+                return;
+            }
+
+            const cueText = promptArea.value.trim();
+            const payload = {};
+
+            if (cueText) {
+                payload.idea = cueText;
+            }
+
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Thinking...';
+            status.textContent = cueText
+                ? 'Shaping your idea into a detailed prompt...'
+                : 'Rolling the dice for a fresh surprise prompt...';
+
+            try {
+                const response = await fetch('/api/lucky-prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                let data = null;
+                try {
+                    data = await response.json();
+                } catch {
+                    data = null;
+                }
+
+                if (!response.ok || !data || !data.prompt) {
+                    throw new Error(data?.error || 'Unable to generate prompt');
+                }
+
+                promptArea.value = data.prompt;
+                promptArea.focus();
+                promptArea.setSelectionRange(promptArea.value.length, promptArea.value.length);
+
+                status.textContent = 'Prompt updated—press Generate to create the artwork.';
+            } catch (error) {
+                console.error('Feeling Lucky error:', error);
+                status.textContent = 'Could not build a prompt right now. Please try again in a moment.';
+                alert('Feeling Lucky failed: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        const aiPromptField = document.getElementById('aiPrompt');
+        const luckyStatus = document.getElementById('luckyStatus');
+        if (aiPromptField && luckyStatus) {
+            aiPromptField.addEventListener('input', () => {
+                const defaultStatus = luckyStatus.dataset.defaultStatus;
+                if (defaultStatus && luckyStatus.textContent !== defaultStatus) {
+                    luckyStatus.textContent = defaultStatus;
+                }
+            });
         }
 
         // AI Form submission

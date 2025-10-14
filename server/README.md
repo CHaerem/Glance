@@ -47,6 +47,8 @@ Environment variables `IMAGE_VERSION` and `BUILD_DATE` are automatically set dur
 - `POST /api/current` – Update the current image
 - `POST /api/upload` – Upload a new image to convert for the display
 - `POST /api/preview` – Generate a preview and e‑ink size estimate
+- `POST /api/generate-art` – Generate AI artwork via OpenAI image models
+- `POST /api/lucky-prompt` – Expand quick notes (or blank requests) into full AI art prompts
 - `POST /api/device-status` – Submit device status information
 - `GET /api/devices` – Retrieve known devices
 - `GET /health` – Health check
@@ -62,4 +64,3 @@ npm test
 ```
 
 See [`__tests__/README.md`](./__tests__/README.md) for details about the test setup.
-
