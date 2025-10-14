@@ -50,6 +50,29 @@
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+        #currentImagePrompt {
+            display: none;
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: #fafafa;
+            border-left: 2px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.5;
+            font-style: italic;
+        }
+        #currentImagePrompt.show {
+            display: block;
+        }
+        #currentImagePrompt .prompt-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #999;
+            font-style: normal;
+            margin-bottom: 6px;
+        }
 
         /* Hide all status details by default */
         .esp32-status {
@@ -500,6 +523,10 @@
             <div id="currentImagePreview">
                 <img id="currentImageThumb" />
             </div>
+            <div id="currentImagePrompt">
+                <div class="prompt-label">Generated from prompt</div>
+                <div id="currentImagePromptText"></div>
+            </div>
         </div>
 
         <!-- Mode Selector -->
@@ -877,6 +904,16 @@
                     document.getElementById('currentImagePreview').classList.add('show');
                 } else {
                     document.getElementById('currentImagePreview').classList.remove('show');
+                }
+
+                // Show prompt if available (for AI-generated images)
+                const promptElement = document.getElementById('currentImagePrompt');
+                const promptTextElement = document.getElementById('currentImagePromptText');
+                if (current.originalPrompt) {
+                    promptTextElement.textContent = current.originalPrompt;
+                    promptElement.classList.add('show');
+                } else {
+                    promptElement.classList.remove('show');
                 }
 
                 // Load device status
