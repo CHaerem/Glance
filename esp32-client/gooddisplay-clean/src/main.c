@@ -21,15 +21,15 @@
 // WiFi credentials - set via environment variables during build
 // Example: export WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword"
 #ifndef WIFI_SSID
-#define WIFI_SSID      "YourNetwork"
+#define WIFI_SSID      "Internett"
 #endif
 #ifndef WIFI_PASSWORD
-#define WIFI_PASSWORD  "YourPassword"
+#define WIFI_PASSWORD  "Yellowfinch924"
 #endif
 
-// Server URL - use serverpi.local for production, can override with SERVER_URL env var
+// Server URL - use Mac for development
 #ifndef SERVER_URL
-#define SERVER_BASE    "http://serverpi.local:3000"
+#define SERVER_BASE    "http://192.168.1.26:3000"
 #else
 #define SERVER_BASE    SERVER_URL
 #endif
@@ -397,11 +397,22 @@ bool download_and_display_image(void)
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
     
-    printf("Complete! Downloaded %d bytes, wrote %d/%d pixels\n", 
+    printf("Complete! Downloaded %d bytes, wrote %d/%d pixels\n",
            total_read, pixels_written, max_pixels);
-    
+
     if (pixels_written > 0) {
+        // Report success BEFORE disabling WiFi
+        extern void report_device_status(const char* status_msg);
+        report_device_status("display_updating");
+
         printf("Displaying image...\n");
+
+        // POWER OPTIMIZATION: Disable WiFi before display refresh to save ~100-200mA
+        printf("Disabling WiFi to conserve power during display refresh...\n");
+        esp_wifi_disconnect();
+        esp_wifi_stop();
+        vTaskDelay(pdMS_TO_TICKS(100));  // Let WiFi fully shut down
+
         initEPD();
 
         // Display has 2 driver ICs - split data horizontally
@@ -409,25 +420,43 @@ bool download_and_display_image(void)
         int bytes_per_row = DISPLAY_WIDTH / 2;  // 1200 pixels / 2 = 600 bytes per row
         int bytes_per_ic_row = width_per_ic / 2;  // 600 pixels / 2 = 300 bytes per IC per row
 
-        // Send to first IC (left half)
+        printf("Sending data to display...\n");
+
+        // Send to first IC (left half) - with 1ms delay between rows
         setPinCsAll(GPIO_HIGH);
         setPinCs(0, 0);
         writeEpdCommand(DTM);
         for (int row = 0; row < DISPLAY_HEIGHT; row++) {
             writeEpdData(eink_buffer + row * bytes_per_row, bytes_per_ic_row);
+            vTaskDelay(pdMS_TO_TICKS(1));  // 1ms delay for stability
+
+            if (row % 200 == 0) {
+                printf("  Left IC: row %d/%d\n", row, DISPLAY_HEIGHT);
+            }
         }
         setPinCsAll(GPIO_HIGH);
+        printf("Left IC complete\n");
 
-        // Send to second IC (right half)
+        // Small delay between ICs
+        vTaskDelay(pdMS_TO_TICKS(50));
+
+        // Send to second IC (right half) - with 1ms delay between rows
         setPinCs(1, 0);
         writeEpdCommand(DTM);
         for (int row = 0; row < DISPLAY_HEIGHT; row++) {
             writeEpdData(eink_buffer + row * bytes_per_row + bytes_per_ic_row, bytes_per_ic_row);
+            vTaskDelay(pdMS_TO_TICKS(1));  // 1ms delay for stability
+
+            if (row % 200 == 0) {
+                printf("  Right IC: row %d/%d\n", row, DISPLAY_HEIGHT);
+            }
         }
         setPinCsAll(GPIO_HIGH);
+        printf("Right IC complete\n");
 
+        printf("Triggering display refresh...\n");
         epdDisplay();
-        
+
         printf("=== Image displayed! ===\n");
         free(eink_buffer);
         return true;
@@ -505,7 +534,7 @@ void app_main(void)
                 printf("=== SUCCESS ===\n");
                 // Save to NVS so it persists across power cycles
                 save_last_image_id(metadata.image_id);
-                report_device_status("display_updated");
+                // Note: report_device_status() is called BEFORE WiFi shutdown inside download_and_display_image()
             } else {
                 printf("Download failed - showing color bars\n");
                 report_device_status("download_failed");

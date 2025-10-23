@@ -734,12 +734,11 @@
         <!-- Upload Mode -->
         <div class="mode-content" id="uploadMode" style="display: none;">
             <form id="uploadForm" enctype="multipart/form-data">
-                <div class="input-area upload-drop-zone"
-                     ondrop="handleDrop(event)"
-                     ondragover="handleDragOver(event)"
-                     ondragleave="handleDragLeave(event)"
-                     onclick="browseFiles(event)">
-                    <div style="padding: 60px 20px; text-align: center; color: #999; cursor: pointer;">
+                <label for="imageFile" class="input-area upload-drop-zone" style="cursor: pointer; display: block;"
+                       ondrop="handleDrop(event)"
+                       ondragover="handleDragOver(event)"
+                       ondragleave="handleDragLeave(event)">
+                    <div style="padding: 60px 20px; text-align: center; color: #999;">
                         <div style="font-size: 2rem; margin-bottom: 12px;">📎</div>
                         <div>Drop image here or click to browse</div>
                     </div>
@@ -751,7 +750,7 @@
                             <a href="#" onclick="clearFile(event)" class="subtle-link">remove</a>
                         </div>
                     </div>
-                </div>
+                </label>
                 <div class="action-bar">
                     <button type="submit" class="primary-action">Upload</button>
                 </div>
@@ -1109,17 +1108,28 @@
         let currentFile = null;
 
         function browseFiles(e) {
-            e.preventDefault();
-            document.getElementById('imageFile').click();
+            if (e) e.preventDefault();
+            console.log('browseFiles() called - opening file dialog');
+            const fileInput = document.getElementById('imageFile');
+            if (fileInput) {
+                fileInput.click();
+                console.log('File input clicked');
+            } else {
+                console.error('imageFile input not found');
+            }
         }
 
         // File handling for upload mode
         function handleFileSelect(e) {
+            console.log('handleFileSelect() called');
             const file = e.target.files[0];
             if (file) {
+                console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
                 currentFile = file;
                 document.getElementById('fileName').textContent = file.name;
                 document.getElementById('fileIndicator').style.display = 'block';
+            } else {
+                console.log('No file selected');
             }
         }
 
