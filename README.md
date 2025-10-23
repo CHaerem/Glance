@@ -213,9 +213,29 @@ Glance/
 | **Display Resolution** | 1150×1550px | 93% screen area |
 | **Refresh Time** | 30-45 seconds | Full 6-color update |
 | **Deep Sleep Current** | ~10μA | Months of battery life |
-| **Active Current** | ~100mA | WiFi + display update |
+| **Active Current (WiFi On)** | ~460mA @ 5V | Peak during display refresh |
+| **Active Current (WiFi Off)** | ~250-300mA @ 5V | Display-only operation |
 | **Wake-up Time** | 2-3 seconds | WiFi connection ready |
 | **Battery Life** | 3-6 months | 3000mAh LiPo, 6-hour cycle |
+
+### 🔋 Battery Optimization
+
+The firmware includes intelligent power management:
+- **WiFi Auto-Shutdown**: Automatically disables WiFi during display refresh to save ~160-210mA
+- **Row-by-Row Updates**: 1ms delays between display rows for stable power draw
+- **Progressive Delays**: Strategic pauses between driver ICs to prevent voltage sag
+- **Verified with KCX-017**: Tested at 460mA peak with WiFi on, 250-300mA with WiFi off
+- **Works on Battery**: Successfully operates on PowerBoost 1000C + LiPo battery
+
+### 🧪 Worst-Case Test Images
+
+Power consumption varies by image complexity. Test images are included in `server/data/`:
+- **`test-1-checkerboard-worst-case.png`** - Maximum power draw (all pixels change)
+- **`test-2-solid-blue.png`** → **`test-3-solid-yellow.png`** - Full color shift test
+- **`test-4-color-stripes.png`** - All 6 colors displayed
+- **`test-5-fine-lines-extreme.png`** - Highest frequency pattern
+
+If your battery setup works with `test-1-checkerboard-worst-case.png`, all normal images will work reliably.
 
 ## 🔧 Development
 
