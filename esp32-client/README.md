@@ -285,9 +285,6 @@ Entering deep sleep for 3600 seconds
 3. Run `./build.sh upload`
 4. Device will resume normal operation
 
-### Future OTA Support
-Planned feature for wireless firmware updates via the web dashboard.
-
 ## 🌐 Multiple Devices
 
 ### Unique Device IDs

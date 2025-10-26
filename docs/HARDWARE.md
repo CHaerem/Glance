@@ -60,7 +60,6 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
 - Integrated image dithering algorithms
 - Support for multiple image update modes
 - Arduino and ESP-IDF compatible
-- OTA (Over-The-Air) update capability
 
 ### 3. Power System
 
