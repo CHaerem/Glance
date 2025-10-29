@@ -28,6 +28,7 @@ RUN npm install --production --no-dev && npm cache clean --force
 # Copy source code, UI files, and assets
 COPY server.js ./
 COPY simple-ui.html ./
+COPY admin.html ./
 COPY bhutan.svg ./
 
 # Create non-root user for security

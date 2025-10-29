@@ -2,11 +2,7 @@ version: '3.8'
 
 services:
   glance-server:
-    build:
-      context: ./server
-      args:
-        IMAGE_VERSION: ${IMAGE_VERSION:-local}
-        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: ${DOCKER_USERNAME:-chaerem}/glance-server:${IMAGE_VERSION:-latest}
     container_name: glance-server
     ports:
       - "3000:3000"
