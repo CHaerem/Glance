@@ -924,6 +924,7 @@ app.get("/api/current.json", async (req, res) => {
 		};
 
 		console.log(`Serving metadata: hasImage=${metadata.hasImage}, imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us`);
+		addDeviceLog(`Device fetched image metadata: ${metadata.imageId} (sleep: ${Math.round(metadata.sleepDuration/60000000)}min)`);
 		res.json(metadata);
 	} catch (error) {
 		console.error("Error getting current:", error);
@@ -972,6 +973,7 @@ app.get("/api/image.bin", async (req, res) => {
 		});
 		
 		console.log(`Sending ${binaryData.length} bytes of raw image data`);
+		addDeviceLog(`Device downloaded image data: ${(binaryData.length / 1024 / 1024).toFixed(2)}MB`);
 		res.send(binaryData);
 		
 	} catch (error) {
@@ -1171,6 +1173,7 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 		await fs.unlink(req.file.path);
 
 		console.log(`Image uploaded successfully: ${imageId}`);
+		addDeviceLog(`New image uploaded: "${req.file.originalname}"`);
 
 		res.json({
 			success: true,
@@ -1337,6 +1340,7 @@ app.post("/api/generate-art", async (req, res) => {
 		await fs.unlink(tempFilePath);
 
 		console.log(`AI art generated and processed successfully`);
+		addDeviceLog(`New AI art generated: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}" (${artStyle} style)`);
 
 		res.json({
 			success: true,
@@ -1551,9 +1555,9 @@ app.post("/api/device-status", async (req, res) => {
 
 		await writeJSONFile("devices.json", devices);
 
-		console.log(
-			`Device status updated: ${deviceId} - Battery: ${status.batteryVoltage}V, Signal: ${status.signalStrength}dBm`
-		);
+		const logMessage = `Device ${deviceId} reported: Battery ${status.batteryVoltage}V, Signal ${status.signalStrength}dBm, Status: ${status.status}`;
+		console.log(logMessage);
+		addDeviceLog(logMessage);
 
 		res.json({ success: true });
 	} catch (error) {
@@ -1920,6 +1924,7 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 		// Set this image as current
 		await writeJSONFile("current.json", imageData);
 		console.log(`Loaded image ${imageId} from history: ${imageData.title}`);
+		addDeviceLog(`Applied image from history: "${imageData.title || imageId}"`);
 
 		res.json({ success: true, current: imageData });
 	} catch (error) {
@@ -3113,6 +3118,7 @@ app.post("/api/art/import", async (req, res) => {
 		await writeJSONFile("history.json", history);
 
 		console.log(`Imported artwork: ${title} from ${source}`);
+		addDeviceLog(`Applied artwork from browse: "${title}" by ${artist || 'Unknown'}`);
 
 		res.json({ success: true, message: "Artwork imported successfully" });
 	} catch (error) {
