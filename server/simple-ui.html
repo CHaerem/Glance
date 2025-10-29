@@ -781,9 +781,33 @@
         let currentMode = 'generate';
         let currentArtResults = [];
         let selectedModalArt = null;
+        let defaultOrientation = 'portrait'; // Default orientation from settings
+
+        // Load settings
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+                defaultOrientation = settings.defaultOrientation || 'portrait';
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                defaultOrientation = 'portrait'; // Fallback to portrait
+            }
+        }
+
+        // Apply default orientation to modal image
+        function applyDefaultOrientation() {
+            const modalImage = document.getElementById('modalImage');
+            if (defaultOrientation === 'landscape') {
+                modalImage.classList.add('landscape');
+            } else {
+                modalImage.classList.remove('landscape');
+            }
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
             loadCurrentDisplay();
             loadHistory();
             loadAllArt();
@@ -887,10 +911,13 @@
             overlay.classList.add('show');
 
             try {
+                // Use default orientation for generation
+                const rotation = defaultOrientation === 'landscape' ? 90 : 0;
+
                 const response = await fetch('/api/generate-art', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
+                    body: JSON.stringify({ prompt, rotation })
                 });
 
                 if (response.ok) {
@@ -943,6 +970,9 @@
                     : `data:image/png;base64,${item.thumbnail}`;
 
                 document.getElementById('modalImage').src = imageSrc;
+
+                // Apply default orientation
+                applyDefaultOrientation();
 
                 // Show delete button for generated images
                 document.getElementById('deleteModalBtn').style.display = 'inline-block';
@@ -1050,6 +1080,9 @@
         function previewArt(art) {
             selectedModalArt = art;
             document.getElementById('modalImage').src = art.imageUrl;
+
+            // Apply default orientation
+            applyDefaultOrientation();
 
             // Hide delete button for browse results (only show for history items)
             document.getElementById('deleteModalBtn').style.display = 'none';
@@ -1276,6 +1309,9 @@
                     : `data:image/png;base64,${item.thumbnail}`;
 
                 document.getElementById('modalImage').src = imageSrc;
+
+                // Apply default orientation
+                applyDefaultOrientation();
 
                 // Show delete button for history items
                 document.getElementById('deleteModalBtn').style.display = 'inline-block';

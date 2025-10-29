@@ -3462,7 +3462,8 @@ app.get("/api/settings", async (_req, res) => {
 		const settings = (await readJSONFile("settings.json")) || {
 			defaultSleepDuration: 3600000000, // 1 hour in microseconds
 			devMode: true, // Dev mode enabled by default
-			devServerHost: "host.local:3000" // Placeholder, will be replaced by ESP32
+			devServerHost: "host.local:3000", // Placeholder, will be replaced by ESP32
+			defaultOrientation: "portrait" // Default orientation: "portrait" or "landscape"
 		};
 		res.json(settings);
 	} catch (error) {
@@ -3473,7 +3474,7 @@ app.get("/api/settings", async (_req, res) => {
 
 app.put("/api/settings", async (req, res) => {
 	try {
-		const { defaultSleepDuration, devMode, devServerHost } = req.body;
+		const { defaultSleepDuration, devMode, devServerHost, defaultOrientation } = req.body;
 
 		// Read existing settings
 		const existingSettings = (await readJSONFile("settings.json")) || {};
@@ -3501,6 +3502,16 @@ app.put("/api/settings", async (req, res) => {
 			existingSettings.devServerHost = String(devServerHost);
 		}
 
+		// Update default orientation if provided
+		if (defaultOrientation !== undefined) {
+			if (defaultOrientation !== "portrait" && defaultOrientation !== "landscape") {
+				return res.status(400).json({
+					error: "Default orientation must be 'portrait' or 'landscape'"
+				});
+			}
+			existingSettings.defaultOrientation = defaultOrientation;
+		}
+
 		await writeJSONFile("settings.json", existingSettings);
 
 		// Update current.json to apply new sleep duration if it was changed
@@ -3518,7 +3529,7 @@ app.put("/api/settings", async (req, res) => {
 			await writeJSONFile("current.json", current);
 		}
 
-		console.log(`Settings updated: sleep=${existingSettings.defaultSleepDuration}µs, devMode=${existingSettings.devMode}`);
+		console.log(`Settings updated: sleep=${existingSettings.defaultSleepDuration}µs, devMode=${existingSettings.devMode}, orientation=${existingSettings.defaultOrientation}`);
 		res.json({ success: true, settings: existingSettings });
 	} catch (error) {
 		console.error("Error updating settings:", error);

@@ -326,6 +326,21 @@
             </div>
         </div>
 
+        <div class="form-group">
+            <label class="form-label" for="defaultOrientation">Default Display Orientation</label>
+            <div style="display: flex; gap: 12px;">
+                <button type="button" class="preset-btn" id="orientationPortrait" onclick="selectOrientation('portrait')" style="flex: 1; font-size: 0.9rem;">
+                    📱 Portrait (1200×1600)
+                </button>
+                <button type="button" class="preset-btn" id="orientationLandscape" onclick="selectOrientation('landscape')" style="flex: 1; font-size: 0.9rem;">
+                    📺 Landscape (1600×1200)
+                </button>
+            </div>
+            <div class="form-hint">
+                Sets the default orientation for image previews and AI generation. Applies to all new images.
+            </div>
+        </div>
+
         <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
         <div class="success-message" id="successMessage">Settings saved! ESP32 will use new settings on next wake.</div>
     </div>
@@ -397,6 +412,28 @@
 
     <script>
         let autoRefreshInterval = null;
+        let selectedOrientation = 'portrait'; // Default orientation
+
+        // Select orientation
+        function selectOrientation(orientation) {
+            selectedOrientation = orientation;
+
+            // Update button styles
+            const portraitBtn = document.getElementById('orientationPortrait');
+            const landscapeBtn = document.getElementById('orientationLandscape');
+
+            if (orientation === 'portrait') {
+                portraitBtn.style.background = '#1a1a1a';
+                portraitBtn.style.color = '#fff';
+                landscapeBtn.style.background = '';
+                landscapeBtn.style.color = '';
+            } else {
+                landscapeBtn.style.background = '#1a1a1a';
+                landscapeBtn.style.color = '#fff';
+                portraitBtn.style.background = '';
+                portraitBtn.style.color = '';
+            }
+        }
 
         // Load settings
         async function loadSettings() {
@@ -412,6 +449,10 @@
                 const devMode = settings.devMode !== undefined ? settings.devMode : true;
                 document.getElementById('devMode').checked = devMode;
                 document.getElementById('devServerHost').value = settings.devServerHost || '';
+
+                // Load orientation setting (default to portrait if not set)
+                const orientation = settings.defaultOrientation || 'portrait';
+                selectOrientation(orientation);
 
                 // Show/hide dev server host field based on dev mode
                 toggleDevServerHost();
@@ -510,7 +551,8 @@
                     body: JSON.stringify({
                         defaultSleepDuration: microseconds,
                         devMode: devMode,
-                        devServerHost: devServerHost || undefined
+                        devServerHost: devServerHost || undefined,
+                        defaultOrientation: selectedOrientation
                     })
                 });
 
