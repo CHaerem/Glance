@@ -13,7 +13,8 @@ const sharp = require('sharp');
 const fs = require('fs').promises;
 const path = require('path');
 
-const BASE_URL = 'http://localhost:3000';
+// Import app for testing (requires NODE_ENV=test to be set)
+const { app } = require('../server.js');
 
 describe('Upload Endpoint Integration Tests', () => {
     const OUTPUT_DIR = path.join(__dirname, 'output');
@@ -41,7 +42,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'upload-test-rgb.png');
             await fs.writeFile(testPath, testImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/upload')
                 .attach('image', testPath)
                 .expect(200);
@@ -65,7 +66,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'upload-test-rgba.png');
             await fs.writeFile(testPath, testImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/upload')
                 .attach('image', testPath)
                 .expect(200);
@@ -92,7 +93,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'upload-test-dimensions.png');
             await fs.writeFile(testPath, testImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/upload')
                 .attach('image', testPath)
                 .expect(200);
@@ -100,14 +101,14 @@ describe('Upload Endpoint Integration Tests', () => {
             expect(response.body.success).toBe(true);
 
             // Get the uploaded image metadata
-            const currentResponse = await request(BASE_URL)
+            const currentResponse = await request(app)
                 .get('/api/current.json')
                 .expect(200);
 
             expect(currentResponse.body.hasImage).toBe(true);
 
             // Verify image.bin is exactly 5.76MB (1200x1600x3)
-            const imageResponse = await request(BASE_URL)
+            const imageResponse = await request(app)
                 .get('/api/image.bin')
                 .expect(200);
 
@@ -130,7 +131,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'upload-test-rotation.png');
             await fs.writeFile(testPath, testImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/upload')
                 .attach('image', testPath)
                 .expect(200);
@@ -142,7 +143,7 @@ describe('Upload Endpoint Integration Tests', () => {
         });
 
         test('should reject images without file', async () => {
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/upload')
                 .expect(400);
 
@@ -164,7 +165,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'preview-test.png');
             await fs.writeFile(testPath, testImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/preview')
                 .attach('image', testPath)
                 .field('ditherAlgorithm', 'floyd-steinberg')
@@ -197,7 +198,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'preview-params-test.png');
             await fs.writeFile(testPath, testImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/preview')
                 .attach('image', testPath)
                 .expect(200);
@@ -219,7 +220,7 @@ describe('Upload Endpoint Integration Tests', () => {
 
             const base64Data = testImage.toString('base64');
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/current')
                 .send({
                     title: 'Test Base64 Image',
@@ -245,7 +246,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const base64Data = testImage.toString('base64');
             const dataUri = `data:image/jpeg;base64,${base64Data}`;
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/current')
                 .send({
                     title: 'Test Data URI',
@@ -278,7 +279,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'regression-test.png');
             await fs.writeFile(testPath, testImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/upload')
                 .attach('image', testPath)
                 .expect(200);
@@ -286,7 +287,7 @@ describe('Upload Endpoint Integration Tests', () => {
             expect(response.body.success).toBe(true);
 
             // Verify the output is 1200x1600, not corrupted dimensions
-            const imageResponse = await request(BASE_URL)
+            const imageResponse = await request(app)
                 .get('/api/image.bin')
                 .expect(200);
 
@@ -325,7 +326,7 @@ describe('Upload Endpoint Integration Tests', () => {
             const testPath = path.join(OUTPUT_DIR, 'colors-test.png');
             await fs.writeFile(testPath, pngImage);
 
-            const response = await request(BASE_URL)
+            const response = await request(app)
                 .post('/api/upload')
                 .attach('image', testPath)
                 .expect(200);

@@ -69,20 +69,23 @@ describe('convertImageToRGB Function Tests', () => {
         });
 
         test('should handle grayscale images', async () => {
+            // Create RGB image first, then convert to grayscale
+            // Note: Sharp's grayscale() keeps 3 channels with identical R/G/B values
             const testImage = await sharp({
                 create: {
                     width: 1200,
                     height: 1600,
-                    channels: 1,
+                    channels: 3,
                     background: { r: 128, g: 128, b: 128 }
                 }
-            }).png().toBuffer();
+            }).grayscale().png().toBuffer();
 
             const testPath = path.join(OUTPUT_DIR, 'test-gray.png');
             await fs.writeFile(testPath, testImage);
 
             const metadata = await sharp(testPath).metadata();
-            expect(metadata.channels).toBe(1);
+            // Sharp's grayscale() outputs RGB grayscale (3 channels)
+            expect(metadata.channels).toBe(3);
         });
     });
 
