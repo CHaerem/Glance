@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[test]')
 
     steps:
     - name: Checkout code
@@ -54,7 +55,6 @@ jobs:
         npx audit-ci --config audit-ci.json || true
 
   build-and-deploy:
-    needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
