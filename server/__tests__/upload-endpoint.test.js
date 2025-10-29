@@ -29,11 +29,11 @@ describe('Upload Endpoint Integration Tests', () => {
 
     describe('POST /api/upload', () => {
         test('should upload RGB image and return correct dimensions', async () => {
-            // Create test image (RGB, 3 channels)
+            // Create small test image for speed (RGB, 3 channels)
             const testImage = await sharp({
                 create: {
-                    width: 800,
-                    height: 600,
+                    width: 100,
+                    height: 100,
                     channels: 3,
                     background: { r: 255, g: 0, b: 0 }
                 }
@@ -53,11 +53,11 @@ describe('Upload Endpoint Integration Tests', () => {
         });
 
         test('should upload RGBA image (with alpha) and handle correctly', async () => {
-            // Create test image with alpha channel
+            // Create small test image with alpha channel for speed
             const testImage = await sharp({
                 create: {
-                    width: 800,
-                    height: 600,
+                    width: 100,
+                    height: 100,
                     channels: 4,
                     background: { r: 255, g: 255, b: 0, alpha: 0.8 }
                 }
@@ -121,8 +121,8 @@ describe('Upload Endpoint Integration Tests', () => {
 
             const testImage = await sharp({
                 create: {
-                    width: 800,
-                    height: 600,
+                    width: 100,
+                    height: 100,
                     channels: 3,
                     background: { r: 0, g: 0, b: 255 }
                 }
