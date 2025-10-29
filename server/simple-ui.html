@@ -987,7 +987,12 @@
         // Feeling lucky
         async function feelingLucky() {
             try {
-                const response = await fetch('/api/lucky-prompt', { method: 'POST' });
+                const currentPrompt = document.getElementById('promptInput').value.trim();
+                const response = await fetch('/api/lucky-prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPrompt })
+                });
                 const data = await response.json();
                 if (data.prompt) {
                     document.getElementById('promptInput').value = data.prompt;

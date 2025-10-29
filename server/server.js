@@ -837,7 +837,29 @@ function sanitizeInput(input) {
 }
 
 function getRandomLuckyPrompt() {
-	return "Surprise me with a vivid portrait concept that feels full-bleed, high contrast, and made for a six-color e-ink display.";
+	const themes = [
+		"ethereal landscapes with dramatic weather",
+		"abstract geometric patterns with bold colors",
+		"surreal dreamscapes with unexpected elements",
+		"vintage botanical illustrations",
+		"minimalist architecture with strong shadows",
+		"cosmic and celestial phenomena",
+		"mythological creatures in natural settings",
+		"urban scenes with dramatic lighting",
+		"organic flowing forms and textures",
+		"vintage travel poster aesthetics",
+		"art deco patterns and motifs",
+		"underwater scenes with unusual creatures",
+		"futuristic cityscapes",
+		"folk art and cultural patterns",
+		"wildlife in dramatic poses",
+		"abstract expressionism with bold strokes",
+		"Japanese woodblock print style",
+		"modernist compositions with primary colors",
+		"intricate mandala designs",
+		"retro science fiction imagery"
+	];
+	return themes[Math.floor(Math.random() * themes.length)];
 }
 
 // Helper functions
@@ -1414,6 +1436,7 @@ app.post("/api/generate-art", async (req, res) => {
 // Lucky prompt helper - expands simple cues into a detailed art prompt
 app.post("/api/lucky-prompt", async (req, res) => {
 	const body = req.body || {};
+	const currentPrompt = sanitizeInput(body.currentPrompt || "");
 	const idea = sanitizeInput(body.idea || "");
 	const mood = sanitizeInput(body.mood || "");
 	const theme = sanitizeInput(body.theme || "");
@@ -1432,11 +1455,27 @@ app.post("/api/lucky-prompt", async (req, res) => {
 		});
 	}
 
-	const inspirationSeed =
-		cueParts.length > 0 ? cueParts.join(". ") : getRandomLuckyPrompt();
-
 	try {
-		const temperature = cueParts.length > 0 ? 0.9 : 1.1;
+		let userContent;
+		let temperature;
+
+		if (currentPrompt) {
+			// Enhance/expand existing prompt
+			temperature = 0.8;
+			userContent = `Take this existing prompt and enhance it with more vivid details, stronger contrast elements, and full-bleed composition guidance:\n\n"${currentPrompt}"\n\nExpand it into a complete, detailed prompt (under 80 words) optimized for a high-contrast six-color e-ink display.`;
+		} else if (cueParts.length > 0) {
+			// Use provided cues
+			temperature = 0.9;
+			userContent = `Use the following loose guidance to create a vivid prompt:\n${cueParts.join(
+				"\n"
+			)}\n\nDeliver one complete prompt ready for image generation, highlighting full-bleed composition, dramatic lighting, and strong contrast suitable for an e-ink poster.`;
+		} else {
+			// Generate from random theme
+			temperature = 1.1;
+			const inspirationSeed = getRandomLuckyPrompt();
+			userContent = `Surprise me with a fresh, inspiring idea for a portrait-oriented AI artwork that would look striking on an e-ink display. Lean into ${inspirationSeed}. Make sure the prompt enforces full-bleed composition, edge-to-edge detail, and bold contrast.`;
+		}
+
 		const response = await openai.chat.completions.create({
 			model: "gpt-4o-mini",
 			max_tokens: 220,
@@ -1449,11 +1488,7 @@ app.post("/api/lucky-prompt", async (req, res) => {
 				},
 				{
 					role: "user",
-					content: cueParts.length > 0
-						? `Use the following loose guidance to create a vivid prompt:\n${cueParts.join(
-							"\n"
-						)}\n\nDeliver one complete prompt ready for image generation, highlighting full-bleed composition, dramatic lighting, and strong contrast suitable for an e-ink poster.`
-						: `Surprise me with a fresh, inspiring idea for a portrait-oriented AI artwork that would look striking on an e-ink display. Lean into ${inspirationSeed}. Make sure the prompt enforces full-bleed composition, edge-to-edge detail, and bold contrast.`
+					content: userContent
 				}
 			]
 		});
@@ -1470,11 +1505,20 @@ app.post("/api/lucky-prompt", async (req, res) => {
 
 		const generatedPrompt = candidate.replace(/^"+|"+$/g, "");
 
-		res.json({
+		// Build response with context
+		const responseData = {
 			prompt: generatedPrompt,
-			source: "openai",
-			inspiration: cueParts.length > 0 ? cueParts : [inspirationSeed]
-		});
+			source: "openai"
+		};
+
+		if (currentPrompt) {
+			responseData.enhanced = true;
+			responseData.original = currentPrompt;
+		} else if (cueParts.length > 0) {
+			responseData.inspiration = cueParts;
+		}
+
+		res.json(responseData);
 	} catch (error) {
 		console.error("Error generating lucky prompt with OpenAI:", error);
 		res.status(502).json({
