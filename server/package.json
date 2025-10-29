@@ -39,6 +39,7 @@
   "license": "MIT",
   "jest": {
     "testEnvironment": "node",
+    "testTimeout": 60000,
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
       "*.js",

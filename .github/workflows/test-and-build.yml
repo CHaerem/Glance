@@ -33,6 +33,7 @@ jobs:
     - name: Run tests
       working-directory: ./server
       run: npm run test:ci
+      timeout-minutes: 10
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
