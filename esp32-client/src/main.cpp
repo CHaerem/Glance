@@ -57,6 +57,9 @@ const uint8_t EINK_RED = 0x3;
 const uint8_t EINK_BLUE = 0x5;
 const uint8_t EINK_GREEN = 0x6;
 
+// RTC memory to store last displayed imageId across deep sleep cycles
+RTC_DATA_ATTR char lastDisplayedImageId[65] = ""; // Stores imageId (64 chars + null terminator)
+
 void setup() {
     Serial.begin(115200);
     delay(1000);
@@ -104,39 +107,89 @@ void setup() {
     // Report device status
     int signalStrength = WiFi.RSSI();
     reportDeviceStatus("awake", batteryVoltage, signalStrength);
-    sendLogToServer("ESP32 v2 awakened, downloading image");
+    sendLogToServer("ESP32 v2 awakened, checking for new image");
 
     // Note: Always connect to production server (SERVER_HOST)
     // Dev mode is handled server-side via proxy - production server
     // forwards requests to dev server when dev mode is enabled
 
-    // Initialize e-Paper display
-    Debug("Initializing e-Paper display...\r\n");
-    DEV_Module_Init();
-    delay(2000);
-    EPD_13IN3E_Init();
-    delay(2000);
-    
-    // Clear display with white background first
-    Debug("Clearing display...\r\n");
-    EPD_13IN3E_Clear(EINK_WHITE);
-    Debug("Display cleared\r\n");
-    delay(1000);
-    
-    // Download and display image from server
-    bool success = downloadAndDisplayImage();
-    
-    if (success) {
-        reportDeviceStatus("display_updated", batteryVoltage, signalStrength);
-        sendLogToServer("Image downloaded and displayed successfully");
-    } else {
-        reportDeviceStatus("display_fallback", batteryVoltage, signalStrength);
-        sendLogToServer("Download failed, displaying fallback flag");
-        generateAndDisplayBhutanFlag();
+    // Check if image has changed by comparing imageId
+    Debug("Last displayed imageId: " + String(lastDisplayedImageId) + "\r\n");
+
+    HTTPClient http;
+    String url = buildApiUrl("current.json", SERVER_HOST);
+    http.begin(url);
+    http.setTimeout(30000);
+    http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
+
+    int httpResponseCode = http.GET();
+    String currentImageId = "";
+    bool imageChanged = true;
+
+    if (httpResponseCode == 200) {
+        String payload = http.getString();
+        DynamicJsonDocument doc(1024);
+        DeserializationError error = deserializeJson(doc, payload);
+
+        if (!error && doc.containsKey("imageId")) {
+            currentImageId = doc["imageId"].as<String>();
+            Debug("Current server imageId: " + currentImageId + "\r\n");
+
+            // Compare with last displayed imageId
+            if (strlen(lastDisplayedImageId) > 0 && currentImageId.equals(lastDisplayedImageId)) {
+                imageChanged = false;
+                Debug("Image unchanged - skipping display update\r\n");
+                sendLogToServer("Image unchanged, skipping update to save power");
+            }
+        }
     }
-    
-    // Power down display and radios
-    powerDownDisplay();
+    http.end();
+
+    if (!imageChanged) {
+        // Image hasn't changed, skip display update
+        reportDeviceStatus("display_unchanged", batteryVoltage, signalStrength);
+    } else {
+        // Image has changed or this is first boot, proceed with update
+        Debug("Image changed or first boot - updating display\r\n");
+        sendLogToServer("New image detected, updating display");
+
+        // Initialize e-Paper display
+        Debug("Initializing e-Paper display...\r\n");
+        DEV_Module_Init();
+        delay(2000);
+        EPD_13IN3E_Init();
+        delay(2000);
+
+        // Clear display with white background first
+        Debug("Clearing display...\r\n");
+        EPD_13IN3E_Clear(EINK_WHITE);
+        Debug("Display cleared\r\n");
+        delay(1000);
+
+        // Download and display image from server
+        bool success = downloadAndDisplayImage();
+
+        if (success) {
+            // Store the new imageId in RTC memory
+            if (currentImageId.length() > 0 && currentImageId.length() < 65) {
+                strncpy(lastDisplayedImageId, currentImageId.c_str(), 64);
+                lastDisplayedImageId[64] = '\0';
+                Debug("Stored imageId in RTC memory: " + String(lastDisplayedImageId) + "\r\n");
+            }
+
+            reportDeviceStatus("display_updated", batteryVoltage, signalStrength);
+            sendLogToServer("Image downloaded and displayed successfully");
+        } else {
+            reportDeviceStatus("display_fallback", batteryVoltage, signalStrength);
+            sendLogToServer("Download failed, displaying fallback flag");
+            generateAndDisplayBhutanFlag();
+        }
+
+        // Power down display after update
+        powerDownDisplay();
+    }
+
+    // Power down radios
     teardownRadios();
     
     // Get sleep interval from server (with fallback to default)
