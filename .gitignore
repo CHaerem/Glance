@@ -48,6 +48,9 @@ pids
 coverage/
 .nyc_output
 
+# Test output files
+**/__tests__/output/
+
 # Docker
 .dockerignore
 
