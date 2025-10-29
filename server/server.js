@@ -65,11 +65,7 @@ app.use(async (req, res, next) => {
 	// Proxy the request to dev server
 	try {
 		const devUrl = `http://${devMode.host}${req.path}${req.url.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
-		console.log(`\n${'='.repeat(60)}`);
-		console.log(`🔀 [DEV MODE PROXY] ${req.method} ${req.path}`);
-		console.log(`   From: ESP32 (${req.ip})`);
-		console.log(`   To:   ${devUrl}`);
-		console.log(`${'='.repeat(60)}\n`);
+		console.log(`[Dev Mode Proxy] ${req.method} ${req.path} -> ${devUrl}`);
 
 		const response = await fetch(devUrl, {
 			method: req.method,
@@ -81,7 +77,7 @@ app.use(async (req, res, next) => {
 			timeout: 30000
 		});
 
-		console.log(`✅ [DEV MODE PROXY] Response: ${response.status} ${response.statusText}\n`);
+		console.log(`[Dev Mode Proxy] Response: ${response.status} ${response.statusText}`);
 
 		// Copy response headers
 		response.headers.forEach((value, key) => {
@@ -95,8 +91,8 @@ app.use(async (req, res, next) => {
 		const body = await response.arrayBuffer();
 		res.send(Buffer.from(body));
 	} catch (error) {
-		console.error(`\n❌ [DEV MODE PROXY] Error: ${error.message}`);
-		console.log(`⚠️  [DEV MODE PROXY] Falling back to production server\n`);
+		console.error(`[Dev Mode Proxy] Error: ${error.message}`);
+		console.log(`[Dev Mode Proxy] Falling back to production server`);
 		// Fallback to production server
 		next();
 	}
