@@ -500,6 +500,50 @@
             aspect-ratio: 4 / 3; /* 1600×1200 landscape */
         }
 
+        /* Gesture hint overlay */
+        .gesture-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            z-index: 15;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .gesture-hint.show {
+            opacity: 1;
+        }
+
+        /* Control overlay container - auto-hides */
+        .modal-controls-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .modal-controls-overlay.hidden {
+            opacity: 0;
+        }
+
+        .modal-controls-overlay > * {
+            pointer-events: auto;
+        }
+
         .crop-controls {
             position: absolute;
             bottom: 100px;
@@ -700,70 +744,17 @@
 
             .modal-image {
                 max-height: calc(95vh - 120px);
+                touch-action: none; /* Enable gestures, disable default behaviors */
             }
 
             .modal-info {
                 padding: 12px;
             }
 
-            /* Reposition controls at bottom center on mobile */
+            /* Hide button controls on mobile (use gestures instead) */
             .crop-controls,
             .zoom-controls {
-                position: absolute;
-                bottom: 130px;
-                left: 50%;
-                transform: translateX(-50%);
-                flex-direction: row;
-                gap: 8px;
-            }
-
-            .crop-controls {
-                bottom: 180px;
-                display: grid;
-                grid-template-columns: repeat(3, 44px);
-                grid-template-rows: repeat(2, 44px);
-                gap: 8px;
-            }
-
-            .crop-btn:nth-child(1) { /* up */
-                grid-column: 2;
-                grid-row: 1;
-            }
-
-            .crop-btn:nth-child(2) { /* down */
-                grid-column: 2;
-                grid-row: 2;
-            }
-
-            .crop-btn:nth-child(3) { /* left */
-                grid-column: 1;
-                grid-row: 2;
-            }
-
-            .crop-btn:nth-child(4) { /* right */
-                grid-column: 3;
-                grid-row: 2;
-            }
-
-            .crop-btn.crop-reset { /* reset */
-                grid-column: 1 / -1;
-                grid-row: 3;
-                margin-top: 0;
-                border-top: none;
-                padding-top: 0;
-            }
-
-            .zoom-controls {
-                bottom: 130px;
-            }
-
-            .zoom-fit {
-                margin-top: 0;
-                border-top: none;
-                padding-top: 0;
-                border-left: 1px solid #eee;
-                padding-left: 8px;
-                margin-left: 4px;
+                display: none;
             }
 
             /* Make top buttons easier to reach on mobile */
@@ -788,6 +779,13 @@
 
             .btn {
                 width: 100%;
+            }
+        }
+
+        /* Desktop: Show button controls */
+        @media (min-width: 601px) {
+            .gesture-hint {
+                display: none;
             }
         }
     </style>
@@ -881,24 +879,30 @@
     <!-- Art Preview Modal -->
     <div class="modal" id="artModal" onclick="if(event.target === this) closeModal()">
         <div class="modal-content">
-            <button class="close-modal" onclick="closeModal()">×</button>
-            <button class="orientation-toggle" id="orientationToggle" onclick="togglePreviewOrientation()">⟲</button>
+            <!-- Controls overlay (auto-hides on mobile) -->
+            <div class="modal-controls-overlay" id="modalControlsOverlay">
+                <button class="close-modal" onclick="closeModal()">×</button>
+                <button class="orientation-toggle" id="orientationToggle" onclick="togglePreviewOrientation()">⟲</button>
 
-            <!-- Crop adjustment controls -->
-            <div class="crop-controls">
-                <button class="crop-btn crop-up" onclick="adjustCrop('up')">↑</button>
-                <button class="crop-btn crop-down" onclick="adjustCrop('down')">↓</button>
-                <button class="crop-btn crop-left" onclick="adjustCrop('left')">←</button>
-                <button class="crop-btn crop-right" onclick="adjustCrop('right')">→</button>
-                <button class="crop-btn crop-reset" onclick="adjustCrop('reset')">◎</button>
+                <!-- Crop adjustment controls (desktop only) -->
+                <div class="crop-controls">
+                    <button class="crop-btn crop-up" onclick="adjustCrop('up')">↑</button>
+                    <button class="crop-btn crop-down" onclick="adjustCrop('down')">↓</button>
+                    <button class="crop-btn crop-left" onclick="adjustCrop('left')">←</button>
+                    <button class="crop-btn crop-right" onclick="adjustCrop('right')">→</button>
+                    <button class="crop-btn crop-reset" onclick="adjustCrop('reset')">◎</button>
+                </div>
+
+                <!-- Zoom controls (desktop only) -->
+                <div class="zoom-controls">
+                    <button class="zoom-btn zoom-in" onclick="adjustZoom('in')">+</button>
+                    <button class="zoom-btn zoom-out" onclick="adjustZoom('out')">−</button>
+                    <button class="zoom-btn zoom-fit" onclick="adjustZoom('fit')">⊡</button>
+                </div>
             </div>
 
-            <!-- Zoom controls -->
-            <div class="zoom-controls">
-                <button class="zoom-btn zoom-in" onclick="adjustZoom('in')">+</button>
-                <button class="zoom-btn zoom-out" onclick="adjustZoom('out')">−</button>
-                <button class="zoom-btn zoom-fit" onclick="adjustZoom('fit')">⊡</button>
-            </div>
+            <!-- Gesture hint (mobile only) -->
+            <div class="gesture-hint" id="gestureHint"></div>
 
             <img id="modalImage" class="modal-image" src="" alt="">
             <div class="modal-info">
@@ -1116,6 +1120,9 @@
 
                 // Open modal
                 document.getElementById('artModal').classList.add('show');
+
+                // Setup gesture controls on mobile
+                setupGestureControls();
             } catch (error) {
                 console.error('Failed to open preview:', error);
             }
@@ -1230,6 +1237,9 @@
             document.getElementById('deleteModalBtn').style.display = 'none';
 
             document.getElementById('artModal').classList.add('show');
+
+            // Setup gesture controls on mobile
+            setupGestureControls();
         }
 
         function closeModal() {
@@ -1238,17 +1248,23 @@
             selectedHistoryItem = null;
             document.getElementById('deleteModalBtn').style.display = 'none';
 
+            // Reset image transform
+            resetImageTransform();
+
             const modalImage = document.getElementById('modalImage');
             // Reset to portrait orientation
             modalImage.classList.remove('landscape');
-            // Reset crop position
-            cropX = 50;
-            cropY = 50;
-            modalImage.style.objectPosition = '50% 50%';
-            // Reset zoom
-            zoomLevel = 1.0;
-            modalImage.style.transform = 'scale(1)';
-            modalImage.style.objectFit = 'cover';
+
+            // Clean up gesture controls
+            clearTimeout(gestureState.controlsHideTimeout);
+            showControls(); // Show for next time
+            hideGestureHint();
+
+            // Remove gesture listeners to prevent memory leaks
+            if (window.innerWidth <= 600) {
+                const img = document.getElementById('modalImage');
+                img.replaceWith(img.cloneNode(true)); // Simple way to remove all listeners
+            }
         }
 
         function togglePreviewOrientation() {
@@ -1316,6 +1332,157 @@
             } else {
                 modalImage.style.objectFit = 'cover';
             }
+        }
+
+        // iOS-native gesture controls for mobile
+        let gestureState = {
+            initialDistance: 0,
+            initialScale: 1.0,
+            lastTouchX: 0,
+            lastTouchY: 0,
+            controlsHideTimeout: null,
+            hasShownHint: false
+        };
+
+        function setupGestureControls() {
+            const modalImage = document.getElementById('modalImage');
+            const modal = document.getElementById('artModal');
+
+            // Only setup gestures on mobile
+            if (window.innerWidth > 600) return;
+
+            // Show initial hint
+            showGestureHint('Pinch to zoom · Drag to adjust');
+
+            // Pinch to zoom
+            modalImage.addEventListener('touchstart', handleTouchStart, { passive: false });
+            modalImage.addEventListener('touchmove', handleTouchMove, { passive: false });
+            modalImage.addEventListener('touchend', handleTouchEnd);
+
+            // Double tap to reset
+            let lastTap = 0;
+            modalImage.addEventListener('touchend', (e) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                if (tapLength < 300 && tapLength > 0) {
+                    e.preventDefault();
+                    resetImageTransform();
+                    showGestureHint('Reset to fit');
+                }
+                lastTap = currentTime;
+            });
+
+            // Show/hide controls on tap
+            modal.addEventListener('touchstart', () => {
+                showControls();
+                resetControlsHideTimer();
+            });
+        }
+
+        function handleTouchStart(e) {
+            if (e.touches.length === 2) {
+                // Two fingers - pinch zoom
+                e.preventDefault();
+                gestureState.initialDistance = getDistance(e.touches[0], e.touches[1]);
+                gestureState.initialScale = zoomLevel;
+                showGestureHint('Pinch to zoom');
+            } else if (e.touches.length === 1) {
+                // One finger - pan
+                gestureState.lastTouchX = e.touches[0].clientX;
+                gestureState.lastTouchY = e.touches[0].clientY;
+                showGestureHint('Drag to adjust position');
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (e.touches.length === 2) {
+                // Pinch zoom
+                e.preventDefault();
+                const currentDistance = getDistance(e.touches[0], e.touches[1]);
+                const scale = (currentDistance / gestureState.initialDistance) * gestureState.initialScale;
+
+                zoomLevel = Math.max(0.5, Math.min(2.0, scale));
+
+                const modalImage = document.getElementById('modalImage');
+                modalImage.style.transform = `scale(${zoomLevel})`;
+
+                if (zoomLevel < 1.0) {
+                    modalImage.style.objectFit = 'contain';
+                } else {
+                    modalImage.style.objectFit = 'cover';
+                }
+            } else if (e.touches.length === 1) {
+                // Pan to adjust crop
+                e.preventDefault();
+                const deltaX = e.touches[0].clientX - gestureState.lastTouchX;
+                const deltaY = e.touches[0].clientY - gestureState.lastTouchY;
+
+                // Convert pixels to percentage (scaled by image size)
+                const sensitivity = 0.1;
+                cropX = Math.max(0, Math.min(100, cropX - deltaX * sensitivity));
+                cropY = Math.max(0, Math.min(100, cropY - deltaY * sensitivity));
+
+                const modalImage = document.getElementById('modalImage');
+                modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
+
+                gestureState.lastTouchX = e.touches[0].clientX;
+                gestureState.lastTouchY = e.touches[0].clientY;
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (e.touches.length === 0) {
+                hideGestureHint();
+            }
+        }
+
+        function getDistance(touch1, touch2) {
+            const dx = touch1.clientX - touch2.clientX;
+            const dy = touch1.clientY - touch2.clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function resetImageTransform() {
+            cropX = 50;
+            cropY = 50;
+            zoomLevel = 1.0;
+
+            const modalImage = document.getElementById('modalImage');
+            modalImage.style.objectPosition = '50% 50%';
+            modalImage.style.transform = 'scale(1)';
+            modalImage.style.objectFit = 'cover';
+        }
+
+        function showGestureHint(text) {
+            const hint = document.getElementById('gestureHint');
+            hint.textContent = text;
+            hint.classList.add('show');
+        }
+
+        function hideGestureHint() {
+            setTimeout(() => {
+                const hint = document.getElementById('gestureHint');
+                hint.classList.remove('show');
+            }, 1000);
+        }
+
+        function showControls() {
+            const overlay = document.getElementById('modalControlsOverlay');
+            overlay.classList.remove('hidden');
+        }
+
+        function hideControls() {
+            const overlay = document.getElementById('modalControlsOverlay');
+            overlay.classList.add('hidden');
+        }
+
+        function resetControlsHideTimer() {
+            clearTimeout(gestureState.controlsHideTimeout);
+            gestureState.controlsHideTimeout = setTimeout(() => {
+                if (window.innerWidth <= 600) {
+                    hideControls();
+                }
+            }, 3000);
         }
 
 
@@ -1460,6 +1627,9 @@
 
                 // Open modal
                 document.getElementById('artModal').classList.add('show');
+
+                // Setup gesture controls on mobile
+                setupGestureControls();
             } catch (error) {
                 console.error('Failed to open preview:', error);
             }
