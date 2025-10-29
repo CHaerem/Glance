@@ -325,7 +325,7 @@
                 Development Mode
             </label>
             <div class="form-hint" id="devModeHint">
-                ESP32 will try dev server first, fallback to production if unreachable. Auto-disables if dev server is down. Configure on production admin.
+                ESP32 will try dev server first, fallback to production if unreachable. Auto-disables if dev server is down.
             </div>
         </div>
 
@@ -485,6 +485,13 @@
                 serverId.textContent = 'production: ' + window.location.host;
             } else {
                 serverId.textContent = 'development: ' + window.location.host;
+
+                // Hide dev mode settings on development server
+                // (only production server should control where ESP32 connects)
+                const devModeGroup = document.querySelector('.form-group:has(#devMode)');
+                const devServerHostGroup = document.getElementById('devServerHostGroup');
+                if (devModeGroup) devModeGroup.style.display = 'none';
+                if (devServerHostGroup) devServerHostGroup.style.display = 'none';
             }
         }
 
