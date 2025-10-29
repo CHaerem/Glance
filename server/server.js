@@ -3433,6 +3433,26 @@ app.get("/api/client-ip", (req, res) => {
 		cleanIp = cleanIp.substring(7); // Remove IPv6-mapped IPv4 prefix
 	}
 
+	// If client is localhost, return the server's own LAN IP instead
+	// This is useful when testing locally - you want your Mac's LAN IP, not 127.0.0.1
+	if (cleanIp === '127.0.0.1' || cleanIp === '::1') {
+		const os = require('os');
+		const networkInterfaces = os.networkInterfaces();
+
+		// Find the first non-internal IPv4 address (LAN IP)
+		for (const interfaceName of Object.keys(networkInterfaces)) {
+			const interfaces = networkInterfaces[interfaceName];
+			for (const iface of interfaces) {
+				// Skip internal (loopback) and non-IPv4 addresses
+				if (iface.family === 'IPv4' && !iface.internal) {
+					cleanIp = iface.address;
+					break;
+				}
+			}
+			if (cleanIp !== '127.0.0.1') break;
+		}
+	}
+
 	res.json({ ip: cleanIp });
 });
 

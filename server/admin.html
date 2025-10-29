@@ -320,10 +320,9 @@
 
         <div class="form-group" id="devServerHostGroup" style="display: none;">
             <label class="form-label" for="devServerHost">Development Server Host</label>
-            <input type="text" id="devServerHost" class="form-input" placeholder="your-macbook.tail-scale.ts.net:3000 or 192.168.1.100:3000">
+            <input type="text" id="devServerHost" class="form-input" placeholder="192.168.1.100:3000 or your-macbook.tail-scale.ts.net:3000">
             <div class="form-hint">
-                Use Tailscale hostname (works anywhere) or LAN IP address.
-                Production server can reach this via Tailscale even when you're remote.
+                Auto-detected when you enable dev mode. Enter LAN IP or Tailscale hostname.
             </div>
         </div>
 
