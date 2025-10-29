@@ -1161,13 +1161,44 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 
 		await writeJSONFile("current.json", current);
 
-		// Store in images archive for history
+		// Store in images archive for history (metadata only, not full RGB data)
 		const imagesArchive = (await readJSONFile("images.json")) || {};
 		imagesArchive[imageId] = {
-			...current,
-			thumbnail: thumbnailBase64
+			title: current.title,
+			imageId: imageId,
+			timestamp: timestamp,
+			sleepDuration: current.sleepDuration,
+			rotation: current.rotation,
+			originalImage: originalImageBase64, // Keep original for preview
+			originalImageMime: req.file.mimetype,
+			thumbnail: thumbnailBase64,
+			aiGenerated: false,
+			uploadedFilename: req.file.originalname
+			// Note: We don't store the large 'image' (processed RGB) field to prevent JSON size issues
 		};
 		await writeJSONFile("images.json", imagesArchive);
+
+		// Add to history (metadata + thumbnail)
+		const history = (await readJSONFile("history.json")) || [];
+		history.unshift({
+			imageId: imageId,
+			title: current.title,
+			thumbnail: thumbnailBase64,
+			timestamp: timestamp,
+			aiGenerated: false,
+			uploadedFilename: req.file.originalname
+		});
+
+		// Keep only last 50 images in history to prevent JSON from growing too large
+		if (history.length > 50) {
+			const removedItems = history.splice(50);
+			// Clean up old images from archive
+			for (const item of removedItems) {
+				delete imagesArchive[item.imageId];
+			}
+			await writeJSONFile("images.json", imagesArchive);
+		}
+		await writeJSONFile("history.json", history);
 
 		// Clean up uploaded file
 		await fs.unlink(req.file.path);
@@ -1307,9 +1338,23 @@ app.post("/api/generate-art", async (req, res) => {
 
 		await writeJSONFile("current.json", current);
 
-		// Store full image in images archive for history access
+		// Store metadata in images archive (not full RGB data to prevent JSON size issues)
 		const imagesArchive = (await readJSONFile("images.json")) || {};
-		imagesArchive[imageId] = current; // Store complete image data
+		imagesArchive[imageId] = {
+			title: current.title,
+			imageId: imageId,
+			timestamp: current.timestamp,
+			sleepDuration: current.sleepDuration,
+			rotation: current.rotation,
+			originalImage: originalImageBase64,
+			originalImageMime: "image/png",
+			thumbnail: originalImageBase64,
+			aiGenerated: true,
+			originalPrompt: prompt,
+			artStyle: artStyle,
+			quality: imageQuality
+			// Note: We don't store the large 'image' (processed RGB) field
+		};
 		await writeJSONFile("images.json", imagesArchive);
 
 		// Add to history (only metadata + thumbnail)
@@ -1913,12 +1958,45 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 	try {
 		const { imageId } = req.params;
 
-		// Get full image data from images archive
+		// Get image data from images archive
 		const imagesArchive = (await readJSONFile("images.json")) || {};
-		const imageData = imagesArchive[imageId];
+		let imageData = imagesArchive[imageId];
 
 		if (!imageData) {
 			return res.status(404).json({ error: "Image not found in archive" });
+		}
+
+		// If the archived image doesn't have processed RGB data, regenerate it
+		if (!imageData.image && imageData.originalImage) {
+			console.log(`Regenerating processed image for ${imageId}...`);
+
+			// Save original to temp file
+			const originalBuffer = Buffer.from(imageData.originalImage, 'base64');
+			const tempPath = path.join(UPLOAD_DIR, `reload-${Date.now()}.png`);
+			await ensureDir(UPLOAD_DIR);
+			await fs.writeFile(tempPath, originalBuffer);
+
+			// Regenerate RGB data
+			const rgbBuffer = await convertImageToRGB(
+				tempPath,
+				imageData.rotation || 0,
+				1200,
+				1600,
+				{
+					ditherAlgorithm: 'floyd-steinberg',
+					enhanceContrast: true,
+					sharpen: false
+				}
+			);
+
+			// Add processed image to data
+			imageData = {
+				...imageData,
+				image: rgbBuffer.toString("base64")
+			};
+
+			// Clean up temp file
+			await fs.unlink(tempPath);
 		}
 
 		// Set this image as current
