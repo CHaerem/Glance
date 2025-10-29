@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glance - Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #ffffff;
+            color: #1a1a1a;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 30px 0 16px 0;
+            color: #666;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        /* Device Status */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .status-item {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .status-value {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .status-label {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .status-online { color: #10b981; }
+        .status-offline { color: #6b7280; }
+
+        /* Logs */
+        .logs-container {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 40px;
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .logs-title {
+            color: #999;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .logs-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-btn {
+            background: #333;
+            border: none;
+            color: #999;
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .log-btn:hover {
+            background: #444;
+            color: #fff;
+        }
+
+        .log-output {
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+            font-size: 0.75rem;
+            color: #e5e5e5;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .log-output::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-output::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .log-output::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        .log-output::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        /* Back link */
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #999;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s ease;
+        }
+
+        .back-link:hover {
+            color: #1a1a1a;
+        }
+
+        /* System info */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .info-item {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+
+        .info-label {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 0.9rem;
+            font-family: 'SF Mono', 'Monaco', monospace;
+        }
+
+        /* Settings */
+        .settings-form {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            color: #666;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #1a1a1a;
+        }
+
+        .form-hint {
+            color: #999;
+            font-size: 0.75rem;
+            margin-top: 4px;
+        }
+
+        .btn-primary {
+            background: #1a1a1a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: #333;
+        }
+
+        .btn-primary:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        .success-message {
+            color: #10b981;
+            font-size: 0.85rem;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn:hover {
+            border-color: #1a1a1a;
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← back</a>
+
+    <h1>Admin</h1>
+
+    <h2>Wake Schedule</h2>
+    <div class="settings-form">
+        <div class="form-group">
+            <label class="form-label" for="sleepDuration">Update Interval (minutes)</label>
+            <input type="number" id="sleepDuration" class="form-input" min="5" max="1440" step="1" placeholder="60">
+            <div class="form-hint">How often the ESP32 should wake up and check for new images (5-1440 minutes)</div>
+            <div class="preset-buttons">
+                <button class="preset-btn" onclick="setSleepPreset(5)">5 min</button>
+                <button class="preset-btn" onclick="setSleepPreset(15)">15 min</button>
+                <button class="preset-btn" onclick="setSleepPreset(30)">30 min</button>
+                <button class="preset-btn" onclick="setSleepPreset(60)">1 hour</button>
+                <button class="preset-btn" onclick="setSleepPreset(120)">2 hours</button>
+                <button class="preset-btn" onclick="setSleepPreset(360)">6 hours</button>
+                <button class="preset-btn" onclick="setSleepPreset(720)">12 hours</button>
+                <button class="preset-btn" onclick="setSleepPreset(1440)">24 hours</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">
+                <input type="checkbox" id="devMode" style="margin-right: 8px; width: auto;">
+                Development Mode
+            </label>
+            <div class="form-hint">When enabled, ESP32 tries development server first, then falls back to production</div>
+        </div>
+
+        <div class="form-group" id="devServerHostGroup" style="display: none;">
+            <label class="form-label" for="devServerHost">Development Server Host</label>
+            <input type="text" id="devServerHost" class="form-input" placeholder="192.168.1.100:3000">
+            <div class="form-hint">Your local machine's IP address and port (leave blank to auto-detect)</div>
+        </div>
+
+        <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+        <div class="success-message" id="successMessage">Settings saved! ESP32 will use new settings on next wake.</div>
+    </div>
+
+    <h2>Device Status</h2>
+    <div class="status-grid">
+        <div class="status-item">
+            <div class="status-value" id="deviceState">--</div>
+            <div class="status-label">Status</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="batteryVoltage">--V</div>
+            <div class="status-label">Battery</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="signalStrength">--</div>
+            <div class="status-label">Signal</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="nextWake">--</div>
+            <div class="status-label">Next Update</div>
+        </div>
+    </div>
+
+    <h2>System Information</h2>
+    <div class="info-grid">
+        <div class="info-item">
+            <div class="info-label">Server Version</div>
+            <div class="info-value" id="serverVersion">--</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Node.js Version</div>
+            <div class="info-value" id="nodeVersion">--</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Uptime</div>
+            <div class="info-value" id="uptime">--</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Platform</div>
+            <div class="info-value" id="platform">--</div>
+        </div>
+    </div>
+
+    <h2>Device Logs</h2>
+    <div class="logs-container">
+        <div class="logs-header">
+            <div class="logs-title">ESP32 Activity</div>
+            <div class="logs-controls">
+                <button class="log-btn" onclick="refreshDeviceLogs()">Refresh</button>
+                <button class="log-btn" onclick="clearDeviceLogs()">Clear</button>
+            </div>
+        </div>
+        <div class="log-output" id="deviceLogOutput">Loading device logs...</div>
+    </div>
+
+    <h2>Server Logs</h2>
+    <div class="logs-container">
+        <div class="logs-header">
+            <div class="logs-title">Console Output</div>
+            <div class="logs-controls">
+                <button class="log-btn" onclick="refreshLogs()">Refresh</button>
+                <button class="log-btn" onclick="clearLogs()">Clear</button>
+                <button class="log-btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">Auto: Off</button>
+            </div>
+        </div>
+        <div class="log-output" id="logOutput">Loading logs...</div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+
+        // Load settings
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+
+                // Convert microseconds to minutes
+                const minutes = Math.round(settings.defaultSleepDuration / 1000000 / 60);
+                document.getElementById('sleepDuration').value = minutes;
+
+                // Load dev mode settings
+                document.getElementById('devMode').checked = settings.devMode || false;
+                document.getElementById('devServerHost').value = settings.devServerHost || '';
+
+                // Show/hide dev server host field based on dev mode
+                toggleDevServerHost();
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        }
+
+        // Toggle dev server host visibility
+        function toggleDevServerHost() {
+            const devMode = document.getElementById('devMode').checked;
+            const hostGroup = document.getElementById('devServerHostGroup');
+            hostGroup.style.display = devMode ? 'block' : 'none';
+        }
+
+        // Add event listener to dev mode checkbox
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('devMode').addEventListener('change', toggleDevServerHost);
+        });
+
+        // Set preset value
+        function setSleepPreset(minutes) {
+            document.getElementById('sleepDuration').value = minutes;
+        }
+
+        // Save settings
+        async function saveSettings() {
+            try {
+                const minutes = parseInt(document.getElementById('sleepDuration').value);
+
+                if (!minutes || minutes < 5 || minutes > 1440) {
+                    alert('Please enter a value between 5 and 1440 minutes');
+                    return;
+                }
+
+                // Convert minutes to microseconds
+                const microseconds = minutes * 60 * 1000000;
+
+                // Get dev mode settings
+                const devMode = document.getElementById('devMode').checked;
+                const devServerHost = document.getElementById('devServerHost').value.trim();
+
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        defaultSleepDuration: microseconds,
+                        devMode: devMode,
+                        devServerHost: devServerHost || undefined
+                    })
+                });
+
+                if (response.ok) {
+                    const successMsg = document.getElementById('successMessage');
+                    successMsg.classList.add('show');
+                    setTimeout(() => successMsg.classList.remove('show'), 3000);
+                } else {
+                    const error = await response.json();
+                    alert('Failed to save settings: ' + error.error);
+                }
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+                alert('Failed to save settings');
+            }
+        }
+
+        // Load device status
+        async function loadDeviceStatus() {
+            try {
+                const response = await fetch('/api/esp32-status');
+                const status = await response.json();
+
+                document.getElementById('deviceState').textContent = status.state || 'Unknown';
+                document.getElementById('deviceState').className =
+                    status.state === 'online' ? 'status-value status-online' : 'status-value status-offline';
+
+                document.getElementById('batteryVoltage').textContent =
+                    status.batteryVoltage ? `${status.batteryVoltage}V` : '--';
+
+                document.getElementById('signalStrength').textContent =
+                    status.signalStrength ? `${status.signalStrength} dBm` : '--';
+
+                if (status.lastSeen) {
+                    const lastSeen = new Date(status.lastSeen);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - lastSeen) / 1000 / 60);
+
+                    if (diffMinutes < 1) {
+                        document.getElementById('nextWake').textContent = 'Just now';
+                    } else if (diffMinutes < 60) {
+                        document.getElementById('nextWake').textContent = `${diffMinutes}m ago`;
+                    } else {
+                        const hours = Math.floor(diffMinutes / 60);
+                        document.getElementById('nextWake').textContent = `${hours}h ago`;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load device status:', error);
+            }
+        }
+
+        // Load system info
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/system-info');
+                const info = await response.json();
+
+                document.getElementById('serverVersion').textContent = info.version || 'local';
+                document.getElementById('nodeVersion').textContent = info.nodeVersion || process.version;
+                document.getElementById('platform').textContent = info.platform || navigator.platform;
+
+                if (info.uptime) {
+                    const hours = Math.floor(info.uptime / 3600);
+                    const minutes = Math.floor((info.uptime % 3600) / 60);
+                    document.getElementById('uptime').textContent = `${hours}h ${minutes}m`;
+                }
+            } catch (error) {
+                console.error('Failed to load system info:', error);
+            }
+        }
+
+        // Load device logs
+        async function loadDeviceLogs() {
+            try {
+                const response = await fetch('/api/device-logs');
+                const data = await response.json();
+
+                const logOutput = document.getElementById('deviceLogOutput');
+                if (data.logs && data.logs.length > 0) {
+                    logOutput.textContent = data.logs.join('\n');
+                    // Auto-scroll to bottom
+                    logOutput.scrollTop = logOutput.scrollHeight;
+                } else {
+                    logOutput.textContent = 'No device activity yet';
+                }
+            } catch (error) {
+                console.error('Failed to load device logs:', error);
+                document.getElementById('deviceLogOutput').textContent = 'Error loading device logs';
+            }
+        }
+
+        function refreshDeviceLogs() {
+            loadDeviceLogs();
+        }
+
+        function clearDeviceLogs() {
+            document.getElementById('deviceLogOutput').textContent = '';
+        }
+
+        // Load server logs
+        async function loadLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                const data = await response.json();
+
+                const logOutput = document.getElementById('logOutput');
+                if (data.logs && data.logs.length > 0) {
+                    logOutput.textContent = data.logs.join('\n');
+                    // Auto-scroll to bottom
+                    logOutput.scrollTop = logOutput.scrollHeight;
+                } else {
+                    logOutput.textContent = 'No logs available';
+                }
+            } catch (error) {
+                console.error('Failed to load logs:', error);
+                document.getElementById('logOutput').textContent = 'Error loading logs';
+            }
+        }
+
+        function refreshLogs() {
+            loadLogs();
+        }
+
+        function clearLogs() {
+            document.getElementById('logOutput').textContent = '';
+        }
+
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.textContent = 'Auto: Off';
+            } else {
+                autoRefreshInterval = setInterval(() => {
+                    loadLogs();
+                    loadDeviceLogs();
+                    loadDeviceStatus();
+                }, 2000);
+                btn.textContent = 'Auto: On';
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadDeviceStatus();
+            loadSystemInfo();
+            loadLogs();
+            loadDeviceLogs();
+            setInterval(loadDeviceStatus, 5000); // Update status every 5s
+        });
+    </script>
+</body>
+</html>

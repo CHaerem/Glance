@@ -20,6 +20,125 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || null;
 // Initialize OpenAI client if API key is available
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
+// Curated Art Collections Database
+const CURATED_COLLECTIONS = {
+	"renaissance-masters": {
+		name: "Renaissance Masters",
+		description: "Essential works from the Renaissance masters",
+		artworks: [
+			// Leonardo da Vinci
+			{ artist: "Leonardo da Vinci", title: "Mona Lisa", year: "1503-1519", popularity: 100, wikimedia: "Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg" },
+			{ artist: "Leonardo da Vinci", title: "The Last Supper", year: "1495-1498", popularity: 95, wikimedia: "The_Last_Supper_-_Leonardo_Da_Vinci_-_High_Resolution_32x16.jpg" },
+			{ artist: "Leonardo da Vinci", title: "Vitruvian Man", year: "1490", popularity: 90, wikimedia: "Da_Vinci_Vitruve_Luc_Viatour.jpg" },
+			{ artist: "Leonardo da Vinci", title: "Lady with an Ermine", year: "1489-1491", popularity: 85, wikimedia: "Leonardo_da_Vinci_046.jpg" },
+
+			// Michelangelo
+			{ artist: "Michelangelo", title: "The Creation of Adam", year: "1512", popularity: 98, wikimedia: "Michelangelo_-_Creation_of_Adam_(cropped).jpg" },
+			{ artist: "Michelangelo", title: "The Last Judgment", year: "1541", popularity: 88, wikimedia: "Last_Judgement_(Michelangelo).jpg" },
+			{ artist: "Michelangelo", title: "Doni Tondo", year: "1507", popularity: 70, wikimedia: "Michelangelo_-_Tondo_Doni_-_Google_Art_Project.jpg" },
+
+			// Raphael
+			{ artist: "Raphael", title: "The School of Athens", year: "1511", popularity: 92, wikimedia: "Raphael_School_of_Athens.jpg" },
+			{ artist: "Raphael", title: "Sistine Madonna", year: "1512", popularity: 82, wikimedia: "Raphael_-_Sistine_Madonna_-_WGA18595.jpg" },
+			{ artist: "Raphael", title: "The Transfiguration", year: "1520", popularity: 75, wikimedia: "Transfiguration_Raphael.jpg" },
+
+			// Botticelli
+			{ artist: "Botticelli", title: "The Birth of Venus", year: "1485", popularity: 93, wikimedia: "Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg" },
+			{ artist: "Botticelli", title: "Primavera", year: "1482", popularity: 86, wikimedia: "Sandro_Botticelli_-_La_Primavera_-_Google_Art_Project.jpg" }
+		]
+	},
+
+	"dutch-masters": {
+		name: "Dutch Masters",
+		description: "Golden Age of Dutch painting",
+		artworks: [
+			// Rembrandt
+			{ artist: "Rembrandt", title: "The Night Watch", year: "1642", popularity: 94, wikimedia: "La_ronda_de_noche,_por_Rembrandt_van_Rijn.jpg" },
+			{ artist: "Rembrandt", title: "Self-Portrait", year: "1659", popularity: 78, wikimedia: "Rembrandt_van_Rijn_-_Self-Portrait_-_Google_Art_Project.jpg" },
+			{ artist: "Rembrandt", title: "The Anatomy Lesson", year: "1632", popularity: 76, wikimedia: "Rembrandt_-_The_Anatomy_Lesson_of_Dr_Nicolaes_Tulp.jpg" },
+
+			// Vermeer
+			{ artist: "Vermeer", title: "Girl with a Pearl Earring", year: "1665", popularity: 96, wikimedia: "Girl_with_a_Pearl_Earring.jpg" },
+			{ artist: "Vermeer", title: "The Milkmaid", year: "1658", popularity: 84, wikimedia: "Johannes_Vermeer_-_Het_melkmeisje_-_Google_Art_Project.jpg" },
+			{ artist: "Vermeer", title: "View of Delft", year: "1661", popularity: 80, wikimedia: "Vermeer-view-of-delft.jpg" }
+		]
+	},
+
+	"impressionists": {
+		name: "Impressionists",
+		description: "Light and color of the Impressionist movement",
+		artworks: [
+			// Monet
+			{ artist: "Claude Monet", title: "Water Lilies", year: "1906", popularity: 91, wikimedia: "Claude_Monet_-_Water_Lilies_-_1906,_Ryerson.jpg" },
+			{ artist: "Claude Monet", title: "Impression, Sunrise", year: "1872", popularity: 89, wikimedia: "Monet_-_Impression,_Sunrise.jpg" },
+			{ artist: "Claude Monet", title: "Woman with a Parasol", year: "1875", popularity: 83, wikimedia: "Claude_Monet_-_Woman_with_a_Parasol_-_Madame_Monet_and_Her_Son_-_Google_Art_Project.jpg" },
+
+			// Renoir
+			{ artist: "Renoir", title: "Dance at Le Moulin de la Galette", year: "1876", popularity: 87, wikimedia: "Auguste_Renoir_-_Dance_at_Le_Moulin_de_la_Galette_-_Google_Art_Project.jpg" },
+			{ artist: "Renoir", title: "Luncheon of the Boating Party", year: "1881", popularity: 82, wikimedia: "Pierre-Auguste_Renoir_-_Luncheon_of_the_Boating_Party_-_Google_Art_Project.jpg" },
+
+			// Degas
+			{ artist: "Edgar Degas", title: "The Dance Class", year: "1874", popularity: 79, wikimedia: "Edgar_Degas_-_The_Dance_Class_-_Google_Art_Project.jpg" },
+			{ artist: "Edgar Degas", title: "L'Absinthe", year: "1876", popularity: 74, wikimedia: "Edgar_Degas_-_In_a_Caf%C3%A9_-_Google_Art_Project_2.jpg" }
+		]
+	},
+
+	"post-impressionists": {
+		name: "Post-Impressionists",
+		description: "Bold expressions beyond Impressionism",
+		artworks: [
+			// Van Gogh
+			{ artist: "Vincent van Gogh", title: "The Starry Night", year: "1889", popularity: 99, wikimedia: "Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg" },
+			{ artist: "Vincent van Gogh", title: "Sunflowers", year: "1888", popularity: 92, wikimedia: "Vincent_Willem_van_Gogh_128.jpg" },
+			{ artist: "Vincent van Gogh", title: "Café Terrace at Night", year: "1888", popularity: 88, wikimedia: "Van_Gogh_-_Terrasse_des_Caf%C3%A9s_an_der_Place_du_Forum_in_Arles_am_Abend1.jpeg" },
+			{ artist: "Vincent van Gogh", title: "Bedroom in Arles", year: "1888", popularity: 85, wikimedia: "Vincent_van_Gogh_-_De_slaapkamer_-_Google_Art_Project.jpg" },
+
+			// Cézanne
+			{ artist: "Paul Cézanne", title: "Mont Sainte-Victoire", year: "1887", popularity: 81, wikimedia: "Paul_C%C3%A9zanne_-_Mont_Sainte-Victoire_-_Google_Art_Project.jpg" },
+			{ artist: "Paul Cézanne", title: "The Card Players", year: "1895", popularity: 77, wikimedia: "Les_Joueurs_de_cartes,_par_Paul_C%C3%A9zanne.jpg" },
+
+			// Gauguin
+			{ artist: "Paul Gauguin", title: "Where Do We Come From?", year: "1897", popularity: 80, wikimedia: "Paul_Gauguin_-_D%27ou_venons-nous.jpg" },
+			{ artist: "Paul Gauguin", title: "The Yellow Christ", year: "1889", popularity: 73, wikimedia: "Paul_Gauguin_-_Le_Christ_jaune_(The_Yellow_Christ).jpg" }
+		]
+	},
+
+	"japanese-masters": {
+		name: "Japanese Masters",
+		description: "Ukiyo-e woodblock prints",
+		artworks: [
+			// Hokusai
+			{ artist: "Katsushika Hokusai", title: "The Great Wave off Kanagawa", year: "1831", popularity: 97, wikimedia: "Tsunami_by_hokusai_19th_century.jpg" },
+			{ artist: "Katsushika Hokusai", title: "Fine Wind, Clear Morning", year: "1831", popularity: 84, wikimedia: "Red_Fuji_southern_wind_clear_morning.jpg" },
+			{ artist: "Katsushika Hokusai", title: "Rainstorm Beneath the Summit", year: "1831", popularity: 78, wikimedia: "Lightnings_below_the_summit.jpg" },
+
+			// Hiroshige
+			{ artist: "Utagawa Hiroshige", title: "Plum Estate", year: "1857", popularity: 82, wikimedia: "Hiroshige,_Plum_Park_in_Kameido.jpg" },
+			{ artist: "Utagawa Hiroshige", title: "Sudden Shower", year: "1857", popularity: 79, wikimedia: "Hiroshige_-_Sudden_Shower_at_the_Atake_Bridge.jpg" }
+		]
+	},
+
+	"modern-icons": {
+		name: "Modern Icons",
+		description: "20th century masterpieces",
+		artworks: [
+			// Picasso
+			{ artist: "Pablo Picasso", title: "Guernica", year: "1937", popularity: 94, wikimedia: "Mural_del_Gernika.jpg" },
+			{ artist: "Pablo Picasso", title: "Les Demoiselles d'Avignon", year: "1907", popularity: 87, wikimedia: "Les_Demoiselles_d%27Avignon.jpg" },
+
+			// Dalí
+			{ artist: "Salvador Dalí", title: "The Persistence of Memory", year: "1931", popularity: 93, wikimedia: "The_Persistence_of_Memory.jpg" },
+
+			// Klimt
+			{ artist: "Gustav Klimt", title: "The Kiss", year: "1908", popularity: 91, wikimedia: "Gustav_Klimt_016.jpg" },
+			{ artist: "Gustav Klimt", title: "Portrait of Adele Bloch-Bauer I", year: "1907", popularity: 83, wikimedia: "Gustav_Klimt_046.jpg" },
+
+			// Munch
+			{ artist: "Edvard Munch", title: "The Scream", year: "1893", popularity: 95, wikimedia: "Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg" }
+		]
+	}
+};
+
 function formatBuildDate(dateStr) {
     if (!dateStr || dateStr === "unknown") return dateStr;
     const date = new Date(dateStr);
@@ -639,7 +758,9 @@ async function convertImageToRGB(
 		}
 		
 		// Convert to raw RGB with explicit 3 channels
+		// Remove alpha channel if present
 		const { data: imageBuffer, info } = await sharpPipeline
+			.removeAlpha()
 			.raw()
 			.toBuffer({ resolveWithObject: true });
 		if (info.channels !== 3) {
@@ -794,6 +915,7 @@ app.get("/api/current.json", async (req, res) => {
 
 		// Send metadata only (no image data)
 		const metadata = {
+			hasImage: !!(current.image || current.imageId),
 			title: current.title || "Glance Display",
 			imageId: current.imageId || "default",
 			timestamp: current.timestamp || Date.now(),
@@ -801,7 +923,7 @@ app.get("/api/current.json", async (req, res) => {
 			rotation: current.rotation || 0
 		};
 
-		console.log(`Serving metadata: imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us`);
+		console.log(`Serving metadata: hasImage=${metadata.hasImage}, imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us`);
 		res.json(metadata);
 	} catch (error) {
 		console.error("Error getting current:", error);
@@ -890,7 +1012,7 @@ app.post("/api/current", async (req, res) => {
 				await fs.writeFile(tempPath, imageBuffer);
 
 				// Convert to RGB format for ESP32 processing
-				const rgbBuffer = await convertImageToRGB(tempPath);
+				const rgbBuffer = await convertImageToRGB(tempPath, 0, 1200, 1600);
 				console.log(`RGB buffer size: ${rgbBuffer.length} bytes`);
 				console.log(`RGB buffer type: ${typeof rgbBuffer}, is Buffer: ${Buffer.isBuffer(rgbBuffer)}`);
 				imageData = rgbBuffer.toString("base64");
@@ -939,7 +1061,7 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 		const sharpen = req.body.sharpen === 'true';
 
 		// Process image exactly as it will be sent to ESP32
-		const ditheredRgbBuffer = await convertImageToRGB(req.file.path, 1200, 1600, {
+		const ditheredRgbBuffer = await convertImageToRGB(req.file.path, 0, 1200, 1600, {
 			ditherAlgorithm,
 			enhanceContrast,
 			sharpen
@@ -985,6 +1107,87 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 	}
 });
 
+// Upload and set as current image endpoint
+app.post("/api/upload", upload.single("image"), async (req, res) => {
+	try {
+		if (!req.file) {
+			return res.status(400).json({ error: "No file uploaded" });
+		}
+
+		console.log(`Uploading image: ${req.file.originalname}`);
+
+		const imageId = uuidv4();
+		const timestamp = Date.now();
+
+		// Read original image file
+		const originalImageBuffer = await fs.readFile(req.file.path);
+
+		// Process image for e-ink display
+		const ditheredRgbBuffer = await convertImageToRGB(req.file.path, 0, 1200, 1600, {
+			ditherAlgorithm: 'floyd-steinberg',
+			enhanceContrast: true,
+			sharpen: false
+		});
+
+		// Create thumbnail for web preview (300x400)
+		const thumbnailBuffer = await sharp(originalImageBuffer)
+			.resize(300, 400, { fit: "inside" })
+			.png()
+			.toBuffer();
+
+		// Encode as base64
+		const imageBase64 = ditheredRgbBuffer.toString("base64");
+		const originalImageBase64 = originalImageBuffer.toString("base64");
+		const thumbnailBase64 = thumbnailBuffer.toString("base64");
+
+		// Get default sleep duration from settings
+		const settings = (await readJSONFile("settings.json")) || { defaultSleepDuration: 3600000000 };
+
+		// Create current.json entry
+		const current = {
+			title: `Uploaded: ${req.file.originalname}`,
+			image: imageBase64,
+			originalImage: originalImageBase64,
+			originalImageMime: req.file.mimetype,
+			imageId: imageId,
+			timestamp: timestamp,
+			sleepDuration: settings.defaultSleepDuration,
+			rotation: 0,
+			aiGenerated: false,
+			uploadedFilename: req.file.originalname
+		};
+
+		await writeJSONFile("current.json", current);
+
+		// Store in images archive for history
+		const imagesArchive = (await readJSONFile("images.json")) || {};
+		imagesArchive[imageId] = {
+			...current,
+			thumbnail: thumbnailBase64
+		};
+		await writeJSONFile("images.json", imagesArchive);
+
+		// Clean up uploaded file
+		await fs.unlink(req.file.path);
+
+		console.log(`Image uploaded successfully: ${imageId}`);
+
+		res.json({
+			success: true,
+			imageId: imageId,
+			title: current.title
+		});
+	} catch (error) {
+		console.error("Error uploading image:", error);
+		if (req.file?.path) {
+			try {
+				await fs.unlink(req.file.path);
+			} catch {}
+		}
+		res.status(500).json({ error: "Error uploading image: " + error.message });
+	}
+});
+
 // AI Image Generation endpoint
 app.post("/api/generate-art", async (req, res) => {
 	try {
@@ -1002,8 +1205,9 @@ app.post("/api/generate-art", async (req, res) => {
 
 		console.log(`Generating AI art with prompt: "${prompt}"`);
 
-		// Input validation
-		const sleepMs = parseInt(sleepDuration) || 3600000000;
+		// Input validation - use settings default if not provided
+		const settings = (await readJSONFile("settings.json")) || { defaultSleepDuration: 3600000000 };
+		const sleepMs = parseInt(sleepDuration) || settings.defaultSleepDuration;
 		const rotationDegrees = parseInt(rotation) || 0;
 		// gpt-image-1 quality: 'low', 'medium', 'high', 'auto'
 		// Map old 'standard'/'hd' to new quality levels
@@ -1243,7 +1447,7 @@ app.post(
 			const mimeType = req.file.mimetype || "image/jpeg";
 
 			// Convert uploaded image to RGB format for e-ink display (with rotation)
-			const rgbBuffer = await convertImageToRGB(req.file.path, rotationDegrees);
+			const rgbBuffer = await convertImageToRGB(req.file.path, rotationDegrees, 1200, 1600);
 			console.log(`RGB buffer size: ${rgbBuffer.length} bytes`);
 			console.log(`RGB buffer type: ${typeof rgbBuffer}, is Buffer: ${Buffer.isBuffer(rgbBuffer)}`);
 
@@ -1354,6 +1558,40 @@ app.post("/api/device-status", async (req, res) => {
 		res.json({ success: true });
 	} catch (error) {
 		console.error("Error updating device status:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Get ESP32 device status for admin interface
+app.get("/api/esp32-status", async (req, res) => {
+	try {
+		const devices = (await readJSONFile("devices.json")) || {};
+		const deviceId = process.env.DEVICE_ID || "esp32-001";
+		const deviceStatus = devices[deviceId];
+
+		if (!deviceStatus) {
+			return res.json({
+				state: 'offline',
+				batteryVoltage: null,
+				signalStrength: null,
+				lastSeen: null
+			});
+		}
+
+		// Consider device online if seen in last 5 minutes
+		const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+		const isOnline = deviceStatus.lastSeen > fiveMinutesAgo;
+
+		res.json({
+			state: isOnline ? 'online' : 'offline',
+			batteryVoltage: deviceStatus.batteryVoltage,
+			signalStrength: deviceStatus.signalStrength,
+			lastSeen: deviceStatus.lastSeen,
+			freeHeap: deviceStatus.freeHeap,
+			status: deviceStatus.status
+		});
+	} catch (error) {
+		console.error("Error getting ESP32 status:", error);
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
@@ -1577,8 +1815,8 @@ app.get("/api/logs/:deviceId", async (req, res) => {
 	}
 });
 
-// Get all logs
-app.get("/api/logs", async (_req, res) => {
+// Get all device logs from logs.json (historical)
+app.get("/api/device-logs-history", async (_req, res) => {
 	try {
 		const allLogs = (await readJSONFile("logs.json")) || {};
 		res.json(allLogs);
@@ -1645,6 +1883,23 @@ app.get("/api/history", async (_req, res) => {
 		res.json(history);
 	} catch (error) {
 		console.error("Error getting history:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Get full image data by ID
+app.get("/api/images/:imageId", async (req, res) => {
+	try {
+		const { imageId } = req.params;
+		const imagesArchive = (await readJSONFile("images.json")) || {};
+
+		if (!imagesArchive[imageId]) {
+			return res.status(404).json({ error: "Image not found" });
+		}
+
+		res.json(imagesArchive[imageId]);
+	} catch (error) {
+		console.error("Error getting image:", error);
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
@@ -1773,31 +2028,85 @@ app.post("/api/playlist", async (req, res) => {
 	}
 });
 
-app.get("/api/playlist", async (_req, res) => {
+// Playlist endpoints - REMOVED in simplified UI
+// app.get("/api/playlist", async (_req, res) => {
+// 	try {
+// 		const playlist = await readJSONFile("playlist.json");
+// 		if (!playlist) {
+// 			return res.json({ active: false });
+// 		}
+// 		res.json(playlist);
+// 	} catch (error) {
+// 		console.error("Error getting playlist:", error);
+// 		res.status(500).json({ error: "Internal server error" });
+// 	}
+// });
+
+// app.delete("/api/playlist", async (_req, res) => {
+// 	try {
+// 		// Just mark as inactive rather than deleting
+// 		const playlist = await readJSONFile("playlist.json");
+// 		if (playlist) {
+// 			playlist.active = false;
+// 			await writeJSONFile("playlist.json", playlist);
+// 		}
+
+// 		res.json({ success: true, message: "Playlist stopped" });
+// 	} catch (error) {
+// 		console.error("Error stopping playlist:", error);
+// 		res.status(500).json({ error: "Internal server error" });
+// 	}
+// });
+
+// Get curated collections list
+app.get("/api/collections", (req, res) => {
 	try {
-		const playlist = await readJSONFile("playlist.json");
-		if (!playlist) {
-			return res.json({ active: false });
-		}
-		res.json(playlist);
+		const collections = Object.entries(CURATED_COLLECTIONS).map(([id, collection]) => ({
+			id,
+			name: collection.name,
+			description: collection.description,
+			count: collection.artworks.length
+		}));
+
+		res.json({ collections });
 	} catch (error) {
-		console.error("Error getting playlist:", error);
+		console.error("Error getting collections:", error);
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
 
-app.delete("/api/playlist", async (_req, res) => {
+// Get artworks from a specific collection
+app.get("/api/collections/:collectionId", (req, res) => {
 	try {
-		// Just mark as inactive rather than deleting
-		const playlist = await readJSONFile("playlist.json");
-		if (playlist) {
-			playlist.active = false;
-			await writeJSONFile("playlist.json", playlist);
+		const { collectionId } = req.params;
+		const collection = CURATED_COLLECTIONS[collectionId];
+
+		if (!collection) {
+			return res.status(404).json({ error: "Collection not found" });
 		}
 
-		res.json({ success: true, message: "Playlist stopped" });
+		// Convert artworks to response format
+		const artworks = collection.artworks.map(artwork => {
+			const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${artwork.wikimedia}?width=1200`;
+			return {
+				title: `${artwork.title} (${artwork.year})`,
+				artist: artwork.artist,
+				imageUrl: imageUrl,
+				thumbnail: imageUrl,
+				source: "curated",
+				year: artwork.year,
+				popularity: artwork.popularity
+			};
+		});
+
+		res.json({
+			id: collectionId,
+			name: collection.name,
+			description: collection.description,
+			artworks: artworks
+		});
 	} catch (error) {
-		console.error("Error stopping playlist:", error);
+		console.error("Error getting collection:", error);
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
@@ -2247,6 +2556,12 @@ app.get("/api/art/search", async (req, res) => {
 		// Ranking function to score artworks
 		const scoreArtwork = (artwork) => {
 			let score = 0;
+
+			// Curated artworks get highest priority (popularity score + 1000 boost)
+			if (artwork._curatedScore !== undefined) {
+				return 1000 + artwork._curatedScore;
+			}
+
 			const lowerQuery = (query || "").toLowerCase();
 			const lowerArtist = (artwork.artist || "").toLowerCase();
 			const lowerTitle = (artwork.title || "").toLowerCase();
@@ -2274,8 +2589,44 @@ app.get("/api/art/search", async (req, res) => {
 			return score;
 		};
 
+		// Search curated collections database
+		const curatedResults = [];
+		const lowerQuery = (query || "").toLowerCase();
+
+		// Search across all curated collections
+		for (const [collectionId, collection] of Object.entries(CURATED_COLLECTIONS)) {
+			for (const artwork of collection.artworks) {
+				const lowerArtist = artwork.artist.toLowerCase();
+				const lowerTitle = artwork.title.toLowerCase();
+
+				// Match by artist name or artwork title
+				if (lowerArtist.includes(lowerQuery) ||
+				    lowerTitle.includes(lowerQuery) ||
+				    lowerQuery.includes(lowerTitle)) {
+
+					const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${artwork.wikimedia}?width=1200`;
+					curatedResults.push({
+						title: `${artwork.title} (${artwork.year})`,
+						artist: artwork.artist,
+						imageUrl: imageUrl,
+						thumbnail: imageUrl,
+						source: "curated",
+						collection: collection.name,
+						year: artwork.year,
+						popularity: artwork.popularity,
+						_curatedScore: artwork.popularity
+					});
+				}
+			}
+		}
+
+		if (curatedResults.length > 0) {
+			console.log(`Found ${curatedResults.length} curated artworks matching "${query}"`);
+		}
+
 		// Merge all results
 		const allResults = [
+			...curatedResults, // Curated results first
 			...metResults,
 			...articResults,
 			...cmaResults,
@@ -2290,8 +2641,11 @@ app.get("/api/art/search", async (req, res) => {
 
 		allResults.sort((a, b) => b._score - a._score);
 
-		// Remove score from output
-		allResults.forEach(artwork => delete artwork._score);
+		// Remove internal scoring fields from output
+		allResults.forEach(artwork => {
+			delete artwork._score;
+			delete artwork._curatedScore;
+		});
 
 		// Apply offset and limit to sorted results
 		const paginatedResults = allResults.slice(offset, offset + targetCount);
@@ -2310,102 +2664,103 @@ app.get("/api/art/search", async (req, res) => {
 	}
 });
 
-// Get curated museum exhibitions/collections
-app.get("/api/exhibitions", async (_req, res) => {
-	try {
-		console.log("Fetching curated museum exhibitions");
+// Exhibitions endpoints - REMOVED in simplified UI
+// // Get curated museum exhibitions/collections
+// app.get("/api/exhibitions", async (_req, res) => {
+// 	try {
+// 		console.log("Fetching curated museum exhibitions");
 
-		// Hardcoded featured exhibitions from ARTIC that work well for e-ink
-		const featuredExhibitions = [
-			{ id: 998, source: "artic", title: "Japanese Monochromatic Prints", description: "Ink on Paper collection" },
-			{ id: 3251, source: "artic", title: "Four Followers of Caravaggio", description: "Early 17th-century Roman painting" },
-			{ id: 1280, source: "artic", title: "Martin Puryear: Multiple Dimensions", description: "Drawings, prints and sculptures" }
-		];
+// 		// Hardcoded featured exhibitions from ARTIC that work well for e-ink
+// 		const featuredExhibitions = [
+// 			{ id: 998, source: "artic", title: "Japanese Monochromatic Prints", description: "Ink on Paper collection" },
+// 			{ id: 3251, source: "artic", title: "Four Followers of Caravaggio", description: "Early 17th-century Roman painting" },
+// 			{ id: 1280, source: "artic", title: "Martin Puryear: Multiple Dimensions", description: "Drawings, prints and sculptures" }
+// 		];
 
-		// Fetch exhibition details including artwork IDs
-		const exhibitionPromises = featuredExhibitions.map(async (exhibition) => {
-			try {
-				const response = await fetch(`https://api.artic.edu/api/v1/exhibitions/${exhibition.id}?fields=id,title,description,artwork_ids`);
-				const data = await response.json();
+// 		// Fetch exhibition details including artwork IDs
+// 		const exhibitionPromises = featuredExhibitions.map(async (exhibition) => {
+// 			try {
+// 				const response = await fetch(`https://api.artic.edu/api/v1/exhibitions/${exhibition.id}?fields=id,title,description,artwork_ids`);
+// 				const data = await response.json();
 
-				if (data.data && data.data.artwork_ids && data.data.artwork_ids.length > 0) {
-					return {
-						id: exhibition.id,
-						title: data.data.title || exhibition.title,
-						description: exhibition.description,
-						source: exhibition.source,
-						artworkCount: data.data.artwork_ids.length,
-						artworkIds: data.data.artwork_ids.slice(0, 20) // Limit to first 20 artworks
-					};
-				}
-				return null;
-			} catch (error) {
-				console.error(`Error fetching exhibition ${exhibition.id}:`, error.message);
-				return null;
-			}
-		});
+// 				if (data.data && data.data.artwork_ids && data.data.artwork_ids.length > 0) {
+// 					return {
+// 						id: exhibition.id,
+// 						title: data.data.title || exhibition.title,
+// 						description: exhibition.description,
+// 						source: exhibition.source,
+// 						artworkCount: data.data.artwork_ids.length,
+// 						artworkIds: data.data.artwork_ids.slice(0, 20) // Limit to first 20 artworks
+// 					};
+// 				}
+// 				return null;
+// 			} catch (error) {
+// 				console.error(`Error fetching exhibition ${exhibition.id}:`, error.message);
+// 				return null;
+// 			}
+// 		});
 
-		const exhibitions = (await Promise.all(exhibitionPromises)).filter(ex => ex !== null);
+// 		const exhibitions = (await Promise.all(exhibitionPromises)).filter(ex => ex !== null);
 
-		console.log(`Returning ${exhibitions.length} curated exhibitions`);
-		res.json({ exhibitions });
-	} catch (error) {
-		console.error("Error fetching exhibitions:", error);
-		res.status(500).json({ error: "Internal server error: " + error.message });
-	}
-});
+// 		console.log(`Returning ${exhibitions.length} curated exhibitions`);
+// 		res.json({ exhibitions });
+// 	} catch (error) {
+// 		console.error("Error fetching exhibitions:", error);
+// 		res.status(500).json({ error: "Internal server error: " + error.message });
+// 	}
+// });
 
-// Get artworks from a specific exhibition
-app.get("/api/exhibitions/:id/artworks", async (req, res) => {
-	try {
-		const exhibitionId = req.params.id;
-		console.log(`Fetching artworks for exhibition ${exhibitionId}`);
+// // Get artworks from a specific exhibition
+// app.get("/api/exhibitions/:id/artworks", async (req, res) => {
+// 	try {
+// 		const exhibitionId = req.params.id;
+// 		console.log(`Fetching artworks for exhibition ${exhibitionId}`);
 
-		// Fetch exhibition to get artwork IDs
-		const exhibitionResponse = await fetch(`https://api.artic.edu/api/v1/exhibitions/${exhibitionId}?fields=id,title,artwork_ids`);
-		const exhibitionData = await exhibitionResponse.json();
+// 		// Fetch exhibition to get artwork IDs
+// 		const exhibitionResponse = await fetch(`https://api.artic.edu/api/v1/exhibitions/${exhibitionId}?fields=id,title,artwork_ids`);
+// 		const exhibitionData = await exhibitionResponse.json();
 
-		if (!exhibitionData.data || !exhibitionData.data.artwork_ids || exhibitionData.data.artwork_ids.length === 0) {
-			return res.json({ results: [] });
-		}
+// 		if (!exhibitionData.data || !exhibitionData.data.artwork_ids || exhibitionData.data.artwork_ids.length === 0) {
+// 			return res.json({ results: [] });
+// 		}
 
-		const artworkIds = exhibitionData.data.artwork_ids.slice(0, 20); // Limit to 20
+// 		const artworkIds = exhibitionData.data.artwork_ids.slice(0, 20); // Limit to 20
 
-		// Fetch artwork details for each ID
-		const artworkPromises = artworkIds.map(async (artworkId) => {
-			try {
-				const response = await fetch(`https://api.artic.edu/api/v1/artworks/${artworkId}?fields=id,title,artist_display,date_display,image_id,department_title`);
-				const data = await response.json();
-				const artwork = data.data;
+// 		// Fetch artwork details for each ID
+// 		const artworkPromises = artworkIds.map(async (artworkId) => {
+// 			try {
+// 				const response = await fetch(`https://api.artic.edu/api/v1/artworks/${artworkId}?fields=id,title,artist_display,date_display,image_id,department_title`);
+// 				const data = await response.json();
+// 				const artwork = data.data;
 
-				if (artwork && artwork.image_id) {
-					return {
-						id: `artic-${artwork.id}`,
-						title: artwork.title || "Untitled",
-						artist: artwork.artist_display || "Unknown Artist",
-						date: artwork.date_display || "",
-						imageUrl: `https://www.artic.edu/iiif/2/${artwork.image_id}/full/1200,/0/default.jpg`,
-						thumbnailUrl: `https://www.artic.edu/iiif/2/${artwork.image_id}/full/400,/0/default.jpg`,
-						department: artwork.department_title || "",
-						source: "Art Institute of Chicago"
-					};
-				}
-				return null;
-			} catch (error) {
-				console.error(`Error fetching artwork ${artworkId}:`, error.message);
-				return null;
-			}
-		});
+// 				if (artwork && artwork.image_id) {
+// 					return {
+// 						id: `artic-${artwork.id}`,
+// 						title: artwork.title || "Untitled",
+// 						artist: artwork.artist_display || "Unknown Artist",
+// 						date: artwork.date_display || "",
+// 						imageUrl: `https://www.artic.edu/iiif/2/${artwork.image_id}/full/1200,/0/default.jpg`,
+// 						thumbnailUrl: `https://www.artic.edu/iiif/2/${artwork.image_id}/full/400,/0/default.jpg`,
+// 						department: artwork.department_title || "",
+// 						source: "Art Institute of Chicago"
+// 					};
+// 				}
+// 				return null;
+// 			} catch (error) {
+// 				console.error(`Error fetching artwork ${artworkId}:`, error.message);
+// 				return null;
+// 			}
+// 		});
 
-		const artworks = (await Promise.all(artworkPromises)).filter(art => art !== null);
+// 		const artworks = (await Promise.all(artworkPromises)).filter(art => art !== null);
 
-		console.log(`Returning ${artworks.length} artworks from exhibition ${exhibitionId}`);
-		res.json({ results: artworks });
-	} catch (error) {
-		console.error("Error fetching exhibition artworks:", error);
-		res.status(500).json({ error: "Internal server error: " + error.message });
-	}
-});
+// 		console.log(`Returning ${artworks.length} artworks from exhibition ${exhibitionId}`);
+// 		res.json({ results: artworks });
+// 	} catch (error) {
+// 		console.error("Error fetching exhibition artworks:", error);
+// 		res.status(500).json({ error: "Internal server error: " + error.message });
+// 	}
+// });
 
 app.get("/api/art/random", async (req, res) => {
 	try {
@@ -2654,13 +3009,14 @@ app.get("/api/art/random", async (req, res) => {
 
 app.post("/api/art/import", async (req, res) => {
 	try {
-		const { imageUrl, title, artist, source } = req.body;
+		const { imageUrl, title, artist, source, rotation } = req.body;
 
 		if (!imageUrl) {
 			return res.status(400).json({ error: "Image URL required" });
 		}
 
-		console.log(`Importing artwork: ${title} from ${imageUrl}`);
+		const rotationDegrees = rotation || 0;
+		console.log(`Importing artwork: ${title} from ${imageUrl} (rotation: ${rotationDegrees}°)`);
 
 		// Fetch the image
 		const imageResponse = await fetch(imageUrl);
@@ -2674,13 +3030,17 @@ app.post("/api/art/import", async (req, res) => {
 		const tempPath = path.join(UPLOAD_DIR, `temp-${Date.now()}.jpg`);
 		await fs.writeFile(tempPath, imageBuffer);
 
+		// Determine dimensions based on rotation
+		const targetWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 1600 : 1200;
+		const targetHeight = (rotationDegrees === 90 || rotationDegrees === 270) ? 1200 : 1600;
+
 		// Process image with Sharp (resize and dither for e-ink)
 		// convertImageToRGB(imagePath, rotation, targetWidth, targetHeight, options)
 		const ditheredRgbBuffer = await convertImageToRGB(
 			tempPath,
-			0, // rotation
-			1200, // targetWidth
-			1600, // targetHeight
+			rotationDegrees,
+			targetWidth,
+			targetHeight,
 			{
 				ditherAlgorithm: 'floyd-steinberg',
 				enhanceContrast: true,
@@ -2688,15 +3048,18 @@ app.post("/api/art/import", async (req, res) => {
 			}
 		);
 
-		// Create thumbnail
+		// Create thumbnail with correct dimensions
+		const thumbnailWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 400 : 300;
+		const thumbnailHeight = (rotationDegrees === 90 || rotationDegrees === 270) ? 300 : 400;
+
 		const thumbnailBuffer = await sharp(ditheredRgbBuffer, {
 			raw: {
-				width: 1200,
-				height: 1600,
+				width: targetWidth,
+				height: targetHeight,
 				channels: 3
 			}
 		})
-		.resize(300, 400, { fit: "fill" })
+		.resize(thumbnailWidth, thumbnailHeight, { fit: "fill" })
 		.png()
 		.toBuffer();
 
@@ -2714,7 +3077,7 @@ app.post("/api/art/import", async (req, res) => {
 			image: ditheredRgbBuffer.toString("base64"),
 			timestamp: Date.now(),
 			sleepDuration: 3600000000, // 1 hour
-			rotation: 0,
+			rotation: rotationDegrees,
 			// Store original image for web UI
 			originalImage: imageBuffer.toString("base64"),
 			originalImageMime: imageResponse.headers.get("content-type") || "image/jpeg"
@@ -2778,16 +3141,16 @@ app.get("/", async (_req, res) => {
 	try {
 		// Try to read the UI file from the same directory as server.js (for Docker)
 		let uiPath = path.join(__dirname, 'simple-ui.html');
-		
+
 		try {
 			await fs.access(uiPath);
 		} catch {
 			// Fallback to parent directory (for local development)
 			uiPath = path.join(__dirname, '..', 'simple-ui.html');
 		}
-		
+
 		const simpleUIContent = await fs.readFile(uiPath, 'utf8');
-		
+
 		// Add cache-busting headers to prevent browser caching issues
 		res.set({
 			'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -2795,7 +3158,7 @@ app.get("/", async (_req, res) => {
 			'Expires': '0',
 			'ETag': `"${Date.now()}"` // Simple ETag based on current time
 		});
-		
+
 		res.send(simpleUIContent);
 	} catch (error) {
 		console.error('Error serving UI file:', error);
@@ -2808,6 +3171,160 @@ app.get("/", async (_req, res) => {
 				<small>Path attempted: ${path.join(__dirname, 'simple-ui.html')} and ${path.join(__dirname, '..', 'simple-ui.html')}</small>
 			</body></html>
 		`);
+	}
+});
+
+// Admin page
+app.get("/admin", async (_req, res) => {
+	try {
+		let adminPath = path.join(__dirname, 'admin.html');
+
+		try {
+			await fs.access(adminPath);
+		} catch {
+			// Fallback to parent directory (for local development)
+			adminPath = path.join(__dirname, '..', 'admin.html');
+		}
+
+		const adminContent = await fs.readFile(adminPath, 'utf8');
+
+		res.set({
+			'Cache-Control': 'no-cache, no-store, must-revalidate',
+			'Pragma': 'no-cache',
+			'Expires': '0',
+			'ETag': `"${Date.now()}"`
+		});
+
+		res.send(adminContent);
+	} catch (error) {
+		console.error('Error serving admin file:', error);
+		res.status(500).send('Admin page not found');
+	}
+});
+
+// System information API
+const serverLogs = [];
+const deviceLogs = [];
+const MAX_LOGS = 100;
+
+// Helper to add device log
+function addDeviceLog(message) {
+	deviceLogs.push(`[${new Date().toISOString()}] ${message}`);
+	if (deviceLogs.length > MAX_LOGS) deviceLogs.shift();
+}
+
+// Capture console output
+const originalLog = console.log;
+const originalError = console.error;
+
+console.log = function(...args) {
+	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+	serverLogs.push(`[${new Date().toISOString()}] LOG: ${message}`);
+	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
+	originalLog.apply(console, args);
+};
+
+console.error = function(...args) {
+	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+	serverLogs.push(`[${new Date().toISOString()}] ERROR: ${message}`);
+	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
+	originalError.apply(console, args);
+};
+
+app.get("/api/system-info", (_req, res) => {
+	res.json({
+		version: process.env.DOCKER_IMAGE_VERSION || 'local',
+		nodeVersion: process.version,
+		platform: process.platform,
+		uptime: process.uptime(),
+		memoryUsage: process.memoryUsage(),
+		cpuUsage: process.cpuUsage()
+	});
+});
+
+app.get("/api/logs", (_req, res) => {
+	res.json({ logs: serverLogs });
+});
+
+app.get("/api/device-logs", (_req, res) => {
+	res.json({ logs: deviceLogs });
+});
+
+// Time endpoint for ESP32 clock alignment
+app.get("/api/time", (_req, res) => {
+	res.json({
+		epoch: Date.now(), // Current time in milliseconds since Unix epoch
+		iso: new Date().toISOString()
+	});
+});
+
+// Settings endpoints
+app.get("/api/settings", async (_req, res) => {
+	try {
+		const settings = (await readJSONFile("settings.json")) || {
+			defaultSleepDuration: 3600000000, // 1 hour in microseconds
+			devMode: true, // Dev mode enabled by default
+			devServerHost: "host.local:3000" // Placeholder, will be replaced by ESP32
+		};
+		res.json(settings);
+	} catch (error) {
+		console.error("Error reading settings:", error);
+		res.status(500).json({ error: "Failed to read settings" });
+	}
+});
+
+app.put("/api/settings", async (req, res) => {
+	try {
+		const { defaultSleepDuration, devMode, devServerHost } = req.body;
+
+		// Read existing settings
+		const existingSettings = (await readJSONFile("settings.json")) || {};
+
+		// Validate and update sleep duration if provided
+		if (defaultSleepDuration !== undefined) {
+			const MIN_SLEEP = 5 * 60 * 1000000; // 5 minutes
+			const MAX_SLEEP = 24 * 60 * 60 * 1000000; // 24 hours
+
+			if (defaultSleepDuration < MIN_SLEEP || defaultSleepDuration > MAX_SLEEP) {
+				return res.status(400).json({
+					error: "Sleep duration must be between 5 minutes and 24 hours (in microseconds)"
+				});
+			}
+			existingSettings.defaultSleepDuration = parseInt(defaultSleepDuration);
+		}
+
+		// Update dev mode if provided
+		if (devMode !== undefined) {
+			existingSettings.devMode = Boolean(devMode);
+		}
+
+		// Update dev server host if provided
+		if (devServerHost !== undefined) {
+			existingSettings.devServerHost = String(devServerHost);
+		}
+
+		await writeJSONFile("settings.json", existingSettings);
+
+		// Update current.json to apply new sleep duration if it was changed
+		if (defaultSleepDuration !== undefined) {
+			const current = (await readJSONFile("current.json")) || {};
+			current.sleepDuration = existingSettings.defaultSleepDuration;
+			await writeJSONFile("current.json", current);
+		}
+
+		// Add dev mode flag to current.json
+		if (devMode !== undefined) {
+			const current = (await readJSONFile("current.json")) || {};
+			current.devMode = existingSettings.devMode;
+			current.devServerHost = existingSettings.devServerHost;
+			await writeJSONFile("current.json", current);
+		}
+
+		console.log(`Settings updated: sleep=${existingSettings.defaultSleepDuration}µs, devMode=${existingSettings.devMode}`);
+		res.json({ success: true, settings: existingSettings });
+	} catch (error) {
+		console.error("Error updating settings:", error);
+		res.status(500).json({ error: "Failed to update settings" });
 	}
 });
 
@@ -2873,3 +3390,13 @@ async function startServer() {
 }
 
 startServer().catch(console.error);
+
+// Export functions for testing
+if (process.env.NODE_ENV === 'test') {
+	module.exports = {
+		convertImageToRGB,
+		applyDithering,
+		findClosestSpectraColor,
+		app
+	};
+}
