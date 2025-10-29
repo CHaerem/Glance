@@ -59,6 +59,9 @@ jobs:
     - name: Deploy to serverpi
       run: |
         SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+        # Copy latest docker-compose.yml to Pi
+        scp -o StrictHostKeyChecking=no docker-compose.yml chris@100.74.55.82:~/glance/docker-compose.yml
+        # Deploy with updated config
         tailscale ssh chris@100.74.55.82 \
-          "cd ~/glance && git pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose up -d"
+          "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose up -d"
 
