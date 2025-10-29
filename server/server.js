@@ -20,6 +20,81 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || null;
 // Initialize OpenAI client if API key is available
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
+// Dev mode proxy middleware
+// When dev mode is enabled, forwards ESP32 requests to development server
+let devModeCache = { enabled: false, host: null, lastCheck: 0 };
+const DEV_MODE_CACHE_TTL = 5000; // 5 seconds cache
+
+async function getDevModeSettings() {
+	const now = Date.now();
+	if (now - devModeCache.lastCheck < DEV_MODE_CACHE_TTL) {
+		return devModeCache;
+	}
+
+	try {
+		const settings = (await readJSONFile("settings.json")) || {};
+		devModeCache = {
+			enabled: settings.devMode || false,
+			host: settings.devServerHost || null,
+			lastCheck: now
+		};
+	} catch (error) {
+		// If settings.json doesn't exist yet, disable dev mode
+		devModeCache = { enabled: false, host: null, lastCheck: now };
+	}
+	return devModeCache;
+}
+
+// Proxy middleware for ESP32 requests
+app.use(async (req, res, next) => {
+	// Only proxy ESP32 API requests (not web UI)
+	const isEsp32Request = req.headers['user-agent']?.includes('ESP32-Glance');
+	const isApiRequest = req.path.startsWith('/api/');
+
+	if (!isEsp32Request || !isApiRequest) {
+		return next();
+	}
+
+	// Check if dev mode is enabled
+	const devMode = await getDevModeSettings();
+	if (!devMode.enabled || !devMode.host) {
+		return next();
+	}
+
+	// Proxy the request to dev server
+	try {
+		const devUrl = `http://${devMode.host}${req.path}${req.url.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
+		console.log(`[Dev Mode Proxy] ${req.method} ${req.path} → ${devUrl}`);
+
+		const response = await fetch(devUrl, {
+			method: req.method,
+			headers: {
+				'Content-Type': req.headers['content-type'],
+				'User-Agent': req.headers['user-agent']
+			},
+			body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
+			timeout: 30000
+		});
+
+		// Copy response headers
+		response.headers.forEach((value, key) => {
+			res.setHeader(key, value);
+		});
+
+		// Forward status code
+		res.status(response.status);
+
+		// Stream the response body
+		const body = await response.arrayBuffer();
+		res.send(Buffer.from(body));
+	} catch (error) {
+		console.error(`[Dev Mode Proxy] Error proxying to dev server:`, error.message);
+		console.log(`[Dev Mode Proxy] Falling back to production server`);
+		// Fallback to production server
+		next();
+	}
+});
+
 // Curated Art Collections Database
 const CURATED_COLLECTIONS = {
 	"renaissance-masters": {

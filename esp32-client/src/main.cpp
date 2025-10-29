@@ -24,11 +24,8 @@
 #endif
 #define FIRMWARE_VERSION "v2-psram-devmode-1.0"
 
-// Global server configuration (will be updated from settings)
-String currentServerHost = SERVER_HOST;
-bool devModeEnabled = false;
-String devServerHost = "";
-String prodServerHost = SERVER_HOST;
+// Note: ESP32 always connects to production server (SERVER_HOST)
+// Dev mode proxy is handled server-side
 
 // Display dimensions
 #define DISPLAY_WIDTH 1200
@@ -50,9 +47,7 @@ void enterDeepSleep(uint64_t sleepTime);
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b);
 uint64_t getSleepDurationFromServer();
 uint64_t calculateAlignedSleepDuration(uint64_t intervalMicroseconds);
-void fetchDevModeSettings();
 String buildApiUrl(const char* endpoint, const String& serverHost);
-bool tryHttpRequest(HTTPClient& http, const String& url, String& payload);
 
 // E-ink color palette
 const uint8_t EINK_BLACK = 0x0;
@@ -111,8 +106,9 @@ void setup() {
     reportDeviceStatus("awake", batteryVoltage, signalStrength);
     sendLogToServer("ESP32 v2 awakened, downloading image");
 
-    // Fetch dev mode settings from server
-    fetchDevModeSettings();
+    // Note: Always connect to production server (SERVER_HOST)
+    // Dev mode is handled server-side via proxy - production server
+    // forwards requests to dev server when dev mode is enabled
 
     // Initialize e-Paper display
     Debug("Initializing e-Paper display...\r\n");
@@ -225,7 +221,7 @@ bool downloadAndDisplayImage() {
     Debug("PSRAM download failed, trying processed image from server\r\n");
 
     HTTPClient http;
-    String url = buildApiUrl("current.json", currentServerHost);
+    String url = buildApiUrl("current.json", SERVER_HOST);
     http.begin(url);
     http.setTimeout(60000);
     http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
@@ -291,7 +287,7 @@ bool downloadImageToPSRAM() {
     
     // Download raw binary image data
     HTTPClient http;
-    String url = buildApiUrl("image.bin", currentServerHost);
+    String url = buildApiUrl("image.bin", SERVER_HOST);
     http.begin(url);
     http.setTimeout(60000);
     http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
@@ -583,7 +579,7 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
     Debug("Reporting status: " + String(status) + "\r\n");
 
     HTTPClient http;
-    String url = buildApiUrl("device-status", currentServerHost);
+    String url = buildApiUrl("device-status", SERVER_HOST);
     http.begin(url);
     http.setTimeout(10000);
     http.addHeader("Content-Type", "application/json");
@@ -619,7 +615,7 @@ void sendLogToServer(const char *message, const char *level) {
     Debug("Log: " + String(message) + "\r\n");
 
     HTTPClient http;
-    String url = buildApiUrl("logs", currentServerHost);
+    String url = buildApiUrl("logs", SERVER_HOST);
     http.begin(url);
     http.setTimeout(5000);
     http.addHeader("Content-Type", "application/json");
@@ -655,7 +651,7 @@ uint64_t getSleepDurationFromServer() {
     Debug("Fetching sleep duration from server...\r\n");
 
     HTTPClient http;
-    String url = buildApiUrl("current.json", currentServerHost);
+    String url = buildApiUrl("current.json", SERVER_HOST);
     http.begin(url);
     http.setTimeout(10000);
     http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
@@ -690,7 +686,7 @@ uint64_t calculateAlignedSleepDuration(uint64_t intervalMicroseconds) {
 
     // Get current time from server
     HTTPClient http;
-    String url = buildApiUrl("time", currentServerHost);
+    String url = buildApiUrl("time", SERVER_HOST);
     http.begin(url);
     http.setTimeout(10000);
     http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
@@ -737,60 +733,6 @@ uint64_t calculateAlignedSleepDuration(uint64_t intervalMicroseconds) {
 // Helper function to build API URL
 String buildApiUrl(const char* endpoint, const String& serverHost) {
     return "http://" + serverHost + "/api/" + endpoint;
-}
-
-// Try HTTP request and return success
-bool tryHttpRequest(HTTPClient& http, const String& url, String& payload) {
-    http.begin(url);
-    http.setTimeout(10000);
-    http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
-
-    int httpCode = http.GET();
-    if (httpCode == HTTP_CODE_OK) {
-        payload = http.getString();
-        http.end();
-        return true;
-    }
-
-    http.end();
-    return false;
-}
-
-// Fetch dev mode settings from production server
-void fetchDevModeSettings() {
-    Debug("Fetching dev mode settings...\r\n");
-
-    HTTPClient http;
-    String payload;
-    String url = buildApiUrl("current.json", prodServerHost);
-
-    if (tryHttpRequest(http, url, payload)) {
-        DynamicJsonDocument doc(2048);
-        DeserializationError error = deserializeJson(doc, payload);
-
-        if (!error) {
-            if (doc.containsKey("devMode")) {
-                devModeEnabled = doc["devMode"];
-                Debug("Dev mode: " + String(devModeEnabled ? "enabled" : "disabled") + "\r\n");
-            }
-
-            if (doc.containsKey("devServerHost") && doc["devServerHost"].as<String>().length() > 0) {
-                devServerHost = doc["devServerHost"].as<String>();
-                Debug("Dev server host: " + devServerHost + "\r\n");
-            } else {
-                // Use current WiFi gateway IP as dev server (local machine)
-                devServerHost = WiFi.gatewayIP().toString() + ":3000";
-                Debug("Dev server host (auto-detected): " + devServerHost + "\r\n");
-            }
-
-            // Set current server based on dev mode
-            currentServerHost = (devModeEnabled && devServerHost.length() > 0) ? devServerHost : prodServerHost;
-            Debug("Using server: " + currentServerHost + "\r\n");
-        }
-    } else {
-        Debug("Failed to fetch dev mode settings, using production server\r\n");
-        currentServerHost = prodServerHost;
-    }
 }
 
 void enterDeepSleep(uint64_t sleepTime) {

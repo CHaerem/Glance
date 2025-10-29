@@ -310,15 +310,21 @@
         <div class="form-group">
             <label class="form-label">
                 <input type="checkbox" id="devMode" style="margin-right: 8px; width: auto;">
-                Development Mode
+                Development Mode (Server-Side Proxy)
             </label>
-            <div class="form-hint">When enabled, ESP32 tries development server first, then falls back to production</div>
+            <div class="form-hint">
+                When enabled, production server forwards ESP32 requests to your development server.
+                ESP32 always connects to production - no client changes needed!
+            </div>
         </div>
 
         <div class="form-group" id="devServerHostGroup" style="display: none;">
             <label class="form-label" for="devServerHost">Development Server Host</label>
-            <input type="text" id="devServerHost" class="form-input" placeholder="192.168.1.100:3000">
-            <div class="form-hint">Your local machine's IP address and port (leave blank to auto-detect)</div>
+            <input type="text" id="devServerHost" class="form-input" placeholder="your-macbook.tail-scale.ts.net:3000 or 192.168.1.100:3000">
+            <div class="form-hint">
+                Use Tailscale hostname (works anywhere) or LAN IP address.
+                Production server can reach this via Tailscale even when you're remote.
+            </div>
         </div>
 
         <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
