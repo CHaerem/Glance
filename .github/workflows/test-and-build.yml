@@ -63,5 +63,5 @@ jobs:
         scp -o StrictHostKeyChecking=no docker-compose.yml chris@100.74.55.82:~/glance/docker-compose.yml
         # Deploy with updated config
         tailscale ssh chris@100.74.55.82 \
-          "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose up -d"
+          "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose up -d"
 
