@@ -1462,18 +1462,18 @@ app.post("/api/lucky-prompt", async (req, res) => {
 		if (currentPrompt) {
 			// Enhance/expand existing prompt
 			temperature = 0.8;
-			userContent = `Take this existing prompt and enhance it with more vivid details, stronger contrast elements, and full-bleed composition guidance:\n\n"${currentPrompt}"\n\nExpand it into a complete, detailed prompt (under 80 words) optimized for a high-contrast six-color e-ink display.`;
+			userContent = `Take this existing prompt and enhance it with more vivid details, stronger contrast elements, and full-bleed composition guidance:\n\n"${currentPrompt}"\n\nExpand it into a complete, detailed prompt (under 80 words) for creating gallery-worthy art with dramatic visual impact.`;
 		} else if (cueParts.length > 0) {
 			// Use provided cues
 			temperature = 0.9;
 			userContent = `Use the following loose guidance to create a vivid prompt:\n${cueParts.join(
 				"\n"
-			)}\n\nDeliver one complete prompt ready for image generation, highlighting full-bleed composition, dramatic lighting, and strong contrast suitable for an e-ink poster.`;
+			)}\n\nDeliver one complete prompt ready for image generation, highlighting full-bleed composition, dramatic lighting, and strong contrast suitable for a striking art poster.`;
 		} else {
 			// Generate from random theme
 			temperature = 1.1;
 			const inspirationSeed = getRandomLuckyPrompt();
-			userContent = `Surprise me with a fresh, inspiring idea for a portrait-oriented AI artwork that would look striking on an e-ink display. Lean into ${inspirationSeed}. Make sure the prompt enforces full-bleed composition, edge-to-edge detail, and bold contrast.`;
+			userContent = `Surprise me with a fresh, inspiring idea for a portrait-oriented AI artwork with bold visual impact. Lean into ${inspirationSeed}. Make sure the prompt enforces full-bleed composition, edge-to-edge detail, and dramatic contrast.`;
 		}
 
 		const response = await openai.chat.completions.create({
@@ -1484,7 +1484,7 @@ app.post("/api/lucky-prompt", async (req, res) => {
 				{
 					role: "system",
 					content:
-						"You are a creative director crafting prompts for an AI image generator that produces portrait-oriented art for a high-contrast six-color e-ink display. Every prompt must insist on full-bleed composition, rich textures, and bold contrast. Respond with a single prompt under 80 words."
+						"You are curating prompts for an AI art gallery. Generate prompts that create museum-quality, gallery-worthy artwork with strong visual impact. Focus on bold compositions, rich textures, dramatic contrast, and full-bleed designs that command attention. Think poster art, fine art prints, and striking visuals. Respond with a single vivid prompt under 80 words."
 				},
 				{
 					role: "user",
