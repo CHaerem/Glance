@@ -367,6 +367,10 @@
             <div class="status-label">Battery</div>
         </div>
         <div class="status-item">
+            <div class="status-value" id="lastCharged">--</div>
+            <div class="status-label">Last Charged</div>
+        </div>
+        <div class="status-item">
             <div class="status-value" id="signalStrength">--</div>
             <div class="status-label">Signal</div>
         </div>
@@ -611,8 +615,40 @@
                 document.getElementById('deviceState').className =
                     status.state === 'online' ? 'status-value status-online' : 'status-value status-offline';
 
-                document.getElementById('batteryVoltage').textContent =
-                    status.batteryVoltage ? `${status.batteryVoltage}V` : '--';
+                // Battery display with percentage and charging indicator
+                if (status.batteryVoltage) {
+                    let batteryText = `${status.batteryVoltage}V`;
+                    if (status.batteryPercent !== null && status.batteryPercent !== undefined) {
+                        batteryText += ` (${status.batteryPercent}%)`;
+                    }
+                    if (status.isCharging) {
+                        batteryText += ' ⚡';
+                    }
+                    document.getElementById('batteryVoltage').textContent = batteryText;
+                } else {
+                    document.getElementById('batteryVoltage').textContent = '--';
+                }
+
+                // Last charged display
+                if (status.lastChargeTimestamp) {
+                    const lastCharge = new Date(status.lastChargeTimestamp);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - lastCharge) / 1000 / 60);
+
+                    if (diffMinutes < 1) {
+                        document.getElementById('lastCharged').textContent = 'Just now';
+                    } else if (diffMinutes < 60) {
+                        document.getElementById('lastCharged').textContent = `${diffMinutes}m ago`;
+                    } else if (diffMinutes < 1440) { // Less than 24 hours
+                        const hours = Math.floor(diffMinutes / 60);
+                        document.getElementById('lastCharged').textContent = `${hours}h ago`;
+                    } else {
+                        const days = Math.floor(diffMinutes / 1440);
+                        document.getElementById('lastCharged').textContent = `${days}d ago`;
+                    }
+                } else {
+                    document.getElementById('lastCharged').textContent = 'Never';
+                }
 
                 document.getElementById('signalStrength').textContent =
                     status.signalStrength ? `${status.signalStrength} dBm` : '--';

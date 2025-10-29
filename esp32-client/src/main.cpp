@@ -22,7 +22,7 @@
 #ifndef DEVICE_ID
 #define DEVICE_ID "esp32-001"
 #endif
-#define FIRMWARE_VERSION "v2-psram-devmode-2.0"
+#define FIRMWARE_VERSION "v2-psram-battery-3.0"
 
 // Dev mode: ESP32 tries dev server first if provided, falls back to production
 // Fallback is reported to production for auto-disable
@@ -40,9 +40,11 @@ bool connectToWiFi();
 bool downloadAndDisplayImage();
 bool downloadImageToPSRAM();
 void generateAndDisplayBhutanFlag();
-void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength);
+void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength, int batteryPercent, bool isCharging);
 void sendLogToServer(const char *message, const char *level = "INFO");
 float readBatteryVoltage();
+int calculateBatteryPercentage(float voltage);
+bool detectCharging(float currentVoltage, float previousVoltage);
 void enterDeepSleep(uint64_t sleepTime);
 uint8_t mapRGBToEink(uint8_t r, uint8_t g, uint8_t b);
 uint64_t getSleepDurationFromServer();
@@ -59,6 +61,8 @@ const uint8_t EINK_GREEN = 0x6;
 
 // RTC memory to store last displayed imageId across deep sleep cycles
 RTC_DATA_ATTR char lastDisplayedImageId[65] = ""; // Stores imageId (64 chars + null terminator)
+RTC_DATA_ATTR float lastBatteryVoltage = 0.0f; // Previous voltage reading for charging detection
+RTC_DATA_ATTR uint32_t bootCount = 0; // Track number of wake cycles
 
 // Dev mode tracking (not stored in RTC, resets each wake)
 String devServerHost = ""; // e.g. "192.168.1.26:3000"
@@ -89,17 +93,30 @@ void setup() {
     
     // Setup power management
     setupPowerManagement();
-    
-    // Read battery voltage
+
+    // Increment boot counter
+    bootCount++;
+    Debug("Boot count: " + String(bootCount) + "\r\n");
+
+    // Read battery voltage and calculate metrics
     float batteryVoltage = readBatteryVoltage();
-    Debug("Battery Voltage: " + String(batteryVoltage, 2) + "V\r\n");
-    
+    int batteryPercent = calculateBatteryPercentage(batteryVoltage);
+    bool isCharging = detectCharging(batteryVoltage, lastBatteryVoltage);
+
+    Debug("Battery Voltage: " + String(batteryVoltage, 2) + "V (" + String(batteryPercent) + "%)\r\n");
+    if (isCharging) {
+        Debug("Battery is charging\r\n");
+    }
+
+    // Store current voltage for next wake cycle
+    lastBatteryVoltage = batteryVoltage;
+
     if (batteryVoltage < LOW_BATTERY_THRESHOLD) {
         Debug("Low battery detected, entering extended sleep\r\n");
         enterDeepSleep(DEFAULT_SLEEP_TIME * 2); // Double sleep time for low battery
         return;
     }
-    
+
     // Connect to WiFi
     if (!connectToWiFi()) {
         Debug("WiFi connection failed, displaying fallback flag\r\n");
@@ -107,10 +124,10 @@ void setup() {
         enterDeepSleep(DEFAULT_SLEEP_TIME);
         return;
     }
-    
+
     // Report device status
     int signalStrength = WiFi.RSSI();
-    reportDeviceStatus("awake", batteryVoltage, signalStrength);
+    reportDeviceStatus("awake", batteryVoltage, signalStrength, batteryPercent, isCharging);
     sendLogToServer("ESP32 v2 awakened, checking for new image");
 
     // Note: Always connect to production server (SERVER_HOST)
@@ -157,7 +174,7 @@ void setup() {
 
     if (!imageChanged) {
         // Image hasn't changed, skip display update
-        reportDeviceStatus("display_unchanged", batteryVoltage, signalStrength);
+        reportDeviceStatus("display_unchanged", batteryVoltage, signalStrength, batteryPercent, isCharging);
     } else {
         // Image has changed or this is first boot, proceed with update
         Debug("Image changed or first boot - updating display\r\n");
@@ -187,10 +204,10 @@ void setup() {
                 Debug("Stored imageId in RTC memory: " + String(lastDisplayedImageId) + "\r\n");
             }
 
-            reportDeviceStatus("display_updated", batteryVoltage, signalStrength);
+            reportDeviceStatus("display_updated", batteryVoltage, signalStrength, batteryPercent, isCharging);
             sendLogToServer("Image downloaded and displayed successfully");
         } else {
-            reportDeviceStatus("display_fallback", batteryVoltage, signalStrength);
+            reportDeviceStatus("display_fallback", batteryVoltage, signalStrength, batteryPercent, isCharging);
             sendLogToServer("Download failed, displaying fallback flag");
             generateAndDisplayBhutanFlag();
         }
@@ -201,7 +218,7 @@ void setup() {
 
     // Power down radios
     teardownRadios();
-    
+
     // Get sleep interval from server (with fallback to default)
     uint64_t sleepInterval = getSleepDurationFromServer();
     if (sleepInterval == 0) {
@@ -216,7 +233,7 @@ void setup() {
     Debug("Aligned sleep duration: " + String(alignedSleepDuration / 1000000) + " seconds (" + String(alignedSleepDuration / 1000000 / 60) + " minutes)\r\n");
 
     // Report going to sleep
-    reportDeviceStatus("sleeping", batteryVoltage, signalStrength);
+    reportDeviceStatus("sleeping", batteryVoltage, signalStrength, batteryPercent, isCharging);
     sendLogToServer("Entering deep sleep");
 
     // Enter deep sleep with clock-aligned duration
@@ -662,7 +679,7 @@ void teardownRadios() {
     btStop();
 }
 
-void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength) {
+void reportDeviceStatus(const char *status, float batteryVoltage, int signalStrength, int batteryPercent, bool isCharging) {
     Debug("Reporting status: " + String(status) + "\r\n");
 
     HTTPClient http;
@@ -671,7 +688,7 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
     http.setTimeout(10000);
     http.addHeader("Content-Type", "application/json");
     http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
-    
+
     DynamicJsonDocument doc(1024);
     doc["deviceId"] = DEVICE_ID;
 
@@ -679,23 +696,26 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
     JsonObject statusObj = doc.createNestedObject("status");
     statusObj["status"] = status;
     statusObj["batteryVoltage"] = batteryVoltage;
+    statusObj["batteryPercent"] = batteryPercent;
+    statusObj["isCharging"] = isCharging;
     statusObj["signalStrength"] = signalStrength;
     statusObj["firmwareVersion"] = FIRMWARE_VERSION;
     statusObj["freeHeap"] = ESP.getFreeHeap();
     statusObj["psramFree"] = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     statusObj["uptime"] = millis();
+    statusObj["bootCount"] = bootCount;
     statusObj["usedFallback"] = usedFallback; // Report if dev server failed
-    
+
     String jsonString;
     serializeJson(doc, jsonString);
-    
+
     int httpCode = http.POST(jsonString);
     if (httpCode > 0) {
         Debug("Status reported: " + String(httpCode) + "\r\n");
     } else {
         Debug("Status report failed: " + String(httpCode) + "\r\n");
     }
-    
+
     http.end();
 }
 
@@ -733,6 +753,47 @@ float readBatteryVoltage() {
     float voltage = (adcReading / 4095.0f) * 3.3f * 2.0f;
     return voltage;
 #endif
+}
+
+int calculateBatteryPercentage(float voltage) {
+    // LiPo battery discharge curve approximation
+    // 4.2V = 100%, 3.7V = 50%, 3.0V = 0%
+    const float V_MAX = 4.2f;  // Fully charged
+    const float V_MIN = 3.0f;  // Empty (cutoff)
+    const float V_NOMINAL = 3.7f; // Mid-point
+
+    if (voltage >= V_MAX) return 100;
+    if (voltage <= V_MIN) return 0;
+
+    // Use piecewise linear approximation
+    // Upper half (4.2V-3.7V): 100%-50%
+    // Lower half (3.7V-3.0V): 50%-0%
+    int percent;
+    if (voltage >= V_NOMINAL) {
+        // Upper half: 50% to 100%
+        percent = 50 + (int)((voltage - V_NOMINAL) / (V_MAX - V_NOMINAL) * 50.0f);
+    } else {
+        // Lower half: 0% to 50%
+        percent = (int)((voltage - V_MIN) / (V_NOMINAL - V_MIN) * 50.0f);
+    }
+
+    // Clamp to 0-100 range
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+
+    return percent;
+}
+
+bool detectCharging(float currentVoltage, float previousVoltage) {
+    // If this is the first boot (previousVoltage == 0), can't detect charging
+    if (previousVoltage < 0.1f) {
+        return false;
+    }
+
+    // Charging detected if voltage increased by more than 50mV
+    // This threshold avoids false positives from measurement noise
+    const float CHARGING_THRESHOLD = 0.05f; // 50mV
+    return (currentVoltage - previousVoltage) > CHARGING_THRESHOLD;
 }
 
 uint64_t getSleepDurationFromServer() {

@@ -1654,10 +1654,25 @@ app.post("/api/device-status", async (req, res) => {
 
 		// Load existing devices
 		const devices = (await readJSONFile("devices.json")) || {};
+		const previousDevice = devices[deviceId] || {};
+
+		// Detect charging event
+		const isCharging = status.isCharging === true;
+		let lastChargeTimestamp = previousDevice.lastChargeTimestamp || null;
+
+		// Update lastChargeTimestamp if currently charging and wasn't charging before
+		if (isCharging && !previousDevice.isCharging) {
+			lastChargeTimestamp = Date.now();
+			console.log(`[Battery] Device ${deviceId} started charging`);
+			addDeviceLog(`🔋 Device ${deviceId} started charging`);
+		}
 
 		// Update device status with sanitized data
 		devices[deviceId] = {
 			batteryVoltage: parseFloat(status.batteryVoltage) || 0,
+			batteryPercent: parseInt(status.batteryPercent) || 0,
+			isCharging: isCharging,
+			lastChargeTimestamp: lastChargeTimestamp,
 			signalStrength: parseInt(status.signalStrength) || 0,
 			freeHeap: parseInt(status.freeHeap) || 0,
 			bootCount: parseInt(status.bootCount) || 0,
@@ -1668,7 +1683,8 @@ app.post("/api/device-status", async (req, res) => {
 
 		await writeJSONFile("devices.json", devices);
 
-		const logMessage = `Device ${deviceId} reported: Battery ${status.batteryVoltage}V, Signal ${status.signalStrength}dBm, Status: ${status.status}`;
+		const batteryInfo = `${status.batteryVoltage}V (${status.batteryPercent}%)${isCharging ? ' [Charging]' : ''}`;
+		const logMessage = `Device ${deviceId} reported: Battery ${batteryInfo}, Signal ${status.signalStrength}dBm, Status: ${status.status}`;
 		console.log(logMessage);
 		addDeviceLog(logMessage);
 
@@ -1690,6 +1706,9 @@ app.get("/api/esp32-status", async (req, res) => {
 			return res.json({
 				state: 'offline',
 				batteryVoltage: null,
+				batteryPercent: null,
+				isCharging: false,
+				lastChargeTimestamp: null,
 				signalStrength: null,
 				lastSeen: null
 			});
@@ -1702,6 +1721,9 @@ app.get("/api/esp32-status", async (req, res) => {
 		res.json({
 			state: isOnline ? 'online' : 'offline',
 			batteryVoltage: deviceStatus.batteryVoltage,
+			batteryPercent: deviceStatus.batteryPercent,
+			isCharging: deviceStatus.isCharging,
+			lastChargeTimestamp: deviceStatus.lastChargeTimestamp,
 			signalStrength: deviceStatus.signalStrength,
 			lastSeen: deviceStatus.lastSeen,
 			freeHeap: deviceStatus.freeHeap,
