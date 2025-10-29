@@ -569,7 +569,17 @@
                 const response = await fetch('/api/system-info');
                 const info = await response.json();
 
-                document.getElementById('serverVersion').textContent = info.version || 'local';
+                // Format version with GitHub link if it's a SHA
+                const versionEl = document.getElementById('serverVersion');
+                const version = info.version || 'local';
+
+                if (version.startsWith('sha-')) {
+                    const sha = version.substring(4); // Remove 'sha-' prefix
+                    versionEl.innerHTML = `<a href="https://github.com/CHaerem/Glance/commit/${sha}" target="_blank" style="color: #0969da; text-decoration: none;">${version}</a>`;
+                } else {
+                    versionEl.textContent = version;
+                }
+
                 document.getElementById('nodeVersion').textContent = info.nodeVersion || process.version;
                 document.getElementById('platform').textContent = info.platform || navigator.platform;
 
