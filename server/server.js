@@ -3264,6 +3264,25 @@ app.get("/api/time", (_req, res) => {
 	});
 });
 
+// Client IP detection for admin panel
+app.get("/api/client-ip", (req, res) => {
+	// Try different methods to get real client IP (handles proxies/load balancers)
+	const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+	                 req.headers['x-real-ip'] ||
+	                 req.socket.remoteAddress ||
+	                 req.ip;
+
+	// Clean up IPv6 localhost and mapped IPv4
+	let cleanIp = clientIp;
+	if (cleanIp === '::1' || cleanIp === '::ffff:127.0.0.1') {
+		cleanIp = '127.0.0.1';
+	} else if (cleanIp?.startsWith('::ffff:')) {
+		cleanIp = cleanIp.substring(7); // Remove IPv6-mapped IPv4 prefix
+	}
+
+	res.json({ ip: cleanIp });
+});
+
 // Settings endpoints
 app.get("/api/settings", async (_req, res) => {
 	try {
