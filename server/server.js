@@ -20,83 +20,10 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || null;
 // Initialize OpenAI client if API key is available
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
-// Dev mode proxy middleware
-// When dev mode is enabled, forwards ESP32 requests to development server
-let devModeCache = { enabled: false, host: null, lastCheck: 0 };
-const DEV_MODE_CACHE_TTL = 5000; // 5 seconds cache
-
-async function getDevModeSettings() {
-	const now = Date.now();
-	if (now - devModeCache.lastCheck < DEV_MODE_CACHE_TTL) {
-		return devModeCache;
-	}
-
-	try {
-		const settings = (await readJSONFile("settings.json")) || {};
-		devModeCache = {
-			enabled: settings.devMode || false,
-			host: settings.devServerHost || null,
-			lastCheck: now
-		};
-	} catch (error) {
-		// If settings.json doesn't exist yet, disable dev mode
-		devModeCache = { enabled: false, host: null, lastCheck: now };
-	}
-	return devModeCache;
-}
-
-// Proxy middleware for ESP32 requests
-app.use(async (req, res, next) => {
-	// Only proxy ESP32 API requests (not web UI)
-	const isEsp32Request = req.headers['user-agent']?.includes('ESP32-Glance');
-	const isApiRequest = req.path.startsWith('/api/');
-
-	if (!isEsp32Request || !isApiRequest) {
-		return next();
-	}
-
-	// Check if dev mode is enabled
-	const devMode = await getDevModeSettings();
-	if (!devMode.enabled || !devMode.host) {
-		console.log(`[ESP32 Request] ${req.method} ${req.path} (dev mode disabled, using local server)`);
-		return next();
-	}
-
-	// Proxy the request to dev server
-	try {
-		const devUrl = `http://${devMode.host}${req.path}${req.url.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
-		console.log(`[Dev Mode Proxy] ${req.method} ${req.path} -> ${devUrl}`);
-
-		const response = await fetch(devUrl, {
-			method: req.method,
-			headers: {
-				'Content-Type': req.headers['content-type'],
-				'User-Agent': req.headers['user-agent']
-			},
-			body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
-			timeout: 30000
-		});
-
-		console.log(`[Dev Mode Proxy] Response: ${response.status} ${response.statusText}`);
-
-		// Copy response headers
-		response.headers.forEach((value, key) => {
-			res.setHeader(key, value);
-		});
-
-		// Forward status code
-		res.status(response.status);
-
-		// Stream the response body
-		const body = await response.arrayBuffer();
-		res.send(Buffer.from(body));
-	} catch (error) {
-		console.error(`[Dev Mode Proxy] Error: ${error.message}`);
-		console.log(`[Dev Mode Proxy] Falling back to production server`);
-		// Fallback to production server
-		next();
-	}
-});
+// Dev mode is now handled client-side:
+// - Production server includes devServerHost in /api/current.json
+// - ESP32 tries dev server first, falls back to production if unreachable
+// - ESP32 reports fallback in device-status, which auto-disables dev mode
 
 // Curated Art Collections Database
 const CURATED_COLLECTIONS = {
@@ -991,6 +918,10 @@ app.get("/api/current.json", async (req, res) => {
 			sleepDuration: 3600000000, // 1 hour in microseconds
 		};
 
+		// Get dev mode settings
+		const settings = (await readJSONFile("settings.json")) || {};
+		const devServerHost = (settings.devMode && settings.devServerHost) ? settings.devServerHost : null;
+
 		// Send metadata only (no image data)
 		const metadata = {
 			hasImage: !!(current.image || current.imageId),
@@ -998,11 +929,12 @@ app.get("/api/current.json", async (req, res) => {
 			imageId: current.imageId || "default",
 			timestamp: current.timestamp || Date.now(),
 			sleepDuration: current.sleepDuration || 3600000000,
-			rotation: current.rotation || 0
+			rotation: current.rotation || 0,
+			devServerHost: devServerHost // ESP32 will try this server first if present
 		};
 
-		console.log(`Serving metadata: hasImage=${metadata.hasImage}, imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us`);
-		addDeviceLog(`Device fetched image metadata: ${metadata.imageId} (sleep: ${Math.round(metadata.sleepDuration/60000000)}min)`);
+		console.log(`Serving metadata: hasImage=${metadata.hasImage}, imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us, devServer=${devServerHost || 'none'}`);
+		addDeviceLog(`Device fetched image metadata: ${metadata.imageId} (sleep: ${Math.round(metadata.sleepDuration/60000000)}min)${devServerHost ? ' [dev mode]' : ''}`);
 		res.json(metadata);
 	} catch (error) {
 		console.error("Error getting current:", error);
@@ -1662,6 +1594,18 @@ app.post("/api/device-status", async (req, res) => {
 			return res
 				.status(400)
 				.json({ error: "Valid deviceId and status object required" });
+		}
+
+		// Check if device used fallback (couldn't reach dev server)
+		if (status.usedFallback === true) {
+			const settings = (await readJSONFile("settings.json")) || {};
+			if (settings.devMode) {
+				console.log(`[Dev Mode] Device ${deviceId} couldn't reach dev server ${settings.devServerHost}, auto-disabling dev mode`);
+				addDeviceLog(`⚠️  Dev server ${settings.devServerHost} unreachable, disabled dev mode`);
+
+				settings.devMode = false;
+				await writeJSONFile("settings.json", settings);
+			}
 		}
 
 		// Load existing devices

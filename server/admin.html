@@ -325,7 +325,7 @@
                 Development Mode
             </label>
             <div class="form-hint" id="devModeHint">
-                ESP32 always connects to production (serverpi). When enabled, production proxies requests to your dev server. Configure this on production server admin, not locally.
+                ESP32 will try dev server first, fallback to production if unreachable. Auto-disables if dev server is down. Configure on production admin.
             </div>
         </div>
 
@@ -333,7 +333,7 @@
             <label class="form-label" for="devServerHost">Development Server Host</label>
             <input type="text" id="devServerHost" class="form-input" placeholder="192.168.1.100:3000">
             <div class="form-hint">
-                Your development server IP and port (auto-detected).
+                Your development laptop IP and port (auto-detected).
             </div>
         </div>
 
