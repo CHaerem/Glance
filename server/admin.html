@@ -364,16 +364,66 @@
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <div style="flex: 1;">
                         <label class="form-label" for="nightSleepStartHour" style="margin-bottom: 4px;">From</label>
-                        <input type="number" id="nightSleepStartHour" class="form-input" min="0" max="23" step="1" placeholder="23">
+                        <select id="nightSleepStartHour" class="form-input">
+                            <option value="0">00:00 (12 AM)</option>
+                            <option value="1">01:00 (1 AM)</option>
+                            <option value="2">02:00 (2 AM)</option>
+                            <option value="3">03:00 (3 AM)</option>
+                            <option value="4">04:00 (4 AM)</option>
+                            <option value="5">05:00 (5 AM)</option>
+                            <option value="6">06:00 (6 AM)</option>
+                            <option value="7">07:00 (7 AM)</option>
+                            <option value="8">08:00 (8 AM)</option>
+                            <option value="9">09:00 (9 AM)</option>
+                            <option value="10">10:00 (10 AM)</option>
+                            <option value="11">11:00 (11 AM)</option>
+                            <option value="12">12:00 (12 PM)</option>
+                            <option value="13">13:00 (1 PM)</option>
+                            <option value="14">14:00 (2 PM)</option>
+                            <option value="15">15:00 (3 PM)</option>
+                            <option value="16">16:00 (4 PM)</option>
+                            <option value="17">17:00 (5 PM)</option>
+                            <option value="18">18:00 (6 PM)</option>
+                            <option value="19">19:00 (7 PM)</option>
+                            <option value="20">20:00 (8 PM)</option>
+                            <option value="21">21:00 (9 PM)</option>
+                            <option value="22">22:00 (10 PM)</option>
+                            <option value="23">23:00 (11 PM)</option>
+                        </select>
                     </div>
                     <div style="padding-top: 20px; color: #999;">—</div>
                     <div style="flex: 1;">
                         <label class="form-label" for="nightSleepEndHour" style="margin-bottom: 4px;">To</label>
-                        <input type="number" id="nightSleepEndHour" class="form-input" min="0" max="23" step="1" placeholder="5">
+                        <select id="nightSleepEndHour" class="form-input">
+                            <option value="0">00:00 (12 AM)</option>
+                            <option value="1">01:00 (1 AM)</option>
+                            <option value="2">02:00 (2 AM)</option>
+                            <option value="3">03:00 (3 AM)</option>
+                            <option value="4">04:00 (4 AM)</option>
+                            <option value="5">05:00 (5 AM)</option>
+                            <option value="6">06:00 (6 AM)</option>
+                            <option value="7">07:00 (7 AM)</option>
+                            <option value="8">08:00 (8 AM)</option>
+                            <option value="9">09:00 (9 AM)</option>
+                            <option value="10">10:00 (10 AM)</option>
+                            <option value="11">11:00 (11 AM)</option>
+                            <option value="12">12:00 (12 PM)</option>
+                            <option value="13">13:00 (1 PM)</option>
+                            <option value="14">14:00 (2 PM)</option>
+                            <option value="15">15:00 (3 PM)</option>
+                            <option value="16">16:00 (4 PM)</option>
+                            <option value="17">17:00 (5 PM)</option>
+                            <option value="18">18:00 (6 PM)</option>
+                            <option value="19">19:00 (7 PM)</option>
+                            <option value="20">20:00 (8 PM)</option>
+                            <option value="21">21:00 (9 PM)</option>
+                            <option value="22">22:00 (10 PM)</option>
+                            <option value="23">23:00 (11 PM)</option>
+                        </select>
                     </div>
                 </div>
                 <div class="form-hint" style="margin-top: 8px;">
-                    Hours (0-23). Example: 23 to 5 means sleep from 11 PM to 5 AM.
+                    Display stays asleep during selected hours.
                 </div>
             </div>
         </div>
