@@ -22,10 +22,10 @@
 #ifndef DEVICE_ID
 #define DEVICE_ID "esp32-001"
 #endif
-#define FIRMWARE_VERSION "v2-psram-devmode-1.0"
+#define FIRMWARE_VERSION "v2-psram-devmode-2.0"
 
-// Note: ESP32 always connects to production server (SERVER_HOST)
-// Dev mode proxy is handled server-side
+// Dev mode: ESP32 tries dev server first if provided, falls back to production
+// Fallback is reported to production for auto-disable
 
 // Display dimensions
 #define DISPLAY_WIDTH 1200
@@ -59,6 +59,10 @@ const uint8_t EINK_GREEN = 0x6;
 
 // RTC memory to store last displayed imageId across deep sleep cycles
 RTC_DATA_ATTR char lastDisplayedImageId[65] = ""; // Stores imageId (64 chars + null terminator)
+
+// Dev mode tracking (not stored in RTC, resets each wake)
+String devServerHost = ""; // e.g. "192.168.1.26:3000"
+bool usedFallback = false; // true if we tried dev server but it failed
 
 void setup() {
     Serial.begin(115200);
@@ -134,6 +138,12 @@ void setup() {
         if (!error && doc.containsKey("imageId")) {
             currentImageId = doc["imageId"].as<String>();
             Debug("Current server imageId: " + currentImageId + "\r\n");
+
+            // Read dev server host if present
+            if (doc.containsKey("devServerHost") && !doc["devServerHost"].isNull()) {
+                devServerHost = doc["devServerHost"].as<String>();
+                Debug("Dev mode enabled, will try dev server: " + devServerHost + "\r\n");
+            }
 
             // Compare with last displayed imageId
             if (strlen(lastDisplayedImageId) > 0 && currentImageId.equals(lastDisplayedImageId)) {
@@ -337,17 +347,41 @@ bool downloadImageToPSRAM() {
     }
     
     Debug("SUCCESS: Using streaming approach - e-ink buffer: " + String(EINK_BUFFER_SIZE / 1024) + "KB\r\n");
-    
+
     // Download raw binary image data
     HTTPClient http;
-    String url = buildApiUrl("image.bin", SERVER_HOST);
+    String serverToUse = SERVER_HOST;
+
+    // Try dev server first if dev mode is enabled
+    if (devServerHost.length() > 0) {
+        serverToUse = devServerHost;
+        Debug("Trying dev server: " + serverToUse + "\r\n");
+    }
+
+    String url = buildApiUrl("image.bin", serverToUse);
     http.begin(url);
     http.setTimeout(60000);
     http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
-    
+
     int httpCode = http.GET();
     Debug("Image download response: " + String(httpCode) + "\r\n");
-    
+
+    // If dev server failed, try production fallback
+    if (httpCode != HTTP_CODE_OK && devServerHost.length() > 0) {
+        Debug("Dev server failed, falling back to production\r\n");
+        http.end();
+        usedFallback = true;
+
+        // Retry with production server
+        serverToUse = SERVER_HOST;
+        url = buildApiUrl("image.bin", serverToUse);
+        http.begin(url);
+        http.setTimeout(60000);
+        http.addHeader("User-Agent", "ESP32-Glance-v2/" FIRMWARE_VERSION);
+        httpCode = http.GET();
+        Debug("Production server response: " + String(httpCode) + "\r\n");
+    }
+
     if (httpCode != HTTP_CODE_OK) {
         Debug("Download failed with code: " + String(httpCode) + "\r\n");
         if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
@@ -640,7 +674,7 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
     
     DynamicJsonDocument doc(1024);
     doc["deviceId"] = DEVICE_ID;
-    
+
     // Create status object as expected by server
     JsonObject statusObj = doc.createNestedObject("status");
     statusObj["status"] = status;
@@ -650,6 +684,7 @@ void reportDeviceStatus(const char *status, float batteryVoltage, int signalStre
     statusObj["freeHeap"] = ESP.getFreeHeap();
     statusObj["psramFree"] = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     statusObj["uptime"] = millis();
+    statusObj["usedFallback"] = usedFallback; // Report if dev server failed
     
     String jsonString;
     serializeJson(doc, jsonString);
