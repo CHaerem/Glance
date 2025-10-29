@@ -60,5 +60,5 @@ jobs:
       run: |
         SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
         tailscale ssh chris@100.74.55.82 \
-          "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose up -d"
+          "cd ~/glance && git pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} docker compose up -d"
 
