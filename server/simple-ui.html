@@ -445,18 +445,26 @@
             right: 20px;
             background: rgba(255, 255, 255, 0.9);
             border: none;
-            width: 36px;
-            height: 36px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             cursor: pointer;
             font-size: 1.25rem;
             color: #666;
             transition: all 0.2s ease;
+            z-index: 10;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .close-modal:hover {
             background: white;
             color: #1a1a1a;
+        }
+
+        .close-modal:active {
+            transform: scale(0.95);
+            background: white;
         }
 
         .orientation-toggle {
@@ -465,20 +473,27 @@
             left: 20px;
             background: rgba(255, 255, 255, 0.9);
             border: none;
-            width: 36px;
-            height: 36px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             cursor: pointer;
             font-size: 1.25rem;
             color: #666;
             transition: all 0.2s ease;
             z-index: 10;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .orientation-toggle:hover {
             background: white;
             color: #1a1a1a;
             transform: rotate(90deg);
+        }
+
+        .orientation-toggle:active {
+            transform: scale(0.95);
+            background: white;
         }
 
         .modal-image.landscape {
@@ -491,21 +506,26 @@
             right: 20px;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 8px;
             z-index: 10;
         }
 
         .crop-btn {
             background: rgba(255, 255, 255, 0.9);
             border: none;
-            width: 32px;
-            height: 32px;
+            width: 44px;
+            height: 44px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             color: #666;
             transition: all 0.2s ease;
             padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .crop-btn:hover {
@@ -513,10 +533,15 @@
             color: #1a1a1a;
         }
 
+        .crop-btn:active {
+            transform: scale(0.95);
+            background: white;
+        }
+
         .crop-reset {
             margin-top: 4px;
             border-top: 1px solid #eee;
-            padding-top: 4px;
+            padding-top: 8px;
         }
 
         .zoom-controls {
@@ -525,22 +550,27 @@
             left: 20px;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 8px;
             z-index: 10;
         }
 
         .zoom-btn {
             background: rgba(255, 255, 255, 0.9);
             border: none;
-            width: 32px;
-            height: 32px;
+            width: 44px;
+            height: 44px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
             color: #666;
             transition: all 0.2s ease;
             padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         .zoom-btn:hover {
@@ -548,11 +578,16 @@
             color: #1a1a1a;
         }
 
+        .zoom-btn:active {
+            transform: scale(0.95);
+            background: white;
+        }
+
         .zoom-fit {
             margin-top: 4px;
             border-top: 1px solid #eee;
-            padding-top: 4px;
-            font-size: 14px;
+            padding-top: 8px;
+            font-size: 16px;
         }
 
         /* Loading state */
@@ -651,6 +686,108 @@
 
             .art-grid {
                 grid-template-columns: 1fr;
+            }
+
+            /* Modal adjustments for mobile */
+            .modal {
+                padding: 10px;
+            }
+
+            .modal-content {
+                max-width: 95vw;
+                max-height: 95vh;
+            }
+
+            .modal-image {
+                max-height: calc(95vh - 120px);
+            }
+
+            .modal-info {
+                padding: 12px;
+            }
+
+            /* Reposition controls at bottom center on mobile */
+            .crop-controls,
+            .zoom-controls {
+                position: absolute;
+                bottom: 130px;
+                left: 50%;
+                transform: translateX(-50%);
+                flex-direction: row;
+                gap: 8px;
+            }
+
+            .crop-controls {
+                bottom: 180px;
+                display: grid;
+                grid-template-columns: repeat(3, 44px);
+                grid-template-rows: repeat(2, 44px);
+                gap: 8px;
+            }
+
+            .crop-btn:nth-child(1) { /* up */
+                grid-column: 2;
+                grid-row: 1;
+            }
+
+            .crop-btn:nth-child(2) { /* down */
+                grid-column: 2;
+                grid-row: 2;
+            }
+
+            .crop-btn:nth-child(3) { /* left */
+                grid-column: 1;
+                grid-row: 2;
+            }
+
+            .crop-btn:nth-child(4) { /* right */
+                grid-column: 3;
+                grid-row: 2;
+            }
+
+            .crop-btn.crop-reset { /* reset */
+                grid-column: 1 / -1;
+                grid-row: 3;
+                margin-top: 0;
+                border-top: none;
+                padding-top: 0;
+            }
+
+            .zoom-controls {
+                bottom: 130px;
+            }
+
+            .zoom-fit {
+                margin-top: 0;
+                border-top: none;
+                padding-top: 0;
+                border-left: 1px solid #eee;
+                padding-left: 8px;
+                margin-left: 4px;
+            }
+
+            /* Make top buttons easier to reach on mobile */
+            .close-modal,
+            .orientation-toggle {
+                top: 10px;
+            }
+
+            .close-modal {
+                right: 10px;
+            }
+
+            .orientation-toggle {
+                left: 10px;
+            }
+
+            /* Adjust modal action buttons for mobile */
+            .modal-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .btn {
+                width: 100%;
             }
         }
     </style>
