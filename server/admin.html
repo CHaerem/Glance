@@ -277,10 +277,78 @@
             border-color: #1a1a1a;
             background: #f5f5f5;
         }
+
+        /* Server identification banner */
+        .server-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+        }
+
+        .server-banner-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+
+        .server-banner-url {
+            opacity: 0.9;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Dev mode info box */
+        .info-box {
+            background: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .info-box-title {
+            font-weight: 600;
+            color: #0369a1;
+            margin-bottom: 6px;
+        }
+
+        .info-box code {
+            background: #e0f2fe;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+
+        .warning-box {
+            background: #fff7ed;
+            border: 1px solid #fb923c;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 0.85rem;
+        }
+
+        .warning-box-title {
+            font-weight: 600;
+            color: #c2410c;
+            margin-bottom: 6px;
+        }
     </style>
 </head>
 <body>
     <a href="/" class="back-link">← back</a>
+
+    <!-- Server identification -->
+    <div class="server-banner" id="serverBanner">
+        <div class="server-banner-title" id="serverTitle">Loading...</div>
+        <div class="server-banner-url" id="serverUrl"></div>
+    </div>
 
     <h1>Admin</h1>
 
@@ -313,8 +381,28 @@
                 Development Mode (Server-Side Proxy)
             </label>
             <div class="form-hint">
-                When enabled, production server forwards ESP32 requests to your development server.
-                ESP32 always connects to production - no client changes needed!
+                ESP32 always connects to production. When enabled, production proxies requests to your dev server.
+            </div>
+            <div class="info-box" id="devModeInfo" style="display: none;">
+                <div class="info-box-title">How Dev Mode Works</div>
+                <div style="margin-bottom: 8px;">
+                    1. ESP32 connects to <code>serverpi.local:3000</code> (production)<br>
+                    2. Production detects ESP32 requests (User-Agent header)<br>
+                    3. Production proxies to your dev server<br>
+                    4. Your dev code runs without reflashing ESP32!
+                </div>
+                <div style="font-size: 0.8rem; opacity: 0.8;">
+                    💡 Tip: Configure dev mode on <strong>production server admin</strong>, not locally.
+                </div>
+            </div>
+            <div class="warning-box" id="devModeWarning" style="display: none;">
+                <div class="warning-box-title">⚠️ Not on Production Server</div>
+                <div>
+                    You're on <span id="currentServerHost" style="font-weight: 600;"></span>.
+                    Dev mode settings here won't affect ESP32 unless this <strong>IS</strong> your production server (serverpi).
+                    <br><br>
+                    To enable dev mode: Configure on <code>serverpi.local:3000/admin</code>
+                </div>
             </div>
         </div>
 
@@ -322,7 +410,7 @@
             <label class="form-label" for="devServerHost">Development Server Host</label>
             <input type="text" id="devServerHost" class="form-input" placeholder="192.168.1.100:3000 or your-macbook.tail-scale.ts.net:3000">
             <div class="form-hint">
-                Auto-detected when you enable dev mode. Enter LAN IP or Tailscale hostname.
+                Enter your development server IP:port (auto-detected). Can be LAN IP or Tailscale hostname.
             </div>
         </div>
 
@@ -464,13 +552,45 @@
             }
         }
 
+        // Initialize server identification banner
+        function initServerBanner() {
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            const isProduction = hostname.includes('serverpi') || hostname.includes('raspberrypi');
+
+            const title = document.getElementById('serverTitle');
+            const url = document.getElementById('serverUrl');
+            const banner = document.getElementById('serverBanner');
+
+            if (isProduction) {
+                title.textContent = '🚀 Production Server';
+                banner.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            } else {
+                title.textContent = '💻 Development Server';
+                banner.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            }
+
+            url.textContent = window.location.host;
+            document.getElementById('currentServerHost').textContent = window.location.host;
+        }
+
         // Toggle dev server host visibility and auto-fill IP
         async function toggleDevServerHost() {
             const devMode = document.getElementById('devMode').checked;
             const hostGroup = document.getElementById('devServerHostGroup');
             const hostInput = document.getElementById('devServerHost');
+            const devModeInfo = document.getElementById('devModeInfo');
+            const devModeWarning = document.getElementById('devModeWarning');
 
             hostGroup.style.display = devMode ? 'block' : 'none';
+
+            // Show info box when dev mode enabled
+            devModeInfo.style.display = devMode ? 'block' : 'none';
+
+            // Show warning if not on production server
+            const hostname = window.location.hostname;
+            const isProduction = hostname.includes('serverpi') || hostname.includes('raspberrypi');
+            devModeWarning.style.display = (devMode && !isProduction) ? 'block' : 'none';
 
             // Auto-fill client IP when toggling dev mode ON
             if (devMode && !hostInput.value) {
@@ -519,6 +639,7 @@
 
         // Add event listener to dev mode checkbox
         document.addEventListener('DOMContentLoaded', () => {
+            initServerBanner();
             document.getElementById('devMode').addEventListener('change', toggleDevServerHost);
         });
 

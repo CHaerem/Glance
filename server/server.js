@@ -58,13 +58,18 @@ app.use(async (req, res, next) => {
 	// Check if dev mode is enabled
 	const devMode = await getDevModeSettings();
 	if (!devMode.enabled || !devMode.host) {
+		console.log(`[ESP32 Request] ${req.method} ${req.path} (dev mode disabled, using local server)`);
 		return next();
 	}
 
 	// Proxy the request to dev server
 	try {
 		const devUrl = `http://${devMode.host}${req.path}${req.url.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
-		console.log(`[Dev Mode Proxy] ${req.method} ${req.path} → ${devUrl}`);
+		console.log(`\n${'='.repeat(60)}`);
+		console.log(`🔀 [DEV MODE PROXY] ${req.method} ${req.path}`);
+		console.log(`   From: ESP32 (${req.ip})`);
+		console.log(`   To:   ${devUrl}`);
+		console.log(`${'='.repeat(60)}\n`);
 
 		const response = await fetch(devUrl, {
 			method: req.method,
@@ -75,6 +80,8 @@ app.use(async (req, res, next) => {
 			body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined,
 			timeout: 30000
 		});
+
+		console.log(`✅ [DEV MODE PROXY] Response: ${response.status} ${response.statusText}\n`);
 
 		// Copy response headers
 		response.headers.forEach((value, key) => {
@@ -88,8 +95,8 @@ app.use(async (req, res, next) => {
 		const body = await response.arrayBuffer();
 		res.send(Buffer.from(body));
 	} catch (error) {
-		console.error(`[Dev Mode Proxy] Error proxying to dev server:`, error.message);
-		console.log(`[Dev Mode Proxy] Falling back to production server`);
+		console.error(`\n❌ [DEV MODE PROXY] Error: ${error.message}`);
+		console.log(`⚠️  [DEV MODE PROXY] Falling back to production server\n`);
 		// Fallback to production server
 		next();
 	}
