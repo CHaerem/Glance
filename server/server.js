@@ -1062,9 +1062,10 @@ app.post("/api/current", async (req, res) => {
 	try {
 		const { title, image, sleepDuration, isText } = req.body;
 
-		// Input validation
+		// Input validation - use settings default if not provided
+		const settings = (await readJSONFile("settings.json")) || { defaultSleepDuration: 3600000000 };
 		const sanitizedTitle = sanitizeInput(title);
-		const sleepMs = parseInt(sleepDuration) || 3600000000;
+		const sleepMs = parseInt(sleepDuration) || settings.defaultSleepDuration;
 
 		if (image && !validateImageData(image)) {
 			return res.status(400).json({ error: "Invalid image data" });
@@ -1560,9 +1561,10 @@ app.post(
 
 			const { title, sleepDuration, rotation } = req.body;
 
-			// Input validation
+			// Input validation - use settings default if not provided
+			const settings = (await readJSONFile("settings.json")) || { defaultSleepDuration: 3600000000 };
 			const sanitizedTitle = sanitizeInput(title);
-			const sleepMs = parseInt(sleepDuration) || 3600000000;
+			const sleepMs = parseInt(sleepDuration) || settings.defaultSleepDuration;
 			const rotationDegrees = parseInt(rotation) || 0;
 
 			// Read original uploaded file for thumbnail
@@ -2032,6 +2034,7 @@ app.get("/api/images/:imageId", async (req, res) => {
 app.post("/api/history/:imageId/load", async (req, res) => {
 	try {
 		const { imageId } = req.params;
+		const { rotation } = req.body;
 
 		// Get image data from images archive
 		const imagesArchive = (await readJSONFile("images.json")) || {};
@@ -2041,9 +2044,16 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 			return res.status(404).json({ error: "Image not found in archive" });
 		}
 
-		// If the archived image doesn't have processed RGB data, regenerate it
-		if (!imageData.image && imageData.originalImage) {
-			console.log(`Regenerating processed image for ${imageId}...`);
+		// Use provided rotation or fall back to stored rotation
+		const rotationDegrees = rotation !== undefined ? parseInt(rotation) : (imageData.rotation || 0);
+
+		// If rotation changed or no processed RGB data, regenerate it
+		if (!imageData.image || rotationDegrees !== (imageData.rotation || 0)) {
+			if (!imageData.originalImage) {
+				return res.status(400).json({ error: "Cannot reprocess image: original not available" });
+			}
+
+			console.log(`Regenerating processed image for ${imageId} with rotation ${rotationDegrees}°...`);
 
 			// Save original to temp file
 			const originalBuffer = Buffer.from(imageData.originalImage, 'base64');
@@ -2051,12 +2061,16 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 			await ensureDir(UPLOAD_DIR);
 			await fs.writeFile(tempPath, originalBuffer);
 
-			// Regenerate RGB data
+			// Determine dimensions based on rotation
+			const targetWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 1600 : 1200;
+			const targetHeight = (rotationDegrees === 90 || rotationDegrees === 270) ? 1200 : 1600;
+
+			// Regenerate RGB data with new rotation
 			const rgbBuffer = await convertImageToRGB(
 				tempPath,
-				imageData.rotation || 0,
-				1200,
-				1600,
+				rotationDegrees,
+				targetWidth,
+				targetHeight,
 				{
 					ditherAlgorithm: 'floyd-steinberg',
 					enhanceContrast: true,
@@ -2064,22 +2078,32 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 				}
 			);
 
-			// Add processed image to data
+			// Update processed image data
 			imageData = {
 				...imageData,
-				image: rgbBuffer.toString("base64")
+				image: rgbBuffer.toString("base64"),
+				rotation: rotationDegrees
 			};
 
 			// Clean up temp file
 			await fs.unlink(tempPath);
 		}
 
-		// Set this image as current
-		await writeJSONFile("current.json", imageData);
-		console.log(`Loaded image ${imageId} from history: ${imageData.title}`);
-		addDeviceLog(`Applied image from history: "${imageData.title || imageId}"`);
+		// Get default sleep duration from settings
+		const settings = (await readJSONFile("settings.json")) || { defaultSleepDuration: 3600000000 };
 
-		res.json({ success: true, current: imageData });
+		// Set this image as current with updated sleep duration from settings
+		const currentData = {
+			...imageData,
+			sleepDuration: settings.defaultSleepDuration,
+			timestamp: Date.now()
+		};
+
+		await writeJSONFile("current.json", currentData);
+		console.log(`Loaded image ${imageId} from history: ${imageData.title} (rotation: ${rotationDegrees}°)`);
+		addDeviceLog(`Applied image from history: "${imageData.title || imageId}" (rotation: ${rotationDegrees}°)`);
+
+		res.json({ success: true, current: currentData });
 	} catch (error) {
 		console.error("Error loading from history:", error);
 		res.status(500).json({ error: "Internal server error" });
@@ -3226,6 +3250,9 @@ app.post("/api/art/import", async (req, res) => {
 
 		const imageId = uuidv4();
 
+		// Get default sleep duration from settings
+		const settings = (await readJSONFile("settings.json")) || { defaultSleepDuration: 3600000000 };
+
 		// Create current.json with the artwork
 		const currentData = {
 			title: title || "Artwork",
@@ -3234,7 +3261,7 @@ app.post("/api/art/import", async (req, res) => {
 			imageId: imageId,
 			image: ditheredRgbBuffer.toString("base64"),
 			timestamp: Date.now(),
-			sleepDuration: 3600000000, // 1 hour
+			sleepDuration: settings.defaultSleepDuration,
 			rotation: rotationDegrees,
 			// Store original image for web UI
 			originalImage: imageBuffer.toString("base64"),
