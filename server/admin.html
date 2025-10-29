@@ -352,6 +352,32 @@
             </div>
         </div>
 
+        <div class="form-group">
+            <label class="form-label">
+                <input type="checkbox" id="nightSleepEnabled" onchange="toggleNightSleepInputs()" style="margin-right: 8px; width: auto;">
+                Night Sleep
+            </label>
+            <div class="form-hint">
+                Keep display asleep during nighttime hours.
+            </div>
+            <div id="nightSleepInputs" style="display: none; margin-top: 12px;">
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div style="flex: 1;">
+                        <label class="form-label" for="nightSleepStartHour" style="margin-bottom: 4px;">From</label>
+                        <input type="number" id="nightSleepStartHour" class="form-input" min="0" max="23" step="1" placeholder="23">
+                    </div>
+                    <div style="padding-top: 20px; color: #999;">—</div>
+                    <div style="flex: 1;">
+                        <label class="form-label" for="nightSleepEndHour" style="margin-bottom: 4px;">To</label>
+                        <input type="number" id="nightSleepEndHour" class="form-input" min="0" max="23" step="1" placeholder="5">
+                    </div>
+                </div>
+                <div class="form-hint" style="margin-top: 8px;">
+                    Hours (0-23). Example: 23 to 5 means sleep from 11 PM to 5 AM.
+                </div>
+            </div>
+        </div>
+
         <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
         <div class="success-message" id="successMessage">Settings saved! ESP32 will use new settings on next wake.</div>
     </div>
@@ -469,6 +495,13 @@
                 const orientation = settings.defaultOrientation || 'portrait';
                 selectOrientation(orientation);
 
+                // Load night sleep settings (default to disabled)
+                const nightSleepEnabled = settings.nightSleepEnabled || false;
+                document.getElementById('nightSleepEnabled').checked = nightSleepEnabled;
+                document.getElementById('nightSleepStartHour').value = settings.nightSleepStartHour || 23;
+                document.getElementById('nightSleepEndHour').value = settings.nightSleepEndHour || 5;
+                toggleNightSleepInputs();
+
                 // Show/hide dev server host field based on dev mode
                 toggleDevServerHost();
 
@@ -520,6 +553,13 @@
                     console.log('Could not auto-detect IP:', error);
                 }
             }
+        }
+
+        // Toggle night sleep inputs visibility
+        function toggleNightSleepInputs() {
+            const enabled = document.getElementById('nightSleepEnabled').checked;
+            const inputs = document.getElementById('nightSleepInputs');
+            inputs.style.display = enabled ? 'block' : 'none';
         }
 
         // Calculate and display next wake times
@@ -580,6 +620,11 @@
                 const devMode = document.getElementById('devMode').checked;
                 const devServerHost = document.getElementById('devServerHost').value.trim();
 
+                // Get night sleep settings
+                const nightSleepEnabled = document.getElementById('nightSleepEnabled').checked;
+                const nightSleepStartHour = parseInt(document.getElementById('nightSleepStartHour').value) || 23;
+                const nightSleepEndHour = parseInt(document.getElementById('nightSleepEndHour').value) || 5;
+
                 const response = await fetch('/api/settings', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -587,7 +632,10 @@
                         defaultSleepDuration: microseconds,
                         devMode: devMode,
                         devServerHost: devServerHost || undefined,
-                        defaultOrientation: selectedOrientation
+                        defaultOrientation: selectedOrientation,
+                        nightSleepEnabled: nightSleepEnabled,
+                        nightSleepStartHour: nightSleepStartHour,
+                        nightSleepEndHour: nightSleepEndHour
                     })
                 });
 

@@ -887,6 +887,54 @@ async function writeJSONFile(filename, data) {
 	}
 }
 
+// Night sleep helper functions
+function isInNightSleep(settings) {
+	if (!settings.nightSleepEnabled) {
+		return false;
+	}
+
+	const now = new Date();
+	const currentHour = now.getHours();
+	const startHour = settings.nightSleepStartHour;
+	const endHour = settings.nightSleepEndHour;
+
+	// Handle overnight period (e.g., 23:00 to 05:00)
+	if (startHour > endHour) {
+		return currentHour >= startHour || currentHour < endHour;
+	}
+	// Handle same-day period (e.g., 02:00 to 06:00)
+	return currentHour >= startHour && currentHour < endHour;
+}
+
+function calculateNightSleepDuration(settings) {
+	const now = new Date();
+	const currentHour = now.getHours();
+	const currentMinute = now.getMinutes();
+	const endHour = settings.nightSleepEndHour;
+
+	let hoursUntilEnd;
+
+	// Handle overnight period
+	if (settings.nightSleepStartHour > endHour) {
+		if (currentHour >= settings.nightSleepStartHour) {
+			// We're past midnight, calculate hours until end hour
+			hoursUntilEnd = (24 - currentHour) + endHour;
+		} else {
+			// We're before end hour
+			hoursUntilEnd = endHour - currentHour;
+		}
+	} else {
+		// Same-day period
+		hoursUntilEnd = endHour - currentHour;
+	}
+
+	// Account for current minutes (sleep until the end hour, 0 minutes)
+	const minutesUntilEnd = (hoursUntilEnd * 60) - currentMinute;
+
+	// Convert to microseconds
+	return minutesUntilEnd * 60 * 1000000;
+}
+
 // API Routes
 
 // Get current image metadata for ESP32 (without image data)
@@ -944,19 +992,29 @@ app.get("/api/current.json", async (req, res) => {
 		const settings = (await readJSONFile("settings.json")) || {};
 		const devServerHost = (settings.devMode && settings.devServerHost) ? settings.devServerHost : null;
 
+		// Determine sleep duration based on night sleep mode
+		let sleepDuration = current.sleepDuration || 3600000000;
+		let nightSleepActive = false;
+
+		if (isInNightSleep(settings)) {
+			sleepDuration = calculateNightSleepDuration(settings);
+			nightSleepActive = true;
+		}
+
 		// Send metadata only (no image data)
 		const metadata = {
 			hasImage: !!(current.image || current.imageId),
 			title: current.title || "Glance Display",
 			imageId: current.imageId || "default",
 			timestamp: current.timestamp || Date.now(),
-			sleepDuration: current.sleepDuration || 3600000000,
+			sleepDuration: sleepDuration,
 			rotation: current.rotation || 0,
 			devServerHost: devServerHost // ESP32 will try this server first if present
 		};
 
-		console.log(`Serving metadata: hasImage=${metadata.hasImage}, imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us, devServer=${devServerHost || 'none'}`);
-		addDeviceLog(`Device fetched image metadata: ${metadata.imageId} (sleep: ${Math.round(metadata.sleepDuration/60000000)}min)${devServerHost ? ' [dev mode]' : ''}`);
+		const nightSleepLog = nightSleepActive ? ' [night sleep]' : '';
+		console.log(`Serving metadata: hasImage=${metadata.hasImage}, imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us, devServer=${devServerHost || 'none'}${nightSleepLog}`);
+		addDeviceLog(`Device fetched image metadata: ${metadata.imageId} (sleep: ${Math.round(metadata.sleepDuration/60000000)}min)${devServerHost ? ' [dev mode]' : ''}${nightSleepLog}`);
 		res.json(metadata);
 	} catch (error) {
 		console.error("Error getting current:", error);
@@ -3503,7 +3561,10 @@ app.get("/api/settings", async (_req, res) => {
 			defaultSleepDuration: 3600000000, // 1 hour in microseconds
 			devMode: true, // Dev mode enabled by default
 			devServerHost: "host.local:3000", // Placeholder, will be replaced by ESP32
-			defaultOrientation: "portrait" // Default orientation: "portrait" or "landscape"
+			defaultOrientation: "portrait", // Default orientation: "portrait" or "landscape"
+			nightSleepEnabled: false, // Night sleep mode disabled by default
+			nightSleepStartHour: 23, // 11:00 PM
+			nightSleepEndHour: 5 // 5:00 AM
 		};
 		res.json(settings);
 	} catch (error) {
@@ -3514,7 +3575,7 @@ app.get("/api/settings", async (_req, res) => {
 
 app.put("/api/settings", async (req, res) => {
 	try {
-		const { defaultSleepDuration, devMode, devServerHost, defaultOrientation } = req.body;
+		const { defaultSleepDuration, devMode, devServerHost, defaultOrientation, nightSleepEnabled, nightSleepStartHour, nightSleepEndHour } = req.body;
 
 		// Read existing settings
 		const existingSettings = (await readJSONFile("settings.json")) || {};
@@ -3552,6 +3613,31 @@ app.put("/api/settings", async (req, res) => {
 			existingSettings.defaultOrientation = defaultOrientation;
 		}
 
+		// Update night sleep settings if provided
+		if (nightSleepEnabled !== undefined) {
+			existingSettings.nightSleepEnabled = Boolean(nightSleepEnabled);
+		}
+
+		if (nightSleepStartHour !== undefined) {
+			const startHour = parseInt(nightSleepStartHour);
+			if (startHour < 0 || startHour > 23) {
+				return res.status(400).json({
+					error: "Night sleep start hour must be between 0 and 23"
+				});
+			}
+			existingSettings.nightSleepStartHour = startHour;
+		}
+
+		if (nightSleepEndHour !== undefined) {
+			const endHour = parseInt(nightSleepEndHour);
+			if (endHour < 0 || endHour > 23) {
+				return res.status(400).json({
+					error: "Night sleep end hour must be between 0 and 23"
+				});
+			}
+			existingSettings.nightSleepEndHour = endHour;
+		}
+
 		await writeJSONFile("settings.json", existingSettings);
 
 		// Update current.json to apply new sleep duration if it was changed
@@ -3569,7 +3655,8 @@ app.put("/api/settings", async (req, res) => {
 			await writeJSONFile("current.json", current);
 		}
 
-		console.log(`Settings updated: sleep=${existingSettings.defaultSleepDuration}µs, devMode=${existingSettings.devMode}, orientation=${existingSettings.defaultOrientation}`);
+		const nightSleepLog = existingSettings.nightSleepEnabled ? `, nightSleep=${existingSettings.nightSleepStartHour}:00-${existingSettings.nightSleepEndHour}:00` : '';
+		console.log(`Settings updated: sleep=${existingSettings.defaultSleepDuration}µs, devMode=${existingSettings.devMode}, orientation=${existingSettings.defaultOrientation}${nightSleepLog}`);
 		res.json({ success: true, settings: existingSettings });
 	} catch (error) {
 		console.error("Error updating settings:", error);
