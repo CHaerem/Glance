@@ -3468,6 +3468,110 @@ Response: {
 	}
 });
 
+// Find similar artworks using AI
+app.post("/api/art/similar", async (req, res) => {
+	try {
+		const { title, artist, date, department, source } = req.body;
+
+		if (!title && !artist) {
+			return res.status(400).json({ error: "Title or artist is required" });
+		}
+
+		if (!openai) {
+			// Fallback: simple search by artist or title keywords
+			console.log("OpenAI not configured, using simple similarity search");
+			const fallbackQuery = artist || title.split(' ').slice(0, 3).join(' ');
+			return res.redirect(307, `/api/art/search?q=${encodeURIComponent(fallbackQuery)}`);
+		}
+
+		console.log(`Finding artworks similar to: "${title}" by ${artist}`);
+
+		// Use OpenAI to analyze the artwork and generate search terms for similar pieces
+		const completion = await openai.chat.completions.create({
+			model: "gpt-4",
+			messages: [
+				{
+					role: "system",
+					content: `You are an art curator helping users discover similar artworks. Given an artwork's metadata, generate search terms to find similar pieces.
+
+Consider:
+- Art movement/style (Impressionism, Renaissance, Abstract, etc.)
+- Subject matter (landscape, portrait, still life, etc.)
+- Time period and cultural context
+- Artistic techniques and medium
+- Similar artists from the same movement
+
+Return a JSON object with:
+- searchTerms: array of 3-5 specific search terms (artist names, movements, subjects)
+- reasoning: brief explanation of similarity criteria (one sentence)
+
+Example:
+Input: "Water Lilies" by Claude Monet, 1906, Impressionism
+Output: {
+  "searchTerms": ["impressionist paintings", "landscape", "nature", "Pissarro", "Renoir"],
+  "reasoning": "Other Impressionist landscape paintings with natural subjects by contemporary artists"
+}`
+				},
+				{
+					role: "user",
+					content: `Find artworks similar to:
+Title: ${title}
+Artist: ${artist || 'Unknown'}
+Date: ${date || 'Unknown'}
+Department/Type: ${department || 'Unknown'}
+Source: ${source || 'Unknown'}`
+				}
+			],
+			temperature: 0.7,
+			max_tokens: 200
+		});
+
+		let similarityParams;
+		try {
+			const content = completion.choices[0].message.content;
+			similarityParams = JSON.parse(content);
+		} catch (parseError) {
+			console.error("Failed to parse OpenAI response:", parseError);
+			// Fallback to artist search
+			const fallbackQuery = artist || title.split(' ').slice(0, 3).join(' ');
+			return res.redirect(307, `/api/art/search?q=${encodeURIComponent(fallbackQuery)}`);
+		}
+
+		console.log("Similarity search terms:", similarityParams.searchTerms);
+		console.log("Reasoning:", similarityParams.reasoning);
+
+		// Build search query from AI-generated terms
+		const searchQuery = similarityParams.searchTerms.join(" ");
+
+		// Search using existing endpoint
+		const searchResponse = await fetch(`http://localhost:3000/api/art/search?q=${encodeURIComponent(searchQuery)}&limit=30`);
+		const searchResults = await searchResponse.json();
+
+		// Filter out the original artwork if it appears in results
+		const filteredResults = (searchResults.results || []).filter(artwork => {
+			// Don't show exact same artwork
+			if (artwork.title === title && artwork.artist === artist) {
+				return false;
+			}
+			return true;
+		});
+
+		// Return results with metadata about the similarity search
+		res.json({
+			results: filteredResults.slice(0, 20),
+			metadata: {
+				originalArtwork: { title, artist, date, department },
+				searchTerms: similarityParams.searchTerms,
+				reasoning: similarityParams.reasoning
+			}
+		});
+
+	} catch (error) {
+		console.error("Similar artwork search error:", error);
+		res.status(500).json({ error: "Similar search failed: " + error.message });
+	}
+});
+
 app.get("/api/art/random", async (req, res) => {
 	try {
 		console.log(`Getting random artwork from multiple sources`);

@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('orientationToggle').addEventListener('click', togglePreviewOrientation);
     document.getElementById('applyModalBtn').addEventListener('click', applyModalArt);
     document.getElementById('modalSecondaryAction').addEventListener('click', handleSecondaryAction);
+    document.getElementById('moreLikeThisBtn').addEventListener('click', findSimilarArt);
 
     document.querySelectorAll('.crop-btn').forEach(btn => {
         btn.addEventListener('click', (e) => adjustCrop(e.target.dataset.direction));
@@ -400,6 +401,9 @@ function previewArt(art) {
     secondaryAction.style.display = 'block';
     secondaryActionType = 'add';
 
+    // Show "More Like This" button for browse artworks
+    document.getElementById('moreLikeThisBtn').style.display = 'block';
+
     document.getElementById('artModal').classList.add('show');
 }
 
@@ -448,6 +452,7 @@ function closeModal() {
     selectedHistoryItem = null;
     secondaryActionType = null;
     document.getElementById('modalSecondaryAction').style.display = 'none';
+    document.getElementById('moreLikeThisBtn').style.display = 'none';
 
     const modalImage = document.getElementById('modalImage');
     modalImage.classList.remove('landscape');
@@ -457,6 +462,52 @@ function closeModal() {
     zoomLevel = 1.0;
     modalImage.style.transform = 'scale(1)';
     modalImage.style.objectFit = 'cover';
+}
+
+// Find similar artworks using AI
+async function findSimilarArt() {
+    if (!selectedModalArt) return;
+
+    // Close modal and switch to explore mode
+    closeModal();
+    switchMode('explore');
+
+    // Show loading state
+    const grid = document.getElementById('artGrid');
+    grid.innerHTML = '<div class="loading">Finding similar artworks...</div>';
+
+    try {
+        const response = await fetch('/api/art/similar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: selectedModalArt.title,
+                artist: selectedModalArt.artist,
+                date: selectedModalArt.date,
+                department: selectedModalArt.department,
+                source: selectedModalArt.source
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Similar search failed: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        currentArtResults = data.results || [];
+        browseDisplayCount = 8;
+
+        // Display results
+        displayArtResults();
+
+        // Show reasoning if available
+        if (data.metadata?.reasoning) {
+            console.log(`Similarity: ${data.metadata.reasoning}`);
+        }
+    } catch (error) {
+        console.error('Similar artwork search failed:', error);
+        grid.innerHTML = '<div class="loading">Failed to find similar artworks</div>';
+    }
 }
 
 async function handleSecondaryAction() {
