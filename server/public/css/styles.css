@@ -635,13 +635,6 @@
             }
         }
 
-        /* Mobile: enable touch zoom on image */
-        @media (max-width: 768px) {
-            .modal-image {
-                touch-action: pinch-zoom;
-            }
-        }
-
         .modal-image.landscape {
             aspect-ratio: 4 / 3;
         }

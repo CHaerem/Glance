@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAllArt();
     loadMyCollection();
     setupDragDrop();
+    setupTouchZoom();
     setInterval(loadCurrentDisplay, 30000);
 
     // Setup event listeners
@@ -680,6 +681,58 @@ function adjustZoom(direction) {
     } else {
         modalImage.style.objectFit = 'cover';
     }
+}
+
+// Touch zoom support for mobile
+let initialPinchDistance = 0;
+let initialZoomLevel = 1.0;
+
+function setupTouchZoom() {
+    const modalImage = document.getElementById('modalImage');
+    const modal = document.getElementById('artModal');
+
+    // Prevent page zoom when modal is open
+    modal.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 1) {
+            e.preventDefault(); // Prevent page zoom on pinch
+        }
+    }, { passive: false });
+
+    modalImage.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            initialPinchDistance = getPinchDistance(e.touches);
+            initialZoomLevel = zoomLevel;
+        }
+    });
+
+    modalImage.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2) {
+            e.preventDefault(); // Prevent page zoom
+            const currentDistance = getPinchDistance(e.touches);
+            const scale = currentDistance / initialPinchDistance;
+            zoomLevel = Math.max(0.5, Math.min(2.0, initialZoomLevel * scale));
+
+            modalImage.style.transform = `scale(${zoomLevel})`;
+
+            if (zoomLevel < 1.0) {
+                modalImage.style.objectFit = 'contain';
+            } else {
+                modalImage.style.objectFit = 'cover';
+            }
+        }
+    }, { passive: false });
+
+    modalImage.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+            initialPinchDistance = 0;
+        }
+    });
+}
+
+function getPinchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
 }
 
 // File upload
