@@ -2947,13 +2947,212 @@ app.get("/api/art/search", async (req, res) => {
 			}
 		};
 
+		// Helper to search Victoria & Albert Museum
+		const searchVictoriaAlbert = async () => {
+			const cacheKey = `vam-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
+			try {
+				const vamUrl = `https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(query || "painting")}&page_size=${targetCount * 2}&response_format=json`;
+				console.log(`Searching Victoria & Albert Museum: ${vamUrl}`);
+
+				const vamResponse = await fetch(vamUrl);
+
+				const contentType = vamResponse.headers.get("content-type");
+				if (!contentType || !contentType.includes("application/json")) {
+					console.error("V&A API returned non-JSON response");
+					return [];
+				}
+
+				const vamData = await vamResponse.json();
+				console.log(`V&A search found ${vamData.info?.record_count || 0} total results`);
+
+				if (!vamData.records || vamData.records.length === 0) {
+					return [];
+				}
+
+				const vamArtworks = vamData.records
+					.filter(artwork => {
+						// Must have an image
+						if (!artwork._images || !artwork._images._primary_thumbnail) {
+							return false;
+						}
+						// Apply original artwork filter
+						return isOriginalArtwork(
+							artwork._primaryTitle || artwork.objectType,
+							artwork.objectType,
+							"",
+							""
+						);
+					})
+					.slice(0, targetCount)
+					.map(artwork => ({
+						id: `vam-${artwork.systemNumber}`,
+						title: artwork._primaryTitle || artwork.objectType || "Untitled",
+						artist: artwork._primaryMaker?.name || artwork._primaryMaker?.association || "Unknown Artist",
+						date: artwork._primaryDate || "",
+						imageUrl: artwork._images?._primary_thumbnail?.replace('_jpg_s', '_jpg_l') || artwork._images?._primary_thumbnail,
+						thumbnailUrl: artwork._images?._primary_thumbnail,
+						department: artwork.objectType || "",
+						source: "Victoria & Albert Museum"
+					}));
+
+				console.log(`V&A returned ${vamArtworks.length} artworks`);
+				setCachedResult(cacheKey, vamArtworks);
+				return vamArtworks;
+			} catch (error) {
+				console.error("Error searching V&A:", error.message);
+				return [];
+			}
+		};
+
+		// Helper to search Harvard Art Museums
+		const searchHarvard = async () => {
+			const harvardApiKey = process.env.HARVARD_API_KEY;
+			if (!harvardApiKey) {
+				console.log("Harvard Art Museums: API key not configured (get one at https://harvardartmuseums.org/collections/api)");
+				return [];
+			}
+
+			const cacheKey = `harvard-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
+			try {
+				const harvardUrl = `https://api.harvardartmuseums.org/object?apikey=${harvardApiKey}&q=${encodeURIComponent(query || "painting")}&size=${targetCount * 2}&hasimage=1`;
+				console.log(`Searching Harvard Art Museums...`);
+
+				const harvardResponse = await fetch(harvardUrl);
+
+				const contentType = harvardResponse.headers.get("content-type");
+				if (!contentType || !contentType.includes("application/json")) {
+					console.error("Harvard API returned non-JSON response");
+					return [];
+				}
+
+				const harvardData = await harvardResponse.json();
+				console.log(`Harvard search found ${harvardData.info?.totalrecords || 0} total results`);
+
+				if (!harvardData.records || harvardData.records.length === 0) {
+					return [];
+				}
+
+				const harvardArtworks = harvardData.records
+					.filter(artwork => {
+						if (!artwork.primaryimageurl) {
+							return false;
+						}
+						return isOriginalArtwork(
+							artwork.title,
+							artwork.classification,
+							"",
+							""
+						);
+					})
+					.slice(0, targetCount)
+					.map(artwork => ({
+						id: `harvard-${artwork.id}`,
+						title: artwork.title || "Untitled",
+						artist: artwork.people?.[0]?.name || artwork.culture || "Unknown Artist",
+						date: artwork.dated || "",
+						imageUrl: artwork.primaryimageurl,
+						thumbnailUrl: artwork.primaryimageurl,
+						department: artwork.classification || "",
+						source: "Harvard Art Museums"
+					}));
+
+				console.log(`Harvard returned ${harvardArtworks.length} artworks`);
+				setCachedResult(cacheKey, harvardArtworks);
+				return harvardArtworks;
+			} catch (error) {
+				console.error("Error searching Harvard:", error.message);
+				return [];
+			}
+		};
+
+		// Helper to search Smithsonian Open Access
+		const searchSmithsonian = async () => {
+			const smithsonianApiKey = process.env.SMITHSONIAN_API_KEY;
+			if (!smithsonianApiKey) {
+				console.log("Smithsonian: API key not configured (get one at https://api.data.gov/signup/)");
+				return [];
+			}
+
+			const cacheKey = `smithsonian-${query}-${targetCount}`;
+			const cached = getCachedResult(cacheKey);
+			if (cached) return cached;
+
+			try {
+				const smithsonianUrl = `https://api.si.edu/openaccess/api/v1.0/search?api_key=${smithsonianApiKey}&q=${encodeURIComponent(query || "painting")}&rows=${targetCount * 2}&online_media_type=Images`;
+				console.log(`Searching Smithsonian...`);
+
+				const smithsonianResponse = await fetch(smithsonianUrl);
+
+				const contentType = smithsonianResponse.headers.get("content-type");
+				if (!contentType || !contentType.includes("application/json")) {
+					console.error("Smithsonian API returned non-JSON response");
+					return [];
+				}
+
+				const smithsonianData = await smithsonianResponse.json();
+				console.log(`Smithsonian search found ${smithsonianData.response?.rowCount || 0} total results`);
+
+				if (!smithsonianData.response || !smithsonianData.response.rows || smithsonianData.response.rows.length === 0) {
+					return [];
+				}
+
+				const smithsonianArtworks = smithsonianData.response.rows
+					.filter(artwork => {
+						if (!artwork.content?.descriptiveNonRepeating?.online_media?.media) {
+							return false;
+						}
+						const media = artwork.content.descriptiveNonRepeating.online_media.media.find(m => m.type === "Images");
+						if (!media) return false;
+
+						return isOriginalArtwork(
+							artwork.title,
+							artwork.content?.freetext?.objectType?.[0]?.content || "",
+							"",
+							""
+						);
+					})
+					.slice(0, targetCount)
+					.map(artwork => {
+						const media = artwork.content.descriptiveNonRepeating.online_media.media.find(m => m.type === "Images");
+						const imageUrl = media?.content || media?.thumbnail;
+
+						return {
+							id: `smithsonian-${artwork.id}`,
+							title: artwork.title || "Untitled",
+							artist: artwork.content?.freetext?.name?.[0]?.content || "Unknown Artist",
+							date: artwork.content?.freetext?.date?.[0]?.content || "",
+							imageUrl: imageUrl,
+							thumbnailUrl: media?.thumbnail || imageUrl,
+							department: artwork.content?.freetext?.objectType?.[0]?.content || "",
+							source: "Smithsonian"
+						};
+					});
+
+				console.log(`Smithsonian returned ${smithsonianArtworks.length} artworks`);
+				setCachedResult(cacheKey, smithsonianArtworks);
+				return smithsonianArtworks;
+			} catch (error) {
+				console.error("Error searching Smithsonian:", error.message);
+				return [];
+			}
+		};
+
 		// Search all sources in parallel
-		const [metResults, articResults, cmaResults, rijksResults, wikimediaResults] = await Promise.all([
+		const [metResults, articResults, cmaResults, rijksResults, wikimediaResults, vamResults, harvardResults, smithsonianResults] = await Promise.all([
 			searchMet(),
 			searchArtic(),
 			searchCleveland(),
 			searchRijksmuseum(),
-			searchWikimedia()
+			searchWikimedia(),
+			searchVictoriaAlbert(),
+			searchHarvard(),
+			searchSmithsonian()
 		]);
 
 		// Track source status for user feedback
@@ -2962,7 +3161,10 @@ app.get("/api/art/search", async (req, res) => {
 			artic: { status: articResults.length > 0 ? "ok" : "no_results", count: articResults.length },
 			cleveland: { status: cmaResults.length > 0 ? "ok" : "no_results", count: cmaResults.length },
 			rijksmuseum: { status: rijksResults.length > 0 ? "ok" : "no_results", count: rijksResults.length },
-			wikimedia: { status: wikimediaResults.length > 0 ? "ok" : "no_results", count: wikimediaResults.length }
+			wikimedia: { status: wikimediaResults.length > 0 ? "ok" : "no_results", count: wikimediaResults.length },
+			vam: { status: vamResults.length > 0 ? "ok" : "no_results", count: vamResults.length },
+			harvard: { status: harvardResults.length > 0 ? "ok" : "no_results", count: harvardResults.length },
+			smithsonian: { status: smithsonianResults.length > 0 ? "ok" : "no_results", count: smithsonianResults.length }
 		};
 
 		// Ranking function to score artworks
@@ -3043,7 +3245,10 @@ app.get("/api/art/search", async (req, res) => {
 			...articResults,
 			...cmaResults,
 			...rijksResults,
-			...wikimediaResults
+			...wikimediaResults,
+			...vamResults,
+			...harvardResults,
+			...smithsonianResults
 		];
 
 		// Sort by score (highest first), then interleave by source for diversity
@@ -3062,7 +3267,7 @@ app.get("/api/art/search", async (req, res) => {
 		// Apply offset and limit to sorted results
 		const paginatedResults = allResults.slice(offset, offset + targetCount);
 
-		console.log(`Returning ${paginatedResults.length} artworks (Met: ${metResults.length}, ARTIC: ${articResults.length}, CMA: ${cmaResults.length}, Rijks: ${rijksResults.length}, Wikimedia: ${wikimediaResults.length})`);
+		console.log(`Returning ${paginatedResults.length} artworks (Met: ${metResults.length}, ARTIC: ${articResults.length}, CMA: ${cmaResults.length}, Rijks: ${rijksResults.length}, Wikimedia: ${wikimediaResults.length}, V&A: ${vamResults.length}, Harvard: ${harvardResults.length}, Smithsonian: ${smithsonianResults.length})`);
 
 		res.json({
 			results: paginatedResults,

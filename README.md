@@ -93,8 +93,10 @@ Access the dashboard at: `http://your-pi-ip:3000`
 
 **Three Simple Modes:**
 - **Create** - Generate AI artwork or upload images
-- **Explore** - AI-powered search across museum collections (Met, Art Institute of Chicago, Cleveland Museum)
+- **Explore** - AI-powered search across **8 museum sources** with 2+ million artworks
 - **My Collection** - View all your generated, uploaded, and saved artworks
+
+**Museum Sources:** Met Museum, Art Institute of Chicago, Cleveland Museum, Rijksmuseum, Wikimedia Commons, Victoria & Albert Museum, Harvard Art Museums*, Smithsonian* (*API key required)
 
 The interface follows calm design principles - minimalistic and distraction-free.
 
@@ -206,7 +208,8 @@ Glance/
 ### AI Art Generation & Exploration
 - **🤖 GPT-4o Integration** - Generate custom artwork via OpenAI image models
 - **🔍 Smart Search** - Natural language queries interpreted by AI ("peaceful blue paintings")
-- **🏛️ Museum APIs** - Access to Metropolitan Museum, Art Institute of Chicago, Cleveland Museum
+- **🏛️ 8 Museum Sources** - Met, ARTIC, Cleveland, Rijksmuseum, Wikimedia, V&A, Harvard*, Smithsonian*
+- **🌍 2M+ Artworks** - Search across millions of public domain artworks simultaneously
 - **📜 Prompt History** - View the original prompt used to generate any artwork
 - **🎨 E-Ink Optimized** - AI prompts emphasize full-bleed, high-contrast compositions
 - **💾 Personal Collection** - Unified view of generated, uploaded, and saved artworks
