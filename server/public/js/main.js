@@ -86,7 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('moveDown').addEventListener('click', () => adjustCrop('down'));
     document.getElementById('moveLeft').addEventListener('click', () => adjustCrop('left'));
     document.getElementById('moveRight').addEventListener('click', () => adjustCrop('right'));
-    document.getElementById('moveReset').addEventListener('click', () => adjustCrop('reset'));
 });
 
 // Mode switching
