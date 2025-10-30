@@ -223,7 +223,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
 	storage: storage,
-	limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+	limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit (handles iPhone photos)
 	fileFilter: (req, file, cb) => {
 		const allowedTypes = /jpeg|jpg|png|gif|bmp|webp/;
 		const extname = allowedTypes.test(
@@ -1237,8 +1237,14 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 		const imageId = uuidv4();
 		const timestamp = Date.now();
 
-		// Read original image file
-		const originalImageBuffer = await fs.readFile(req.file.path);
+		// Create optimized version of original for web display (max 800px wide, maintain aspect ratio)
+		const optimizedOriginalBuffer = await sharp(req.file.path)
+			.resize(800, null, {
+				fit: "inside",
+				withoutEnlargement: true // Don't upscale small images
+			})
+			.jpeg({ quality: 85 }) // JPEG with good quality, smaller than PNG
+			.toBuffer();
 
 		// Process image for e-ink display
 		const ditheredRgbBuffer = await convertImageToRGB(req.file.path, 0, 1200, 1600, {
@@ -1248,14 +1254,14 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 		});
 
 		// Create thumbnail for web preview (300x400)
-		const thumbnailBuffer = await sharp(originalImageBuffer)
+		const thumbnailBuffer = await sharp(req.file.path)
 			.resize(300, 400, { fit: "inside" })
 			.png()
 			.toBuffer();
 
 		// Encode as base64
 		const imageBase64 = ditheredRgbBuffer.toString("base64");
-		const originalImageBase64 = originalImageBuffer.toString("base64");
+		const originalImageBase64 = optimizedOriginalBuffer.toString("base64");
 		const thumbnailBase64 = thumbnailBuffer.toString("base64");
 
 		// Get default sleep duration from settings
@@ -1266,7 +1272,7 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 			title: `Uploaded: ${req.file.originalname}`,
 			image: imageBase64,
 			originalImage: originalImageBase64,
-			originalImageMime: req.file.mimetype,
+			originalImageMime: 'image/jpeg', // Optimized as JPEG
 			imageId: imageId,
 			timestamp: timestamp,
 			sleepDuration: settings.defaultSleepDuration,
@@ -1285,8 +1291,8 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 			timestamp: timestamp,
 			sleepDuration: current.sleepDuration,
 			rotation: current.rotation,
-			originalImage: originalImageBase64, // Keep original for preview
-			originalImageMime: req.file.mimetype,
+			originalImage: originalImageBase64, // Optimized version for preview
+			originalImageMime: 'image/jpeg', // Optimized as JPEG
 			thumbnail: thumbnailBase64,
 			aiGenerated: false,
 			uploadedFilename: req.file.originalname
@@ -1433,15 +1439,30 @@ app.post("/api/generate-art", async (req, res) => {
 			ditherAlgorithm: 'floyd-steinberg'
 		});
 
-		// Save original for thumbnail
-		const originalImageBase64 = imageBuffer.toString("base64");
+		// Create optimized version for web display (max 800px wide, maintain aspect ratio)
+		const optimizedOriginalBuffer = await sharp(imageBuffer)
+			.resize(800, null, {
+				fit: "inside",
+				withoutEnlargement: true
+			})
+			.jpeg({ quality: 85 })
+			.toBuffer();
+
+		// Create thumbnail for web preview (300x400)
+		const thumbnailBuffer = await sharp(imageBuffer)
+			.resize(300, 400, { fit: "inside" })
+			.png()
+			.toBuffer();
+
+		const originalImageBase64 = optimizedOriginalBuffer.toString("base64");
+		const thumbnailBase64 = thumbnailBuffer.toString("base64");
 
 		const imageId = uuidv4();
 		const current = {
 			title: `AI Generated: ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}`,
 			image: rgbBuffer.toString("base64"),
 			originalImage: originalImageBase64,
-			originalImageMime: "image/png",
+			originalImageMime: "image/jpeg", // Optimized as JPEG
 			imageId: imageId,
 			timestamp: Date.now(),
 			sleepDuration: sleepMs,
@@ -1462,9 +1483,9 @@ app.post("/api/generate-art", async (req, res) => {
 			timestamp: current.timestamp,
 			sleepDuration: current.sleepDuration,
 			rotation: current.rotation,
-			originalImage: originalImageBase64,
-			originalImageMime: "image/png",
-			thumbnail: originalImageBase64,
+			originalImage: originalImageBase64, // Optimized version for preview
+			originalImageMime: "image/jpeg", // Optimized as JPEG
+			thumbnail: thumbnailBase64,
 			aiGenerated: true,
 			originalPrompt: prompt,
 			artStyle: artStyle,
@@ -1478,7 +1499,7 @@ app.post("/api/generate-art", async (req, res) => {
 		history.unshift({
 			imageId: imageId,
 			title: current.title,
-			thumbnail: originalImageBase64, // Store original for thumbnail
+			thumbnail: thumbnailBase64,
 			timestamp: current.timestamp,
 			aiGenerated: true,
 			originalPrompt: prompt,
