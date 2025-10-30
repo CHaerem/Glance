@@ -1793,13 +1793,24 @@ app.get("/api/esp32-status", async (req, res) => {
 				isCharging: false,
 				lastChargeTimestamp: null,
 				signalStrength: null,
-				lastSeen: null
+				lastSeen: null,
+				sleepDuration: null
 			});
 		}
 
 		// Consider device online if seen in last 5 minutes
 		const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
 		const isOnline = deviceStatus.lastSeen > fiveMinutesAgo;
+
+		// Get current sleep duration from settings
+		const current = (await readJSONFile("current.json")) || {};
+		const settings = (await readJSONFile("settings.json")) || {};
+
+		// Determine actual sleep duration (accounting for night sleep)
+		let sleepDuration = current.sleepDuration || 3600000000;
+		if (isInNightSleep(settings)) {
+			sleepDuration = calculateNightSleepDuration(settings);
+		}
 
 		res.json({
 			state: isOnline ? 'online' : 'offline',
@@ -1809,6 +1820,7 @@ app.get("/api/esp32-status", async (req, res) => {
 			lastChargeTimestamp: deviceStatus.lastChargeTimestamp,
 			signalStrength: deviceStatus.signalStrength,
 			lastSeen: deviceStatus.lastSeen,
+			sleepDuration: sleepDuration, // in microseconds
 			freeHeap: deviceStatus.freeHeap,
 			status: deviceStatus.status
 		});

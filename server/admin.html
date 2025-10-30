@@ -751,19 +751,33 @@
                 document.getElementById('signalStrength').textContent =
                     status.signalStrength ? `${status.signalStrength} dBm` : '--';
 
-                if (status.lastSeen) {
-                    const lastSeen = new Date(status.lastSeen);
-                    const now = new Date();
-                    const diffMinutes = Math.floor((now - lastSeen) / 1000 / 60);
+                // Calculate next wake time
+                if (status.lastSeen && status.sleepDuration) {
+                    const lastSeen = status.lastSeen;
+                    const sleepDurationMs = status.sleepDuration / 1000; // Convert microseconds to milliseconds
+                    const nextWakeTime = lastSeen + sleepDurationMs;
+                    const now = Date.now();
+                    const diffMs = nextWakeTime - now;
 
-                    if (diffMinutes < 1) {
-                        document.getElementById('nextWake').textContent = 'Just now';
-                    } else if (diffMinutes < 60) {
-                        document.getElementById('nextWake').textContent = `${diffMinutes}m ago`;
+                    if (diffMs > 0) {
+                        // Future wake time
+                        const diffMinutes = Math.floor(diffMs / 1000 / 60);
+                        if (diffMinutes < 1) {
+                            document.getElementById('nextWake').textContent = 'Soon';
+                        } else if (diffMinutes < 60) {
+                            document.getElementById('nextWake').textContent = `${diffMinutes}m`;
+                        } else {
+                            const hours = Math.floor(diffMinutes / 60);
+                            const minutes = diffMinutes % 60;
+                            document.getElementById('nextWake').textContent = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+                        }
                     } else {
-                        const hours = Math.floor(diffMinutes / 60);
-                        document.getElementById('nextWake').textContent = `${hours}h ago`;
+                        // Past due (should have woken already)
+                        const overdue = Math.floor(Math.abs(diffMs) / 1000 / 60);
+                        document.getElementById('nextWake').textContent = overdue < 2 ? 'Now' : `Overdue ${overdue}m`;
                     }
+                } else {
+                    document.getElementById('nextWake').textContent = '--';
                 }
             } catch (error) {
                 console.error('Failed to load device status:', error);
