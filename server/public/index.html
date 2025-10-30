@@ -115,22 +115,13 @@
     <div class="modal" id="artModal">
         <div class="modal-content">
             <button class="close-modal" id="closeModalBtn">×</button>
-            <button class="orientation-toggle" id="orientationToggle">⟲</button>
 
-            <!-- Crop adjustment controls -->
-            <div class="crop-controls">
-                <button class="crop-btn crop-up" data-direction="up">↑</button>
-                <button class="crop-btn crop-down" data-direction="down">↓</button>
-                <button class="crop-btn crop-left" data-direction="left">←</button>
-                <button class="crop-btn crop-right" data-direction="right">→</button>
-                <button class="crop-btn crop-reset" data-direction="reset">◎</button>
-            </div>
-
-            <!-- Zoom controls -->
-            <div class="zoom-controls">
-                <button class="zoom-btn zoom-in" data-zoom="in">+</button>
-                <button class="zoom-btn zoom-out" data-zoom="out">−</button>
-                <button class="zoom-btn zoom-fit" data-zoom="fit">⊡</button>
+            <!-- Image controls (desktop only for zoom, always visible for rotate) -->
+            <div class="image-controls">
+                <button class="control-btn" id="orientationToggle" title="Rotate">⟲</button>
+                <button class="control-btn desktop-only" id="zoomIn" title="Zoom in">+</button>
+                <button class="control-btn desktop-only" id="zoomOut" title="Zoom out">−</button>
+                <button class="control-btn desktop-only" id="zoomFit" title="Fit to screen">⊡</button>
             </div>
 
             <img id="modalImage" class="modal-image" src="" alt="">

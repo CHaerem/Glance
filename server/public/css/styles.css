@@ -512,100 +512,58 @@
             color: #1a1a1a;
         }
 
-        .orientation-toggle {
+        /* Image controls - clean and responsive */
+        .image-controls {
             position: absolute;
             top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.9);
+            right: 70px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.95);
             border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 1.25rem;
             color: #666;
             transition: all 0.2s ease;
-            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .orientation-toggle:hover {
+        .control-btn:hover {
             background: white;
             color: #1a1a1a;
-            transform: rotate(90deg);
+            transform: scale(1.05);
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Hide zoom controls on mobile (touch devices) */
+        @media (max-width: 768px) {
+            .desktop-only {
+                display: none !important;
+            }
+        }
+
+        /* Mobile: enable touch zoom on image */
+        @media (max-width: 768px) {
+            .modal-image {
+                touch-action: pinch-zoom;
+            }
         }
 
         .modal-image.landscape {
             aspect-ratio: 4 / 3;
-        }
-
-        .crop-controls {
-            position: absolute;
-            bottom: 100px;
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            z-index: 10;
-        }
-
-        .crop-btn {
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            color: #666;
-            transition: all 0.2s ease;
-            padding: 0;
-        }
-
-        .crop-btn:hover {
-            background: white;
-            color: #1a1a1a;
-        }
-
-        .crop-reset {
-            margin-top: 4px;
-            border-top: 1px solid #eee;
-            padding-top: 4px;
-        }
-
-        .zoom-controls {
-            position: absolute;
-            bottom: 100px;
-            left: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            z-index: 10;
-        }
-
-        .zoom-btn {
-            background: rgba(255, 255, 255, 0.9);
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
-            color: #666;
-            transition: all 0.2s ease;
-            padding: 0;
-        }
-
-        .zoom-btn:hover {
-            background: white;
-            color: #1a1a1a;
-        }
-
-        .zoom-fit {
-            margin-top: 4px;
-            border-top: 1px solid #eee;
-            padding-top: 4px;
-            font-size: 14px;
         }
 
         /* Loading state */

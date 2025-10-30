@@ -76,13 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modalSecondaryAction').addEventListener('click', handleSecondaryAction);
     document.getElementById('moreLikeThisBtn').addEventListener('click', findSimilarArt);
 
-    document.querySelectorAll('.crop-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => adjustCrop(e.target.dataset.direction));
-    });
-
-    document.querySelectorAll('.zoom-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => adjustZoom(e.target.dataset.zoom));
-    });
+    // Zoom controls (desktop only - hidden on mobile)
+    document.getElementById('zoomIn').addEventListener('click', () => adjustZoom('in'));
+    document.getElementById('zoomOut').addEventListener('click', () => adjustZoom('out'));
+    document.getElementById('zoomFit').addEventListener('click', () => adjustZoom('fit'));
 });
 
 // Mode switching
