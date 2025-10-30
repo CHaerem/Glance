@@ -396,14 +396,15 @@ function previewArt(art) {
     selectedModalArt = art;
     selectedHistoryItem = null;
 
-    // Reset pan and zoom state
-    panX = 0;
-    panY = 0;
+    // Reset crop and zoom state
+    cropX = 50;
+    cropY = 50;
     zoomLevel = 1.0;
 
     const modalImage = document.getElementById('modalImage');
     modalImage.src = art.imageUrl;
-    modalImage.style.transform = 'translate(0, 0) scale(1)';
+    modalImage.style.transform = 'scale(1)';
+    modalImage.style.objectPosition = '50% 50%';
     modalImage.style.objectFit = 'cover';
 
     applyDefaultOrientation();
@@ -425,9 +426,9 @@ async function openCollectionItem(item) {
         selectedHistoryItem = item;
         selectedModalArt = null;
 
-        // Reset pan and zoom state
-        panX = 0;
-        panY = 0;
+        // Reset crop and zoom state
+        cropX = 50;
+        cropY = 50;
         zoomLevel = 1.0;
 
         // Determine image source
@@ -442,7 +443,8 @@ async function openCollectionItem(item) {
 
         const modalImage = document.getElementById('modalImage');
         modalImage.src = imageSrc;
-        modalImage.style.transform = 'translate(0, 0) scale(1)';
+        modalImage.style.transform = 'scale(1)';
+        modalImage.style.objectPosition = '50% 50%';
         modalImage.style.objectFit = 'cover';
 
         applyDefaultOrientation();
@@ -478,10 +480,11 @@ function closeModal() {
 
     const modalImage = document.getElementById('modalImage');
     modalImage.classList.remove('landscape');
-    panX = 0;
-    panY = 0;
+    cropX = 50;
+    cropY = 50;
     zoomLevel = 1.0;
-    modalImage.style.transform = 'translate(0, 0) scale(1)';
+    modalImage.style.transform = 'scale(1)';
+    modalImage.style.objectPosition = '50% 50%';
     modalImage.style.objectFit = 'cover';
 }
 
@@ -613,62 +616,60 @@ function togglePreviewOrientation() {
     modalImage.classList.toggle('landscape');
 }
 
-// Position and zoom state
-let panX = 0;
-let panY = 0;
-let zoomLevel = 1.0;
-const PAN_STEP = 30;
-const ZOOM_STEP = 0.2;
+// Crop adjustment (position)
+let cropX = 50;
+let cropY = 50;
+const CROP_STEP = 5;
 
 function adjustCrop(direction) {
     const modalImage = document.getElementById('modalImage');
 
     switch(direction) {
         case 'up':
-            panY += PAN_STEP;
+            cropY = Math.max(0, cropY - CROP_STEP);
             break;
         case 'down':
-            panY -= PAN_STEP;
+            cropY = Math.min(100, cropY + CROP_STEP);
             break;
         case 'left':
-            panX += PAN_STEP;
+            cropX = Math.max(0, cropX - CROP_STEP);
             break;
         case 'right':
-            panX -= PAN_STEP;
+            cropX = Math.min(100, cropX + CROP_STEP);
             break;
         case 'reset':
-            panX = 0;
-            panY = 0;
+            cropX = 50;
+            cropY = 50;
             zoomLevel = 1.0;
+            modalImage.style.transform = 'scale(1)';
             break;
     }
 
-    updateImageTransform();
+    modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
 }
 
+// Zoom adjustment
+let zoomLevel = 1.0;
+const ZOOM_STEP = 0.1;
+
 function adjustZoom(direction) {
+    const modalImage = document.getElementById('modalImage');
+
     switch(direction) {
         case 'in':
-            zoomLevel = Math.min(3.0, zoomLevel + ZOOM_STEP);
+            zoomLevel = Math.min(2.0, zoomLevel + ZOOM_STEP);
             break;
         case 'out':
             zoomLevel = Math.max(0.5, zoomLevel - ZOOM_STEP);
             break;
         case 'fit':
             zoomLevel = 1.0;
-            panX = 0;
-            panY = 0;
             break;
     }
 
-    updateImageTransform();
-}
+    modalImage.style.transform = `scale(${zoomLevel})`;
 
-function updateImageTransform() {
-    const modalImage = document.getElementById('modalImage');
-    modalImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
-
-    if (zoomLevel <= 1.0) {
+    if (zoomLevel < 1.0) {
         modalImage.style.objectFit = 'contain';
     } else {
         modalImage.style.objectFit = 'cover';
