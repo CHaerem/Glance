@@ -2,7 +2,7 @@
 /**
  * Build script for GitHub Pages preview
  *
- * This script simply copies the HTML files and adds auto-mock.js
+ * Inlines mock API directly into HTML files for synchronous loading
  * The same files work in both production and preview modes!
  */
 
@@ -13,7 +13,7 @@ const ROOT_DIR = path.join(__dirname, '..');
 const PREVIEW_DIR = __dirname;
 
 /**
- * Process HTML file: add auto-mock script and fix links for static hosting
+ * Process HTML file: inline mock API and fix links for static hosting
  */
 function processHTML(inputFile, outputFile) {
     console.log(`Processing ${path.basename(inputFile)} -> ${path.basename(outputFile)}`);
