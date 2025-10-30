@@ -182,7 +182,8 @@ void setup() {
         }
     } else {
         Debug("HTTP request failed: " + String(httpResponseCode) + "\r\n");
-        sendLogToServer("Error: HTTP request failed with code " + String(httpResponseCode));
+        String errorMsg = "Error: HTTP request failed with code " + String(httpResponseCode);
+        sendLogToServer(errorMsg.c_str());
     }
     http.end();
 
