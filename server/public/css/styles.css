@@ -464,14 +464,14 @@
             max-width: 90vw;
             max-height: 90vh;
             width: auto;
-            overflow: hidden;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
 
         .modal-image {
             width: 100%;
-            max-height: calc(90vh - 80px);
+            max-height: calc(90vh - 200px);
             border-radius: 8px 8px 0 0;
             aspect-ratio: 3 / 4;
             object-fit: cover;
