@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Controls Test</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <style>
+        .test-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 20px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            z-index: 10000;
+            max-width: 300px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .test-result {
+            padding: 4px;
+            margin: 2px 0;
+        }
+        .test-pass { color: green; }
+        .test-fail { color: red; }
+        .test-info { color: blue; }
+        .test-controls button {
+            margin: 5px;
+            padding: 8px 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Modal Controls Diagnostic Test</h1>
+        <p>Click the button below to open the modal and test controls:</p>
+        <button onclick="openTestModal()" style="padding: 10px 20px; font-size: 16px;">Open Test Modal</button>
+    </div>
+
+    <!-- Test Panel -->
+    <div class="test-panel">
+        <h3>Test Results</h3>
+        <div id="testResults"></div>
+        <div class="test-controls">
+            <button onclick="runTests()">Run Tests</button>
+            <button onclick="clearResults()">Clear</button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="artModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeModalBtn">×</button>
+
+            <div class="image-control-bar">
+                <button class="control-btn-minimal" id="orientationToggle" title="Rotate">⟲</button>
+                <span class="control-separator desktop-only">|</span>
+                <button class="control-btn-minimal desktop-only" id="moveUp" title="Move up">↑</button>
+                <button class="control-btn-minimal desktop-only" id="moveDown" title="Move down">↓</button>
+                <button class="control-btn-minimal desktop-only" id="moveLeft" title="Move left">←</button>
+                <button class="control-btn-minimal desktop-only" id="moveRight" title="Move right">→</button>
+                <span class="control-separator desktop-only">|</span>
+                <button class="control-btn-minimal desktop-only" id="zoomIn" title="Zoom in">+</button>
+                <button class="control-btn-minimal desktop-only" id="zoomOut" title="Zoom out">−</button>
+                <button class="control-btn-minimal desktop-only" id="zoomFit" title="Fit to frame">⊡</button>
+                <span class="control-separator desktop-only">|</span>
+                <button class="control-btn-minimal desktop-only" id="moveReset" title="Reset">◎</button>
+            </div>
+
+            <div class="modal-image-container">
+                <img id="modalImage" class="modal-image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg/800px-Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg" alt="Test Image">
+                <div class="display-frame-overlay"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let cropX = 50;
+        let cropY = 50;
+        let zoomLevel = 1.0;
+        const CROP_STEP = 5;
+        const ZOOM_STEP = 0.1;
+
+        // Test logging
+        function logTest(message, type = 'info') {
+            const results = document.getElementById('testResults');
+            const div = document.createElement('div');
+            div.className = `test-result test-${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+            console.log(`[TEST ${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        // Modal functions
+        function openTestModal() {
+            cropX = 50;
+            cropY = 50;
+            zoomLevel = 1.0;
+
+            const modalImage = document.getElementById('modalImage');
+            modalImage.style.transform = 'scale(1)';
+            modalImage.style.objectPosition = '50% 50%';
+            modalImage.style.objectFit = 'cover';
+
+            document.getElementById('artModal').classList.add('show');
+            logTest('Modal opened', 'pass');
+        }
+
+        function adjustCrop(direction) {
+            const modalImage = document.getElementById('modalImage');
+            const oldX = cropX;
+            const oldY = cropY;
+
+            switch(direction) {
+                case 'up':
+                    cropY = Math.max(0, cropY - CROP_STEP);
+                    break;
+                case 'down':
+                    cropY = Math.min(100, cropY + CROP_STEP);
+                    break;
+                case 'left':
+                    cropX = Math.max(0, cropX - CROP_STEP);
+                    break;
+                case 'right':
+                    cropX = Math.min(100, cropX + CROP_STEP);
+                    break;
+                case 'reset':
+                    cropX = 50;
+                    cropY = 50;
+                    zoomLevel = 1.0;
+                    modalImage.style.transform = 'scale(1)';
+                    break;
+            }
+
+            modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
+            logTest(`Pan ${direction}: (${oldX}, ${oldY}) → (${cropX}, ${cropY})`, 'info');
+        }
+
+        function adjustZoom(direction) {
+            const modalImage = document.getElementById('modalImage');
+            const oldZoom = zoomLevel;
+
+            switch(direction) {
+                case 'in':
+                    zoomLevel = Math.min(2.0, zoomLevel + ZOOM_STEP);
+                    break;
+                case 'out':
+                    zoomLevel = Math.max(0.5, zoomLevel - ZOOM_STEP);
+                    break;
+                case 'fit':
+                    zoomLevel = 1.0;
+                    break;
+            }
+
+            modalImage.style.transform = `scale(${zoomLevel})`;
+
+            if (zoomLevel < 1.0) {
+                modalImage.style.objectFit = 'contain';
+            } else {
+                modalImage.style.objectFit = 'cover';
+            }
+
+            logTest(`Zoom ${direction}: ${oldZoom.toFixed(2)} → ${zoomLevel.toFixed(2)}`, 'info');
+        }
+
+        // Test suite
+        function runTests() {
+            clearResults();
+            logTest('Starting diagnostic tests...', 'info');
+
+            // Test 1: Check buttons exist
+            const buttons = {
+                'moveUp': document.getElementById('moveUp'),
+                'moveDown': document.getElementById('moveDown'),
+                'moveLeft': document.getElementById('moveLeft'),
+                'moveRight': document.getElementById('moveRight'),
+                'zoomIn': document.getElementById('zoomIn'),
+                'zoomOut': document.getElementById('zoomOut'),
+                'zoomFit': document.getElementById('zoomFit'),
+                'moveReset': document.getElementById('moveReset')
+            };
+
+            for (const [name, btn] of Object.entries(buttons)) {
+                if (btn) {
+                    logTest(`✓ Button '${name}' exists`, 'pass');
+                } else {
+                    logTest(`✗ Button '${name}' NOT FOUND`, 'fail');
+                }
+            }
+
+            // Test 2: Check image element
+            const img = document.getElementById('modalImage');
+            if (img) {
+                logTest('✓ Modal image exists', 'pass');
+                logTest(`  - transform: ${img.style.transform || 'none'}`, 'info');
+                logTest(`  - objectPosition: ${img.style.objectPosition || 'default'}`, 'info');
+                logTest(`  - objectFit: ${img.style.objectFit || 'default'}`, 'info');
+            } else {
+                logTest('✗ Modal image NOT FOUND', 'fail');
+            }
+
+            // Test 3: Test zoom function
+            logTest('Testing zoom function...', 'info');
+            adjustZoom('in');
+            if (zoomLevel > 1.0) {
+                logTest('✓ Zoom in works', 'pass');
+            } else {
+                logTest('✗ Zoom in FAILED', 'fail');
+            }
+
+            // Test 4: Test pan function
+            logTest('Testing pan function...', 'info');
+            adjustCrop('up');
+            if (cropY < 50) {
+                logTest('✓ Pan up works', 'pass');
+            } else {
+                logTest('✗ Pan up FAILED', 'fail');
+            }
+
+            // Reset state
+            adjustCrop('reset');
+            logTest('Tests complete!', 'pass');
+        }
+
+        // Event listeners
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            document.getElementById('artModal').classList.remove('show');
+            logTest('Modal closed', 'info');
+        });
+
+        document.getElementById('moveUp').addEventListener('click', () => adjustCrop('up'));
+        document.getElementById('moveDown').addEventListener('click', () => adjustCrop('down'));
+        document.getElementById('moveLeft').addEventListener('click', () => adjustCrop('left'));
+        document.getElementById('moveRight').addEventListener('click', () => adjustCrop('right'));
+        document.getElementById('zoomIn').addEventListener('click', () => adjustZoom('in'));
+        document.getElementById('zoomOut').addEventListener('click', () => adjustZoom('out'));
+        document.getElementById('zoomFit').addEventListener('click', () => adjustZoom('fit'));
+        document.getElementById('moveReset').addEventListener('click', () => adjustCrop('reset'));
+
+        // Log on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            logTest('Page loaded, ready for testing', 'pass');
+        });
+    </script>
+</body>
+</html>
