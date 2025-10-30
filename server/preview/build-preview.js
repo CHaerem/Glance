@@ -20,13 +20,73 @@ function processHTML(inputFile, outputFile) {
 
     let html = fs.readFileSync(inputFile, 'utf-8');
 
-    // Add auto-mock script at the beginning of <head>
-    // This script will detect the environment and load mock API if needed
+    // Read mock API script to inline it
+    const mockAPIScript = fs.readFileSync(path.join(PREVIEW_DIR, 'mock-api.js'), 'utf-8');
+
+    // Inline mock API script at the beginning of <head>
+    // Must be synchronous to intercept fetch before page JS runs
     html = html.replace(
         /<head>/,
         `<head>
-    <!-- Auto-loading mock API for preview mode -->
-    <script src="auto-mock.js"></script>`
+    <!-- Inline mock API for preview mode (must load synchronously) -->
+    <script>
+        // Auto-detect preview mode
+        (function() {
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            const isLocalFile = window.location.protocol === 'file:';
+
+            if (!isGitHubPages && !isLocalFile) {
+                console.log('[Preview] Production mode - using real backend');
+                return;
+            }
+
+            console.log('[Preview] Mock mode activated');
+
+            // Load mock API immediately (synchronously)
+            ${mockAPIScript}
+
+            // Add preview banner
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', addBanner);
+            } else {
+                addBanner();
+            }
+
+            function addBanner() {
+                if (document.querySelector('.preview-banner')) return;
+
+                const banner = document.createElement('div');
+                banner.className = 'preview-banner';
+                banner.innerHTML = \`
+                    <style>
+                        .preview-banner {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 8px 16px;
+                            text-align: center;
+                            z-index: 10000;
+                            font-size: 0.85rem;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                        }
+                        .preview-banner a {
+                            color: white;
+                            text-decoration: underline;
+                        }
+                        body {
+                            padding-top: 36px !important;
+                        }
+                    </style>
+                    <strong>🚀 Preview Mode</strong> &nbsp;|&nbsp; This is a demo with mocked API &nbsp;|&nbsp; <a href="https://github.com/CHaerem/Glance" target="_blank">View on GitHub</a>
+                \`;
+                document.body.insertBefore(banner, document.body.firstChild);
+            }
+        })();
+    </script>`
     );
 
     // Fix links for static hosting (GitHub Pages)
