@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Inline mock API for preview mode (must load synchronously) -->
+    <script>
+        // Auto-detect preview mode
+        (function() {
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            const isLocalFile = window.location.protocol === 'file:';
+
+            if (!isGitHubPages && !isLocalFile) {
+                console.log('[Preview] Production mode - using real backend');
+                return;
+            }
+
+            console.log('[Preview] Mock mode activated');
+
+            // Load mock API immediately (synchronously)
+            /**
+ * Mock API Server for GitHub Pages Preview
+ *
+ * Enhanced version with visually rich placeholder generation
+ * for proper UX/design testing
+ */
+
+class MockAPI {
+    constructor() {
+        this.storage = {
+            settings: {
+                defaultSleepDuration: 3600000000,
+                devMode: false,
+                devServerHost: '',
+                defaultOrientation: 'portrait',
+                nightSleepEnabled: false,
+                nightSleepStartHour: 23,
+                nightSleepEndHour: 5
+            },
+            currentImage: {
+                imageId: 'demo-001',
+                originalImage: null,
+                originalImageMime: 'image/png',
+                originalPrompt: 'A serene landscape with mountains and a lake at sunset',
+                timestamp: Date.now() - 3600000
+            },
+            images: new Map(),
+            history: [],
+            devices: {
+                'esp32-001': {
+                    deviceId: 'esp32-001',
+                    state: 'sleeping',
+                    batteryVoltage: 4.1,
+                    batteryPercent: 85,
+                    isCharging: false,
+                    lastChargeTimestamp: Date.now() - 7200000,
+                    signalStrength: -45,
+                    lastSeen: Date.now() - 1800000,
+                    sleepDuration: 3600000000,
+                    status: 'sleeping'
+                }
+            },
+            logs: [
+                '[2025-10-30 10:15:32] Server started',
+                '[2025-10-30 10:15:33] Mock API initialized',
+                '[2025-10-30 10:16:45] ESP32 connected',
+                '[2025-10-30 10:17:12] Image generated: demo-001'
+            ],
+            deviceLogs: [
+                '[2025-10-30 10:16:45] ESP32 woke up',
+                '[2025-10-30 10:16:46] Connected to WiFi',
+                '[2025-10-30 10:16:47] Battery: 4.1V (85%)',
+                '[2025-10-30 10:17:12] Display refresh complete',
+                '[2025-10-30 10:17:13] Entering deep sleep for 60 minutes'
+            ],
+            collections: this.generateMockCollections()
+        };
+
+        this.generateDemoImage();
+    }
+
+    /**
+     * Generate visually rich placeholder based on prompt
+     */
+    generateArtisticImage(prompt, width = 400, height = 533) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Extract style hints from prompt
+        const lowerPrompt = prompt.toLowerCase();
+        let style = 'abstract';
+
+        if (lowerPrompt.includes('landscape') || lowerPrompt.includes('mountain') || lowerPrompt.includes('lake')) {
+            style = 'landscape';
+        } else if (lowerPrompt.includes('portrait') || lowerPrompt.includes('face') || lowerPrompt.includes('person')) {
+            style = 'portrait';
+        } else if (lowerPrompt.includes('geometric') || lowerPrompt.includes('pattern')) {
+            style = 'geometric';
+        } else if (lowerPrompt.includes('minimal')) {
+            style = 'minimal';
+        }
+
+        // Generate based on style
+        switch(style) {
+            case 'landscape':
+                this.drawLandscape(ctx, width, height, prompt);
+                break;
+            case 'portrait':
+                this.drawPortrait(ctx, width, height, prompt);
+                break;
+            case 'geometric':
+                this.drawGeometric(ctx, width, height, prompt);
+                break;
+            case 'minimal':
+                this.drawMinimal(ctx, width, height, prompt);
+                break;
+            default:
+                this.drawAbstract(ctx, width, height, prompt);
+        }
+
+        // Add subtle prompt text at bottom
+        this.addPromptOverlay(ctx, width, height, prompt);
+
+        return canvas.toDataURL('image/png').split(',')[1];
+    }
+
+    drawLandscape(ctx, width, height, prompt) {
+        // Sky gradient
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
+        skyGradient.addColorStop(0, '#87CEEB');
+        skyGradient.addColorStop(0.5, '#B0E0E6');
+        skyGradient.addColorStop(1, '#FFE4B5');
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, width, height * 0.6);
+
+        // Mountains in layers
+        const mountainLayers = [
+            { y: height * 0.4, color: '#4A5568', points: 5 },
+            { y: height * 0.45, color: '#718096', points: 6 },
+            { y: height * 0.5, color: '#A0AEC0', points: 7 }
+        ];
+
+        mountainLayers.forEach(layer => {
+            ctx.fillStyle = layer.color;
+            ctx.beginPath();
+            ctx.moveTo(0, height * 0.6);
+
+            for (let i = 0; i <= layer.points; i++) {
+                const x = (width / layer.points) * i;
+                const peakHeight = layer.y + (Math.sin(i * 1.5) * height * 0.1);
+                ctx.lineTo(x, peakHeight);
+            }
+
+            ctx.lineTo(width, height * 0.6);
+            ctx.closePath();
+            ctx.fill();
+        });
+
+        // Foreground - grass/lake
+        const groundGradient = ctx.createLinearGradient(0, height * 0.6, 0, height);
+        if (prompt.toLowerCase().includes('lake')) {
+            groundGradient.addColorStop(0, '#4682B4');
+            groundGradient.addColorStop(1, '#1E3A5F');
+        } else {
+            groundGradient.addColorStop(0, '#90EE90');
+            groundGradient.addColorStop(1, '#228B22');
+        }
+        ctx.fillStyle = groundGradient;
+        ctx.fillRect(0, height * 0.6, width, height * 0.4);
+
+        // Sun/Moon
+        ctx.fillStyle = prompt.toLowerCase().includes('sunset') ? '#FF6347' : '#FFD700';
+        ctx.beginPath();
+        ctx.arc(width * 0.8, height * 0.2, 30, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Add some trees
+        for (let i = 0; i < 5; i++) {
+            const treeX = (width / 6) * (i + 1) + (Math.random() * 20 - 10);
+            const treeY = height * 0.6 + (Math.random() * height * 0.1);
+            this.drawTree(ctx, treeX, treeY, 15 + Math.random() * 10);
+        }
+    }
+
+    drawTree(ctx, x, y, size) {
+        // Trunk
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(x - size * 0.1, y, size * 0.2, size);
+
+        // Foliage
+        ctx.fillStyle = '#228B22';
+        ctx.beginPath();
+        ctx.moveTo(x, y - size * 0.5);
+        ctx.lineTo(x - size * 0.4, y + size * 0.2);
+        ctx.lineTo(x + size * 0.4, y + size * 0.2);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawPortrait(ctx, width, height) {
+        // Background
+        const bgGradient = ctx.createRadialGradient(width/2, height/3, 0, width/2, height/3, width);
+        bgGradient.addColorStop(0, '#FFF5E1');
+        bgGradient.addColorStop(1, '#D2B48C');
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // Head
+        const centerX = width / 2;
+        const centerY = height * 0.4;
+        const headRadius = width * 0.25;
+
+        ctx.fillStyle = '#FFDAB9';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, headRadius * 0.8, headRadius, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hair
+        ctx.fillStyle = '#4A2C2A';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY - headRadius * 0.3, headRadius * 0.85, headRadius * 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = '#2C3E50';
+        ctx.beginPath();
+        ctx.arc(centerX - headRadius * 0.3, centerY - headRadius * 0.1, headRadius * 0.08, 0, Math.PI * 2);
+        ctx.arc(centerX + headRadius * 0.3, centerY - headRadius * 0.1, headRadius * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Nose
+        ctx.strokeStyle = '#B8956A';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX - headRadius * 0.05, centerY + headRadius * 0.15);
+        ctx.stroke();
+
+        // Mouth
+        ctx.strokeStyle = '#D2691E';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + headRadius * 0.3, headRadius * 0.3, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+
+        // Shoulders
+        ctx.fillStyle = '#4682B4';
+        ctx.beginPath();
+        ctx.moveTo(centerX - headRadius * 1.2, height);
+        ctx.lineTo(centerX - headRadius * 0.6, centerY + headRadius);
+        ctx.lineTo(centerX + headRadius * 0.6, centerY + headRadius);
+        ctx.lineTo(centerX + headRadius * 1.2, height);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawGeometric(ctx, width, height) {
+        // Clean background
+        ctx.fillStyle = '#F5F5F5';
+        ctx.fillRect(0, 0, width, height);
+
+        // Generate geometric pattern
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+        const shapes = Math.floor(Math.random() * 10) + 15;
+
+        for (let i = 0; i < shapes; i++) {
+            const x = Math.random() * width;
+            const y = Math.random() * height;
+            const size = Math.random() * 80 + 40;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const shape = Math.floor(Math.random() * 3);
+
+            ctx.fillStyle = color + '80'; // Add transparency
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            switch(shape) {
+                case 0: // Circle
+                    ctx.arc(x, y, size/2, 0, Math.PI * 2);
+                    break;
+                case 1: // Square
+                    ctx.rect(x - size/2, y - size/2, size, size);
+                    break;
+                case 2: // Triangle
+                    ctx.moveTo(x, y - size/2);
+                    ctx.lineTo(x - size/2, y + size/2);
+                    ctx.lineTo(x + size/2, y + size/2);
+                    ctx.closePath();
+                    break;
+            }
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    drawMinimal(ctx, width, height) {
+        // White background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+
+        // Single focal element
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Large circle
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, Math.min(width, height) * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Smaller circle
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, Math.min(width, height) * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Line through
+        ctx.beginPath();
+        ctx.moveTo(centerX - width * 0.3, centerY);
+        ctx.lineTo(centerX + width * 0.3, centerY);
+        ctx.stroke();
+    }
+
+    drawAbstract(ctx, width, height) {
+        // Colorful gradient background
+        const hue1 = Math.random() * 360;
+        const hue2 = (hue1 + 120) % 360;
+        const hue3 = (hue1 + 240) % 360;
+
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, `hsl(${hue1}, 70%, 60%)`);
+        gradient.addColorStop(0.5, `hsl(${hue2}, 70%, 60%)`);
+        gradient.addColorStop(1, `hsl(${hue3}, 70%, 60%)`);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // Organic shapes
+        const shapes = Math.floor(Math.random() * 5) + 8;
+        for (let i = 0; i < shapes; i++) {
+            ctx.fillStyle = `hsla(${Math.random() * 360}, 60%, 70%, 0.4)`;
+            ctx.beginPath();
+
+            const centerX = Math.random() * width;
+            const centerY = Math.random() * height;
+            const radius = Math.random() * 100 + 50;
+
+            // Blob shape
+            for (let angle = 0; angle < Math.PI * 2; angle += 0.5) {
+                const wobble = Math.random() * 20 + radius;
+                const x = centerX + Math.cos(angle) * wobble;
+                const y = centerY + Math.sin(angle) * wobble;
+                if (angle === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    addPromptOverlay(ctx, width, height, prompt) {
+        // Semi-transparent overlay at bottom
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, height - 60, width, 60);
+
+        // Prompt text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Truncate prompt if too long
+        let displayPrompt = prompt;
+        if (prompt.length > 50) {
+            displayPrompt = prompt.substring(0, 47) + '...';
+        }
+
+        ctx.fillText(displayPrompt, width / 2, height - 30);
+    }
+
+    generateDemoImage() {
+        // Generate a rich history of varied images
+        const demoPrompts = [
+            'A serene landscape with mountains and a lake at sunset',
+            'Minimalist geometric pattern with circles',
+            'Abstract colorful art with organic shapes',
+            'Portrait of a person in contemplation',
+            'Japanese landscape with Mount Fuji',
+            'Geometric pattern with triangles and squares',
+            'Mountain landscape at dawn with morning mist',
+            'Minimalist design with simple lines',
+            'Abstract expressionist artwork',
+            'Peaceful lake scene with reflections',
+            'Portrait in renaissance style',
+            'Colorful geometric composition'
+        ];
+
+        // Generate images in reverse chronological order
+        const now = Date.now();
+        const hoursAgo = [0.5, 2, 5, 12, 24, 48, 72, 96, 120, 168, 240, 336]; // Hours ago
+
+        demoPrompts.forEach((prompt, index) => {
+            const imageId = `demo-${String(index + 1).padStart(3, '0')}`;
+            const timestamp = now - (hoursAgo[index] * 3600000);
+
+            const base64 = this.generateArtisticImage(prompt, 400, 533);
+
+            const imageData = {
+                imageId,
+                originalImage: base64,
+                originalImageMime: 'image/png',
+                originalPrompt: prompt,
+                thumbnail: base64,
+                timestamp
+            };
+
+            this.storage.images.set(imageId, imageData);
+            this.storage.history.push({
+                imageId,
+                thumbnail: base64,
+                timestamp
+            });
+        });
+
+        // Most recent image becomes current
+        const latest = this.storage.history[0];
+        const latestImage = this.storage.images.get(latest.imageId);
+        this.storage.currentImage = {
+            imageId: latestImage.imageId,
+            originalImage: latestImage.originalImage,
+            originalImageMime: latestImage.originalImageMime,
+            originalPrompt: latestImage.originalPrompt,
+            timestamp: latestImage.timestamp
+        };
+
+        console.log(`[MockAPI] Generated ${demoPrompts.length} demo images for history`);
+    }
+
+    generateMockCollections() {
+        return [
+            { id: 'renaissance-masters', name: 'Renaissance Masters', description: 'Great works from the Renaissance period' },
+            { id: 'dutch-masters', name: 'Dutch Masters', description: 'Dutch Golden Age paintings' },
+            { id: 'impressionists', name: 'Impressionists', description: 'French Impressionist masterpieces' },
+            { id: 'post-impressionists', name: 'Post-Impressionists', description: 'Post-Impressionist works' },
+            { id: 'japanese-masters', name: 'Japanese Masters', description: 'Traditional Japanese art' },
+            { id: 'modern-icons', name: 'Modern Icons', description: 'Modern and contemporary art' }
+        ];
+    }
+
+    generateMockArtworks(collectionId) {
+        // Generate visually distinct artwork placeholders
+        const artworks = [];
+        const artworkData = {
+            'renaissance-masters': [
+                { title: 'Mona Lisa', artist: 'Leonardo da Vinci', style: 'portrait' },
+                { title: 'The Birth of Venus', artist: 'Sandro Botticelli', style: 'portrait' },
+                { title: 'The School of Athens', artist: 'Raphael', style: 'geometric' },
+                { title: 'The Creation of Adam', artist: 'Michelangelo', style: 'portrait' }
+            ],
+            'dutch-masters': [
+                { title: 'Girl with a Pearl Earring', artist: 'Johannes Vermeer', style: 'portrait' },
+                { title: 'The Night Watch', artist: 'Rembrandt', style: 'abstract' },
+                { title: 'The Milkmaid', artist: 'Johannes Vermeer', style: 'portrait' }
+            ],
+            'impressionists': [
+                { title: 'Water Lilies', artist: 'Claude Monet', style: 'landscape' },
+                { title: 'Bal du moulin de la Galette', artist: 'Pierre-Auguste Renoir', style: 'abstract' },
+                { title: 'Impression, Sunrise', artist: 'Claude Monet', style: 'landscape' }
+            ],
+            'post-impressionists': [
+                { title: 'The Starry Night', artist: 'Vincent van Gogh', style: 'landscape' },
+                { title: 'The Card Players', artist: 'Paul Cézanne', style: 'portrait' },
+                { title: 'A Sunday Afternoon', artist: 'Georges Seurat', style: 'geometric' }
+            ],
+            'japanese-masters': [
+                { title: 'The Great Wave', artist: 'Hokusai', style: 'landscape' },
+                { title: 'Red Fuji', artist: 'Hokusai', style: 'landscape' },
+                { title: 'Plum Blossoms', artist: 'Hiroshige', style: 'minimal' }
+            ],
+            'modern-icons': [
+                { title: 'The Persistence of Memory', artist: 'Salvador Dalí', style: 'abstract' },
+                { title: 'Campbell\'s Soup Cans', artist: 'Andy Warhol', style: 'minimal' },
+                { title: 'The Scream', artist: 'Edvard Munch', style: 'portrait' }
+            ]
+        };
+
+        const collectionArt = artworkData[collectionId] || [];
+
+        collectionArt.forEach((art, index) => {
+            const prompt = `${art.title} by ${art.artist}, ${art.style} style`;
+            const thumbnail = this.generateArtisticImage(prompt, 200, 200);
+            const fullImage = this.generateArtisticImage(prompt, 800, 800);
+
+            artworks.push({
+                id: `${collectionId}-${index}`,
+                title: art.title,
+                artist: art.artist,
+                thumbnail: `data:image/png;base64,${thumbnail}`,
+                imageUrl: `data:image/png;base64,${fullImage}`
+            });
+        });
+
+        return artworks;
+    }
+
+    /**
+     * Read file as base64 data URL
+     */
+    async readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                // Extract base64 part (remove data:image/...;base64, prefix)
+                const result = reader.result;
+                const base64 = result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    generateRandomPrompt(basePrompt = '') {
+        const subjects = ['landscape', 'portrait', 'abstract art', 'still life', 'cityscape', 'seascape'];
+        const styles = ['impressionist', 'minimalist', 'art nouveau', 'art deco', 'cubist', 'surrealist'];
+        const moods = ['serene', 'dramatic', 'whimsical', 'melancholic', 'vibrant', 'ethereal'];
+        const details = ['with soft lighting', 'with bold colors', 'in pastel tones', 'with intricate details', 'with geometric patterns'];
+
+        if (basePrompt) {
+            return `${basePrompt}, ${styles[Math.floor(Math.random() * styles.length)]} style, ${moods[Math.floor(Math.random() * moods.length)]} mood`;
+        }
+
+        return `A ${moods[Math.floor(Math.random() * moods.length)]} ${subjects[Math.floor(Math.random() * subjects.length)]}, ${styles[Math.floor(Math.random() * styles.length)]} style, ${details[Math.floor(Math.random() * details.length)]}`;
+    }
+
+    async simulateGeneration(prompt, rotation = 0) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const imageId = 'mock-' + Date.now();
+        const width = (rotation === 90 || rotation === 270) ? 533 : 400;
+        const height = (rotation === 90 || rotation === 270) ? 400 : 533;
+
+        const base64 = this.generateArtisticImage(prompt, width, height);
+
+        const imageData = {
+            imageId,
+            originalImage: base64,
+            originalImageMime: 'image/png',
+            originalPrompt: prompt,
+            thumbnail: base64,
+            timestamp: Date.now()
+        };
+
+        this.storage.images.set(imageId, imageData);
+        this.storage.currentImage = {
+            imageId,
+            originalImage: base64,
+            originalImageMime: 'image/png',
+            originalPrompt: prompt,
+            timestamp: Date.now()
+        };
+
+        this.storage.history.unshift({
+            imageId,
+            thumbnail: base64,
+            timestamp: Date.now()
+        });
+
+        if (this.storage.history.length > 20) {
+            this.storage.history = this.storage.history.slice(0, 20);
+        }
+
+        return { imageId, current: this.storage.currentImage };
+    }
+
+    async handleRequest(method, path, body = null) {
+        console.log(`[MockAPI] ${method} ${path}`, body);
+
+        if (path === '/api/settings' && method === 'GET') {
+            return this.storage.settings;
+        }
+        if (path === '/api/settings' && method === 'PUT') {
+            this.storage.settings = { ...this.storage.settings, ...body };
+            return { success: true };
+        }
+
+        if (path === '/api/current-full.json' && method === 'GET') {
+            return {
+                ...this.storage.currentImage,
+                deviceStatus: this.storage.devices['esp32-001']
+            };
+        }
+
+        if (path === '/api/generate-art' && method === 'POST') {
+            return await this.simulateGeneration(body.prompt, body.rotation);
+        }
+
+        if (path === '/api/lucky-prompt' && method === 'POST') {
+            return { prompt: this.generateRandomPrompt(body.currentPrompt) };
+        }
+
+        if (path === '/api/upload' && method === 'POST') {
+            const imageId = 'upload-' + Date.now();
+
+            // Extract and read the uploaded file
+            if (body && body.formData) {
+                const formData = body.formData;
+                const file = formData.get('image');
+
+                if (file && file instanceof File) {
+                    // Read file as base64
+                    const base64 = await this.readFileAsBase64(file);
+
+                    // Store the uploaded image
+                    const imageData = {
+                        imageId,
+                        originalImage: base64,
+                        originalImageMime: file.type || 'image/png',
+                        originalPrompt: `Uploaded: ${file.name}`,
+                        thumbnail: base64,
+                        timestamp: Date.now()
+                    };
+
+                    this.storage.images.set(imageId, imageData);
+                    this.storage.currentImage = imageData;
+
+                    // Add to history
+                    this.storage.history.unshift({
+                        imageId,
+                        thumbnail: base64,
+                        timestamp: Date.now()
+                    });
+
+                    if (this.storage.history.length > 20) {
+                        this.storage.history = this.storage.history.slice(0, 20);
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    return { imageId, success: true };
+                }
+            }
+
+            // Fallback if no file
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return { imageId, success: true };
+        }
+
+        if (path === '/api/collections' && method === 'GET') {
+            return { collections: this.storage.collections };
+        }
+
+        if (path.startsWith('/api/collections/') && method === 'GET') {
+            const collectionId = path.split('/')[3];
+            return {
+                id: collectionId,
+                artworks: this.generateMockArtworks(collectionId)
+            };
+        }
+
+        if (path.startsWith('/api/images/') && method === 'GET') {
+            const imageId = path.split('/')[3];
+            return this.storage.images.get(imageId) || null;
+        }
+
+        if (path === '/api/history' && method === 'GET') {
+            return this.storage.history;
+        }
+
+        if (path.startsWith('/api/history/') && path.endsWith('/') === false && method === 'DELETE') {
+            const imageId = path.split('/')[3];
+            this.storage.history = this.storage.history.filter(h => h.imageId !== imageId);
+            this.storage.images.delete(imageId);
+            return { success: true };
+        }
+
+        if (path.match(/\/api\/history\/.+\/load/) && method === 'POST') {
+            const imageId = path.split('/')[3];
+            const image = this.storage.images.get(imageId);
+            if (image) {
+                this.storage.currentImage = image;
+                return { success: true };
+            }
+            return { error: 'Image not found' };
+        }
+
+        if (path === '/api/art/import' && method === 'POST') {
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            const imageId = 'import-' + Date.now();
+            this.storage.currentImage = {
+                imageId,
+                originalImage: body.imageUrl,
+                originalImageMime: 'image/png',
+                originalPrompt: `${body.title} by ${body.artist}`,
+                timestamp: Date.now()
+            };
+            return { success: true, imageId };
+        }
+
+        if (path.startsWith('/api/art/search') && method === 'GET') {
+            const allArtworks = [];
+            for (const collectionId of ['renaissance-masters', 'impressionists', 'japanese-masters']) {
+                allArtworks.push(...this.generateMockArtworks(collectionId));
+            }
+            return { results: allArtworks.slice(0, 8) };
+        }
+
+        if (path === '/api/esp32-status' && method === 'GET') {
+            return this.storage.devices['esp32-001'];
+        }
+
+        if (path === '/api/system-info' && method === 'GET') {
+            return {
+                version: 'preview-mock',
+                nodeVersion: 'mock-v20.0.0',
+                platform: 'browser',
+                uptime: 3600
+            };
+        }
+
+        if (path === '/api/logs' && method === 'GET') {
+            return { logs: this.storage.logs };
+        }
+
+        if (path === '/api/device-logs' && method === 'GET') {
+            return { logs: this.storage.deviceLogs };
+        }
+
+        if (path === '/api/client-ip' && method === 'GET') {
+            return { ip: '192.168.1.100' };
+        }
+
+        return { error: 'Not found' };
+    }
+}
+
+// Initialize mock API
+window.mockAPI = new MockAPI();
+
+// Intercept fetch calls
+const originalFetch = window.fetch;
+window.fetch = async function(url, options = {}) {
+    if (typeof url === 'string' && url.startsWith('/api/')) {
+        const method = options.method || 'GET';
+        let body = null;
+
+        if (options.body) {
+            if (options.body instanceof FormData) {
+                // Extract file from FormData for upload
+                body = {
+                    type: 'file-upload',
+                    formData: options.body
+                };
+            } else if (typeof options.body === 'string') {
+                try {
+                    body = JSON.parse(options.body);
+                } catch (e) {
+                    body = options.body;
+                }
+            } else {
+                body = options.body;
+            }
+        }
+
+        try {
+            const data = await window.mockAPI.handleRequest(method, url, body);
+
+            return {
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                headers: new Headers({ 'Content-Type': 'application/json' }),
+                json: async () => data,
+                text: async () => JSON.stringify(data),
+                blob: async () => new Blob([JSON.stringify(data)], { type: 'application/json' })
+            };
+        } catch (error) {
+            console.error('[MockAPI] Error:', error);
+            return {
+                ok: false,
+                status: 500,
+                statusText: 'Internal Server Error',
+                headers: new Headers({ 'Content-Type': 'application/json' }),
+                json: async () => ({ error: error.message }),
+                text: async () => JSON.stringify({ error: error.message })
+            };
+        }
+    }
+
+    return originalFetch.apply(this, arguments);
+};
+
+console.log('[MockAPI] Preview mode activated - generating artistic placeholders');
+
+
+            // Add preview banner
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', addBanner);
+            } else {
+                addBanner();
+            }
+
+            function addBanner() {
+                if (document.querySelector('.preview-banner')) return;
+
+                const banner = document.createElement('div');
+                banner.className = 'preview-banner';
+                banner.innerHTML = `
+                    <style>
+                        .preview-banner {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 8px 16px;
+                            text-align: center;
+                            z-index: 10000;
+                            font-size: 0.85rem;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                        }
+                        .preview-banner a {
+                            color: white;
+                            text-decoration: underline;
+                        }
+                        body {
+                            padding-top: 36px !important;
+                        }
+                    </style>
+                    <strong>🚀 Preview Mode</strong> &nbsp;|&nbsp; This is a demo with mocked API &nbsp;|&nbsp; <a href="https://github.com/CHaerem/Glance" target="_blank">View on GitHub</a>
+                `;
+                document.body.insertBefore(banner, document.body.firstChild);
+            }
+        })();
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glance</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #ffffff;
+            color: #1a1a1a;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+
+        .header {
+            margin-bottom: 60px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            color: #1a1a1a;
+            letter-spacing: 2px;
+        }
+
+        /* Current Display */
+        .current-status {
+            margin-bottom: 60px;
+            text-align: center;
+        }
+
+        #currentImagePreview {
+            display: none;
+        }
+
+        #currentImagePreview.show {
+            display: block;
+        }
+
+        #currentImageThumb {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        #currentImagePrompt {
+            display: none;
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: #fafafa;
+            border-left: 2px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        #currentImagePrompt.show {
+            display: block;
+        }
+
+        /* Hidden status details by default */
+        .esp32-status {
+            display: none;
+        }
+
+        .esp32-status.show {
+            display: block;
+        }
+
+        .show-details {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .details-toggle {
+            background: transparent;
+            border: none;
+            color: #999;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 8px 16px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: color 0.2s ease;
+        }
+
+        .details-toggle:hover {
+            color: #666;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .status-item {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .status-value {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .status-label {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .status-online { color: #10b981; }
+        .status-offline { color: #6b7280; }
+
+        /* Main input section */
+        .main-input {
+            margin-bottom: 40px;
+        }
+
+        .input-area {
+            position: relative;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            background: #ffffff;
+            transition: border-color 0.2s ease;
+        }
+
+        .input-area:hover {
+            border-color: #999;
+        }
+
+        .input-area.dragover {
+            border-color: #1a1a1a;
+            background: #fafafa;
+        }
+
+        .main-textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 16px;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            color: #1a1a1a;
+        }
+
+        .main-textarea:focus {
+            outline: none;
+        }
+
+        .main-textarea::placeholder {
+            color: #999;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            border-top: 1px solid #e5e5e5;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary {
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background: #333;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #1a1a1a;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e5e5;
+        }
+
+        .btn-danger {
+            background: #ff3b30;
+            color: #ffffff;
+        }
+
+        .btn-danger:hover {
+            background: #ff2d1f;
+        }
+
+        /* Mode toggle */
+        .mode-toggle {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .mode-link {
+            background: transparent;
+            border: none;
+            color: #999;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 8px 16px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: color 0.2s ease;
+        }
+
+        .mode-link:hover {
+            color: #666;
+        }
+
+        /* Browse mode */
+        .browse-section {
+            display: none;
+        }
+
+        .browse-section.show {
+            display: block;
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #1a1a1a;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 14px;
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            background: #ffffff;
+            color: #666;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover {
+            border-color: #999;
+        }
+
+        .filter-btn.active {
+            border-color: #1a1a1a;
+            color: #1a1a1a;
+            background: #f5f5f5;
+        }
+
+        .art-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .art-item {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .art-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .art-image {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #f5f5f5;
+        }
+
+        .art-title {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* History */
+        .history-section {
+            margin-top: 60px;
+        }
+
+        .history-toggle {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .history-toggle-btn {
+            background: transparent;
+            border: none;
+            color: #999;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 8px 16px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: color 0.2s ease;
+        }
+
+        .history-toggle-btn:hover {
+            color: #666;
+        }
+
+        .history-grid {
+            display: none;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .history-grid.show {
+            display: grid;
+        }
+
+        .history-item {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .history-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .history-image {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #f5f5f5;
+        }
+
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            max-width: 90vw;
+            max-height: 90vh;
+            width: auto;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-image {
+            width: 100%;
+            max-height: calc(90vh - 80px);
+            border-radius: 8px 8px 0 0;
+            aspect-ratio: 3 / 4; /* 1200×1600 display ratio */
+            object-fit: cover; /* Crop to match display aspect ratio */
+            object-position: 50% 50%;
+            transition: transform 0.2s ease;
+            background: #f5f5f5; /* Show margins when zoomed out */
+        }
+
+        .modal-info {
+            padding: 16px;
+            background: white;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.25rem;
+            color: #666;
+            transition: all 0.2s ease;
+        }
+
+        .close-modal:hover {
+            background: white;
+            color: #1a1a1a;
+        }
+
+        .orientation-toggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.25rem;
+            color: #666;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .orientation-toggle:hover {
+            background: white;
+            color: #1a1a1a;
+            transform: rotate(90deg);
+        }
+
+        .modal-image.landscape {
+            aspect-ratio: 4 / 3; /* 1600×1200 landscape */
+        }
+
+        .crop-controls {
+            position: absolute;
+            bottom: 100px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .crop-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.2s ease;
+            padding: 0;
+        }
+
+        .crop-btn:hover {
+            background: white;
+            color: #1a1a1a;
+        }
+
+        .crop-reset {
+            margin-top: 4px;
+            border-top: 1px solid #eee;
+            padding-top: 4px;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 100px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .zoom-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            color: #666;
+            transition: all 0.2s ease;
+            padding: 0;
+        }
+
+        .zoom-btn:hover {
+            background: white;
+            color: #1a1a1a;
+        }
+
+        .zoom-fit {
+            margin-top: 4px;
+            border-top: 1px solid #eee;
+            padding-top: 4px;
+            font-size: 14px;
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        /* Generation progress overlay */
+        .generation-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .generation-overlay.show {
+            display: flex;
+        }
+
+        .generation-content {
+            text-align: center;
+            max-width: 400px;
+            padding: 40px;
+        }
+
+        .generation-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid #e5e5e5;
+            border-top-color: #1a1a1a;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 24px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .generation-status {
+            font-size: 1rem;
+            color: #1a1a1a;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .generation-prompt {
+            font-size: 0.85rem;
+            color: #666;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        .generation-filename {
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* File input hidden */
+        #fileInput {
+            display: none;
+        }
+
+        /* Admin link */
+        .admin-link {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: #ccc;
+            text-decoration: none;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: color 0.2s ease;
+        }
+
+        .admin-link:hover {
+            color: #999;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+
+            .art-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>GLANCE</h1>
+        </div>
+
+        <!-- Current Display -->
+        <div class="current-status">
+            <div id="currentImagePreview">
+                <img id="currentImageThumb" src="" alt="Current display">
+                <div id="currentImagePrompt"></div>
+            </div>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button class="mode-link" onclick="switchMode('generate')" id="generateLink">generate</button>
+            <span style="color: #e5e5e5;">|</span>
+            <button class="mode-link" onclick="switchMode('browse')" id="browseLink">browse</button>
+            <span style="color: #e5e5e5;">|</span>
+            <button class="mode-link" onclick="switchMode('upload')" id="uploadLink">upload</button>
+        </div>
+
+        <!-- Generate Mode (default) -->
+        <div class="main-input" id="generateMode">
+            <div class="input-area" id="dropZone">
+                <textarea
+                    class="main-textarea"
+                    id="promptInput"
+                    placeholder="Describe the image you want to see..."></textarea>
+                <div class="input-actions">
+                    <button class="btn btn-primary" onclick="generateArt()">Generate</button>
+                    <button class="btn btn-secondary" onclick="feelingLucky()">Feeling Lucky</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Browse Mode -->
+        <div class="browse-section" id="browseMode">
+            <div class="search-bar">
+                <input
+                    type="text"
+                    class="search-input"
+                    id="searchInput"
+                    placeholder="Search artists or artworks..."
+                    onkeypress="if(event.key === 'Enter') searchArt()">
+            </div>
+
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all" onclick="filterArt('all')">all</button>
+                <button class="filter-btn" data-filter="renaissance-masters" onclick="filterArt('renaissance-masters')">renaissance</button>
+                <button class="filter-btn" data-filter="dutch-masters" onclick="filterArt('dutch-masters')">dutch</button>
+                <button class="filter-btn" data-filter="impressionists" onclick="filterArt('impressionists')">impressionists</button>
+                <button class="filter-btn" data-filter="post-impressionists" onclick="filterArt('post-impressionists')">post-impressionists</button>
+                <button class="filter-btn" data-filter="japanese-masters" onclick="filterArt('japanese-masters')">japanese</button>
+                <button class="filter-btn" data-filter="modern-icons" onclick="filterArt('modern-icons')">modern</button>
+            </div>
+
+            <div class="art-grid" id="artGrid"></div>
+        </div>
+
+        <!-- History -->
+        <div class="history-section">
+            <div class="history-toggle">
+                <button class="history-toggle-btn" onclick="toggleHistory()">
+                    <span id="historyText">show history</span>
+                </button>
+            </div>
+            <div class="history-grid" id="historyGrid"></div>
+        </div>
+    </div>
+
+    <!-- Admin Link -->
+    <a href="admin.html" class="admin-link">admin</a>
+
+    <!-- Generation Progress Overlay -->
+    <div class="generation-overlay" id="generationOverlay">
+        <div class="generation-content">
+            <div class="generation-spinner"></div>
+            <div class="generation-status" id="generationStatusText">Generating image...</div>
+            <div class="generation-prompt" id="generationPromptText"></div>
+            <div class="generation-filename" id="generationFilenameText"></div>
+        </div>
+    </div>
+
+    <!-- Art Preview Modal -->
+    <div class="modal" id="artModal" onclick="if(event.target === this) closeModal()">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">×</button>
+            <button class="orientation-toggle" id="orientationToggle" onclick="togglePreviewOrientation()">⟲</button>
+
+            <!-- Crop adjustment controls -->
+            <div class="crop-controls">
+                <button class="crop-btn crop-up" onclick="adjustCrop('up')">↑</button>
+                <button class="crop-btn crop-down" onclick="adjustCrop('down')">↓</button>
+                <button class="crop-btn crop-left" onclick="adjustCrop('left')">←</button>
+                <button class="crop-btn crop-right" onclick="adjustCrop('right')">→</button>
+                <button class="crop-btn crop-reset" onclick="adjustCrop('reset')">◎</button>
+            </div>
+
+            <!-- Zoom controls -->
+            <div class="zoom-controls">
+                <button class="zoom-btn zoom-in" onclick="adjustZoom('in')">+</button>
+                <button class="zoom-btn zoom-out" onclick="adjustZoom('out')">−</button>
+                <button class="zoom-btn zoom-fit" onclick="adjustZoom('fit')">⊡</button>
+            </div>
+
+            <img id="modalImage" class="modal-image" src="" alt="">
+            <div class="modal-info">
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="applyModalArt()">Apply to Display</button>
+                    <button class="btn btn-danger" id="deleteModalBtn" onclick="deleteModalImage()" style="display: none;">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+
+    <script>
+        // Global state
+        let currentMode = 'generate';
+        let currentArtResults = [];
+        let selectedModalArt = null;
+        let defaultOrientation = 'portrait'; // Default orientation from settings
+
+        // Load settings
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+                defaultOrientation = settings.defaultOrientation || 'portrait';
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                defaultOrientation = 'portrait'; // Fallback to portrait
+            }
+        }
+
+        // Apply default orientation to modal image
+        function applyDefaultOrientation() {
+            const modalImage = document.getElementById('modalImage');
+            if (defaultOrientation === 'landscape') {
+                modalImage.classList.add('landscape');
+            } else {
+                modalImage.classList.remove('landscape');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            loadCurrentDisplay();
+            loadHistory();
+            loadAllArt();
+            setupDragDrop();
+            setInterval(loadCurrentDisplay, 30000);
+        });
+
+        // Toggle device details
+        function toggleDetails() {
+            const status = document.getElementById('deviceStatus');
+            const text = document.getElementById('detailsText');
+            status.classList.toggle('show');
+            text.textContent = status.classList.contains('show') ? 'hide details' : 'show details';
+        }
+
+        // Toggle history
+        function toggleHistory() {
+            const history = document.getElementById('historyGrid');
+            const text = document.getElementById('historyText');
+            history.classList.toggle('show');
+            text.textContent = history.classList.contains('show') ? 'hide history' : 'show history';
+        }
+
+        // Mode switching
+        function switchMode(mode) {
+            currentMode = mode;
+
+            document.getElementById('generateMode').style.display = mode === 'generate' ? 'block' : 'none';
+            document.getElementById('browseMode').classList.toggle('show', mode === 'browse');
+
+            document.getElementById('generateLink').style.color = mode === 'generate' ? '#1a1a1a' : '#999';
+            document.getElementById('browseLink').style.color = mode === 'browse' ? '#1a1a1a' : '#999';
+            document.getElementById('uploadLink').style.color = mode === 'upload' ? '#1a1a1a' : '#999';
+
+            if (mode === 'upload') {
+                document.getElementById('fileInput').click();
+                setTimeout(() => switchMode('generate'), 100);
+            }
+        }
+
+        // Load current display
+        async function loadCurrentDisplay() {
+            try {
+                const response = await fetch('/api/current-full.json');
+                const data = await response.json();
+
+                if (data.imageId && data.originalImage) {
+                    const preview = document.getElementById('currentImagePreview');
+                    const img = document.getElementById('currentImageThumb');
+                    const prompt = document.getElementById('currentImagePrompt');
+
+                    // Use originalImage as base64 data URL
+                    img.src = `data:${data.originalImageMime || 'image/png'};base64,${data.originalImage}`;
+                    preview.classList.add('show');
+
+                    if (data.originalPrompt) {
+                        prompt.textContent = `"${data.originalPrompt}"`;
+                        prompt.classList.add('show');
+                    } else {
+                        prompt.classList.remove('show');
+                    }
+                }
+
+                // Update device status
+                if (data.deviceStatus) {
+                    const state = document.getElementById('deviceState');
+                    const battery = document.getElementById('batteryVoltage');
+                    const signal = document.getElementById('signalStrength');
+                    const wake = document.getElementById('nextWake');
+
+                    state.textContent = data.deviceStatus.status === 'awake' ? 'Online' : 'Sleeping';
+                    state.className = 'status-value ' + (data.deviceStatus.status === 'awake' ? 'status-online' : 'status-offline');
+
+                    if (data.deviceStatus.batteryVoltage) {
+                        battery.textContent = data.deviceStatus.batteryVoltage.toFixed(1) + 'V';
+                    }
+
+                    if (data.deviceStatus.signalStrength) {
+                        signal.textContent = data.deviceStatus.signalStrength + ' dBm';
+                    }
+
+                    if (data.deviceStatus.nextSleepSeconds) {
+                        const minutes = Math.floor(data.deviceStatus.nextSleepSeconds / 60);
+                        wake.textContent = minutes + ' min';
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load:', error);
+            }
+        }
+
+        // Generate art
+        async function generateArt() {
+            const prompt = document.getElementById('promptInput').value.trim();
+            if (!prompt) return;
+
+            // Show generation overlay
+            const overlay = document.getElementById('generationOverlay');
+            const promptText = document.getElementById('generationPromptText');
+            promptText.textContent = `"${prompt}"`;
+            overlay.classList.add('show');
+
+            try {
+                // Use default orientation for generation
+                const rotation = defaultOrientation === 'landscape' ? 90 : 0;
+
+                const response = await fetch('/api/generate-art', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, rotation })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Clear input
+                    document.getElementById('promptInput').value = '';
+
+                    // Load the new current display
+                    await loadCurrentDisplay();
+
+                    // Hide generation overlay
+                    overlay.classList.remove('show');
+
+                    // Open preview modal with the generated image
+                    // The response includes 'current' object which has the imageId
+                    const imageId = (data.current && data.current.imageId) || data.imageId;
+                    await openGeneratedImagePreview(imageId);
+
+                    // Reload history
+                    setTimeout(loadHistory, 1000);
+                } else {
+                    overlay.classList.remove('show');
+                    const errorData = await response.json();
+                    alert('Generation failed: ' + (errorData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Generation failed:', error);
+                overlay.classList.remove('show');
+                alert('Generation failed: ' + error.message);
+            }
+        }
+
+        // Open preview modal for newly generated image
+        async function openGeneratedImagePreview(imageId) {
+            try {
+                // Fetch the generated image from images.json
+                const response = await fetch(`/api/images/${imageId}`);
+                if (!response.ok) {
+                    console.error('Generated image not found');
+                    return;
+                }
+
+                const item = await response.json();
+                selectedHistoryItem = item;
+
+                // Set modal image - use originalImage for better quality preview
+                const imageSrc = item.originalImage
+                    ? `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`
+                    : `data:image/png;base64,${item.thumbnail}`;
+
+                document.getElementById('modalImage').src = imageSrc;
+
+                // Apply default orientation
+                applyDefaultOrientation();
+
+                // Show delete button for generated images
+                document.getElementById('deleteModalBtn').style.display = 'inline-block';
+
+                // Open modal
+                document.getElementById('artModal').classList.add('show');
+            } catch (error) {
+                console.error('Failed to open preview:', error);
+            }
+        }
+
+        // Feeling lucky
+        async function feelingLucky() {
+            try {
+                const currentPrompt = document.getElementById('promptInput').value.trim();
+                const response = await fetch('/api/lucky-prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPrompt })
+                });
+                const data = await response.json();
+                if (data.prompt) {
+                    document.getElementById('promptInput').value = data.prompt;
+                }
+            } catch (error) {
+                console.error('Lucky prompt failed:', error);
+            }
+        }
+
+        // Search art
+        async function searchArt() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+
+            const grid = document.getElementById('artGrid');
+            grid.innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                const response = await fetch(`/api/art/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                currentArtResults = data.results || [];
+                displayArtResults();
+            } catch (error) {
+                grid.innerHTML = '<div class="loading">Search failed</div>';
+            }
+        }
+
+        let allArtworks = [];
+        let currentFilter = 'all';
+
+        async function loadAllArt() {
+            try {
+                const response = await fetch('/api/collections');
+                const data = await response.json();
+
+                // Flatten all artworks from all collections with collection ID
+                allArtworks = [];
+                for (const collection of data.collections) {
+                    const collResponse = await fetch(`/api/collections/${collection.id}`);
+                    const collData = await collResponse.json();
+                    collData.artworks.forEach(artwork => {
+                        artwork.collectionId = collection.id;
+                        allArtworks.push(artwork);
+                    });
+                }
+
+                filterArt('all');
+            } catch (error) {
+                console.error('Failed to load art:', error);
+            }
+        }
+
+        function filterArt(collectionId) {
+            currentFilter = collectionId;
+
+            // Update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.filter === collectionId) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Filter artworks
+            if (collectionId === 'all') {
+                currentArtResults = allArtworks;
+            } else {
+                currentArtResults = allArtworks.filter(art => art.collectionId === collectionId);
+            }
+
+            displayArtResults();
+        }
+
+        function displayArtResults() {
+            const grid = document.getElementById('artGrid');
+
+            if (currentArtResults.length === 0) {
+                grid.innerHTML = '<div class="loading">No results</div>';
+                return;
+            }
+
+            grid.innerHTML = currentArtResults.slice(0, 8).map(art => `
+                <div class="art-item" onclick='previewArt(${JSON.stringify(art).replace(/'/g, "&apos;")})'>
+                    <img class="art-image" src="${art.thumbnail || art.imageUrl}" alt="${art.title}">
+                    <div class="art-title">${art.title}</div>
+                </div>
+            `).join('');
+        }
+
+        function previewArt(art) {
+            selectedModalArt = art;
+            document.getElementById('modalImage').src = art.imageUrl;
+
+            // Apply default orientation
+            applyDefaultOrientation();
+
+            // Hide delete button for browse results (only show for history items)
+            document.getElementById('deleteModalBtn').style.display = 'none';
+
+            document.getElementById('artModal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('artModal').classList.remove('show');
+            selectedModalArt = null;
+            selectedHistoryItem = null;
+            document.getElementById('deleteModalBtn').style.display = 'none';
+
+            const modalImage = document.getElementById('modalImage');
+            // Reset to portrait orientation
+            modalImage.classList.remove('landscape');
+            // Reset crop position
+            cropX = 50;
+            cropY = 50;
+            modalImage.style.objectPosition = '50% 50%';
+            // Reset zoom
+            zoomLevel = 1.0;
+            modalImage.style.transform = 'scale(1)';
+            modalImage.style.objectFit = 'cover';
+        }
+
+        function togglePreviewOrientation() {
+            const modalImage = document.getElementById('modalImage');
+            modalImage.classList.toggle('landscape');
+        }
+
+        // Crop adjustment
+        let cropX = 50; // percentage
+        let cropY = 50; // percentage
+        const CROP_STEP = 5; // percentage step for each adjustment
+
+        function adjustCrop(direction) {
+            const modalImage = document.getElementById('modalImage');
+
+            switch(direction) {
+                case 'up':
+                    cropY = Math.max(0, cropY - CROP_STEP);
+                    break;
+                case 'down':
+                    cropY = Math.min(100, cropY + CROP_STEP);
+                    break;
+                case 'left':
+                    cropX = Math.max(0, cropX - CROP_STEP);
+                    break;
+                case 'right':
+                    cropX = Math.min(100, cropX + CROP_STEP);
+                    break;
+                case 'reset':
+                    cropX = 50;
+                    cropY = 50;
+                    break;
+            }
+
+            modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
+        }
+
+        // Zoom adjustment
+        let zoomLevel = 1.0; // 1.0 = fill (cover), < 1.0 = margins (contain)
+        const ZOOM_STEP = 0.1;
+
+        function adjustZoom(direction) {
+            const modalImage = document.getElementById('modalImage');
+
+            switch(direction) {
+                case 'in':
+                    zoomLevel = Math.min(2.0, zoomLevel + ZOOM_STEP);
+                    break;
+                case 'out':
+                    zoomLevel = Math.max(0.5, zoomLevel - ZOOM_STEP);
+                    break;
+                case 'fit':
+                    zoomLevel = 1.0;
+                    break;
+            }
+
+            // Scale > 1.0 = zoom in (more crop)
+            // Scale < 1.0 = zoom out (show margins)
+            modalImage.style.transform = `scale(${zoomLevel})`;
+
+            // When zoomed out (scale < 1), switch to contain to show margins
+            // When zoomed in (scale >= 1), use cover to crop
+            if (zoomLevel < 1.0) {
+                modalImage.style.objectFit = 'contain';
+            } else {
+                modalImage.style.objectFit = 'cover';
+            }
+        }
+
+
+        // File upload
+        function setupDragDrop() {
+            const zone = document.getElementById('dropZone');
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('dragover');
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('dragover');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type.startsWith('image/')) {
+                    handleFileUpload(files[0]);
+                }
+            });
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFileUpload(file);
+            }
+        }
+
+        async function handleFileUpload(file) {
+            // Show upload overlay
+            const overlay = document.getElementById('generationOverlay');
+            const statusText = document.getElementById('generationStatusText');
+            const promptText = document.getElementById('generationPromptText');
+            const filenameText = document.getElementById('generationFilenameText');
+
+            statusText.textContent = 'Uploading image...';
+            promptText.textContent = '';
+            filenameText.textContent = file.name;
+            overlay.classList.add('show');
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Clear file input
+                    document.getElementById('fileInput').value = '';
+
+                    // Load the new current display
+                    await loadCurrentDisplay();
+
+                    // Hide upload overlay
+                    overlay.classList.remove('show');
+
+                    // Reset overlay text for next generation
+                    statusText.textContent = 'Generating image...';
+                    filenameText.textContent = '';
+
+                    // Open preview modal with the uploaded image
+                    await openGeneratedImagePreview(data.imageId || 'current');
+
+                    // Reload history
+                    setTimeout(loadHistory, 1000);
+                } else {
+                    overlay.classList.remove('show');
+                    statusText.textContent = 'Generating image...';
+                    filenameText.textContent = '';
+                    const errorData = await response.json();
+                    alert('Upload failed: ' + (errorData.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+                overlay.classList.remove('show');
+                statusText.textContent = 'Generating image...';
+                filenameText.textContent = '';
+                alert('Upload failed: ' + error.message);
+            }
+        }
+
+        // History
+        let selectedHistoryItem = null;
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/history');
+                const history = await response.json();
+
+                const grid = document.getElementById('historyGrid');
+
+                if (history.length === 0) {
+                    grid.innerHTML = '';
+                    return;
+                }
+
+                grid.innerHTML = history.slice(0, 8).map(item => `
+                    <div class="history-item" onclick="openHistoryPreview('${item.imageId}')">
+                        <img class="history-image" src="data:image/png;base64,${item.thumbnail}" alt="">
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('History load failed:', error);
+            }
+        }
+
+        async function openHistoryPreview(imageId) {
+            try {
+                // Fetch full image data from images.json endpoint
+                const response = await fetch(`/api/images/${imageId}`);
+                if (!response.ok) {
+                    console.error('Image not found');
+                    return;
+                }
+
+                const item = await response.json();
+                selectedHistoryItem = item;
+
+                // Set modal image - use originalImage for better quality preview
+                const imageSrc = item.originalImage
+                    ? `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`
+                    : `data:image/png;base64,${item.thumbnail}`;
+
+                document.getElementById('modalImage').src = imageSrc;
+
+                // Apply default orientation
+                applyDefaultOrientation();
+
+                // Show delete button for history items
+                document.getElementById('deleteModalBtn').style.display = 'inline-block';
+
+                // Open modal
+                document.getElementById('artModal').classList.add('show');
+            } catch (error) {
+                console.error('Failed to open preview:', error);
+            }
+        }
+
+        async function applyModalArt() {
+            if (!selectedModalArt && !selectedHistoryItem) return;
+
+            try {
+                let response;
+
+                // Get rotation from modal orientation
+                const modalImage = document.getElementById('modalImage');
+                const isLandscape = modalImage.classList.contains('landscape');
+                const rotation = isLandscape ? 90 : 0;
+
+                if (selectedHistoryItem) {
+                    // Load from history with rotation
+                    response = await fetch(`/api/history/${selectedHistoryItem.imageId}/load`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rotation })
+                    });
+                } else if (selectedModalArt) {
+                    // Apply browse result with rotation
+                    response = await fetch('/api/art/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            imageUrl: selectedModalArt.imageUrl,
+                            title: selectedModalArt.title,
+                            artist: selectedModalArt.artist,
+                            rotation: rotation
+                        })
+                    });
+                }
+
+                if (response && response.ok) {
+                    closeModal();
+                    setTimeout(loadCurrentDisplay, 2000);
+                }
+            } catch (error) {
+                console.error('Apply art failed:', error);
+            }
+        }
+
+        async function deleteModalImage() {
+            if (!selectedHistoryItem) return;
+
+            if (!confirm('Are you sure you want to delete this image from history?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/history/${selectedHistoryItem.imageId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    closeModal();
+                    loadHistory();
+                } else {
+                    const data = await response.json();
+                    alert('Failed to delete: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Delete failed:', error);
+                alert('Failed to delete image');
+            }
+        }
+    </script>
+</body>
+</html>
