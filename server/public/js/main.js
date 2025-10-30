@@ -80,6 +80,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('zoomIn').addEventListener('click', () => adjustZoom('in'));
     document.getElementById('zoomOut').addEventListener('click', () => adjustZoom('out'));
     document.getElementById('zoomFit').addEventListener('click', () => adjustZoom('fit'));
+
+    // Position controls (desktop only - hidden on mobile)
+    document.getElementById('moveUp').addEventListener('click', () => adjustCrop('up'));
+    document.getElementById('moveDown').addEventListener('click', () => adjustCrop('down'));
+    document.getElementById('moveLeft').addEventListener('click', () => adjustCrop('left'));
+    document.getElementById('moveRight').addEventListener('click', () => adjustCrop('right'));
+    document.getElementById('moveReset').addEventListener('click', () => adjustCrop('reset'));
 });
 
 // Mode switching

@@ -548,7 +548,17 @@
             transform: scale(0.95);
         }
 
-        /* Hide zoom controls on mobile (touch devices) */
+        /* Position controls - left side for desktop */
+        .position-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        /* Hide zoom/position controls on mobile (touch devices) */
         @media (max-width: 768px) {
             .desktop-only {
                 display: none !important;

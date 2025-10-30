@@ -116,12 +116,21 @@
         <div class="modal-content">
             <button class="close-modal" id="closeModalBtn">×</button>
 
-            <!-- Image controls (desktop only for zoom, always visible for rotate) -->
+            <!-- Image controls (desktop only for zoom/position, always visible for rotate) -->
             <div class="image-controls">
                 <button class="control-btn" id="orientationToggle" title="Rotate">⟲</button>
                 <button class="control-btn desktop-only" id="zoomIn" title="Zoom in">+</button>
                 <button class="control-btn desktop-only" id="zoomOut" title="Zoom out">−</button>
                 <button class="control-btn desktop-only" id="zoomFit" title="Fit to screen">⊡</button>
+            </div>
+
+            <!-- Position controls (desktop only) -->
+            <div class="position-controls desktop-only">
+                <button class="control-btn" id="moveUp" title="Move up">↑</button>
+                <button class="control-btn" id="moveDown" title="Move down">↓</button>
+                <button class="control-btn" id="moveLeft" title="Move left">←</button>
+                <button class="control-btn" id="moveRight" title="Move right">→</button>
+                <button class="control-btn" id="moveReset" title="Reset position">◎</button>
             </div>
 
             <img id="modalImage" class="modal-image" src="" alt="">
