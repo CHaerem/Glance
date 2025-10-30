@@ -460,11 +460,10 @@ function closeModal() {
 
     const modalImage = document.getElementById('modalImage');
     modalImage.classList.remove('landscape');
-    cropX = 50;
-    cropY = 50;
-    modalImage.style.objectPosition = '50% 50%';
+    panX = 0;
+    panY = 0;
     zoomLevel = 1.0;
-    modalImage.style.transform = 'scale(1)';
+    modalImage.style.transform = 'translate(0, 0) scale(1)';
     modalImage.style.objectFit = 'cover';
 }
 
@@ -596,47 +595,40 @@ function togglePreviewOrientation() {
     modalImage.classList.toggle('landscape');
 }
 
-// Crop adjustment
-let cropX = 50;
-let cropY = 50;
-const CROP_STEP = 5;
+// Position and zoom state
+let panX = 0;
+let panY = 0;
+let zoomLevel = 1.0;
+const PAN_STEP = 30;
+const ZOOM_STEP = 0.2;
 
 function adjustCrop(direction) {
     const modalImage = document.getElementById('modalImage');
 
     switch(direction) {
         case 'up':
-            cropY = Math.max(0, cropY - CROP_STEP);
+            panY += PAN_STEP;
             break;
         case 'down':
-            cropY = Math.min(100, cropY + CROP_STEP);
+            panY -= PAN_STEP;
             break;
         case 'left':
-            cropX = Math.max(0, cropX - CROP_STEP);
+            panX += PAN_STEP;
             break;
         case 'right':
-            cropX = Math.min(100, cropX + CROP_STEP);
+            panX -= PAN_STEP;
             break;
         case 'reset':
-            cropX = 50;
-            cropY = 50;
+            panX = 0;
+            panY = 0;
             zoomLevel = 1.0;
-            modalImage.style.transform = 'scale(1)';
-            modalImage.style.objectFit = 'cover';
             break;
     }
 
-    modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
-    modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
+    updateImageTransform();
 }
 
-// Zoom adjustment
-let zoomLevel = 1.0;
-const ZOOM_STEP = 0.2;
-
 function adjustZoom(direction) {
-    const modalImage = document.getElementById('modalImage');
-
     switch(direction) {
         case 'in':
             zoomLevel = Math.min(3.0, zoomLevel + ZOOM_STEP);
@@ -646,14 +638,17 @@ function adjustZoom(direction) {
             break;
         case 'fit':
             zoomLevel = 1.0;
-            cropX = 50;
-            cropY = 50;
-            modalImage.style.objectPosition = '50% 50%';
+            panX = 0;
+            panY = 0;
             break;
     }
 
-    modalImage.style.transform = `scale(${zoomLevel})`;
-    modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
+    updateImageTransform();
+}
+
+function updateImageTransform() {
+    const modalImage = document.getElementById('modalImage');
+    modalImage.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
 
     if (zoomLevel <= 1.0) {
         modalImage.style.objectFit = 'contain';
