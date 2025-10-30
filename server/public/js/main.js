@@ -620,34 +620,42 @@ function adjustCrop(direction) {
         case 'reset':
             cropX = 50;
             cropY = 50;
+            zoomLevel = 1.0;
+            modalImage.style.transform = 'scale(1)';
+            modalImage.style.objectFit = 'cover';
             break;
     }
 
     modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
+    modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
 }
 
 // Zoom adjustment
 let zoomLevel = 1.0;
-const ZOOM_STEP = 0.1;
+const ZOOM_STEP = 0.2;
 
 function adjustZoom(direction) {
     const modalImage = document.getElementById('modalImage');
 
     switch(direction) {
         case 'in':
-            zoomLevel = Math.min(2.0, zoomLevel + ZOOM_STEP);
+            zoomLevel = Math.min(3.0, zoomLevel + ZOOM_STEP);
             break;
         case 'out':
             zoomLevel = Math.max(0.5, zoomLevel - ZOOM_STEP);
             break;
         case 'fit':
             zoomLevel = 1.0;
+            cropX = 50;
+            cropY = 50;
+            modalImage.style.objectPosition = '50% 50%';
             break;
     }
 
     modalImage.style.transform = `scale(${zoomLevel})`;
+    modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
 
-    if (zoomLevel < 1.0) {
+    if (zoomLevel <= 1.0) {
         modalImage.style.objectFit = 'contain';
     } else {
         modalImage.style.objectFit = 'cover';
