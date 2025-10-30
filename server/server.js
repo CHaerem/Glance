@@ -2268,6 +2268,107 @@ app.delete("/api/history/:imageId", async (req, res) => {
 	}
 });
 
+// My Collection - unified view of user's art
+app.get("/api/my-collection", async (req, res) => {
+	try {
+		// Get user's generated/uploaded images
+		const history = (await readJSONFile("history.json")) || [];
+
+		// Get artworks added to collection
+		const collection = (await readJSONFile("my-collection.json")) || [];
+
+		// Combine all items with type indicator
+		const myCollection = [
+			...history.map(item => ({
+				...item,
+				collectionType: item.source || 'generated',
+				addedToCollection: Date.now() // Use timestamp for sorting
+			})),
+			...collection.map(item => ({
+				...item,
+				collectionType: 'added'
+			}))
+		];
+
+		// Sort by most recently added
+		myCollection.sort((a, b) => (b.addedToCollection || 0) - (a.addedToCollection || 0));
+
+		res.json(myCollection);
+	} catch (error) {
+		console.error("Error getting my collection:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Add artwork to my collection
+app.post("/api/my-collection", async (req, res) => {
+	try {
+		const { imageUrl, title, artist, year, thumbnail, collectionId, wikimedia } = req.body;
+
+		if (!imageUrl || !title) {
+			return res.status(400).json({ error: "imageUrl and title are required" });
+		}
+
+		const collection = (await readJSONFile("my-collection.json")) || [];
+
+		// Check if already in collection
+		const exists = collection.some(item => item.imageUrl === imageUrl);
+		if (exists) {
+			return res.status(400).json({ error: "Artwork already in collection" });
+		}
+
+		// Add to collection
+		const collectionItem = {
+			id: uuidv4(),
+			imageUrl,
+			title,
+			artist: artist || 'Unknown',
+			year,
+			thumbnail: thumbnail || imageUrl,
+			collectionId,
+			wikimedia,
+			addedToCollection: Date.now()
+		};
+
+		collection.unshift(collectionItem); // Add to beginning
+		await writeJSONFile("my-collection.json", collection);
+
+		console.log(`Added "${title}" by ${artist} to collection`);
+
+		res.json({
+			success: true,
+			message: "Added to collection",
+			item: collectionItem
+		});
+	} catch (error) {
+		console.error("Error adding to collection:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Remove artwork from my collection
+app.delete("/api/my-collection/:id", async (req, res) => {
+	try {
+		const { id } = req.params;
+		let collection = (await readJSONFile("my-collection.json")) || [];
+
+		const originalLength = collection.length;
+		collection = collection.filter(item => item.id !== id);
+
+		if (collection.length === originalLength) {
+			return res.status(404).json({ error: "Item not found in collection" });
+		}
+
+		await writeJSONFile("my-collection.json", collection);
+		console.log(`Removed item ${id} from collection`);
+
+		res.json({ success: true, message: "Removed from collection" });
+	} catch (error) {
+		console.error("Error removing from collection:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
 // Playlist management
 app.post("/api/playlist", async (req, res) => {
 	try {
@@ -3073,6 +3174,95 @@ app.get("/api/art/search", async (req, res) => {
 // 	}
 // });
 
+// AI-powered smart search
+app.post("/api/art/smart-search", async (req, res) => {
+	try {
+		const { query } = req.body;
+
+		if (!query) {
+			return res.status(400).json({ error: "Query is required" });
+		}
+
+		if (!openai) {
+			// Fallback to simple search if OpenAI not configured
+			console.log("OpenAI not configured, using simple search");
+			return res.redirect(307, `/api/art/search?q=${encodeURIComponent(query)}`);
+		}
+
+		console.log(`Smart search query: "${query}"`);
+
+		// Use OpenAI to extract search parameters from natural language
+		const completion = await openai.chat.completions.create({
+			model: "gpt-4",
+			messages: [
+				{
+					role: "system",
+					content: `You are an art search assistant. Extract search parameters from user queries.
+Return a JSON object with:
+- searchTerms: array of specific search terms (artist names, artwork titles, subjects)
+- styles: array of art styles (impressionist, renaissance, modern, abstract, etc.)
+- colors: array of colors mentioned (blue, warm, vibrant, monochrome, etc.)
+- moods: array of moods (peaceful, dramatic, bold, calm, energetic, etc.)
+- subjects: array of subjects (landscape, portrait, still life, nature, urban, etc.)
+
+Example:
+Query: "peaceful blue impressionist paintings"
+Response: {
+  "searchTerms": ["impressionist", "paintings"],
+  "styles": ["impressionist"],
+  "colors": ["blue"],
+  "moods": ["peaceful"],
+  "subjects": ["paintings"]
+}`
+				},
+				{
+					role: "user",
+					content: query
+				}
+			],
+			temperature: 0.3,
+			max_tokens: 300
+		});
+
+		let searchParams;
+		try {
+			const content = completion.choices[0].message.content;
+			searchParams = JSON.parse(content);
+		} catch (parseError) {
+			console.error("Failed to parse OpenAI response:", parseError);
+			// Fallback to simple search
+			return res.redirect(307, `/api/art/search?q=${encodeURIComponent(query)}`);
+		}
+
+		console.log("Extracted search parameters:", searchParams);
+
+		// Build search query from extracted parameters
+		const searchQuery = [
+			...(searchParams.searchTerms || []),
+			...(searchParams.styles || []),
+			...(searchParams.subjects || [])
+		].join(" ").trim() || query;
+
+		// Use existing search endpoint with enhanced query
+		const searchResponse = await fetch(`http://localhost:3000/api/art/search?q=${encodeURIComponent(searchQuery)}&limit=20`);
+		const searchResults = await searchResponse.json();
+
+		// Return results with metadata about the search
+		res.json({
+			results: searchResults.results || [],
+			metadata: {
+				originalQuery: query,
+				searchQuery: searchQuery,
+				parameters: searchParams
+			}
+		});
+
+	} catch (error) {
+		console.error("Smart search error:", error);
+		res.status(500).json({ error: "Search failed: " + error.message });
+	}
+});
+
 app.get("/api/art/random", async (req, res) => {
 	try {
 		console.log(`Getting random artwork from multiple sources`);
@@ -3454,17 +3644,17 @@ app.get("/api/build-info", (_req, res) => {
 // Simple, focused web interface for single display management
 app.get("/", async (_req, res) => {
 	try {
-		// Try to read the UI file from the same directory as server.js (for Docker)
-		let uiPath = path.join(__dirname, 'simple-ui.html');
+		// Serve index.html from public directory
+		let uiPath = path.join(__dirname, 'public', 'index.html');
 
 		try {
 			await fs.access(uiPath);
 		} catch {
-			// Fallback to parent directory (for local development)
-			uiPath = path.join(__dirname, '..', 'simple-ui.html');
+			// Fallback for Docker/different directory structure
+			uiPath = path.join(__dirname, '..', 'public', 'index.html');
 		}
 
-		const simpleUIContent = await fs.readFile(uiPath, 'utf8');
+		const indexContent = await fs.readFile(uiPath, 'utf8');
 
 		// Add cache-busting headers to prevent browser caching issues
 		res.set({
@@ -3474,16 +3664,16 @@ app.get("/", async (_req, res) => {
 			'ETag': `"${Date.now()}"` // Simple ETag based on current time
 		});
 
-		res.send(simpleUIContent);
+		res.send(indexContent);
 	} catch (error) {
 		console.error('Error serving UI file:', error);
 		res.status(500).send(`
 			<html><body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
 				<h1>UI File Missing</h1>
-				<p>The simple-ui.html file is not found. This indicates a Docker build issue.</p>
-				<p>Please check that simple-ui.html is properly copied to the container.</p>
+				<p>The index.html file is not found in the public directory.</p>
+				<p>Please check that the public directory is properly set up.</p>
 				<hr>
-				<small>Path attempted: ${path.join(__dirname, 'simple-ui.html')} and ${path.join(__dirname, '..', 'simple-ui.html')}</small>
+				<small>Path attempted: ${path.join(__dirname, 'public', 'index.html')} and ${path.join(__dirname, '..', 'public', 'index.html')}</small>
 			</body></html>
 		`);
 	}
@@ -3514,6 +3704,34 @@ app.get("/admin", async (_req, res) => {
 	} catch (error) {
 		console.error('Error serving admin file:', error);
 		res.status(500).send('Admin page not found');
+	}
+});
+
+// Enhanced UI preview (development)
+app.get("/preview", async (_req, res) => {
+	try {
+		let previewPath = path.join(__dirname, 'simple-ui-enhanced.html');
+
+		try {
+			await fs.access(previewPath);
+		} catch {
+			// Fallback to parent directory (for local development)
+			previewPath = path.join(__dirname, '..', 'simple-ui-enhanced.html');
+		}
+
+		const previewContent = await fs.readFile(previewPath, 'utf8');
+
+		res.set({
+			'Cache-Control': 'no-cache, no-store, must-revalidate',
+			'Pragma': 'no-cache',
+			'Expires': '0',
+			'ETag': `"${Date.now()}"`
+		});
+
+		res.send(previewContent);
+	} catch (error) {
+		console.error('Error serving preview file:', error);
+		res.status(500).send('Preview page not found');
 	}
 });
 

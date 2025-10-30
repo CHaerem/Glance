@@ -7,13 +7,12 @@
 ## ✨ Features
 
 🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles
-🌐 **Local Server** - Runs on your Raspberry Pi, no cloud dependencies
 🎨 **6-Color Display** - Beautiful Spectra 6 e-paper technology
 🤖 **AI Art Generation** - GPT-4o powered artwork optimized for e-ink displays
-🎲 **Feeling Lucky** - Expand simple prompts into detailed AI art ideas (or get surprised)
-📱 **Web Dashboard** - Upload images, generate art, and monitor devices remotely
-⚡ **Smart Scheduling** - Server controls update frequency dynamically
-🎛️ **Remote Control** - Stay awake and force update commands
+🔍 **AI Smart Search** - Natural language search across museum art collections
+🖼️ **Personal Gallery** - Unified collection of generated, uploaded, and saved artworks
+📱 **Minimal Web Interface** - Clean, calm design for creating and exploring art
+🌐 **Local First** - Runs on your Raspberry Pi, no cloud dependencies
 🐳 **Docker Ready** - Easy server deployment with published Docker images
 
 ## 🏗️ Architecture
@@ -92,13 +91,12 @@ Access the dashboard at: `http://your-pi-ip:3000`
 
 **New to Glance?** [Try the interactive demo](https://chaerem.github.io/Glance/) to explore the interface with mock data.
 
-- 🖼️ Upload and optimize images for e-paper display
-- 🤖 Generate AI artwork with GPT-4o (requires `OPENAI_API_KEY`)
-- 🎲 Use "Feeling Lucky" to expand simple prompts into art
-- ⏰ Set sleep schedules (5 minutes to 12 hours)
-- 📊 Monitor ESP32 battery levels and status
-- 📋 View real-time device logs
-- 🎛️ Send remote commands (stay awake, force update)
+**Three Simple Modes:**
+- **Create** - Generate AI artwork or upload images
+- **Explore** - AI-powered search across museum collections (Met, Art Institute of Chicago, Cleveland Museum)
+- **My Collection** - View all your generated, uploaded, and saved artworks
+
+The interface follows calm design principles - minimalistic and distraction-free.
 
 ### 3. 🔧 Setup ESP32 Client
 
@@ -179,7 +177,10 @@ Glance/
 │
 ├── server/                # 🖥️ Node.js Server
 │   ├── server.js          # Express.js API
-│   ├── simple-ui.html     # Web interface
+│   ├── public/            # Web interface
+│   │   ├── index.html     # Main template
+│   │   ├── css/           # Stylesheets
+│   │   └── js/            # Modular JavaScript
 │   ├── __tests__/         # Test suite
 │   └── Dockerfile         # Container build
 │
@@ -202,13 +203,13 @@ Glance/
 - **🔄 Rotation Support** - 0°, 90°, 180°, or 270° rotation
 - **📺 Full Resolution** - 1150×1550 pixels (93% screen coverage)
 
-### AI Art Generation
+### AI Art Generation & Exploration
 - **🤖 GPT-4o Integration** - Generate custom artwork via OpenAI image models
-- **🎲 Feeling Lucky** - GPT-4o-mini expands simple prompts into detailed art descriptions
-- **✏️ Edit & Refine** - Iterate on generated images: add colors, change elements, adjust style
+- **🔍 Smart Search** - Natural language queries interpreted by AI ("peaceful blue paintings")
+- **🏛️ Museum APIs** - Access to Metropolitan Museum, Art Institute of Chicago, Cleveland Museum
 - **📜 Prompt History** - View the original prompt used to generate any artwork
 - **🎨 E-Ink Optimized** - AI prompts emphasize full-bleed, high-contrast compositions
-- **💾 Image Archive** - Automatically stores last 50 generated images with metadata
+- **💾 Personal Collection** - Unified view of generated, uploaded, and saved artworks
 
 ## 📊 Performance & Power
 
@@ -300,22 +301,19 @@ docker exec glance-server env | grep IMAGE_VERSION
 ## 🗺️ Roadmap
 
 ### ✅ Completed
-- [x] ESP32 firmware with power management
-- [x] Node.js server with web dashboard
-- [x] Remote device control and monitoring
-- [x] Multi-device support
+- [x] ESP32 firmware with ultra-low power management
+- [x] Node.js server with modular architecture
+- [x] AI art generation with GPT-4o
+- [x] AI-powered museum art search
+- [x] Personal art collection management
+- [x] Clean, minimalistic web interface
 - [x] Automated deployment pipeline
 - [x] Comprehensive test coverage
 
-### 🚧 In Progress
-- [ ] Optimize Good Display ESP32-S3 board integration
-- [ ] Improve AI art prompt quality and variety
-- [ ] Fine-tune Floyd-Steinberg dithering for better e-ink output
-
 ### 🔮 Future Ideas
-- [ ] Multiple art styles/themes selector
-- [ ] Scheduling different art for different times of day
-- [ ] Local image library management
+- [ ] Personalized recommendations based on preferences
+- [ ] "More like this" feature for similar artworks
+- [ ] Scheduling art for different times of day
 - [ ] Battery usage analytics and optimization
 
 ## 📚 Documentation

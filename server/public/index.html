@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glance</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>GLANCE</h1>
+        </div>
+
+        <!-- Current Display -->
+        <div class="current-status">
+            <div id="currentImagePreview">
+                <img id="currentImageThumb" src="" alt="Current display">
+                <div id="currentImagePrompt"></div>
+            </div>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button class="mode-link" id="createLink">create</button>
+            <span style="color: #e5e5e5;">|</span>
+            <button class="mode-link" id="exploreLink">explore</button>
+            <span style="color: #e5e5e5;">|</span>
+            <button class="mode-link" id="myCollectionLink">my collection</button>
+        </div>
+
+        <!-- Create Mode (default) -->
+        <div class="main-input" id="createMode">
+            <!-- Generate Section -->
+            <div class="input-area">
+                <textarea
+                    class="main-textarea"
+                    id="promptInput"
+                    placeholder="Describe the image you want to see..."></textarea>
+                <div class="input-actions">
+                    <button class="btn btn-primary" id="generateBtn">Generate</button>
+                    <button class="btn btn-secondary" id="luckyBtn">Feeling Lucky</button>
+                </div>
+            </div>
+
+            <!-- Separator -->
+            <div style="text-align: center; margin: 40px 0 30px; color: #ccc; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
+                or
+            </div>
+
+            <!-- Upload Section -->
+            <div class="input-area" id="dropZone" style="cursor: pointer;">
+                <div style="padding: 40px 20px; text-align: center;">
+                    <div style="color: #999; font-size: 0.9rem; margin-bottom: 8px;">Upload an image</div>
+                    <div style="color: #ccc; font-size: 0.75rem;">Click or drag image here</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Explore Mode -->
+        <div class="browse-section" id="exploreMode">
+            <div class="search-bar">
+                <input
+                    type="text"
+                    class="search-input"
+                    id="searchInput"
+                    placeholder="Search for art...">
+            </div>
+
+            <!-- Suggestions -->
+            <div style="text-align: center; margin: 16px 0; font-size: 0.8rem; color: #666;">
+                <span style="color: #999;">Try:</span>
+                <button class="mode-link suggestion-link" data-query="Monet">Monet</button>
+                <span style="color: #e5e5e5;">·</span>
+                <button class="mode-link suggestion-link" data-query="Japanese art">Japanese art</button>
+                <span style="color: #e5e5e5;">·</span>
+                <button class="mode-link suggestion-link" data-query="Bold colors">Bold colors</button>
+            </div>
+
+            <div class="art-grid" id="artGrid"></div>
+
+            <!-- Show more button -->
+            <div class="show-more" id="browseShowMore" style="display: none;">
+                <button class="show-more-btn" id="showMoreBrowseBtn">show 8 more</button>
+            </div>
+        </div>
+
+        <!-- My Collection Mode -->
+        <div class="browse-section" id="myCollectionMode">
+            <div class="art-grid" id="collectionGrid"></div>
+
+            <!-- Show more button -->
+            <div class="show-more" id="collectionShowMore" style="display: none;">
+                <button class="show-more-btn" id="showMoreCollectionBtn">show 8 more</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Link -->
+    <a href="/admin" class="admin-link">admin</a>
+
+    <!-- Generation Progress Overlay -->
+    <div class="generation-overlay" id="generationOverlay">
+        <div class="generation-content">
+            <div class="generation-spinner"></div>
+            <div class="generation-status" id="generationStatusText">Generating image...</div>
+            <div class="generation-prompt" id="generationPromptText"></div>
+            <div class="generation-filename" id="generationFilenameText"></div>
+        </div>
+    </div>
+
+    <!-- Art Preview Modal -->
+    <div class="modal" id="artModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeModalBtn">×</button>
+            <button class="orientation-toggle" id="orientationToggle">⟲</button>
+
+            <!-- Crop adjustment controls -->
+            <div class="crop-controls">
+                <button class="crop-btn crop-up" data-direction="up">↑</button>
+                <button class="crop-btn crop-down" data-direction="down">↓</button>
+                <button class="crop-btn crop-left" data-direction="left">←</button>
+                <button class="crop-btn crop-right" data-direction="right">→</button>
+                <button class="crop-btn crop-reset" data-direction="reset">◎</button>
+            </div>
+
+            <!-- Zoom controls -->
+            <div class="zoom-controls">
+                <button class="zoom-btn zoom-in" data-zoom="in">+</button>
+                <button class="zoom-btn zoom-out" data-zoom="out">−</button>
+                <button class="zoom-btn zoom-fit" data-zoom="fit">⊡</button>
+            </div>
+
+            <img id="modalImage" class="modal-image" src="" alt="">
+            <div class="modal-info">
+                <div class="modal-actions">
+                    <button class="btn btn-primary" id="applyModalBtn">Apply to Display</button>
+                </div>
+                <div style="text-align: center; margin-top: 12px;">
+                    <button class="mode-link" id="modalSecondaryAction" style="display: none;"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" id="fileInput" accept="image/*">
+
+    <script src="/js/features/search.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>
