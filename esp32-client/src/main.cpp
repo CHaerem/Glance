@@ -146,6 +146,7 @@ void setup() {
     int httpResponseCode = http.GET();
     String currentImageId = "";
     bool imageChanged = true;
+    bool metadataFetched = false;
 
     if (httpResponseCode == 200) {
         String payload = http.getString();
@@ -154,6 +155,7 @@ void setup() {
 
         if (!error && doc.containsKey("imageId")) {
             currentImageId = doc["imageId"].as<String>();
+            metadataFetched = true;
             Debug("Current server imageId: " + currentImageId + "\r\n");
 
             // Read dev server host if present
@@ -167,18 +169,34 @@ void setup() {
                 imageChanged = false;
                 Debug("Image unchanged - skipping display update\r\n");
                 sendLogToServer("Image unchanged, skipping update to save power");
+            } else if (strlen(lastDisplayedImageId) > 0) {
+                Debug("Image changed: '" + String(lastDisplayedImageId) + "' -> '" + currentImageId + "'\r\n");
+                sendLogToServer("Image changed, will update display");
+            } else {
+                Debug("First boot - will display image\r\n");
+                sendLogToServer("First boot, displaying initial image");
             }
+        } else {
+            Debug("Failed to parse metadata or imageId missing\r\n");
+            sendLogToServer("Error: Failed to parse metadata from server");
         }
+    } else {
+        Debug("HTTP request failed: " + String(httpResponseCode) + "\r\n");
+        sendLogToServer("Error: HTTP request failed with code " + String(httpResponseCode));
     }
     http.end();
 
-    if (!imageChanged) {
+    // Only proceed with display update if we successfully fetched metadata and image changed
+    if (!metadataFetched) {
+        // Failed to fetch metadata - skip display update to save power
+        Debug("Skipping display update due to metadata fetch failure\r\n");
+        reportDeviceStatus("metadata_fetch_failed", batteryVoltage, signalStrength, batteryPercent, isCharging);
+    } else if (!imageChanged) {
         // Image hasn't changed, skip display update
         reportDeviceStatus("display_unchanged", batteryVoltage, signalStrength, batteryPercent, isCharging);
     } else {
         // Image has changed or this is first boot, proceed with update
-        Debug("Image changed or first boot - updating display\r\n");
-        sendLogToServer("New image detected, updating display");
+        Debug("Proceeding with display update\r\n");
 
         // Initialize e-Paper display
         Debug("Initializing e-Paper display...\r\n");
