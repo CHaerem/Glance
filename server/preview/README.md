@@ -21,10 +21,9 @@ npm run preview:serve
 
 ### Files
 
-- `mock-api.js` - Mocks all /api/* endpoints in browser
-- `auto-mock.js` - Detects environment and loads mock
-- `build-preview.js` - Copies HTML files and injects auto-mock
-- `index.html` / `admin.html` - Generated from source HTML
+- `mock-api.js` - Mocks all /api/* endpoints in browser (718 lines)
+- `build-preview.js` - Build script that inlines mock API into HTML
+- `index.html` / `admin.html` - Generated from source HTML (rebuilt each deploy)
 
 ## Deployment
 
