@@ -1,0 +1,107 @@
+name: Deploy Preview to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**/*.html'
+      - 'server/preview/**'
+      - '.github/workflows/preview-deploy.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'server/**/*.html'
+      - 'server/preview/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build preview
+        run: |
+          cd server
+          npm run build:preview
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'server/preview'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Get deployment URL
+        id: get-url
+        run: |
+          echo "url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const deployUrl = '${{ steps.get-url.outputs.url }}';
+
+            const comment = `## 🚀 Preview Deployed!
+
+            Your changes are live at: **${deployUrl}**
+
+            **Quick Links:**
+            - 🎨 [Main Interface](${deployUrl})
+            - ⚙️ [Admin Panel](${deployUrl}admin.html)
+
+            > **Note:** This preview uses a mocked API that runs entirely in the browser. All functionality is simulated - no real backend or OpenAI calls are made.
+
+            The preview automatically updates with each new commit to this PR.`;
+
+            // Try to find and update existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview Deployed')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: comment
+              });
+            }
