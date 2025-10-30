@@ -103,7 +103,9 @@ function processHTML(inputFile, outputFile) {
  * Main build function
  */
 function build() {
+    const basePath = process.env.BASE_PATH || '/';
     console.log('Building GitHub Pages preview...\n');
+    console.log(`Base path: ${basePath}`);
 
     // Ensure preview directory exists
     if (!fs.existsSync(PREVIEW_DIR)) {
@@ -125,7 +127,9 @@ function build() {
     console.log('\n✨ Preview build complete!\n');
     console.log('The same HTML files work in both environments:');
     console.log('  - Production: Uses real backend API');
-    console.log('  - Preview: Auto-loads mock API\n');
+    console.log('  - Preview: Auto-loads mock API');
+    console.log('  - Subdirectories: Works in /pr-xxx/ paths\n');
+    console.log('All assets are inlined - no external dependencies!\n');
     console.log('To test locally:');
     console.log('  cd preview');
     console.log('  python3 -m http.server 8080');

@@ -9,25 +9,26 @@ on:
       - 'server/preview/**'
       - '.github/workflows/preview-deploy.yml'
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
     paths:
       - 'server/**/*.html'
       - 'server/preview/**'
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write  # Needed for peaceiris/actions-gh-pages
   pull-requests: write
 
+# Allow multiple PRs to deploy simultaneously
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: "pages-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
+    # Skip deployment on PR close
+    if: github.event.action != 'closed'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,27 +38,43 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Determine deployment path
+        id: deploy-path
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "path=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "base=/pr-${{ github.event.pull_request.number }}/" >> $GITHUB_OUTPUT
+          else
+            echo "path=." >> $GITHUB_OUTPUT
+            echo "base=/" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build preview
+        env:
+          BASE_PATH: ${{ steps.deploy-path.outputs.base }}
         run: |
           cd server
           npm run build:preview
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'server/preview'
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./server/preview
+          destination_dir: ${{ steps.deploy-path.outputs.path }}
+          keep_files: true  # Keep other PR previews
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
 
       - name: Get deployment URL
         id: get-url
         run: |
-          echo "url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_OUTPUT
+          REPO_NAME="${{ github.event.repository.name }}"
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/pr-${{ github.event.pull_request.number }}/" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/" >> $GITHUB_OUTPUT
+          fi
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
@@ -75,11 +92,15 @@ jobs:
             - 🎨 [Main Interface](${deployUrl})
             - ⚙️ [Admin Panel](${deployUrl}admin.html)
 
+            **Other Previews:**
+            - 📌 [Main Demo](https://chaerem.github.io/Glance/) (stable, from main branch)
+            - 🔗 This PR: \`pr-${prNumber}\` subdirectory
+
             > **Note:** This preview uses a mocked API that runs entirely in the browser. All functionality is simulated - no real backend or OpenAI calls are made.
 
-            The preview automatically updates with each new commit to this PR.`;
+            The preview updates automatically with each commit. Multiple PR previews can run simultaneously!`;
 
-            // Try to find and update existing comment
+            // Find and update existing comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -102,6 +123,64 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
+                body: comment
+              });
+            }
+
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Remove PR preview directory
+        run: |
+          PR_DIR="pr-${{ github.event.pull_request.number }}"
+          if [ -d "$PR_DIR" ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+            git rm -rf "$PR_DIR"
+            git commit -m "Remove preview for PR #${{ github.event.pull_request.number }}"
+            git push
+            echo "Removed preview directory: $PR_DIR"
+          else
+            echo "Preview directory not found: $PR_DIR"
+          fi
+
+      - name: Comment PR cleanup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            const comment = `## 🧹 Preview Cleaned Up
+
+            The preview for this PR has been removed from GitHub Pages.
+
+            The main demo is still available at: https://chaerem.github.io/Glance/`;
+
+            // Update existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview Deployed')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
                 body: comment
               });
             }
