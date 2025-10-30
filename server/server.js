@@ -887,14 +887,41 @@ async function writeJSONFile(filename, data) {
 	}
 }
 
-// Night sleep helper functions
+// Oslo timezone helper functions
+function getOsloTime() {
+	const now = new Date();
+	// Get time in Oslo timezone
+	const osloTimeStr = now.toLocaleString('en-US', {
+		timeZone: 'Europe/Oslo',
+		hour: '2-digit',
+		minute: '2-digit',
+		hour12: false
+	});
+	const [hour, minute] = osloTimeStr.split(':').map(Number);
+	return { hour, minute };
+}
+
+function getOsloTimestamp() {
+	const now = new Date();
+	// Format: 2025-10-29 21:30:45 (Oslo time)
+	return now.toLocaleString('en-CA', {
+		timeZone: 'Europe/Oslo',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		hour12: false
+	}).replace(',', '');
+}
+
 function isInNightSleep(settings) {
 	if (!settings.nightSleepEnabled) {
 		return false;
 	}
 
-	const now = new Date();
-	const currentHour = now.getHours();
+	const { hour: currentHour } = getOsloTime();
 	const startHour = settings.nightSleepStartHour;
 	const endHour = settings.nightSleepEndHour;
 
@@ -907,9 +934,7 @@ function isInNightSleep(settings) {
 }
 
 function calculateNightSleepDuration(settings) {
-	const now = new Date();
-	const currentHour = now.getHours();
-	const currentMinute = now.getMinutes();
+	const { hour: currentHour, minute: currentMinute } = getOsloTime();
 	const endHour = settings.nightSleepEndHour;
 
 	let hoursUntilEnd;
@@ -3466,7 +3491,7 @@ const MAX_LOGS = 100;
 
 // Helper to add device log
 function addDeviceLog(message) {
-	deviceLogs.push(`[${new Date().toISOString()}] ${message}`);
+	deviceLogs.push(`[${getOsloTimestamp()}] ${message}`);
 	if (deviceLogs.length > MAX_LOGS) deviceLogs.shift();
 }
 
@@ -3476,14 +3501,14 @@ const originalError = console.error;
 
 console.log = function(...args) {
 	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-	serverLogs.push(`[${new Date().toISOString()}] LOG: ${message}`);
+	serverLogs.push(`[${getOsloTimestamp()}] LOG: ${message}`);
 	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
 	originalLog.apply(console, args);
 };
 
 console.error = function(...args) {
 	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-	serverLogs.push(`[${new Date().toISOString()}] ERROR: ${message}`);
+	serverLogs.push(`[${getOsloTimestamp()}] ERROR: ${message}`);
 	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
 	originalError.apply(console, args);
 };
@@ -3509,9 +3534,11 @@ app.get("/api/device-logs", (_req, res) => {
 
 // Time endpoint for ESP32 clock alignment
 app.get("/api/time", (_req, res) => {
+	const now = new Date();
 	res.json({
-		epoch: Date.now(), // Current time in milliseconds since Unix epoch
-		iso: new Date().toISOString()
+		epoch: now.getTime(), // Current time in milliseconds since Unix epoch
+		iso: now.toISOString(), // UTC time
+		oslo: getOsloTimestamp() // Oslo time for display
 	});
 });
 
