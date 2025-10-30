@@ -1,16 +1,15 @@
 /**
  * Mock API Server for GitHub Pages Preview
  *
- * This mock API runs entirely in the browser and simulates the Glance server API
- * for demo and GUI testing purposes. No real backend or OpenAI calls are made.
+ * Enhanced version with visually rich placeholder generation
+ * for proper UX/design testing
  */
 
 class MockAPI {
     constructor() {
-        // Initialize mock data storage
         this.storage = {
             settings: {
-                defaultSleepDuration: 3600000000, // 1 hour in microseconds
+                defaultSleepDuration: 3600000000,
                 devMode: false,
                 devServerHost: '',
                 defaultOrientation: 'portrait',
@@ -20,7 +19,7 @@ class MockAPI {
             },
             currentImage: {
                 imageId: 'demo-001',
-                originalImage: null, // Will be populated
+                originalImage: null,
                 originalImageMime: 'image/png',
                 originalPrompt: 'A serene landscape with mountains and a lake at sunset',
                 timestamp: Date.now() - 3600000
@@ -57,69 +56,332 @@ class MockAPI {
             collections: this.generateMockCollections()
         };
 
-        // Generate initial demo image
         this.generateDemoImage();
     }
 
     /**
-     * Generate a demo image for the current display
+     * Generate visually rich placeholder based on prompt
      */
-    generateDemoImage() {
-        // Create a canvas with a demo pattern
+    generateArtisticImage(prompt, width = 400, height = 533) {
         const canvas = document.createElement('canvas');
-        canvas.width = 400;
-        canvas.height = 533; // 3:4 aspect ratio
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
 
-        // Draw a gradient background
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#FFE5E5');
-        gradient.addColorStop(0.5, '#FFF5E5');
-        gradient.addColorStop(1, '#E5F5FF');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Extract style hints from prompt
+        const lowerPrompt = prompt.toLowerCase();
+        let style = 'abstract';
 
-        // Draw some shapes
-        ctx.fillStyle = '#FF6B6B';
+        if (lowerPrompt.includes('landscape') || lowerPrompt.includes('mountain') || lowerPrompt.includes('lake')) {
+            style = 'landscape';
+        } else if (lowerPrompt.includes('portrait') || lowerPrompt.includes('face') || lowerPrompt.includes('person')) {
+            style = 'portrait';
+        } else if (lowerPrompt.includes('geometric') || lowerPrompt.includes('pattern')) {
+            style = 'geometric';
+        } else if (lowerPrompt.includes('minimal')) {
+            style = 'minimal';
+        }
+
+        // Generate based on style
+        switch(style) {
+            case 'landscape':
+                this.drawLandscape(ctx, width, height, prompt);
+                break;
+            case 'portrait':
+                this.drawPortrait(ctx, width, height, prompt);
+                break;
+            case 'geometric':
+                this.drawGeometric(ctx, width, height, prompt);
+                break;
+            case 'minimal':
+                this.drawMinimal(ctx, width, height, prompt);
+                break;
+            default:
+                this.drawAbstract(ctx, width, height, prompt);
+        }
+
+        // Add subtle prompt text at bottom
+        this.addPromptOverlay(ctx, width, height, prompt);
+
+        return canvas.toDataURL('image/png').split(',')[1];
+    }
+
+    drawLandscape(ctx, width, height, prompt) {
+        // Sky gradient
+        const skyGradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
+        skyGradient.addColorStop(0, '#87CEEB');
+        skyGradient.addColorStop(0.5, '#B0E0E6');
+        skyGradient.addColorStop(1, '#FFE4B5');
+        ctx.fillStyle = skyGradient;
+        ctx.fillRect(0, 0, width, height * 0.6);
+
+        // Mountains in layers
+        const mountainLayers = [
+            { y: height * 0.4, color: '#4A5568', points: 5 },
+            { y: height * 0.45, color: '#718096', points: 6 },
+            { y: height * 0.5, color: '#A0AEC0', points: 7 }
+        ];
+
+        mountainLayers.forEach(layer => {
+            ctx.fillStyle = layer.color;
+            ctx.beginPath();
+            ctx.moveTo(0, height * 0.6);
+
+            for (let i = 0; i <= layer.points; i++) {
+                const x = (width / layer.points) * i;
+                const peakHeight = layer.y + (Math.sin(i * 1.5) * height * 0.1);
+                ctx.lineTo(x, peakHeight);
+            }
+
+            ctx.lineTo(width, height * 0.6);
+            ctx.closePath();
+            ctx.fill();
+        });
+
+        // Foreground - grass/lake
+        const groundGradient = ctx.createLinearGradient(0, height * 0.6, 0, height);
+        if (prompt.toLowerCase().includes('lake')) {
+            groundGradient.addColorStop(0, '#4682B4');
+            groundGradient.addColorStop(1, '#1E3A5F');
+        } else {
+            groundGradient.addColorStop(0, '#90EE90');
+            groundGradient.addColorStop(1, '#228B22');
+        }
+        ctx.fillStyle = groundGradient;
+        ctx.fillRect(0, height * 0.6, width, height * 0.4);
+
+        // Sun/Moon
+        ctx.fillStyle = prompt.toLowerCase().includes('sunset') ? '#FF6347' : '#FFD700';
         ctx.beginPath();
-        ctx.arc(100, 150, 50, 0, Math.PI * 2);
+        ctx.arc(width * 0.8, height * 0.2, 30, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = '#4ECDC4';
-        ctx.fillRect(250, 100, 100, 100);
+        // Add some trees
+        for (let i = 0; i < 5; i++) {
+            const treeX = (width / 6) * (i + 1) + (Math.random() * 20 - 10);
+            const treeY = height * 0.6 + (Math.random() * height * 0.1);
+            this.drawTree(ctx, treeX, treeY, 15 + Math.random() * 10);
+        }
+    }
 
-        ctx.fillStyle = '#FFE66D';
+    drawTree(ctx, x, y, size) {
+        // Trunk
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(x - size * 0.1, y, size * 0.2, size);
+
+        // Foliage
+        ctx.fillStyle = '#228B22';
         ctx.beginPath();
-        ctx.moveTo(200, 300);
-        ctx.lineTo(150, 400);
-        ctx.lineTo(250, 400);
+        ctx.moveTo(x, y - size * 0.5);
+        ctx.lineTo(x - size * 0.4, y + size * 0.2);
+        ctx.lineTo(x + size * 0.4, y + size * 0.2);
         ctx.closePath();
         ctx.fill();
+    }
 
-        // Add text
-        ctx.fillStyle = '#1a1a1a';
-        ctx.font = '24px -apple-system, BlinkMacSystemFont, sans-serif';
+    drawPortrait(ctx, width, height, prompt) {
+        // Background
+        const bgGradient = ctx.createRadialGradient(width/2, height/3, 0, width/2, height/3, width);
+        bgGradient.addColorStop(0, '#FFF5E1');
+        bgGradient.addColorStop(1, '#D2B48C');
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // Head
+        const centerX = width / 2;
+        const centerY = height * 0.4;
+        const headRadius = width * 0.25;
+
+        ctx.fillStyle = '#FFDAB9';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, headRadius * 0.8, headRadius, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hair
+        ctx.fillStyle = '#4A2C2A';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY - headRadius * 0.3, headRadius * 0.85, headRadius * 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = '#2C3E50';
+        ctx.beginPath();
+        ctx.arc(centerX - headRadius * 0.3, centerY - headRadius * 0.1, headRadius * 0.08, 0, Math.PI * 2);
+        ctx.arc(centerX + headRadius * 0.3, centerY - headRadius * 0.1, headRadius * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Nose
+        ctx.strokeStyle = '#B8956A';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(centerX - headRadius * 0.05, centerY + headRadius * 0.15);
+        ctx.stroke();
+
+        // Mouth
+        ctx.strokeStyle = '#D2691E';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY + headRadius * 0.3, headRadius * 0.3, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+
+        // Shoulders
+        ctx.fillStyle = '#4682B4';
+        ctx.beginPath();
+        ctx.moveTo(centerX - headRadius * 1.2, height);
+        ctx.lineTo(centerX - headRadius * 0.6, centerY + headRadius);
+        ctx.lineTo(centerX + headRadius * 0.6, centerY + headRadius);
+        ctx.lineTo(centerX + headRadius * 1.2, height);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawGeometric(ctx, width, height, prompt) {
+        // Clean background
+        ctx.fillStyle = '#F5F5F5';
+        ctx.fillRect(0, 0, width, height);
+
+        // Generate geometric pattern
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F'];
+        const shapes = Math.floor(Math.random() * 10) + 15;
+
+        for (let i = 0; i < shapes; i++) {
+            const x = Math.random() * width;
+            const y = Math.random() * height;
+            const size = Math.random() * 80 + 40;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const shape = Math.floor(Math.random() * 3);
+
+            ctx.fillStyle = color + '80'; // Add transparency
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            switch(shape) {
+                case 0: // Circle
+                    ctx.arc(x, y, size/2, 0, Math.PI * 2);
+                    break;
+                case 1: // Square
+                    ctx.rect(x - size/2, y - size/2, size, size);
+                    break;
+                case 2: // Triangle
+                    ctx.moveTo(x, y - size/2);
+                    ctx.lineTo(x - size/2, y + size/2);
+                    ctx.lineTo(x + size/2, y + size/2);
+                    ctx.closePath();
+                    break;
+            }
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    drawMinimal(ctx, width, height, prompt) {
+        // White background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+
+        // Single focal element
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // Large circle
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, Math.min(width, height) * 0.3, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Smaller circle
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, Math.min(width, height) * 0.15, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Line through
+        ctx.beginPath();
+        ctx.moveTo(centerX - width * 0.3, centerY);
+        ctx.lineTo(centerX + width * 0.3, centerY);
+        ctx.stroke();
+    }
+
+    drawAbstract(ctx, width, height, prompt) {
+        // Colorful gradient background
+        const hue1 = Math.random() * 360;
+        const hue2 = (hue1 + 120) % 360;
+        const hue3 = (hue1 + 240) % 360;
+
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, `hsl(${hue1}, 70%, 60%)`);
+        gradient.addColorStop(0.5, `hsl(${hue2}, 70%, 60%)`);
+        gradient.addColorStop(1, `hsl(${hue3}, 70%, 60%)`);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        // Organic shapes
+        const shapes = Math.floor(Math.random() * 5) + 8;
+        for (let i = 0; i < shapes; i++) {
+            ctx.fillStyle = `hsla(${Math.random() * 360}, 60%, 70%, 0.4)`;
+            ctx.beginPath();
+
+            const centerX = Math.random() * width;
+            const centerY = Math.random() * height;
+            const radius = Math.random() * 100 + 50;
+
+            // Blob shape
+            for (let angle = 0; angle < Math.PI * 2; angle += 0.5) {
+                const wobble = Math.random() * 20 + radius;
+                const x = centerX + Math.cos(angle) * wobble;
+                const y = centerY + Math.sin(angle) * wobble;
+                if (angle === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    addPromptOverlay(ctx, width, height, prompt) {
+        // Semi-transparent overlay at bottom
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, height - 60, width, 60);
+
+        // Prompt text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px -apple-system, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Glance Demo', canvas.width / 2, 450);
-        ctx.font = '14px -apple-system, BlinkMacSystemFont, sans-serif';
-        ctx.fillStyle = '#666';
-        ctx.fillText('Mock preview mode', canvas.width / 2, 480);
+        ctx.textBaseline = 'middle';
 
-        // Convert to base64
-        const base64 = canvas.toDataURL('image/png').split(',')[1];
+        // Truncate prompt if too long
+        let displayPrompt = prompt;
+        if (prompt.length > 50) {
+            displayPrompt = prompt.substring(0, 47) + '...';
+        }
+
+        ctx.fillText(displayPrompt, width / 2, height - 30);
+    }
+
+    generateDemoImage() {
+        const base64 = this.generateArtisticImage(
+            'A serene landscape with mountains and a lake at sunset',
+            400,
+            533
+        );
+
         this.storage.currentImage.originalImage = base64;
 
-        // Add to images map
-        this.storage.images.set('demo-001', {
+        const imageData = {
             imageId: 'demo-001',
             originalImage: base64,
             originalImageMime: 'image/png',
             originalPrompt: 'A serene landscape with mountains and a lake at sunset',
             thumbnail: base64,
             timestamp: Date.now() - 3600000
-        });
+        };
 
-        // Add to history
+        this.storage.images.set('demo-001', imageData);
         this.storage.history.unshift({
             imageId: 'demo-001',
             thumbnail: base64,
@@ -127,112 +389,73 @@ class MockAPI {
         });
     }
 
-    /**
-     * Generate mock art collections
-     */
     generateMockCollections() {
         return [
-            {
-                id: 'renaissance-masters',
-                name: 'Renaissance Masters',
-                description: 'Great works from the Renaissance period'
-            },
-            {
-                id: 'dutch-masters',
-                name: 'Dutch Masters',
-                description: 'Dutch Golden Age paintings'
-            },
-            {
-                id: 'impressionists',
-                name: 'Impressionists',
-                description: 'French Impressionist masterpieces'
-            },
-            {
-                id: 'post-impressionists',
-                name: 'Post-Impressionists',
-                description: 'Post-Impressionist works'
-            },
-            {
-                id: 'japanese-masters',
-                name: 'Japanese Masters',
-                description: 'Traditional Japanese art'
-            },
-            {
-                id: 'modern-icons',
-                name: 'Modern Icons',
-                description: 'Modern and contemporary art'
-            }
+            { id: 'renaissance-masters', name: 'Renaissance Masters', description: 'Great works from the Renaissance period' },
+            { id: 'dutch-masters', name: 'Dutch Masters', description: 'Dutch Golden Age paintings' },
+            { id: 'impressionists', name: 'Impressionists', description: 'French Impressionist masterpieces' },
+            { id: 'post-impressionists', name: 'Post-Impressionists', description: 'Post-Impressionist works' },
+            { id: 'japanese-masters', name: 'Japanese Masters', description: 'Traditional Japanese art' },
+            { id: 'modern-icons', name: 'Modern Icons', description: 'Modern and contemporary art' }
         ];
     }
 
-    /**
-     * Generate mock artworks for a collection
-     */
     generateMockArtworks(collectionId) {
-        const mockArtworks = {
+        // Generate visually distinct artwork placeholders
+        const artworks = [];
+        const artworkData = {
             'renaissance-masters': [
-                { id: '1', title: 'Mona Lisa', artist: 'Leonardo da Vinci', thumbnail: this.generatePlaceholder('Mona Lisa'), imageUrl: this.generatePlaceholder('Mona Lisa', 800) },
-                { id: '2', title: 'The Birth of Venus', artist: 'Sandro Botticelli', thumbnail: this.generatePlaceholder('Birth of Venus'), imageUrl: this.generatePlaceholder('Birth of Venus', 800) },
-                { id: '3', title: 'The School of Athens', artist: 'Raphael', thumbnail: this.generatePlaceholder('School of Athens'), imageUrl: this.generatePlaceholder('School of Athens', 800) },
-                { id: '4', title: 'The Creation of Adam', artist: 'Michelangelo', thumbnail: this.generatePlaceholder('Creation of Adam'), imageUrl: this.generatePlaceholder('Creation of Adam', 800) }
+                { title: 'Mona Lisa', artist: 'Leonardo da Vinci', style: 'portrait' },
+                { title: 'The Birth of Venus', artist: 'Sandro Botticelli', style: 'portrait' },
+                { title: 'The School of Athens', artist: 'Raphael', style: 'geometric' },
+                { title: 'The Creation of Adam', artist: 'Michelangelo', style: 'portrait' }
             ],
             'dutch-masters': [
-                { id: '5', title: 'Girl with a Pearl Earring', artist: 'Johannes Vermeer', thumbnail: this.generatePlaceholder('Girl with Pearl'), imageUrl: this.generatePlaceholder('Girl with Pearl', 800) },
-                { id: '6', title: 'The Night Watch', artist: 'Rembrandt', thumbnail: this.generatePlaceholder('Night Watch'), imageUrl: this.generatePlaceholder('Night Watch', 800) },
-                { id: '7', title: 'The Milkmaid', artist: 'Johannes Vermeer', thumbnail: this.generatePlaceholder('Milkmaid'), imageUrl: this.generatePlaceholder('Milkmaid', 800) }
+                { title: 'Girl with a Pearl Earring', artist: 'Johannes Vermeer', style: 'portrait' },
+                { title: 'The Night Watch', artist: 'Rembrandt', style: 'abstract' },
+                { title: 'The Milkmaid', artist: 'Johannes Vermeer', style: 'portrait' }
             ],
             'impressionists': [
-                { id: '8', title: 'Water Lilies', artist: 'Claude Monet', thumbnail: this.generatePlaceholder('Water Lilies'), imageUrl: this.generatePlaceholder('Water Lilies', 800) },
-                { id: '9', title: 'Bal du moulin de la Galette', artist: 'Pierre-Auguste Renoir', thumbnail: this.generatePlaceholder('Bal du moulin'), imageUrl: this.generatePlaceholder('Bal du moulin', 800) },
-                { id: '10', title: 'Impression, Sunrise', artist: 'Claude Monet', thumbnail: this.generatePlaceholder('Impression Sunrise'), imageUrl: this.generatePlaceholder('Impression Sunrise', 800) }
+                { title: 'Water Lilies', artist: 'Claude Monet', style: 'landscape' },
+                { title: 'Bal du moulin de la Galette', artist: 'Pierre-Auguste Renoir', style: 'abstract' },
+                { title: 'Impression, Sunrise', artist: 'Claude Monet', style: 'landscape' }
             ],
             'post-impressionists': [
-                { id: '11', title: 'The Starry Night', artist: 'Vincent van Gogh', thumbnail: this.generatePlaceholder('Starry Night'), imageUrl: this.generatePlaceholder('Starry Night', 800) },
-                { id: '12', title: 'The Card Players', artist: 'Paul Cézanne', thumbnail: this.generatePlaceholder('Card Players'), imageUrl: this.generatePlaceholder('Card Players', 800) },
-                { id: '13', title: 'A Sunday Afternoon', artist: 'Georges Seurat', thumbnail: this.generatePlaceholder('Sunday Afternoon'), imageUrl: this.generatePlaceholder('Sunday Afternoon', 800) }
+                { title: 'The Starry Night', artist: 'Vincent van Gogh', style: 'landscape' },
+                { title: 'The Card Players', artist: 'Paul Cézanne', style: 'portrait' },
+                { title: 'A Sunday Afternoon', artist: 'Georges Seurat', style: 'geometric' }
             ],
             'japanese-masters': [
-                { id: '14', title: 'The Great Wave', artist: 'Hokusai', thumbnail: this.generatePlaceholder('Great Wave'), imageUrl: this.generatePlaceholder('Great Wave', 800) },
-                { id: '15', title: 'Red Fuji', artist: 'Hokusai', thumbnail: this.generatePlaceholder('Red Fuji'), imageUrl: this.generatePlaceholder('Red Fuji', 800) },
-                { id: '16', title: 'Plum Blossoms', artist: 'Hiroshige', thumbnail: this.generatePlaceholder('Plum Blossoms'), imageUrl: this.generatePlaceholder('Plum Blossoms', 800) }
+                { title: 'The Great Wave', artist: 'Hokusai', style: 'landscape' },
+                { title: 'Red Fuji', artist: 'Hokusai', style: 'landscape' },
+                { title: 'Plum Blossoms', artist: 'Hiroshige', style: 'minimal' }
             ],
             'modern-icons': [
-                { id: '17', title: 'The Persistence of Memory', artist: 'Salvador Dalí', thumbnail: this.generatePlaceholder('Persistence'), imageUrl: this.generatePlaceholder('Persistence', 800) },
-                { id: '18', title: 'Campbell\'s Soup Cans', artist: 'Andy Warhol', thumbnail: this.generatePlaceholder('Soup Cans'), imageUrl: this.generatePlaceholder('Soup Cans', 800) },
-                { id: '19', title: 'The Scream', artist: 'Edvard Munch', thumbnail: this.generatePlaceholder('The Scream'), imageUrl: this.generatePlaceholder('The Scream', 800) }
+                { title: 'The Persistence of Memory', artist: 'Salvador Dalí', style: 'abstract' },
+                { title: 'Campbell\'s Soup Cans', artist: 'Andy Warhol', style: 'minimal' },
+                { title: 'The Scream', artist: 'Edvard Munch', style: 'portrait' }
             ]
         };
 
-        return mockArtworks[collectionId] || [];
+        const collectionArt = artworkData[collectionId] || [];
+
+        collectionArt.forEach((art, index) => {
+            const prompt = `${art.title} by ${art.artist}, ${art.style} style`;
+            const thumbnail = this.generateArtisticImage(prompt, 200, 200);
+            const fullImage = this.generateArtisticImage(prompt, 800, 800);
+
+            artworks.push({
+                id: `${collectionId}-${index}`,
+                title: art.title,
+                artist: art.artist,
+                thumbnail: `data:image/png;base64,${thumbnail}`,
+                imageUrl: `data:image/png;base64,${fullImage}`
+            });
+        });
+
+        return artworks;
     }
 
-    /**
-     * Generate a placeholder image for artwork
-     */
-    generatePlaceholder(text, size = 200) {
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-
-        // Random pastel background
-        const hue = Math.random() * 360;
-        ctx.fillStyle = `hsl(${hue}, 70%, 85%)`;
-        ctx.fillRect(0, 0, size, size);
-
-        // Text
-        ctx.fillStyle = '#333';
-        ctx.font = `${size / 15}px -apple-system, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, size / 2, size / 2);
-
-        return canvas.toDataURL('image/png');
-    }
-
-    /**
-     * Generate a random art prompt
-     */
     generateRandomPrompt(basePrompt = '') {
         const subjects = ['landscape', 'portrait', 'abstract art', 'still life', 'cityscape', 'seascape'];
         const styles = ['impressionist', 'minimalist', 'art nouveau', 'art deco', 'cubist', 'surrealist'];
@@ -246,66 +469,15 @@ class MockAPI {
         return `A ${moods[Math.floor(Math.random() * moods.length)]} ${subjects[Math.floor(Math.random() * subjects.length)]}, ${styles[Math.floor(Math.random() * styles.length)]} style, ${details[Math.floor(Math.random() * details.length)]}`;
     }
 
-    /**
-     * Simulate image generation with delay
-     */
     async simulateGeneration(prompt, rotation = 0) {
-        // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // Create a new mock image
         const imageId = 'mock-' + Date.now();
-        const canvas = document.createElement('canvas');
+        const width = (rotation === 90 || rotation === 270) ? 533 : 400;
+        const height = (rotation === 90 || rotation === 270) ? 400 : 533;
 
-        // Adjust dimensions based on rotation
-        if (rotation === 90 || rotation === 270) {
-            canvas.width = 533;
-            canvas.height = 400;
-        } else {
-            canvas.width = 400;
-            canvas.height = 533;
-        }
+        const base64 = this.generateArtisticImage(prompt, width, height);
 
-        const ctx = canvas.getContext('2d');
-
-        // Generate random gradient
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        const hue1 = Math.random() * 360;
-        const hue2 = (hue1 + 60) % 360;
-        gradient.addColorStop(0, `hsl(${hue1}, 60%, 80%)`);
-        gradient.addColorStop(1, `hsl(${hue2}, 60%, 70%)`);
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Add some random shapes
-        for (let i = 0; i < 5; i++) {
-            ctx.fillStyle = `hsla(${Math.random() * 360}, 70%, 60%, 0.3)`;
-            ctx.beginPath();
-            ctx.arc(
-                Math.random() * canvas.width,
-                Math.random() * canvas.height,
-                Math.random() * 100 + 20,
-                0,
-                Math.PI * 2
-            );
-            ctx.fill();
-        }
-
-        // Add prompt text
-        ctx.fillStyle = '#1a1a1a';
-        ctx.font = '14px -apple-system, sans-serif';
-        ctx.textAlign = 'center';
-        const words = prompt.split(' ');
-        let line = '';
-        let y = canvas.height - 60;
-        for (let word of words.slice(0, 10)) { // First 10 words only
-            line += word + ' ';
-        }
-        ctx.fillText(line.trim() + '...', canvas.width / 2, y);
-
-        const base64 = canvas.toDataURL('image/png').split(',')[1];
-
-        // Store the new image
         const imageData = {
             imageId,
             originalImage: base64,
@@ -324,14 +496,12 @@ class MockAPI {
             timestamp: Date.now()
         };
 
-        // Add to history
         this.storage.history.unshift({
             imageId,
             thumbnail: base64,
             timestamp: Date.now()
         });
 
-        // Limit history to 20 items
         if (this.storage.history.length > 20) {
             this.storage.history = this.storage.history.slice(0, 20);
         }
@@ -339,13 +509,9 @@ class MockAPI {
         return { imageId, current: this.storage.currentImage };
     }
 
-    /**
-     * Route API requests to appropriate handlers
-     */
     async handleRequest(method, path, body = null) {
         console.log(`[MockAPI] ${method} ${path}`, body);
 
-        // Settings endpoints
         if (path === '/api/settings' && method === 'GET') {
             return this.storage.settings;
         }
@@ -354,7 +520,6 @@ class MockAPI {
             return { success: true };
         }
 
-        // Current display
         if (path === '/api/current-full.json' && method === 'GET') {
             return {
                 ...this.storage.currentImage,
@@ -362,31 +527,24 @@ class MockAPI {
             };
         }
 
-        // Generate art
         if (path === '/api/generate-art' && method === 'POST') {
             return await this.simulateGeneration(body.prompt, body.rotation);
         }
 
-        // Lucky prompt
         if (path === '/api/lucky-prompt' && method === 'POST') {
             return { prompt: this.generateRandomPrompt(body.currentPrompt) };
         }
 
-        // Upload
         if (path === '/api/upload' && method === 'POST') {
-            // For file uploads, body would be FormData in real scenario
-            // Here we'll just simulate it
             const imageId = 'upload-' + Date.now();
             await new Promise(resolve => setTimeout(resolve, 1000));
             return { imageId, success: true };
         }
 
-        // Collections
         if (path === '/api/collections' && method === 'GET') {
             return { collections: this.storage.collections };
         }
 
-        // Collection artworks
         if (path.startsWith('/api/collections/') && method === 'GET') {
             const collectionId = path.split('/')[3];
             return {
@@ -395,18 +553,15 @@ class MockAPI {
             };
         }
 
-        // Images by ID
         if (path.startsWith('/api/images/') && method === 'GET') {
             const imageId = path.split('/')[3];
             return this.storage.images.get(imageId) || null;
         }
 
-        // History
         if (path === '/api/history' && method === 'GET') {
             return this.storage.history;
         }
 
-        // Delete history item
         if (path.startsWith('/api/history/') && path.endsWith('/') === false && method === 'DELETE') {
             const imageId = path.split('/')[3];
             this.storage.history = this.storage.history.filter(h => h.imageId !== imageId);
@@ -414,7 +569,6 @@ class MockAPI {
             return { success: true };
         }
 
-        // Load from history
         if (path.match(/\/api\/history\/.+\/load/) && method === 'POST') {
             const imageId = path.split('/')[3];
             const image = this.storage.images.get(imageId);
@@ -425,10 +579,8 @@ class MockAPI {
             return { error: 'Image not found' };
         }
 
-        // Import artwork
         if (path === '/api/art/import' && method === 'POST') {
             await new Promise(resolve => setTimeout(resolve, 1500));
-            // Simulate importing artwork
             const imageId = 'import-' + Date.now();
             this.storage.currentImage = {
                 imageId,
@@ -440,9 +592,7 @@ class MockAPI {
             return { success: true, imageId };
         }
 
-        // Art search
         if (path.startsWith('/api/art/search') && method === 'GET') {
-            // Simple mock search - return random artworks
             const allArtworks = [];
             for (const collectionId of ['renaissance-masters', 'impressionists', 'japanese-masters']) {
                 allArtworks.push(...this.generateMockArtworks(collectionId));
@@ -450,12 +600,10 @@ class MockAPI {
             return { results: allArtworks.slice(0, 8) };
         }
 
-        // ESP32 status
         if (path === '/api/esp32-status' && method === 'GET') {
             return this.storage.devices['esp32-001'];
         }
 
-        // System info
         if (path === '/api/system-info' && method === 'GET') {
             return {
                 version: 'preview-mock',
@@ -465,40 +613,34 @@ class MockAPI {
             };
         }
 
-        // Logs
         if (path === '/api/logs' && method === 'GET') {
             return { logs: this.storage.logs };
         }
 
-        // Device logs
         if (path === '/api/device-logs' && method === 'GET') {
             return { logs: this.storage.deviceLogs };
         }
 
-        // Client IP (used for dev mode)
         if (path === '/api/client-ip' && method === 'GET') {
             return { ip: '192.168.1.100' };
         }
 
-        // Default: not found
         return { error: 'Not found' };
     }
 }
 
-// Create global mock API instance
+// Initialize mock API
 window.mockAPI = new MockAPI();
 
-// Intercept fetch calls to redirect to mock API
+// Intercept fetch calls
 const originalFetch = window.fetch;
 window.fetch = async function(url, options = {}) {
-    // Only intercept API calls
     if (typeof url === 'string' && url.startsWith('/api/')) {
         const method = options.method || 'GET';
         let body = null;
 
         if (options.body) {
             if (options.body instanceof FormData) {
-                // Handle file uploads specially
                 body = { type: 'file-upload' };
             } else if (typeof options.body === 'string') {
                 try {
@@ -514,7 +656,6 @@ window.fetch = async function(url, options = {}) {
         try {
             const data = await window.mockAPI.handleRequest(method, url, body);
 
-            // Return a mock Response object
             return {
                 ok: true,
                 status: 200,
@@ -537,8 +678,7 @@ window.fetch = async function(url, options = {}) {
         }
     }
 
-    // Pass through non-API calls
     return originalFetch.apply(this, arguments);
 };
 
-console.log('[MockAPI] Preview mode activated - all API calls are mocked');
+console.log('[MockAPI] Preview mode activated - generating artistic placeholders');
