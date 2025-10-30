@@ -405,6 +405,7 @@ function previewArt(art) {
     const modalImage = document.getElementById('modalImage');
     modalImage.src = art.imageUrl;
     modalImage.style.transform = 'scale(1)';
+    modalImage.style.transformOrigin = '50% 50%';
     modalImage.style.objectPosition = '50% 50%';
     modalImage.style.objectFit = 'cover';
 
@@ -445,6 +446,7 @@ async function openCollectionItem(item) {
         const modalImage = document.getElementById('modalImage');
         modalImage.src = imageSrc;
         modalImage.style.transform = 'scale(1)';
+        modalImage.style.transformOrigin = '50% 50%';
         modalImage.style.objectPosition = '50% 50%';
         modalImage.style.objectFit = 'cover';
 
@@ -485,6 +487,7 @@ function closeModal() {
     cropY = 50;
     zoomLevel = 1.0;
     modalImage.style.transform = 'scale(1)';
+    modalImage.style.transformOrigin = '50% 50%';
     modalImage.style.objectPosition = '50% 50%';
     modalImage.style.objectFit = 'cover';
 }
@@ -643,9 +646,12 @@ function adjustCrop(direction) {
             cropY = 50;
             zoomLevel = 1.0;
             modalImage.style.transform = 'scale(1)';
+            modalImage.style.transformOrigin = '50% 50%';
             break;
     }
 
+    // Use transform-origin to control zoom focus point
+    modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
     modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
 }
 
