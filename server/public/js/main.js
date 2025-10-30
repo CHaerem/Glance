@@ -79,7 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Zoom controls (desktop only - hidden on mobile)
     document.getElementById('zoomIn').addEventListener('click', () => adjustZoom('in'));
     document.getElementById('zoomOut').addEventListener('click', () => adjustZoom('out'));
-    document.getElementById('zoomFit').addEventListener('click', () => adjustZoom('fit'));
 
     // Position controls (desktop only - hidden on mobile)
     document.getElementById('moveUp').addEventListener('click', () => adjustCrop('up'));
@@ -396,7 +395,17 @@ function showMoreBrowse() {
 function previewArt(art) {
     selectedModalArt = art;
     selectedHistoryItem = null;
-    document.getElementById('modalImage').src = art.imageUrl;
+
+    // Reset pan and zoom state
+    panX = 0;
+    panY = 0;
+    zoomLevel = 1.0;
+
+    const modalImage = document.getElementById('modalImage');
+    modalImage.src = art.imageUrl;
+    modalImage.style.transform = 'translate(0, 0) scale(1)';
+    modalImage.style.objectFit = 'cover';
+
     applyDefaultOrientation();
 
     // Show "add to collection" link
@@ -416,6 +425,11 @@ async function openCollectionItem(item) {
         selectedHistoryItem = item;
         selectedModalArt = null;
 
+        // Reset pan and zoom state
+        panX = 0;
+        panY = 0;
+        zoomLevel = 1.0;
+
         // Determine image source
         let imageSrc;
         if (item.imageUrl) {
@@ -426,7 +440,11 @@ async function openCollectionItem(item) {
             imageSrc = `data:image/png;base64,${item.thumbnail}`;
         }
 
-        document.getElementById('modalImage').src = imageSrc;
+        const modalImage = document.getElementById('modalImage');
+        modalImage.src = imageSrc;
+        modalImage.style.transform = 'translate(0, 0) scale(1)';
+        modalImage.style.objectFit = 'cover';
+
         applyDefaultOrientation();
 
         // Set appropriate secondary action
