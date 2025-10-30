@@ -683,9 +683,14 @@ function adjustZoom(direction) {
     }
 }
 
-// Touch zoom support for mobile
+// Touch zoom and pan support for mobile
 let initialPinchDistance = 0;
 let initialZoomLevel = 1.0;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartCropX = 50;
+let touchStartCropY = 50;
+let isTouchPanning = false;
 
 function setupTouchZoom() {
     const modalImage = document.getElementById('modalImage');
@@ -700,14 +705,25 @@ function setupTouchZoom() {
 
     modalImage.addEventListener('touchstart', (e) => {
         if (e.touches.length === 2) {
+            // Two finger pinch for zoom
+            isTouchPanning = false;
             initialPinchDistance = getPinchDistance(e.touches);
             initialZoomLevel = zoomLevel;
+        } else if (e.touches.length === 1) {
+            // Single finger for panning
+            isTouchPanning = true;
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            touchStartCropX = cropX;
+            touchStartCropY = cropY;
         }
     });
 
     modalImage.addEventListener('touchmove', (e) => {
         if (e.touches.length === 2) {
-            e.preventDefault(); // Prevent page zoom
+            // Pinch to zoom
+            e.preventDefault();
+            isTouchPanning = false;
             const currentDistance = getPinchDistance(e.touches);
             const scale = currentDistance / initialPinchDistance;
             zoomLevel = Math.max(0.5, Math.min(2.0, initialZoomLevel * scale));
@@ -719,12 +735,28 @@ function setupTouchZoom() {
             } else {
                 modalImage.style.objectFit = 'cover';
             }
+        } else if (e.touches.length === 1 && isTouchPanning) {
+            // Drag to pan
+            e.preventDefault();
+            const deltaX = e.touches[0].clientX - touchStartX;
+            const deltaY = e.touches[0].clientY - touchStartY;
+
+            // Convert pixel movement to percentage (inverse direction for natural feel)
+            const sensitivity = 0.1; // Adjust sensitivity
+            cropX = Math.max(0, Math.min(100, touchStartCropX - deltaX * sensitivity));
+            cropY = Math.max(0, Math.min(100, touchStartCropY - deltaY * sensitivity));
+
+            modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
+            modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
         }
     }, { passive: false });
 
     modalImage.addEventListener('touchend', (e) => {
         if (e.touches.length < 2) {
             initialPinchDistance = 0;
+        }
+        if (e.touches.length === 0) {
+            isTouchPanning = false;
         }
     });
 }
