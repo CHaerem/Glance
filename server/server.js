@@ -2526,7 +2526,7 @@ app.get("/api/collections/:collectionId", (req, res) => {
 // External art gallery APIs
 app.get("/api/art/search", async (req, res) => {
 	try {
-		const { query, limit = 20, offset = 0 } = req.query;
+		const { q: query, limit = 20, offset = 0 } = req.query;
 		const targetCount = parseInt(limit);
 
 		console.log(`Searching for artworks: "${query}", limit: ${targetCount}, offset: ${offset}`);
