@@ -2,6 +2,8 @@
 
 > A battery-powered ESP32 e-ink display that fetches images from a local Raspberry Pi server with intelligent power management and remote control.
 
+**[🌐 Try the Live Demo](https://chaerem.github.io/Glance/)** - Interactive web interface preview with mock data
+
 ## ✨ Features
 
 🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles
@@ -87,6 +89,8 @@ docker run -d \
 ### 2. 🌐 Configure via Web Dashboard
 
 Access the dashboard at: `http://your-pi-ip:3000`
+
+**New to Glance?** [Try the interactive demo](https://chaerem.github.io/Glance/) to explore the interface with mock data.
 
 - 🖼️ Upload and optimize images for e-paper display
 - 🤖 Generate AI artwork with GPT-4o (requires `OPENAI_API_KEY`)
