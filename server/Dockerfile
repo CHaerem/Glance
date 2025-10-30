@@ -30,6 +30,7 @@ COPY server.js ./
 COPY simple-ui.html ./
 COPY admin.html ./
 COPY bhutan.svg ./
+COPY public ./public
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
