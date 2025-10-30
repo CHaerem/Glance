@@ -13,7 +13,7 @@ const ROOT_DIR = path.join(__dirname, '..');
 const PREVIEW_DIR = __dirname;
 
 /**
- * Process HTML file: add auto-mock script
+ * Process HTML file: add auto-mock script and fix links for static hosting
  */
 function processHTML(inputFile, outputFile) {
     console.log(`Processing ${path.basename(inputFile)} -> ${path.basename(outputFile)}`);
@@ -28,6 +28,11 @@ function processHTML(inputFile, outputFile) {
     <!-- Auto-loading mock API for preview mode -->
     <script src="auto-mock.js"></script>`
     );
+
+    // Fix links for static hosting (GitHub Pages)
+    // Convert server routes to .html files
+    html = html.replace(/href="\/admin"/g, 'href="admin.html"');
+    html = html.replace(/href="\/"/g, 'href="index.html"');
 
     // Write output
     fs.writeFileSync(outputFile, html, 'utf-8');
