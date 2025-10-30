@@ -116,33 +116,27 @@
         <div class="modal-content">
             <button class="close-modal" id="closeModalBtn">×</button>
 
-            <!-- Image controls (desktop only for zoom/position, always visible for rotate) -->
-            <div class="image-controls">
-                <button class="control-btn" id="orientationToggle" title="Rotate">⟲</button>
-                <button class="control-btn desktop-only" id="zoomIn" title="Zoom in">+</button>
-                <button class="control-btn desktop-only" id="zoomOut" title="Zoom out">−</button>
-                <button class="control-btn desktop-only" id="zoomFit" title="Fit to screen">⊡</button>
-            </div>
-
-            <!-- Position controls (desktop only) -->
-            <div class="position-controls desktop-only">
-                <button class="control-btn" id="moveUp" title="Move up">↑</button>
-                <button class="control-btn" id="moveDown" title="Move down">↓</button>
-                <button class="control-btn" id="moveLeft" title="Move left">←</button>
-                <button class="control-btn" id="moveRight" title="Move right">→</button>
-                <button class="control-btn" id="moveReset" title="Reset position">◎</button>
+            <!-- Unified control bar -->
+            <div class="image-control-bar">
+                <button class="control-btn-minimal" id="orientationToggle" title="Rotate">⟲</button>
+                <span class="control-separator desktop-only">|</span>
+                <button class="control-btn-minimal desktop-only" id="moveUp" title="Move up">↑</button>
+                <button class="control-btn-minimal desktop-only" id="moveDown" title="Move down">↓</button>
+                <button class="control-btn-minimal desktop-only" id="moveLeft" title="Move left">←</button>
+                <button class="control-btn-minimal desktop-only" id="moveRight" title="Move right">→</button>
+                <span class="control-separator desktop-only">|</span>
+                <button class="control-btn-minimal desktop-only" id="zoomIn" title="Zoom in">+</button>
+                <button class="control-btn-minimal desktop-only" id="zoomOut" title="Zoom out">−</button>
+                <span class="control-separator desktop-only">|</span>
+                <button class="control-btn-minimal desktop-only" id="moveReset" title="Reset">◎</button>
             </div>
 
             <img id="modalImage" class="modal-image" src="" alt="">
             <div class="modal-info">
                 <div class="modal-actions">
-                    <button class="btn btn-primary" id="applyModalBtn">Apply to Display</button>
-                </div>
-                <div style="text-align: center; margin-top: 12px;">
-                    <button class="mode-link" id="modalSecondaryAction" style="display: none;"></button>
-                </div>
-                <div style="text-align: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee;">
-                    <button class="mode-link" id="moreLikeThisBtn" style="display: none; color: #666; font-size: 0.85rem;">✨ More like this</button>
+                    <button class="modal-btn-primary" id="applyModalBtn">apply to display</button>
+                    <button class="modal-btn-secondary" id="modalSecondaryAction" style="display: none;"></button>
+                    <button class="modal-btn-secondary" id="moreLikeThisBtn" style="display: none;">more like this</button>
                 </div>
             </div>
         </div>

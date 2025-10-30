@@ -488,8 +488,41 @@
 
         .modal-actions {
             display: flex;
-            gap: 12px;
-            justify-content: center;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .modal-btn-primary {
+            background: #1a1a1a;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            text-transform: lowercase;
+        }
+
+        .modal-btn-primary:hover {
+            background: #333;
+        }
+
+        .modal-btn-secondary {
+            background: transparent;
+            color: #999;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.15s ease;
+            text-transform: lowercase;
+        }
+
+        .modal-btn-secondary:hover {
+            color: #666;
         }
 
         .close-modal {
@@ -512,53 +545,53 @@
             color: #1a1a1a;
         }
 
-        /* Image controls - clean and responsive */
-        .image-controls {
+        /* Unified control bar - calm and minimal */
+        .image-control-bar {
             position: absolute;
-            top: 20px;
-            right: 70px;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
             display: flex;
-            gap: 8px;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            border-radius: 24px;
             z-index: 10;
         }
 
-        .control-btn {
-            background: rgba(255, 255, 255, 0.95);
+        .control-btn-minimal {
+            background: transparent;
             border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 1.25rem;
-            color: #666;
-            transition: all 0.2s ease;
+            font-size: 1rem;
+            color: #999;
+            transition: all 0.15s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .control-btn:hover {
-            background: white;
-            color: #1a1a1a;
-            transform: scale(1.05);
+        .control-btn-minimal:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #666;
         }
 
-        .control-btn:active {
-            transform: scale(0.95);
+        .control-btn-minimal:active {
+            background: rgba(0, 0, 0, 0.1);
         }
 
-        /* Position controls - left side for desktop */
-        .position-controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            display: flex;
-            gap: 8px;
-            z-index: 10;
+        .control-separator {
+            color: #e5e5e5;
+            font-size: 0.9rem;
+            padding: 0 4px;
         }
 
-        /* Hide zoom/position controls on mobile (touch devices) */
+        /* Hide desktop controls on mobile (touch devices) */
         @media (max-width: 768px) {
             .desktop-only {
                 display: none !important;
