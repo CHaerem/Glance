@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Zoom controls (desktop only - hidden on mobile)
     document.getElementById('zoomIn').addEventListener('click', () => adjustZoom('in'));
     document.getElementById('zoomOut').addEventListener('click', () => adjustZoom('out'));
+    document.getElementById('zoomFit').addEventListener('click', () => adjustZoom('fit'));
 
     // Position controls (desktop only - hidden on mobile)
     document.getElementById('moveUp').addEventListener('click', () => adjustCrop('up'));
