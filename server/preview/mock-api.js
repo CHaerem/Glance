@@ -179,7 +179,7 @@ class MockAPI {
         ctx.fill();
     }
 
-    drawPortrait(ctx, width, height, prompt) {
+    drawPortrait(ctx, width, height) {
         // Background
         const bgGradient = ctx.createRadialGradient(width/2, height/3, 0, width/2, height/3, width);
         bgGradient.addColorStop(0, '#FFF5E1');
@@ -236,7 +236,7 @@ class MockAPI {
         ctx.fill();
     }
 
-    drawGeometric(ctx, width, height, prompt) {
+    drawGeometric(ctx, width, height) {
         // Clean background
         ctx.fillStyle = '#F5F5F5';
         ctx.fillRect(0, 0, width, height);
@@ -276,7 +276,7 @@ class MockAPI {
         }
     }
 
-    drawMinimal(ctx, width, height, prompt) {
+    drawMinimal(ctx, width, height) {
         // White background
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
@@ -304,7 +304,7 @@ class MockAPI {
         ctx.stroke();
     }
 
-    drawAbstract(ctx, width, height, prompt) {
+    drawAbstract(ctx, width, height) {
         // Colorful gradient background
         const hue1 = Math.random() * 360;
         const hue2 = (hue1 + 120) % 360;
@@ -364,29 +364,61 @@ class MockAPI {
     }
 
     generateDemoImage() {
-        const base64 = this.generateArtisticImage(
+        // Generate a rich history of varied images
+        const demoPrompts = [
             'A serene landscape with mountains and a lake at sunset',
-            400,
-            533
-        );
+            'Minimalist geometric pattern with circles',
+            'Abstract colorful art with organic shapes',
+            'Portrait of a person in contemplation',
+            'Japanese landscape with Mount Fuji',
+            'Geometric pattern with triangles and squares',
+            'Mountain landscape at dawn with morning mist',
+            'Minimalist design with simple lines',
+            'Abstract expressionist artwork',
+            'Peaceful lake scene with reflections',
+            'Portrait in renaissance style',
+            'Colorful geometric composition'
+        ];
 
-        this.storage.currentImage.originalImage = base64;
+        // Generate images in reverse chronological order
+        const now = Date.now();
+        const hoursAgo = [0.5, 2, 5, 12, 24, 48, 72, 96, 120, 168, 240, 336]; // Hours ago
 
-        const imageData = {
-            imageId: 'demo-001',
-            originalImage: base64,
-            originalImageMime: 'image/png',
-            originalPrompt: 'A serene landscape with mountains and a lake at sunset',
-            thumbnail: base64,
-            timestamp: Date.now() - 3600000
+        demoPrompts.forEach((prompt, index) => {
+            const imageId = `demo-${String(index + 1).padStart(3, '0')}`;
+            const timestamp = now - (hoursAgo[index] * 3600000);
+
+            const base64 = this.generateArtisticImage(prompt, 400, 533);
+
+            const imageData = {
+                imageId,
+                originalImage: base64,
+                originalImageMime: 'image/png',
+                originalPrompt: prompt,
+                thumbnail: base64,
+                timestamp
+            };
+
+            this.storage.images.set(imageId, imageData);
+            this.storage.history.push({
+                imageId,
+                thumbnail: base64,
+                timestamp
+            });
+        });
+
+        // Most recent image becomes current
+        const latest = this.storage.history[0];
+        const latestImage = this.storage.images.get(latest.imageId);
+        this.storage.currentImage = {
+            imageId: latestImage.imageId,
+            originalImage: latestImage.originalImage,
+            originalImageMime: latestImage.originalImageMime,
+            originalPrompt: latestImage.originalPrompt,
+            timestamp: latestImage.timestamp
         };
 
-        this.storage.images.set('demo-001', imageData);
-        this.storage.history.unshift({
-            imageId: 'demo-001',
-            thumbnail: base64,
-            timestamp: Date.now() - 3600000
-        });
+        console.log(`[MockAPI] Generated ${demoPrompts.length} demo images for history`);
     }
 
     generateMockCollections() {
