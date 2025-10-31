@@ -7,14 +7,30 @@ let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
 
 // Browse state
-let browseDisplayCount = 8;
-let collectionDisplayCount = 8;
+let browseDisplayCount = getInitialDisplayCount();
+let collectionDisplayCount = getInitialDisplayCount();
 let allArtworks = [];
 let myCollection = [];
 let filteredCollection = [];
 let currentFilter = 'all';
 let collectionSearchQuery = '';
 let collectionSortBy = 'date-desc';
+
+// Determine initial display count based on screen size
+function getInitialDisplayCount() {
+    const width = window.innerWidth;
+    if (width >= 768) return 16; // Desktop: 4 rows of 4 columns
+    if (width >= 601) return 12; // Tablet: 4 rows of 3 columns
+    return 8; // Mobile: 8 items in single column
+}
+
+// Determine increment for "show more" based on screen size
+function getShowMoreIncrement() {
+    const width = window.innerWidth;
+    if (width >= 768) return 12; // Desktop: 3 more rows
+    if (width >= 601) return 9; // Tablet: 3 more rows
+    return 8; // Mobile: 8 more items
+}
 
 // Load settings
 async function loadSettings() {
@@ -74,12 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Collection controls
     document.getElementById('collectionSearch').addEventListener('input', (e) => {
         collectionSearchQuery = e.target.value.toLowerCase();
-        collectionDisplayCount = 8;
+        collectionDisplayCount = getInitialDisplayCount();
         displayMyCollection();
     });
     document.getElementById('collectionSort').addEventListener('change', (e) => {
         collectionSortBy = e.target.value;
-        collectionDisplayCount = 8;
+        collectionDisplayCount = getInitialDisplayCount();
         displayMyCollection();
     });
 
@@ -118,7 +134,7 @@ function switchMode(mode) {
         document.getElementById('createMode').style.display = 'block';
     } else if (mode === 'explore') {
         document.getElementById('exploreMode').classList.add('show');
-        browseDisplayCount = 8;
+        browseDisplayCount = getInitialDisplayCount();
         initializeSearchSuggestions(); // Load dynamic suggestions
         if (currentArtResults.length === 0) {
             loadAllArt(); // Load initial art
@@ -127,7 +143,7 @@ function switchMode(mode) {
         }
     } else if (mode === 'my-collection') {
         document.getElementById('myCollectionMode').classList.add('show');
-        collectionDisplayCount = 8;
+        collectionDisplayCount = getInitialDisplayCount();
         displayMyCollection();
     }
 
@@ -293,7 +309,7 @@ async function searchArt() {
     try {
         const data = await window.smartSearch(query);
         currentArtResults = data.results || [];
-        browseDisplayCount = 8;
+        browseDisplayCount = getInitialDisplayCount();
         displayArtResults();
     } catch (error) {
         console.error('Search failed:', error);
@@ -424,11 +440,18 @@ function displayMyCollection() {
         `;
     }).join('');
 
-    showMoreBtn.style.display = collectionDisplayCount < filteredCollection.length ? 'block' : 'none';
+    // Show "show more" button if there are more results
+    if (collectionDisplayCount < filteredCollection.length) {
+        const increment = getShowMoreIncrement();
+        document.getElementById('showMoreCollectionBtn').textContent = `show ${increment} more`;
+        showMoreBtn.style.display = 'block';
+    } else {
+        showMoreBtn.style.display = 'none';
+    }
 }
 
 function showMoreCollection() {
-    collectionDisplayCount += 8;
+    collectionDisplayCount += getShowMoreIncrement();
     displayMyCollection();
 }
 
@@ -441,7 +464,7 @@ function filterArt(collectionId) {
         currentArtResults = allArtworks.filter(art => art.collectionId === collectionId);
     }
 
-    browseDisplayCount = 8;
+    browseDisplayCount = getInitialDisplayCount();
     displayArtResults();
 }
 
@@ -464,11 +487,17 @@ function displayArtResults() {
     `).join('');
 
     // Show "show more" button if there are more results
-    showMoreBtn.style.display = browseDisplayCount < currentArtResults.length ? 'block' : 'none';
+    if (browseDisplayCount < currentArtResults.length) {
+        const increment = getShowMoreIncrement();
+        document.getElementById('showMoreBrowseBtn').textContent = `show ${increment} more`;
+        showMoreBtn.style.display = 'block';
+    } else {
+        showMoreBtn.style.display = 'none';
+    }
 }
 
 function showMoreBrowse() {
-    browseDisplayCount += 8;
+    browseDisplayCount += getShowMoreIncrement();
     displayArtResults();
 }
 
@@ -602,7 +631,7 @@ async function findSimilarArt() {
 
         const data = await response.json();
         currentArtResults = data.results || [];
-        browseDisplayCount = 8;
+        browseDisplayCount = getInitialDisplayCount();
 
         // Display results
         displayArtResults();
