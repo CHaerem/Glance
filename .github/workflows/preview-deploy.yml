@@ -6,12 +6,16 @@ on:
       - main
     paths:
       - 'server/**/*.html'
+      - 'server/public/**/*.js'
+      - 'server/public/**/*.css'
       - 'server/preview/**'
       - '.github/workflows/preview-deploy.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     paths:
       - 'server/**/*.html'
+      - 'server/public/**/*.js'
+      - 'server/public/**/*.css'
       - 'server/preview/**'
   workflow_dispatch:
 
