@@ -382,9 +382,16 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 10;
         }
 
         .delete-btn:hover {
+            background: #fff;
+            color: #e74c3c;
+            border-color: #e74c3c;
+        }
+
+        .delete-btn:active {
             background: #fff;
             color: #e74c3c;
             border-color: #e74c3c;
@@ -878,5 +885,23 @@
 
             .sort-select {
                 flex: 1;
+            }
+
+            /* Always show delete buttons on mobile/touch devices */
+            .delete-btn {
+                opacity: 1;
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
+            }
+        }
+
+        /* Also show delete buttons on touch-capable devices regardless of screen size */
+        @media (hover: none) and (pointer: coarse) {
+            .delete-btn {
+                opacity: 1;
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
             }
         }
