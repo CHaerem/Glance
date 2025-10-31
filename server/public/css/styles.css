@@ -290,31 +290,33 @@
             background: #f5f5f5;
         }
 
-        .art-grid {
+        /* Shared grid layout for both explore and collection modes */
+        .art-grid,
+        .collection-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             margin-bottom: 20px;
         }
 
-        .art-item {
+        /* Shared item styling */
+        .art-item,
+        .collection-item {
             position: relative;
             cursor: pointer;
             transition: transform 0.2s ease;
         }
 
-        .art-item:hover {
+        .art-item:hover,
+        .collection-item:hover {
             transform: translateY(-2px);
         }
 
-        .art-image {
-            width: 100%;
-            aspect-ratio: 1;
-            object-fit: cover;
-            border-radius: 4px;
-            background: #f5f5f5;
+        .collection-item:hover .delete-btn {
+            opacity: 1;
         }
 
+        /* Shared title/caption styling */
         .art-title {
             font-size: 0.75rem;
             color: #666;
@@ -324,26 +326,13 @@
             white-space: nowrap;
         }
 
-        /* Collection-specific grid with better aspect ratio handling */
-        .collection-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .collection-item {
-            position: relative;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        }
-
-        .collection-item:hover {
-            transform: translateY(-2px);
-        }
-
-        .collection-item:hover .delete-btn {
-            opacity: 1;
+        /* Explore mode: Square thumbnails for consistent grid */
+        .art-image {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #f5f5f5;
         }
 
         .collection-image-container {
