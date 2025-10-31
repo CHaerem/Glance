@@ -325,13 +325,31 @@ async function loadAllArt() {
 async function loadMyCollection() {
     try {
         const response = await fetch('/api/my-collection');
-        myCollection = await response.json();
+
+        // If API not available (e.g., GitHub Pages), load example data
+        if (!response.ok) {
+            console.log('API not available, loading example data for demo');
+            const exampleResponse = await fetch('/example-data/my-collection-demo.json');
+            myCollection = await exampleResponse.json();
+        } else {
+            myCollection = await response.json();
+        }
 
         if (currentMode === 'my-collection') {
             displayMyCollection();
         }
     } catch (error) {
         console.error('Failed to load my collection:', error);
+        // Try loading example data as fallback
+        try {
+            const exampleResponse = await fetch('/example-data/my-collection-demo.json');
+            myCollection = await exampleResponse.json();
+            if (currentMode === 'my-collection') {
+                displayMyCollection();
+            }
+        } catch (fallbackError) {
+            console.error('Failed to load example data:', fallbackError);
+        }
     }
 }
 
