@@ -3379,6 +3379,60 @@ app.get("/api/art/search", async (req, res) => {
 // 	}
 // });
 
+// Helper function: Filter search results using AI to remove irrelevant items
+async function filterSearchResultsWithAI(results, originalQuery, searchParams) {
+	if (!openai || results.length === 0) {
+		return results;  // Skip filtering if no OpenAI or no results
+	}
+
+	try {
+		// Prepare artwork list for AI evaluation
+		const artworkSummaries = results.slice(0, 30).map((art, idx) => {
+			return `${idx + 1}. "${art.title}" by ${art.artist || 'Unknown'} (${art.date || 'Unknown date'}) - ${art.department || art.source || 'Unknown'}`;
+		}).join('\n');
+
+		const prompt = `User query: "${originalQuery}"
+Desired criteria: ${JSON.stringify(searchParams)}
+
+Evaluate these artworks for relevance. Return ONLY the numbers of relevant items (1-30), comma-separated.
+Remove items that are clearly unrelated (wrong medium like crafts/furniture/clothing when looking for paintings, wrong time period by centuries, completely different subject matter).
+
+Artworks:
+${artworkSummaries}
+
+Relevant items (numbers only, comma-separated):`;
+
+		const completion = await openai.chat.completions.create({
+			model: "gpt-4-turbo-preview",
+			messages: [
+				{ role: "system", content: "You are an art curator helping filter search results. Be permissive - only remove clearly irrelevant items." },
+				{ role: "user", content: prompt }
+			],
+			temperature: 0.2,
+			max_tokens: 200
+		});
+
+		const response = completion.choices[0].message.content.trim();
+		console.log("AI filtering response:", response);
+
+		// Parse the comma-separated numbers
+		const relevantIndices = response
+			.split(/[,\s]+/)
+			.map(num => parseInt(num.trim()))
+			.filter(num => !isNaN(num) && num >= 1 && num <= results.length);
+
+		// Return filtered results
+		const filtered = relevantIndices.map(idx => results[idx - 1]).filter(Boolean);
+		console.log(`Filtered ${results.length} results down to ${filtered.length}`);
+
+		return filtered.length > 0 ? filtered : results.slice(0, 20);  // Fallback to original if filtering fails
+
+	} catch (error) {
+		console.error("AI filtering error:", error);
+		return results;  // Return original results on error
+	}
+}
+
 // AI-powered smart search
 app.post("/api/art/smart-search", async (req, res) => {
 	try {
@@ -3398,7 +3452,7 @@ app.post("/api/art/smart-search", async (req, res) => {
 
 		// Use OpenAI to extract search parameters from natural language
 		const completion = await openai.chat.completions.create({
-			model: "gpt-4",
+			model: "gpt-4-turbo-preview",
 			messages: [
 				{
 					role: "system",
@@ -3441,24 +3495,35 @@ Response: {
 
 		console.log("Extracted search parameters:", searchParams);
 
-		// Build search query from extracted parameters
-		const searchQuery = [
+		// Build search query from extracted parameters (remove duplicates)
+		const allTerms = [
 			...(searchParams.searchTerms || []),
 			...(searchParams.styles || []),
 			...(searchParams.subjects || [])
-		].join(" ").trim() || query;
+		];
+		const uniqueTerms = [...new Set(allTerms.map(term => term.toLowerCase()))];
+		const searchQuery = uniqueTerms.join(" ").trim() || query;
 
 		// Use existing search endpoint with enhanced query
-		const searchResponse = await fetch(`http://localhost:3000/api/art/search?q=${encodeURIComponent(searchQuery)}&limit=20`);
+		const searchResponse = await fetch(`http://localhost:3000/api/art/search?q=${encodeURIComponent(searchQuery)}&limit=30`);
 		const searchResults = await searchResponse.json();
 
-		// Return results with metadata about the search
+		// Filter results with AI to remove obviously irrelevant items
+		const filteredResults = await filterSearchResultsWithAI(
+			searchResults.results || [],
+			query,
+			searchParams
+		);
+
+		// Return filtered results with metadata about the search
 		res.json({
-			results: searchResults.results || [],
+			results: filteredResults.slice(0, 20),  // Return top 20 after filtering
 			metadata: {
 				originalQuery: query,
 				searchQuery: searchQuery,
-				parameters: searchParams
+				parameters: searchParams,
+				originalCount: searchResults.results?.length || 0,
+				filteredCount: filteredResults.length
 			}
 		});
 
@@ -3488,7 +3553,7 @@ app.post("/api/art/similar", async (req, res) => {
 
 		// Use OpenAI to analyze the artwork and generate search terms for similar pieces
 		const completion = await openai.chat.completions.create({
-			model: "gpt-4",
+			model: "gpt-4-turbo-preview",
 			messages: [
 				{
 					role: "system",

@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('dropZone').addEventListener('click', () => document.getElementById('fileInput').click());
     document.getElementById('fileInput').addEventListener('change', handleFileSelect);
 
+    document.getElementById('searchBtn').addEventListener('click', searchArt);
     document.getElementById('searchInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') searchArt();
     });
