@@ -324,6 +324,133 @@
             white-space: nowrap;
         }
 
+        /* Collection-specific grid with better aspect ratio handling */
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .collection-item {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .collection-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .collection-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .collection-image-container {
+            position: relative;
+            width: 100%;
+            background: #f5f5f5;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .collection-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 300px;
+            object-fit: contain;
+            background: #f5f5f5;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            color: #666;
+            opacity: 0;
+            transition: all 0.2s ease;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-btn:hover {
+            background: #fff;
+            color: #e74c3c;
+            border-color: #e74c3c;
+        }
+
+        /* Collection controls */
+        .collection-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .collection-search {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #333;
+            background: #fff;
+            transition: border-color 0.2s ease;
+        }
+
+        .collection-search:focus {
+            outline: none;
+            border-color: #999;
+        }
+
+        .collection-search::placeholder {
+            color: #999;
+        }
+
+        .collection-sort {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sort-label {
+            font-size: 0.7rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sort-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #333;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        .sort-select:focus {
+            outline: none;
+            border-color: #999;
+        }
+
+        .sort-select:hover {
+            border-color: #999;
+        }
+
         /* Show more button (minimal style) */
         .show-more {
             text-align: center;
@@ -735,5 +862,21 @@
 
             .art-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .collection-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .collection-controls {
+                flex-direction: column;
+            }
+
+            .collection-sort {
+                width: 100%;
+            }
+
+            .sort-select {
+                flex: 1;
             }
         }

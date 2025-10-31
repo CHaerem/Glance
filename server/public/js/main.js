@@ -11,7 +11,10 @@ let browseDisplayCount = 8;
 let collectionDisplayCount = 8;
 let allArtworks = [];
 let myCollection = [];
+let filteredCollection = [];
 let currentFilter = 'all';
+let collectionSearchQuery = '';
+let collectionSortBy = 'date-desc';
 
 // Load settings
 async function loadSettings() {
@@ -67,6 +70,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('showMoreBrowseBtn').addEventListener('click', showMoreBrowse);
     document.getElementById('showMoreCollectionBtn').addEventListener('click', showMoreCollection);
+
+    // Collection controls
+    document.getElementById('collectionSearch').addEventListener('input', (e) => {
+        collectionSearchQuery = e.target.value.toLowerCase();
+        collectionDisplayCount = 8;
+        displayMyCollection();
+    });
+    document.getElementById('collectionSort').addEventListener('change', (e) => {
+        collectionSortBy = e.target.value;
+        collectionDisplayCount = 8;
+        displayMyCollection();
+    });
 
     document.getElementById('closeModalBtn').addEventListener('click', closeModal);
     document.getElementById('artModal').addEventListener('click', (e) => {
@@ -330,22 +345,68 @@ function displayMyCollection() {
         return;
     }
 
-    const displayedItems = myCollection.slice(0, collectionDisplayCount);
+    // Filter collection based on search query
+    filteredCollection = myCollection.filter(item => {
+        if (!collectionSearchQuery) return true;
+
+        const title = item.title || item.originalPrompt || '';
+        const artist = item.artist || '';
+        const searchText = `${title} ${artist}`.toLowerCase();
+
+        return searchText.includes(collectionSearchQuery);
+    });
+
+    // Sort collection
+    filteredCollection.sort((a, b) => {
+        const titleA = a.title || a.originalPrompt || 'Untitled';
+        const titleB = b.title || b.originalPrompt || 'Untitled';
+        const artistA = a.artist || '';
+        const artistB = b.artist || '';
+        const dateA = a.addedAt || a.timestamp || 0;
+        const dateB = b.addedAt || b.timestamp || 0;
+
+        switch (collectionSortBy) {
+            case 'date-desc':
+                return dateB - dateA;
+            case 'date-asc':
+                return dateA - dateB;
+            case 'title-asc':
+                return titleA.localeCompare(titleB);
+            case 'title-desc':
+                return titleB.localeCompare(titleA);
+            case 'artist-asc':
+                return artistA.localeCompare(artistB);
+            default:
+                return dateB - dateA;
+        }
+    });
+
+    if (filteredCollection.length === 0) {
+        grid.innerHTML = '<div class="loading">No items match your search</div>';
+        showMoreBtn.style.display = 'none';
+        return;
+    }
+
+    const displayedItems = filteredCollection.slice(0, collectionDisplayCount);
     grid.innerHTML = displayedItems.map(item => {
         // Handle different item types
         const imageUrl = item.imageUrl || (item.thumbnail ? `data:image/png;base64,${item.thumbnail}` : '');
         const title = item.title || item.originalPrompt?.substring(0, 30) || 'Untitled';
         const artist = item.artist || (item.collectionType === 'generated' ? 'Generated' : 'Uploaded');
+        const itemId = item.id || item.filename;
 
         return `
-            <div class="art-item" onclick='openCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
-                <img class="art-image" src="${imageUrl}" alt="${title}">
+            <div class="collection-item">
+                <div class="collection-image-container" onclick='openCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+                    <img class="collection-image" src="${imageUrl}" alt="${title}">
+                    <button class="delete-btn" onclick='event.stopPropagation(); deleteCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})' title="Delete">×</button>
+                </div>
                 <div class="art-title">${title} ${artist !== 'Generated' && artist !== 'Uploaded' ? `· ${artist}` : ''}</div>
             </div>
         `;
     }).join('');
 
-    showMoreBtn.style.display = collectionDisplayCount < myCollection.length ? 'block' : 'none';
+    showMoreBtn.style.display = collectionDisplayCount < filteredCollection.length ? 'block' : 'none';
 }
 
 function showMoreCollection() {
@@ -612,6 +673,49 @@ async function removeFromCollection() {
     } catch (error) {
         console.error('Remove failed:', error);
         alert('Failed to remove from collection');
+    }
+}
+
+async function deleteCollectionItem(item) {
+    const isExternal = item.collectionType === 'external';
+    const isGenerated = item.collectionType === 'generated';
+    const isUploaded = item.collectionType === 'uploaded';
+
+    let confirmMessage;
+    if (isExternal) {
+        confirmMessage = 'Remove this artwork from your collection?';
+    } else {
+        confirmMessage = 'Delete this image permanently?';
+    }
+
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    try {
+        let response;
+        if (isExternal) {
+            // Remove external artwork from collection
+            response = await fetch(`/api/my-collection/${item.id}`, {
+                method: 'DELETE'
+            });
+        } else {
+            // Delete generated or uploaded image
+            const imageId = item.imageId || item.filename;
+            response = await fetch(`/api/history/${imageId}`, {
+                method: 'DELETE'
+            });
+        }
+
+        if (response.ok) {
+            await loadMyCollection();
+        } else {
+            const data = await response.json();
+            alert('Failed to ' + (isExternal ? 'remove' : 'delete') + ': ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Delete/remove failed:', error);
+        alert('Failed to ' + (isExternal ? 'remove' : 'delete') + ' item');
     }
 }
 
