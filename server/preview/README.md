@@ -27,10 +27,20 @@ npm run preview:serve
 
 ## Deployment
 
-Automatic via GitHub Actions to: `https://{username}.github.io/{repo}/`
+Automatic via GitHub Actions to GitHub Pages:
 
-- **Main branch**: Deploys to Pages
-- **Pull requests**: Comments with preview link
+- **Production**: `https://chaerem.github.io/Glance/`
+- **PR Previews**: `https://chaerem.github.io/Glance/pr-{number}/`
+
+### Setup Required
+
+For the first time setup, you must enable GitHub Pages:
+
+1. Go to repository **Settings** → **Pages**
+2. Set **Source** to: **GitHub Actions**
+3. Enable **Actions permissions** (read/write) in Settings → Actions → General
+
+See `.github/GITHUB_PAGES_SETUP.md` for detailed setup instructions and troubleshooting.
 
 ## Adding Features
 

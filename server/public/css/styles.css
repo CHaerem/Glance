@@ -6,6 +6,7 @@
             color: #1a1a1a;
             line-height: 1.5;
             min-height: 100vh;
+            overflow-x: hidden;
         }
 
         .container {
@@ -290,23 +291,43 @@
             background: #f5f5f5;
         }
 
-        .art-grid {
+        /* Shared grid layout for both explore and collection modes */
+        .art-grid,
+        .collection-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             margin-bottom: 20px;
         }
 
-        .art-item {
+        /* Shared item styling */
+        .art-item,
+        .collection-item {
             position: relative;
             cursor: pointer;
             transition: transform 0.2s ease;
         }
 
-        .art-item:hover {
+        .art-item:hover,
+        .collection-item:hover {
             transform: translateY(-2px);
         }
 
+        .collection-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        /* Shared title/caption styling */
+        .art-title {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Explore mode: Square thumbnails for consistent grid */
         .art-image {
             width: 100%;
             aspect-ratio: 1;
@@ -315,13 +336,116 @@
             background: #f5f5f5;
         }
 
-        .art-title {
-            font-size: 0.75rem;
-            color: #666;
-            margin-top: 4px;
+        .collection-image-container {
+            position: relative;
+            width: 100%;
+            background: #f5f5f5;
+            border-radius: 4px;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        }
+
+        .collection-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 300px;
+            object-fit: contain;
+            background: #f5f5f5;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            color: #666;
+            opacity: 0;
+            transition: all 0.2s ease;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .delete-btn:hover {
+            background: #fff;
+            color: #e74c3c;
+            border-color: #e74c3c;
+        }
+
+        .delete-btn:active {
+            background: #fff;
+            color: #e74c3c;
+            border-color: #e74c3c;
+        }
+
+        /* Collection controls */
+        .collection-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .collection-search {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #333;
+            background: #fff;
+            transition: border-color 0.2s ease;
+        }
+
+        .collection-search:focus {
+            outline: none;
+            border-color: #999;
+        }
+
+        .collection-search::placeholder {
+            color: #999;
+        }
+
+        .collection-sort {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sort-label {
+            font-size: 0.7rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sort-select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #333;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        .sort-select:focus {
+            outline: none;
+            border-color: #999;
+        }
+
+        .sort-select:hover {
+            border-color: #999;
         }
 
         /* Show more button (minimal style) */
@@ -727,6 +851,47 @@
             color: #999;
         }
 
+        /* Desktop adjustments */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 900px;
+                padding: 60px 40px;
+            }
+
+            .art-grid,
+            .collection-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 20px;
+            }
+
+            /* Ensure grid items don't exceed max width */
+            .art-item,
+            .collection-item {
+                max-width: 250px;
+                width: 100%;
+            }
+        }
+
+        /* Tablet adjustments */
+        @media (min-width: 601px) and (max-width: 767px) {
+            .container {
+                max-width: 700px;
+                padding: 60px 30px;
+            }
+
+            .art-grid,
+            .collection-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 18px;
+            }
+
+            .art-item,
+            .collection-item {
+                max-width: 220px;
+                width: 100%;
+            }
+        }
+
         /* Mobile adjustments */
         @media (max-width: 600px) {
             .container {
@@ -735,5 +900,39 @@
 
             .art-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .collection-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .collection-controls {
+                flex-direction: column;
+            }
+
+            .collection-sort {
+                width: 100%;
+            }
+
+            .sort-select {
+                flex: 1;
+            }
+
+            /* Always show delete buttons on mobile/touch devices */
+            .delete-btn {
+                opacity: 1;
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
+            }
+        }
+
+        /* Also show delete buttons on touch-capable devices regardless of screen size */
+        @media (hover: none) and (pointer: coarse) {
+            .delete-btn {
+                opacity: 1;
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
             }
         }
