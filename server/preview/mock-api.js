@@ -714,6 +714,67 @@ class MockAPI {
             return { ip: '192.168.1.100' };
         }
 
+        if (path.startsWith('/api/stats') && method === 'GET') {
+            // Generate realistic mock statistics for preview
+            return {
+                openai: {
+                    summary: {
+                        totalCalls: 156,
+                        totalTokens: 45230,
+                        totalCost: 0.2847,
+                        byModel: {
+                            'gpt-image-1': {
+                                calls: 89,
+                                tokens: 0,  // Image generation doesn't use text tokens
+                                cost: 0.1780  // $0.002 per image * 89
+                            },
+                            'gpt-4o': {
+                                calls: 42,
+                                tokens: 28450,
+                                cost: 0.0712
+                            },
+                            'gpt-4o-mini': {
+                                calls: 25,
+                                tokens: 16780,
+                                cost: 0.0355
+                            }
+                        }
+                    }
+                },
+                apiCalls: {
+                    summary: {
+                        totalCalls: 324,
+                        bySource: {
+                            'Met Museum': {
+                                calls: 128,
+                                successes: 115
+                            },
+                            'Rijksmuseum': {
+                                calls: 87,
+                                successes: 79
+                            },
+                            'Art Institute Chicago': {
+                                calls: 64,
+                                successes: 58
+                            },
+                            'Harvard Art Museums': {
+                                calls: 45,
+                                successes: 38
+                            }
+                        }
+                    }
+                },
+                logs: {
+                    summary: {
+                        byLevel: {
+                            INFO: 1247,
+                            ERROR: 23
+                        }
+                    }
+                }
+            };
+        }
+
         return { error: 'Not found' };
     }
 }
