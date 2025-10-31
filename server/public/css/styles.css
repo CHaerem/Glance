@@ -861,6 +861,32 @@
             color: #999;
         }
 
+        /* Desktop adjustments */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 800px;
+            }
+
+            .art-grid,
+            .collection-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 16px;
+            }
+        }
+
+        /* Tablet adjustments */
+        @media (min-width: 601px) and (max-width: 767px) {
+            .container {
+                max-width: 600px;
+            }
+
+            .art-grid,
+            .collection-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 14px;
+            }
+        }
+
         /* Mobile adjustments */
         @media (max-width: 600px) {
             .container {
