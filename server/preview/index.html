@@ -1813,11 +1813,30 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         let secondaryActionType = null; // 'add', 'remove', 'delete'
 
         // Browse state
-        let browseDisplayCount = 8;
-        let collectionDisplayCount = 8;
+        let browseDisplayCount = getInitialDisplayCount();
+        let collectionDisplayCount = getInitialDisplayCount();
         let allArtworks = [];
         let myCollection = [];
+        let filteredCollection = [];
         let currentFilter = 'all';
+        let collectionSearchQuery = '';
+        let collectionSortBy = 'date-desc';
+
+        // Determine initial display count based on screen size
+        function getInitialDisplayCount() {
+            const width = window.innerWidth;
+            if (width >= 768) return 16; // Desktop: 4 rows of 4 columns
+            if (width >= 601) return 12; // Tablet: 4 rows of 3 columns
+            return 8; // Mobile: 8 items in single column
+        }
+
+        // Determine increment for "show more" based on screen size
+        function getShowMoreIncrement() {
+            const width = window.innerWidth;
+            if (width >= 768) return 12; // Desktop: 3 more rows
+            if (width >= 601) return 9; // Tablet: 3 more rows
+            return 8; // Mobile: 8 more items
+        }
 
         // Load settings
         async function loadSettings() {
@@ -2077,11 +2096,18 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                 `;
             }).join('');
 
-            showMoreBtn.style.display = collectionDisplayCount < myCollection.length ? 'block' : 'none';
+            // Show "show more" button if there are more results
+            if (collectionDisplayCount < myCollection.length) {
+                const increment = getShowMoreIncrement();
+                document.getElementById('showMoreCollectionBtn').textContent = `show ${increment} more`;
+                showMoreBtn.style.display = 'block';
+            } else {
+                showMoreBtn.style.display = 'none';
+            }
         }
 
         function showMoreCollection() {
-            collectionDisplayCount += 8;
+            collectionDisplayCount += getShowMoreIncrement();
             displayMyCollection();
         }
 
@@ -2117,11 +2143,17 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             `).join('');
 
             // Show "show more" button if there are more results
-            showMoreBtn.style.display = browseDisplayCount < currentArtResults.length ? 'block' : 'none';
+            if (browseDisplayCount < currentArtResults.length) {
+                const increment = getShowMoreIncrement();
+                document.getElementById('showMoreBrowseBtn').textContent = `show ${increment} more`;
+                showMoreBtn.style.display = 'block';
+            } else {
+                showMoreBtn.style.display = 'none';
+            }
         }
 
         function showMoreBrowse() {
-            browseDisplayCount += 8;
+            browseDisplayCount += getShowMoreIncrement();
             displayArtResults();
         }
 
