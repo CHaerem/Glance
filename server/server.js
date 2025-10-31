@@ -268,6 +268,251 @@ async function ensureDir(dir) {
 	}
 }
 
+// ============================================================================
+// Statistics Tracking Module
+// ============================================================================
+
+// OpenAI model pricing (as of 2025, in USD per 1M tokens)
+const OPENAI_PRICING = {
+	'gpt-image-1': { input: 0, output: 0, imagePerRequest: 0.05 }, // $0.05 per image (estimated)
+	'gpt-4': { input: 30.00, output: 60.00 },
+	'gpt-4o': { input: 5.00, output: 15.00 },
+	'gpt-4o-mini': { input: 0.15, output: 0.60 },
+	'gpt-3.5-turbo': { input: 0.50, output: 1.50 }
+};
+
+// Statistics storage
+const STATS_FILE = 'stats.json';
+
+// In-memory statistics cache (synced with file)
+let statsCache = {
+	openai: {
+		calls: [],
+		summary: {
+			totalCalls: 0,
+			totalTokens: 0,
+			totalCost: 0,
+			byModel: {}
+		}
+	},
+	apiCalls: {
+		calls: [],
+		summary: {
+			totalCalls: 0,
+			bySource: {}
+		}
+	},
+	logs: {
+		summary: {
+			totalLogs: 0,
+			byLevel: { INFO: 0, ERROR: 0 },
+			recentActivity: []
+		}
+	},
+	startTime: Date.now()
+};
+
+// Load statistics from file
+async function loadStats() {
+	try {
+		const stats = await readJSONFile(STATS_FILE);
+		if (stats) {
+			statsCache = stats;
+			console.log('Statistics loaded from file');
+		}
+	} catch (error) {
+		console.log('No existing statistics file, starting fresh');
+	}
+}
+
+// Save statistics to file
+async function saveStats() {
+	try {
+		await writeJSONFile(STATS_FILE, statsCache);
+	} catch (error) {
+		console.error('Failed to save statistics:', error);
+	}
+}
+
+// Track OpenAI API call
+async function trackOpenAICall(model, promptTokens, completionTokens, success, metadata = {}) {
+	const call = {
+		timestamp: Date.now(),
+		model,
+		promptTokens: promptTokens || 0,
+		completionTokens: completionTokens || 0,
+		totalTokens: (promptTokens || 0) + (completionTokens || 0),
+		success,
+		metadata
+	};
+
+	// Calculate cost
+	const pricing = OPENAI_PRICING[model] || OPENAI_PRICING['gpt-4o-mini'];
+	if (pricing.imagePerRequest) {
+		call.cost = pricing.imagePerRequest;
+	} else {
+		call.cost = (
+			(call.promptTokens / 1000000) * pricing.input +
+			(call.completionTokens / 1000000) * pricing.output
+		);
+	}
+
+	// Add to calls array (keep last 1000)
+	statsCache.openai.calls.push(call);
+	if (statsCache.openai.calls.length > 1000) {
+		statsCache.openai.calls.shift();
+	}
+
+	// Update summary
+	statsCache.openai.summary.totalCalls++;
+	statsCache.openai.summary.totalTokens += call.totalTokens;
+	statsCache.openai.summary.totalCost += call.cost;
+
+	// Update by-model stats
+	if (!statsCache.openai.summary.byModel[model]) {
+		statsCache.openai.summary.byModel[model] = {
+			calls: 0,
+			tokens: 0,
+			cost: 0
+		};
+	}
+	statsCache.openai.summary.byModel[model].calls++;
+	statsCache.openai.summary.byModel[model].tokens += call.totalTokens;
+	statsCache.openai.summary.byModel[model].cost += call.cost;
+
+	// Save to file (async, don't wait)
+	saveStats().catch(err => console.error('Failed to save stats:', err));
+
+	return call;
+}
+
+// Track external API call (museum APIs, etc.)
+async function trackAPICall(source, endpoint, success, metadata = {}) {
+	const call = {
+		timestamp: Date.now(),
+		source,
+		endpoint,
+		success,
+		metadata
+	};
+
+	// Add to calls array (keep last 1000)
+	statsCache.apiCalls.calls.push(call);
+	if (statsCache.apiCalls.calls.length > 1000) {
+		statsCache.apiCalls.calls.shift();
+	}
+
+	// Update summary
+	statsCache.apiCalls.summary.totalCalls++;
+
+	// Update by-source stats
+	if (!statsCache.apiCalls.summary.bySource[source]) {
+		statsCache.apiCalls.summary.bySource[source] = {
+			calls: 0,
+			successes: 0,
+			failures: 0
+		};
+	}
+	statsCache.apiCalls.summary.bySource[source].calls++;
+	if (success) {
+		statsCache.apiCalls.summary.bySource[source].successes++;
+	} else {
+		statsCache.apiCalls.summary.bySource[source].failures++;
+	}
+
+	// Save to file (async, don't wait)
+	saveStats().catch(err => console.error('Failed to save stats:', err));
+
+	return call;
+}
+
+// Track log entry
+async function trackLog(level, message) {
+	statsCache.logs.summary.totalLogs++;
+	statsCache.logs.summary.byLevel[level] = (statsCache.logs.summary.byLevel[level] || 0) + 1;
+
+	// Add to recent activity (keep last 100)
+	const activity = {
+		timestamp: Date.now(),
+		level,
+		message: message.substring(0, 100) // Truncate for storage
+	};
+	statsCache.logs.summary.recentActivity.push(activity);
+	if (statsCache.logs.summary.recentActivity.length > 100) {
+		statsCache.logs.summary.recentActivity.shift();
+	}
+
+	// Don't save on every log (too frequent), will be saved with other stats
+}
+
+// Get statistics with time ranges
+function getStats(timeRange = 'all') {
+	const now = Date.now();
+	const ranges = {
+		'1h': 60 * 60 * 1000,
+		'24h': 24 * 60 * 60 * 1000,
+		'7d': 7 * 24 * 60 * 60 * 1000,
+		'30d': 30 * 24 * 60 * 60 * 1000,
+		'all': Infinity
+	};
+	const cutoff = now - (ranges[timeRange] || ranges['all']);
+
+	// Filter calls by time range
+	const filteredOpenAICalls = statsCache.openai.calls.filter(c => c.timestamp >= cutoff);
+	const filteredAPICalls = statsCache.apiCalls.calls.filter(c => c.timestamp >= cutoff);
+
+	// Calculate filtered summaries
+	const openaiSummary = {
+		totalCalls: filteredOpenAICalls.length,
+		totalTokens: filteredOpenAICalls.reduce((sum, c) => sum + c.totalTokens, 0),
+		totalCost: filteredOpenAICalls.reduce((sum, c) => sum + c.cost, 0),
+		byModel: {}
+	};
+
+	filteredOpenAICalls.forEach(call => {
+		if (!openaiSummary.byModel[call.model]) {
+			openaiSummary.byModel[call.model] = { calls: 0, tokens: 0, cost: 0 };
+		}
+		openaiSummary.byModel[call.model].calls++;
+		openaiSummary.byModel[call.model].tokens += call.totalTokens;
+		openaiSummary.byModel[call.model].cost += call.cost;
+	});
+
+	const apiSummary = {
+		totalCalls: filteredAPICalls.length,
+		bySource: {}
+	};
+
+	filteredAPICalls.forEach(call => {
+		if (!apiSummary.bySource[call.source]) {
+			apiSummary.bySource[call.source] = { calls: 0, successes: 0, failures: 0 };
+		}
+		apiSummary.bySource[call.source].calls++;
+		if (call.success) {
+			apiSummary.bySource[call.source].successes++;
+		} else {
+			apiSummary.bySource[call.source].failures++;
+		}
+	});
+
+	return {
+		timeRange,
+		uptime: now - statsCache.startTime,
+		openai: {
+			summary: openaiSummary,
+			recentCalls: filteredOpenAICalls.slice(-10)
+		},
+		apiCalls: {
+			summary: apiSummary,
+			recentCalls: filteredAPICalls.slice(-10)
+		},
+		logs: statsCache.logs.summary
+	};
+}
+
+// Load stats on startup
+loadStats().catch(err => console.error('Failed to load stats on startup:', err));
+
 // Adaptive color mapping that analyzes the image content
 function createAdaptiveColorMapper(imageBuffer, width, height) {
 	console.log("Analyzing image colors for adaptive mapping...");
@@ -1425,6 +1670,14 @@ app.post("/api/generate-art", async (req, res) => {
 		const imageBase64 = response.data[0].b64_json;
 		console.log(`AI image generated (base64, ${imageBase64 ? imageBase64.length : 0} chars)`);
 
+		// Track OpenAI API usage
+		trackOpenAICall('gpt-image-1', 0, 0, true, {
+			endpoint: 'images.generate',
+			size: '1024x1536',
+			quality: imageQuality,
+			style: artStyle
+		});
+
 		// Decode base64 to buffer
 		const imageBuffer = Buffer.from(imageBase64, 'base64');
 
@@ -1531,6 +1784,13 @@ app.post("/api/generate-art", async (req, res) => {
 		});
 	} catch (error) {
 		console.error("Error generating AI art:", error);
+
+		// Track failed OpenAI API call
+		trackOpenAICall('gpt-image-1', 0, 0, false, {
+			endpoint: 'images.generate',
+			error: error.message
+		});
+
 		res.status(500).json({
 			error: "Error generating AI art: " + error.message
 		});
@@ -1600,6 +1860,17 @@ app.post("/api/lucky-prompt", async (req, res) => {
 		const candidate =
 			response?.choices?.[0]?.message?.content?.trim();
 
+		// Track OpenAI API usage
+		trackOpenAICall('gpt-4o-mini',
+			response.usage?.prompt_tokens || 0,
+			response.usage?.completion_tokens || 0,
+			true, {
+				endpoint: 'chat.completions',
+				temperature,
+				hasPrompt: !!currentPrompt,
+				hasCues: cueParts.length > 0
+			});
+
 		if (!candidate) {
 			console.warn("OpenAI returned no content for lucky prompt");
 			return res.status(502).json({
@@ -1625,6 +1896,13 @@ app.post("/api/lucky-prompt", async (req, res) => {
 		res.json(responseData);
 	} catch (error) {
 		console.error("Error generating lucky prompt with OpenAI:", error);
+
+		// Track failed OpenAI API call
+		trackOpenAICall('gpt-4o-mini', 0, 0, false, {
+			endpoint: 'chat.completions',
+			error: error.message
+		});
+
 		res.status(502).json({
 			error: "Unable to generate prompt right now. Please try again shortly."
 		});
@@ -3143,16 +3421,34 @@ app.get("/api/art/search", async (req, res) => {
 			}
 		};
 
-		// Search all sources in parallel
+		// Search all sources in parallel with API tracking
+		const trackSearch = async (sourceName, searchFunc) => {
+			try {
+				const results = await searchFunc();
+				const success = results && results.length > 0;
+				trackAPICall(sourceName, '/search', success, {
+					query: query,
+					resultsCount: results?.length || 0
+				});
+				return results;
+			} catch (error) {
+				trackAPICall(sourceName, '/search', false, {
+					query: query,
+					error: error.message
+				});
+				return [];
+			}
+		};
+
 		const [metResults, articResults, cmaResults, rijksResults, wikimediaResults, vamResults, harvardResults, smithsonianResults] = await Promise.all([
-			searchMet(),
-			searchArtic(),
-			searchCleveland(),
-			searchRijksmuseum(),
-			searchWikimedia(),
-			searchVictoriaAlbert(),
-			searchHarvard(),
-			searchSmithsonian()
+			trackSearch('Met Museum', searchMet),
+			trackSearch('Art Institute of Chicago', searchArtic),
+			trackSearch('Cleveland Museum', searchCleveland),
+			trackSearch('Rijksmuseum', searchRijksmuseum),
+			trackSearch('Wikimedia Commons', searchWikimedia),
+			trackSearch('Victoria & Albert', searchVictoriaAlbert),
+			trackSearch('Harvard Art Museums', searchHarvard),
+			trackSearch('Smithsonian', searchSmithsonian)
 		]);
 
 		// Track source status for user feedback
@@ -3429,6 +3725,16 @@ Response: {
 			max_tokens: 300
 		});
 
+		// Track OpenAI API usage
+		trackOpenAICall('gpt-4',
+			completion.usage?.prompt_tokens || 0,
+			completion.usage?.completion_tokens || 0,
+			true, {
+				endpoint: 'chat.completions',
+				purpose: 'smart-search',
+				query: query.substring(0, 50)
+			});
+
 		let searchParams;
 		try {
 			const content = completion.choices[0].message.content;
@@ -3464,6 +3770,16 @@ Response: {
 
 	} catch (error) {
 		console.error("Smart search error:", error);
+
+		// Track failed OpenAI API call if OpenAI was available
+		if (openai) {
+			trackOpenAICall('gpt-4', 0, 0, false, {
+				endpoint: 'chat.completions',
+				purpose: 'smart-search',
+				error: error.message
+			});
+		}
+
 		res.status(500).json({ error: "Search failed: " + error.message });
 	}
 });
@@ -3526,6 +3842,16 @@ Source: ${source || 'Unknown'}`
 			max_tokens: 200
 		});
 
+		// Track OpenAI API usage
+		trackOpenAICall('gpt-4',
+			completion.usage?.prompt_tokens || 0,
+			completion.usage?.completion_tokens || 0,
+			true, {
+				endpoint: 'chat.completions',
+				purpose: 'similar-artwork',
+				artwork: `${title} by ${artist}`.substring(0, 50)
+			});
+
 		let similarityParams;
 		try {
 			const content = completion.choices[0].message.content;
@@ -3568,6 +3894,16 @@ Source: ${source || 'Unknown'}`
 
 	} catch (error) {
 		console.error("Similar artwork search error:", error);
+
+		// Track failed OpenAI API call if OpenAI was available
+		if (openai) {
+			trackOpenAICall('gpt-4', 0, 0, false, {
+				endpoint: 'chat.completions',
+				purpose: 'similar-artwork',
+				error: error.message
+			});
+		}
+
 		res.status(500).json({ error: "Similar search failed: " + error.message });
 	}
 });
@@ -4063,6 +4399,7 @@ console.log = function(...args) {
 	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
 	serverLogs.push(`[${getOsloTimestamp()}] LOG: ${message}`);
 	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
+	trackLog('INFO', message);
 	originalLog.apply(console, args);
 };
 
@@ -4070,6 +4407,7 @@ console.error = function(...args) {
 	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
 	serverLogs.push(`[${getOsloTimestamp()}] ERROR: ${message}`);
 	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
+	trackLog('ERROR', message);
 	originalError.apply(console, args);
 };
 
@@ -4082,6 +4420,55 @@ app.get("/api/system-info", (_req, res) => {
 		memoryUsage: process.memoryUsage(),
 		cpuUsage: process.cpuUsage()
 	});
+});
+
+// Statistics endpoint for admin dashboard
+app.get("/api/stats", (req, res) => {
+	try {
+		const timeRange = req.query.range || 'all';
+		const stats = getStats(timeRange);
+		res.json(stats);
+	} catch (error) {
+		console.error("Error retrieving stats:", error);
+		res.status(500).json({ error: "Failed to retrieve statistics" });
+	}
+});
+
+// Reset statistics (admin only)
+app.post("/api/stats/reset", async (req, res) => {
+	try {
+		statsCache = {
+			openai: {
+				calls: [],
+				summary: {
+					totalCalls: 0,
+					totalTokens: 0,
+					totalCost: 0,
+					byModel: {}
+				}
+			},
+			apiCalls: {
+				calls: [],
+				summary: {
+					totalCalls: 0,
+					bySource: {}
+				}
+			},
+			logs: {
+				summary: {
+					totalLogs: 0,
+					byLevel: { INFO: 0, ERROR: 0 },
+					recentActivity: []
+				}
+			},
+			startTime: Date.now()
+		};
+		await saveStats();
+		res.json({ success: true, message: "Statistics reset successfully" });
+	} catch (error) {
+		console.error("Error resetting stats:", error);
+		res.status(500).json({ error: "Failed to reset statistics" });
+	}
 });
 
 app.get("/api/logs", (_req, res) => {
