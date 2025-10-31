@@ -6,18 +6,23 @@ on:
       - main
     paths:
       - 'server/**/*.html'
+      - 'server/**/*.js'
+      - 'server/**/*.css'
       - 'server/preview/**'
       - '.github/workflows/preview-deploy.yml'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     paths:
       - 'server/**/*.html'
+      - 'server/**/*.js'
+      - 'server/**/*.css'
       - 'server/preview/**'
   workflow_dispatch:
 
 permissions:
   contents: write  # Needed for peaceiris/actions-gh-pages
   pull-requests: write
+  pages: write     # Needed for GitHub Pages deployment
 
 # Allow multiple PRs to deploy simultaneously
 concurrency:
@@ -56,8 +61,23 @@ jobs:
           cd server
           npm run build:preview
 
+      - name: Verify build output
+        run: |
+          echo "Checking build output..."
+          ls -la server/preview/
+          if [ ! -f "server/preview/index.html" ]; then
+            echo "❌ Error: index.html not found in build output"
+            exit 1
+          fi
+          if [ ! -f "server/preview/admin.html" ]; then
+            echo "❌ Error: admin.html not found in build output"
+            exit 1
+          fi
+          echo "✅ Build output verified"
+
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        id: deploy
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./server/preview
@@ -65,6 +85,23 @@ jobs:
           keep_files: true  # Keep other PR previews
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
+          enable_jekyll: false  # Disable Jekyll processing
+
+      - name: Deployment summary
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "📁 Deployed directory: ${{ steps.deploy-path.outputs.path }}"
+          echo "🌐 Base path: ${{ steps.deploy-path.outputs.base }}"
+          echo ""
+          echo "📝 Next steps:"
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "  - Preview will be available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/"
+          else
+            echo "  - Main site will be available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          fi
+          echo "  - If this is the first deployment, enable GitHub Pages in Settings → Pages"
+          echo "  - Set source to 'gh-pages' branch"
+          echo "  - Wait 1-5 minutes for GitHub Pages to deploy"
 
       - name: Get deployment URL
         id: get-url
@@ -97,6 +134,23 @@ jobs:
             - 🔗 This PR: \`pr-${prNumber}\` subdirectory
 
             > **Note:** This preview uses a mocked API that runs entirely in the browser. All functionality is simulated - no real backend or OpenAI calls are made.
+
+            ---
+
+            <details>
+            <summary>📋 First time setup required?</summary>
+
+            If the preview URL returns a 404, you need to enable GitHub Pages:
+
+            1. Go to **Settings** → **Pages**
+            2. Set **Source** to deploy from branch **gh-pages** (/ root)
+            3. Enable **Actions permissions** (read/write) in Settings → Actions → General
+            4. Wait 1-5 minutes for deployment to complete
+
+            See [\`.github/GITHUB_PAGES_SETUP.md\`](.github/GITHUB_PAGES_SETUP.md) for detailed instructions.
+            </details>
+
+            ---
 
             The preview updates automatically with each commit. Multiple PR previews can run simultaneously!`;
 
