@@ -53,10 +53,12 @@ class MockAPI {
                 '[2025-10-30 10:17:12] Display refresh complete',
                 '[2025-10-30 10:17:13] Entering deep sleep for 60 minutes'
             ],
-            collections: this.generateMockCollections()
+            collections: this.generateMockCollections(),
+            myCollection: []
         };
 
         this.generateDemoImage();
+        this.initializeMyCollection();
     }
 
     /**
@@ -421,6 +423,71 @@ class MockAPI {
         console.log(`[MockAPI] Generated ${demoPrompts.length} demo images for history`);
     }
 
+    initializeMyCollection() {
+        // Initialize collection with mix of generated and external artworks
+        const now = Date.now();
+
+        // Add some generated images to collection
+        const generatedImages = Array.from(this.storage.images.values()).slice(0, 3);
+        generatedImages.forEach((img, index) => {
+            this.storage.myCollection.push({
+                id: img.imageId,
+                imageId: img.imageId,
+                thumbnail: img.thumbnail,
+                originalImage: img.originalImage,
+                originalImageMime: img.originalImageMime,
+                title: img.originalPrompt.substring(0, 50),
+                originalPrompt: img.originalPrompt,
+                artist: 'Generated',
+                collectionType: 'generated',
+                addedAt: now - (index * 3600000),
+                timestamp: img.timestamp
+            });
+        });
+
+        // Add some external artworks
+        const externalArtworks = [
+            {
+                id: 'external-1',
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Tsunami_by_hokusai_19th_century.jpg/400px-Tsunami_by_hokusai_19th_century.jpg',
+                title: 'The Great Wave off Kanagawa',
+                artist: 'Katsushika Hokusai',
+                year: '1831',
+                thumbnail: this.generatePlaceholderSVG('Hokusai', '#1a6c9c'),
+                collectionType: 'external',
+                addedAt: now - 4 * 3600000
+            },
+            {
+                id: 'external-2',
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/400px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg',
+                title: 'The Starry Night',
+                artist: 'Vincent van Gogh',
+                year: '1889',
+                thumbnail: this.generatePlaceholderSVG('Van Gogh', '#4a5f8c'),
+                collectionType: 'external',
+                addedAt: now - 8 * 3600000
+            },
+            {
+                id: 'external-3',
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg/400px-Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg',
+                title: 'The Creation of Adam',
+                artist: 'Michelangelo',
+                year: '1512',
+                thumbnail: this.generatePlaceholderSVG('Michelangelo', '#8b7355'),
+                collectionType: 'external',
+                addedAt: now - 12 * 3600000
+            }
+        ];
+
+        this.storage.myCollection.push(...externalArtworks);
+        console.log(`[MockAPI] Initialized collection with ${this.storage.myCollection.length} items`);
+    }
+
+    generatePlaceholderSVG(text, color) {
+        const svg = `<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" fill="${color}"/><text x="100" y="100" font-family="sans-serif" font-size="18" fill="white" text-anchor="middle" dominant-baseline="middle">${text}</text></svg>`;
+        return `data:image/svg+xml;base64,${btoa(svg)}`;
+    }
+
     generateMockCollections() {
         return [
             { id: 'renaissance-masters', name: 'Renaissance Masters', description: 'Great works from the Renaissance period' },
@@ -655,6 +722,12 @@ class MockAPI {
             const imageId = path.split('/')[3];
             this.storage.history = this.storage.history.filter(h => h.imageId !== imageId);
             this.storage.images.delete(imageId);
+
+            // Also remove from myCollection if it exists there
+            this.storage.myCollection = this.storage.myCollection.filter(item =>
+                item.imageId !== imageId && item.id !== imageId
+            );
+
             return { success: true };
         }
 
@@ -666,6 +739,42 @@ class MockAPI {
                 return { success: true };
             }
             return { error: 'Image not found' };
+        }
+
+        if (path === '/api/my-collection' && method === 'GET') {
+            return this.storage.myCollection;
+        }
+
+        if (path === '/api/my-collection' && method === 'POST') {
+            const newItem = {
+                id: 'added-' + Date.now(),
+                ...body,
+                collectionType: 'external',
+                addedAt: Date.now()
+            };
+
+            // Check if already in collection
+            const exists = this.storage.myCollection.find(item =>
+                item.imageUrl === newItem.imageUrl || item.id === newItem.id
+            );
+
+            if (exists) {
+                return { error: 'Artwork already in collection' };
+            }
+
+            this.storage.myCollection.unshift(newItem);
+            return { success: true, id: newItem.id };
+        }
+
+        if (path.startsWith('/api/my-collection/') && method === 'DELETE') {
+            const itemId = path.split('/')[3];
+            const initialLength = this.storage.myCollection.length;
+            this.storage.myCollection = this.storage.myCollection.filter(item => item.id !== itemId);
+
+            if (this.storage.myCollection.length < initialLength) {
+                return { success: true };
+            }
+            return { error: 'Item not found' };
         }
 
         if (path === '/api/art/import' && method === 'POST') {
