@@ -20,38 +20,76 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # Needed for peaceiris/actions-gh-pages
+  contents: read
+  pages: write
+  id-token: write
   pull-requests: write
-  pages: write     # Needed for GitHub Pages deployment
 
-# Allow multiple PRs to deploy simultaneously
+# Allow only one concurrent deployment per PR, but allow main to deploy independently
 concurrency:
   group: "pages-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}"
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     # Skip deployment on PR close
     if: github.event.action != 'closed'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      - name: Install dependencies
+        run: |
+          cd server
+          npm ci
+
       - name: Determine deployment path
         id: deploy-path
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "path=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "subdir=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
             echo "base=/pr-${{ github.event.pull_request.number }}/" >> $GITHUB_OUTPUT
+            echo "is_pr=true" >> $GITHUB_OUTPUT
           else
-            echo "path=." >> $GITHUB_OUTPUT
+            echo "subdir=." >> $GITHUB_OUTPUT
             echo "base=/" >> $GITHUB_OUTPUT
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch existing GitHub Pages content
+        if: steps.deploy-path.outputs.is_pr == 'true'
+        continue-on-error: true
+        run: |
+          # Try to fetch existing gh-pages branch to preserve other PR previews
+          git fetch origin gh-pages:gh-pages 2>/dev/null || echo "No gh-pages branch yet"
+
+          # Create staging directory
+          mkdir -p _site
+
+          # If gh-pages exists, copy its content to preserve other PRs
+          if git rev-parse --verify gh-pages >/dev/null 2>&1; then
+            echo "Fetching existing content from gh-pages branch..."
+            git checkout gh-pages -- . 2>/dev/null || true
+
+            # Copy everything except .git
+            find . -maxdepth 1 ! -name . ! -name .git ! -name _site ! -name server ! -name .github -exec cp -r {} _site/ \;
+
+            # Go back to our branch
+            git checkout ${{ github.ref_name }}
+          else
+            echo "No existing gh-pages content found (first deployment)"
           fi
 
       - name: Build preview
@@ -75,42 +113,54 @@ jobs:
           fi
           echo "✅ Build output verified"
 
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./server/preview
-          destination_dir: ${{ steps.deploy-path.outputs.path }}
-          keep_files: true  # Keep other PR previews
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          enable_jekyll: false  # Disable Jekyll processing
-
-      - name: Deployment summary
+      - name: Prepare deployment directory
         run: |
-          echo "✅ Deployment completed successfully!"
-          echo "📁 Deployed directory: ${{ steps.deploy-path.outputs.path }}"
-          echo "🌐 Base path: ${{ steps.deploy-path.outputs.base }}"
-          echo ""
-          echo "📝 Next steps:"
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "  - Preview will be available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pr-${{ github.event.pull_request.number }}/"
+          SUBDIR="${{ steps.deploy-path.outputs.subdir }}"
+
+          if [ "${{ steps.deploy-path.outputs.is_pr }}" == "true" ]; then
+            # For PR: merge with existing content
+            echo "Preparing PR preview in subdirectory: $SUBDIR"
+            mkdir -p "_site/$SUBDIR"
+            cp -r server/preview/* "_site/$SUBDIR/"
           else
-            echo "  - Main site will be available at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+            # For main: deploy to root
+            echo "Preparing main deployment to root"
+            mkdir -p _site
+            cp -r server/preview/* _site/
           fi
-          echo "  - If this is the first deployment, enable GitHub Pages in Settings → Pages"
-          echo "  - Set source to 'gh-pages' branch"
-          echo "  - Wait 1-5 minutes for GitHub Pages to deploy"
+
+          # Ensure .nojekyll exists
+          touch _site/.nojekyll
+
+          echo "Final deployment structure:"
+          ls -la _site/
+          if [ "${{ steps.deploy-path.outputs.is_pr }}" == "true" ]; then
+            echo "PR preview content:"
+            ls -la "_site/$SUBDIR/"
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Get deployment URL
         id: get-url
         run: |
           REPO_NAME="${{ github.event.repository.name }}"
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/pr-${{ github.event.pull_request.number }}/" >> $GITHUB_OUTPUT
+            echo "url=https://${OWNER_LOWER}.github.io/${REPO_NAME}/pr-${{ github.event.pull_request.number }}/" >> $GITHUB_OUTPUT
           else
-            echo "url=https://${{ github.repository_owner }}.github.io/${REPO_NAME}/" >> $GITHUB_OUTPUT
+            echo "url=https://${OWNER_LOWER}.github.io/${REPO_NAME}/" >> $GITHUB_OUTPUT
           fi
 
       - name: Comment on PR
@@ -138,16 +188,15 @@ jobs:
             ---
 
             <details>
-            <summary>📋 First time setup required?</summary>
+            <summary>📋 Troubleshooting</summary>
 
-            If the preview URL returns a 404, you need to enable GitHub Pages:
+            If the preview URL returns a 404:
+            1. Wait 2-3 minutes for deployment to propagate
+            2. Verify GitHub Pages is enabled in **Settings** → **Pages**
+            3. Ensure source is set to **GitHub Actions**
+            4. Check the Actions tab for deployment status
 
-            1. Go to **Settings** → **Pages**
-            2. Set **Source** to deploy from branch **gh-pages** (/ root)
-            3. Enable **Actions permissions** (read/write) in Settings → Actions → General
-            4. Wait 1-5 minutes for deployment to complete
-
-            See [\`.github/GITHUB_PAGES_SETUP.md\`](.github/GITHUB_PAGES_SETUP.md) for detailed instructions.
+            See [\`.github/GITHUB_PAGES_SETUP.md\`](.github/GITHUB_PAGES_SETUP.md) for more help.
             </details>
 
             ---
@@ -185,27 +234,45 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     permissions:
-      contents: write
+      contents: read
+      pages: write
+      id-token: write
       pull-requests: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-      - name: Checkout gh-pages
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: gh-pages
+          fetch-depth: 0
 
       - name: Remove PR preview directory
         run: |
           PR_DIR="pr-${{ github.event.pull_request.number }}"
           if [ -d "$PR_DIR" ]; then
-            git config user.name 'github-actions[bot]'
-            git config user.email 'github-actions[bot]@users.noreply.github.com'
-            git rm -rf "$PR_DIR"
-            git commit -m "Remove preview for PR #${{ github.event.pull_request.number }}"
-            git push
-            echo "Removed preview directory: $PR_DIR"
+            echo "Removing preview directory: $PR_DIR"
+            rm -rf "$PR_DIR"
           else
             echo "Preview directory not found: $PR_DIR"
           fi
+
+          # Ensure .nojekyll exists
+          touch .nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Comment PR cleanup
         uses: actions/github-script@v7

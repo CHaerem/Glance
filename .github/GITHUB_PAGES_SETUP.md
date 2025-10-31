@@ -18,10 +18,8 @@ GitHub Pages must be enabled in your repository settings:
 
 1. Go to **Settings** → **Pages**
 2. Under **Source**, select:
-   - Source: **Deploy from a branch**
-   - Branch: **gh-pages**
-   - Folder: **/ (root)**
-3. Click **Save**
+   - Source: **GitHub Actions**
+3. The configuration will be handled automatically by the workflow
 
 ### 2. Verify Workflow Permissions
 
@@ -54,11 +52,15 @@ The preview deployment workflow (`.github/workflows/preview-deploy.yml`) trigger
    - Processes `server/simple-ui.html` → `preview/index.html`
    - Processes `server/admin.html` → `preview/admin.html`
    - Inlines mock API for standalone operation
-2. **Deploy**: Pushes to `gh-pages` branch
+2. **Merge with existing content**: For PR previews, fetches existing deployments to preserve other PRs
    - Main branch → root directory (`/`)
    - PRs → subdirectory (`/pr-{number}/`)
-3. **Comment**: Posts preview URL as PR comment
-4. **Cleanup**: Removes PR preview when PR is closed
+3. **Deploy**: Uses official GitHub Pages Actions to deploy
+   - `actions/configure-pages` - Configures deployment
+   - `actions/upload-pages-artifact` - Uploads built content
+   - `actions/deploy-pages` - Deploys to GitHub Pages
+4. **Comment**: Posts preview URL as PR comment
+5. **Cleanup**: Removes PR preview when PR is closed and redeploys
 
 ## Troubleshooting
 
@@ -76,28 +78,27 @@ The preview deployment workflow (`.github/workflows/preview-deploy.yml`) trigger
 
 3. **Verify GitHub Pages is enabled**:
    - Go to **Settings** → **Pages**
-   - Ensure source is set to `gh-pages` branch
+   - Ensure source is set to **GitHub Actions**
    - Check if there's a green success message with the URL
 
 4. **Check workflow permissions**:
-   - Workflow needs `contents: write`, `pull-requests: write`, and `pages: write`
+   - Workflow needs `pages: write`, `id-token: write`, and `pull-requests: write`
    - These are configured in the workflow file
+   - Also verify Actions permissions in Settings → Actions → General
 
 ### Preview URL Returns 404
 
-1. **Wait a few minutes**: GitHub Pages deployment can take 1-5 minutes
-2. **Check gh-pages branch**:
-   ```bash
-   git fetch origin gh-pages
-   git ls-tree -r --name-only origin/gh-pages
-   ```
-   - Verify `index.html` exists at root (main deployment)
-   - Verify `pr-{number}/index.html` exists (PR preview)
+1. **Wait a few minutes**: GitHub Pages deployment can take 2-5 minutes to propagate
+2. **Check deployment status**:
+   - Go to **Actions** tab → **"deploy-pages"** workflow
+   - Verify it completed successfully
+   - Check the deployment URL in the workflow summary
 
 3. **Verify deployment**:
    - Go to **Settings** → **Pages**
-   - Look for "Your site is live at..." message
-   - Try accessing the main URL first
+   - Look for "Your site is live at..." message with a green checkmark
+   - Try accessing the main URL first (https://yourusername.github.io/Glance/)
+   - Then try the PR preview URL
 
 ### Workflow Fails
 
@@ -115,9 +116,12 @@ Common issues and solutions:
 - **Cause**: Missing dependencies or build errors
 - **Solution**: Check build logs, ensure `npm ci` completed successfully
 
-#### Error: "Deploy failed"
-- **Cause**: Various deployment issues
-- **Solution**: Check if gh-pages branch exists, verify peaceiris action configuration
+#### Error: "Deploy failed" or "Artifact upload failed"
+- **Cause**: GitHub Pages environment not configured or permissions issues
+- **Solution**:
+  - Verify GitHub Pages source is set to "GitHub Actions"
+  - Check that `pages: write` and `id-token: write` permissions are set
+  - Ensure the `github-pages` environment exists (created automatically on first run)
 
 ## Manual Testing
 
@@ -145,13 +149,20 @@ If you need to force a re-deployment:
 
 ## Architecture
 
-The preview system uses a dual-mode approach:
+The preview system uses several key approaches:
 
+### Dual-Mode HTML Files
 - **Production mode**: HTML files connect to real backend API (server.js)
 - **Preview mode**: HTML files auto-detect GitHub Pages and load inline mock API
 - **Auto-detection**: Checks for `github.io` in hostname
+- **Result**: Same HTML files work in both environments without modification
 
-This means the same HTML files work in both environments without modification.
+### GitHub Actions Deployment
+- Uses official GitHub Pages Actions (modern, flexible approach)
+- Deploys entire site structure on each push
+- For PR previews, merges new content with existing content from gh-pages branch
+- Preserves other PR previews during deployment
+- Automatically cleans up when PRs are closed
 
 ## Multiple PR Previews
 
@@ -164,12 +175,13 @@ The workflow supports multiple concurrent PR previews:
 
 ## Files Involved
 
-- **Workflow**: `.github/workflows/preview-deploy.yml`
-- **Build script**: `server/preview/build-preview.js`
-- **Mock API**: `server/preview/mock-api.js`
-- **Source HTML**: `server/simple-ui.html`, `server/admin.html`
-- **Output HTML**: `server/preview/index.html`, `server/preview/admin.html`
-- **Deployment branch**: `gh-pages` (auto-created)
+- **Workflow**: `.github/workflows/preview-deploy.yml` - Main deployment workflow
+- **Build script**: `server/preview/build-preview.js` - Builds static preview files
+- **Mock API**: `server/preview/mock-api.js` - Browser-based mock API
+- **Source HTML**: `server/simple-ui.html`, `server/admin.html` - Original HTML files
+- **Output HTML**: `server/preview/index.html`, `server/preview/admin.html` - Generated preview files
+- **Cache branch**: `gh-pages` - Used to store existing deployments (preserves PR previews)
+- **Deployment**: GitHub Pages environment (configured via Actions)
 
 ## Support
 
@@ -183,10 +195,13 @@ If you're still having issues:
 
 ## Updates and Maintenance
 
-The workflow uses:
+The workflow uses official GitHub Actions:
 
-- `peaceiris/actions-gh-pages@v4`: Official GitHub Pages deployment action
-- `actions/checkout@v4`: Latest checkout action
-- `actions/setup-node@v4`: Latest Node.js setup
+- `actions/configure-pages@v4`: Configures GitHub Pages deployment
+- `actions/upload-pages-artifact@v3`: Uploads built artifacts
+- `actions/deploy-pages@v4`: Deploys to GitHub Pages
+- `actions/checkout@v4`: Code checkout
+- `actions/setup-node@v4`: Node.js environment setup
+- `actions/github-script@v7`: PR commenting
 
-These are maintained versions and should work reliably. If you encounter issues, check if newer versions are available.
+These are the official, maintained actions for GitHub Pages deployment using the "GitHub Actions" source method. This is the modern, recommended approach with better support and flexibility than branch-based deployment.

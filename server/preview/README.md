@@ -37,10 +37,10 @@ Automatic via GitHub Actions to GitHub Pages:
 For the first time setup, you must enable GitHub Pages:
 
 1. Go to repository **Settings** → **Pages**
-2. Set **Source** to: Deploy from branch `gh-pages` (root folder)
-3. Enable **Actions permissions** (read/write) in Settings → Actions
+2. Set **Source** to: **GitHub Actions**
+3. Enable **Actions permissions** (read/write) in Settings → Actions → General
 
-See `.github/GITHUB_PAGES_SETUP.md` for detailed setup instructions.
+See `.github/GITHUB_PAGES_SETUP.md` for detailed setup instructions and troubleshooting.
 
 ## Adding Features
 
