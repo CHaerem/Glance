@@ -704,6 +704,43 @@
             color: #999;
         }
 
+        /* Desktop adjustments */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 900px;
+                padding: 60px 40px;
+            }
+
+            .art-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 20px;
+            }
+
+            /* Ensure grid items don't exceed max width */
+            .art-item {
+                max-width: 250px;
+                width: 100%;
+            }
+        }
+
+        /* Tablet adjustments */
+        @media (min-width: 601px) and (max-width: 767px) {
+            .container {
+                max-width: 700px;
+                padding: 60px 30px;
+            }
+
+            .art-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 18px;
+            }
+
+            .art-item {
+                max-width: 220px;
+                width: 100%;
+            }
+        }
+
         /* Mobile adjustments */
         @media (max-width: 600px) {
             .container {

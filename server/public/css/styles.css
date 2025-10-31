@@ -861,7 +861,6 @@
             .collection-grid {
                 grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
                 gap: 20px;
-                justify-items: center;
             }
 
             /* Ensure grid items don't exceed max width */
@@ -883,7 +882,6 @@
             .collection-grid {
                 grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
                 gap: 18px;
-                justify-items: center;
             }
 
             .art-item,
