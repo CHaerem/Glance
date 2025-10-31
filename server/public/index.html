@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -23,12 +26,12 @@
         </div>
 
         <!-- Mode Toggle -->
-        <div class="mode-toggle">
-            <button class="mode-link" id="createLink">create</button>
-            <span style="color: #e5e5e5;">|</span>
-            <button class="mode-link" id="exploreLink">explore</button>
-            <span style="color: #e5e5e5;">|</span>
-            <button class="mode-link" id="myCollectionLink">my collection</button>
+        <div class="mode-toggle" role="tablist" aria-label="Choose an experience">
+            <button class="mode-link" id="createLink" role="tab">create</button>
+            <span class="mode-divider" aria-hidden="true">/</span>
+            <button class="mode-link" id="exploreLink" role="tab">explore</button>
+            <span class="mode-divider" aria-hidden="true">/</span>
+            <button class="mode-link" id="myCollectionLink" role="tab">my collection</button>
         </div>
 
         <!-- Create Mode (default) -->
@@ -46,15 +49,13 @@
             </div>
 
             <!-- Separator -->
-            <div style="text-align: center; margin: 40px 0 30px; color: #ccc; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
-                or
-            </div>
+            <div class="section-divider" role="separator">or</div>
 
             <!-- Upload Section -->
             <div class="input-area" id="dropZone" style="cursor: pointer;">
-                <div style="padding: 40px 20px; text-align: center;">
-                    <div style="color: #999; font-size: 0.9rem; margin-bottom: 8px;">Upload an image</div>
-                    <div style="color: #ccc; font-size: 0.75rem;">Click or drag image here</div>
+                <div class="dropzone-message">
+                    <p class="dropzone-title">Upload an image</p>
+                    <p class="dropzone-subtitle">Click or drag image here</p>
                 </div>
             </div>
         </div>
@@ -70,12 +71,12 @@
             </div>
 
             <!-- Suggestions -->
-            <div style="text-align: center; margin: 16px 0; font-size: 0.8rem; color: #666;">
-                <span style="color: #999;">Try:</span>
+            <div class="suggestion-row">
+                <span class="suggestion-label">Try:</span>
                 <button class="mode-link suggestion-link" data-query="Monet">Monet</button>
-                <span style="color: #e5e5e5;">·</span>
+                <span class="mode-divider" aria-hidden="true">·</span>
                 <button class="mode-link suggestion-link" data-query="Japanese art">Japanese art</button>
-                <span style="color: #e5e5e5;">·</span>
+                <span class="mode-divider" aria-hidden="true">·</span>
                 <button class="mode-link suggestion-link" data-query="Bold colors">Bold colors</button>
             </div>
 
