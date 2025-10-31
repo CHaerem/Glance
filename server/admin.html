@@ -286,6 +286,322 @@
             margin-bottom: 24px;
             font-family: 'Monaco', 'Courier New', monospace;
         }
+
+        /* Statistics */
+        .stats-container {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .stats-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .stats-btn {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            color: #666;
+            font-size: 0.75rem;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-btn:hover {
+            background: #1a1a1a;
+            color: #fff;
+            border-color: #1a1a1a;
+        }
+
+        .stats-btn.active {
+            background: #1a1a1a;
+            color: #fff;
+            border-color: #1a1a1a;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .stat-sublabel {
+            color: #999;
+            font-size: 0.7rem;
+            margin-top: 2px;
+        }
+
+        .api-source-list {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .api-source-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .api-source-item:last-child {
+            border-bottom: none;
+        }
+
+        .api-source-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .api-source-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .api-bar {
+            background: #f0f0f0;
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .api-bar-fill {
+            background: #1a1a1a;
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .log-chart {
+            background: #fff;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .chart-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #666;
+        }
+
+        .chart-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .chart-label {
+            width: 60px;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .chart-bar-bg {
+            flex: 1;
+            background: #f0f0f0;
+            height: 24px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-bar-fill {
+            background: #1a1a1a;
+            height: 100%;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .info-item {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .info-label {
+            color: #666;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 16px;
+                overflow-x: hidden;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            h2 {
+                font-size: 1.2rem;
+                margin-top: 32px;
+            }
+
+            .stats-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .stats-controls {
+                flex-wrap: wrap;
+                width: 100%;
+            }
+
+            .stats-btn {
+                flex: 1;
+                min-width: 70px;
+                font-size: 0.7rem;
+                padding: 6px 8px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .api-source-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .api-source-stats {
+                flex-wrap: wrap;
+                gap: 12px;
+                font-size: 0.7rem;
+            }
+
+            .log-output {
+                font-size: 0.7rem;
+            }
+
+            .settings-group {
+                margin-bottom: 20px;
+            }
+
+            input[type="number"],
+            input[type="text"],
+            select {
+                font-size: 16px; /* Prevents iOS zoom on input focus */
+            }
+
+            /* Stack device status on mobile */
+            .device-status {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .status-item {
+                min-width: 100%;
+            }
+        }
+
+        /* Small mobile devices */
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+
+            h1 {
+                font-size: 1.3rem;
+            }
+
+            h2 {
+                font-size: 1.1rem;
+            }
+
+            .stats-btn {
+                font-size: 0.65rem;
+                padding: 5px 6px;
+            }
+
+            .stat-value {
+                font-size: 1.2rem;
+            }
+
+            .stat-label {
+                font-size: 0.7rem;
+            }
+
+            .api-source-name {
+                font-size: 0.8rem;
+            }
+
+            .chart-label {
+                width: 50px;
+                font-size: 0.7rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -473,6 +789,86 @@
         <div class="info-item">
             <div class="info-label">Platform</div>
             <div class="info-value" id="platform">--</div>
+        </div>
+    </div>
+
+    <h2>API Usage Statistics</h2>
+    <div class="stats-container">
+        <div class="stats-header">
+            <div>
+                <div style="font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Time Range</div>
+            </div>
+            <div class="stats-controls">
+                <button class="stats-btn" onclick="loadStats('1h')">1 Hour</button>
+                <button class="stats-btn" onclick="loadStats('24h')">24 Hours</button>
+                <button class="stats-btn" onclick="loadStats('7d')">7 Days</button>
+                <button class="stats-btn active" onclick="loadStats('all')">All Time</button>
+                <button class="stats-btn" onclick="refreshStats()">Refresh</button>
+            </div>
+        </div>
+
+        <!-- OpenAI Statistics -->
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">OpenAI API Usage</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="openaiCalls">--</div>
+                    <div class="stat-label">Total Calls</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="openaiTokens">--</div>
+                    <div class="stat-label">Total Tokens</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="openaiCost">--</div>
+                    <div class="stat-label">Estimated Cost</div>
+                </div>
+            </div>
+
+            <div class="api-source-list">
+                <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">By Model</div>
+                <div id="openaiModelStats">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Museum API Statistics -->
+        <div style="margin-bottom: 24px;">
+            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">Museum API Calls</div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="museumCalls">--</div>
+                    <div class="stat-label">Total API Calls</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="museumSuccessRate">--</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+            </div>
+
+            <div class="api-source-list">
+                <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">By Source</div>
+                <div id="museumSourceStats">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Log Statistics -->
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">System Logs</div>
+            <div class="log-chart">
+                <div class="chart-title">Log Activity</div>
+                <div class="chart-bar">
+                    <div class="chart-label">INFO</div>
+                    <div class="chart-bar-bg">
+                        <div class="chart-bar-fill" id="logInfoBar" style="width: 0%">0</div>
+                    </div>
+                </div>
+                <div class="chart-bar">
+                    <div class="chart-label">ERROR</div>
+                    <div class="chart-bar-bg">
+                        <div class="chart-bar-fill" id="logErrorBar" style="width: 0%; background: #ef4444;">0</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -814,6 +1210,148 @@
             }
         }
 
+        // Statistics
+        let currentStatsRange = 'all';
+
+        async function loadStats(range = 'all') {
+            try {
+                currentStatsRange = range;
+
+                // Update active button
+                document.querySelectorAll('.stats-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event?.target?.classList.add('active');
+
+                const response = await fetch(`/api/stats?range=${range}`);
+                const stats = await response.json();
+
+                // OpenAI Statistics
+                document.getElementById('openaiCalls').textContent = stats.openai.summary.totalCalls || 0;
+
+                const tokens = stats.openai.summary.totalTokens || 0;
+                document.getElementById('openaiTokens').textContent = tokens > 1000 ?
+                    `${(tokens / 1000).toFixed(1)}K` : tokens;
+
+                const cost = stats.openai.summary.totalCost || 0;
+                document.getElementById('openaiCost').textContent = `$${cost.toFixed(4)}`;
+
+                // OpenAI Model Breakdown
+                const modelStatsDiv = document.getElementById('openaiModelStats');
+                const byModel = stats.openai.summary.byModel || {};
+
+                if (Object.keys(byModel).length === 0) {
+                    modelStatsDiv.innerHTML = '<div style="color: #999; font-size: 0.8rem; padding: 8px 0;">No OpenAI API calls yet</div>';
+                } else {
+                    const modelNames = {
+                        'gpt-image-1': 'GPT Image (gpt-image-1)',
+                        'gpt-4': 'GPT-4',
+                        'gpt-4o': 'GPT-4o',
+                        'gpt-4o-mini': 'GPT-4o Mini'
+                    };
+
+                    let html = '';
+                    for (const [model, data] of Object.entries(byModel)) {
+                        const percentage = stats.openai.summary.totalCalls > 0 ?
+                            (data.calls / stats.openai.summary.totalCalls * 100) : 0;
+
+                        html += `
+                            <div class="api-source-item">
+                                <div>
+                                    <div class="api-source-name">${modelNames[model] || model}</div>
+                                    <div class="api-bar">
+                                        <div class="api-bar-fill" style="width: ${percentage}%"></div>
+                                    </div>
+                                </div>
+                                <div class="api-source-stats">
+                                    <span>${data.calls} calls</span>
+                                    <span>${data.tokens > 1000 ? (data.tokens / 1000).toFixed(1) + 'K' : data.tokens} tokens</span>
+                                    <span>$${data.cost.toFixed(4)}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    modelStatsDiv.innerHTML = html;
+                }
+
+                // Museum API Statistics
+                const totalMuseumCalls = stats.apiCalls.summary.totalCalls || 0;
+                document.getElementById('museumCalls').textContent = totalMuseumCalls;
+
+                // Calculate success rate
+                const bySource = stats.apiCalls.summary.bySource || {};
+                let totalSuccesses = 0;
+                let totalAttempts = 0;
+                for (const data of Object.values(bySource)) {
+                    totalSuccesses += data.successes || 0;
+                    totalAttempts += data.calls || 0;
+                }
+                const successRate = totalAttempts > 0 ? (totalSuccesses / totalAttempts * 100) : 0;
+                document.getElementById('museumSuccessRate').textContent = `${successRate.toFixed(1)}%`;
+
+                // Museum Source Breakdown
+                const sourceStatsDiv = document.getElementById('museumSourceStats');
+                if (Object.keys(bySource).length === 0) {
+                    sourceStatsDiv.innerHTML = '<div style="color: #999; font-size: 0.8rem; padding: 8px 0;">No museum API calls yet</div>';
+                } else {
+                    let html = '';
+                    const sortedSources = Object.entries(bySource).sort((a, b) => b[1].calls - a[1].calls);
+
+                    for (const [source, data] of sortedSources) {
+                        const percentage = totalMuseumCalls > 0 ? (data.calls / totalMuseumCalls * 100) : 0;
+                        const sourceSuccessRate = data.calls > 0 ? (data.successes / data.calls * 100) : 0;
+
+                        html += `
+                            <div class="api-source-item">
+                                <div style="flex: 1;">
+                                    <div class="api-source-name">${source}</div>
+                                    <div class="api-bar">
+                                        <div class="api-bar-fill" style="width: ${percentage}%"></div>
+                                    </div>
+                                </div>
+                                <div class="api-source-stats">
+                                    <span>${data.calls} calls</span>
+                                    <span style="color: ${sourceSuccessRate > 80 ? '#10b981' : sourceSuccessRate > 50 ? '#f59e0b' : '#ef4444'}">${sourceSuccessRate.toFixed(0)}% success</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    sourceStatsDiv.innerHTML = html;
+                }
+
+                // Log Statistics
+                const logSummary = stats.logs.summary || {};
+                const infoCount = logSummary.byLevel?.INFO || 0;
+                const errorCount = logSummary.byLevel?.ERROR || 0;
+                const totalLogs = infoCount + errorCount;
+
+                if (totalLogs > 0) {
+                    const infoPercent = (infoCount / totalLogs * 100);
+                    const errorPercent = (errorCount / totalLogs * 100);
+
+                    const infoBar = document.getElementById('logInfoBar');
+                    infoBar.style.width = `${infoPercent}%`;
+                    infoBar.textContent = infoCount;
+
+                    const errorBar = document.getElementById('logErrorBar');
+                    errorBar.style.width = `${errorPercent}%`;
+                    errorBar.textContent = errorCount;
+                } else {
+                    document.getElementById('logInfoBar').style.width = '0%';
+                    document.getElementById('logInfoBar').textContent = '0';
+                    document.getElementById('logErrorBar').style.width = '0%';
+                    document.getElementById('logErrorBar').textContent = '0';
+                }
+
+            } catch (error) {
+                console.error('Failed to load statistics:', error);
+            }
+        }
+
+        function refreshStats() {
+            loadStats(currentStatsRange);
+        }
+
         // Load device logs
         async function loadDeviceLogs() {
             try {
@@ -891,6 +1429,7 @@
             loadSettings();
             loadDeviceStatus();
             loadSystemInfo();
+            loadStats('all'); // Load statistics
             loadLogs();
             loadDeviceLogs();
             setInterval(loadDeviceStatus, 5000); // Update status every 5s
