@@ -1,0 +1,106 @@
+[
+  {
+    "imageId": "test-generated-1",
+    "title": "Mountain Landscape",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzM0OThkYiIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk1vdW50YWluczwvdGV4dD48L3N2Zz4=",
+    "timestamp": 1730365200000,
+    "aiGenerated": true,
+    "originalPrompt": "Majestic mountain landscape with dramatic clouds in the style of ink drawing, high contrast, edge-to-edge detail",
+    "artStyle": "ink-drawing",
+    "quality": "hd",
+    "rotation": 0
+  },
+  {
+    "imageId": "test-generated-2",
+    "title": "Japanese Wave",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzJlY2M3MSIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPldhdmU8L3RleHQ+PC9zdmc+",
+    "timestamp": 1730278800000,
+    "aiGenerated": true,
+    "originalPrompt": "Japanese wave in the style of Hokusai, bold contrast, full-frame composition",
+    "artStyle": "woodblock-print",
+    "quality": "standard",
+    "rotation": 90
+  },
+  {
+    "imageId": "test-uploaded-1",
+    "title": "Abstract Art",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzk2NTliNiIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPkFic3RyYWN0PC90ZXh0Pjwvc3ZnPg==",
+    "timestamp": 1730192400000,
+    "aiGenerated": false,
+    "uploadedFilename": "abstract-pattern.jpg"
+  },
+  {
+    "imageId": "test-generated-3",
+    "title": "Geometric Mandala",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzFlOGNiZSIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPk1hbmRhbGE8L3RleHQ+PC9zdmc+",
+    "timestamp": 1730106000000,
+    "aiGenerated": true,
+    "originalPrompt": "Geometric mandala pattern with high contrast black and white, intricate details filling the entire frame",
+    "artStyle": "geometric",
+    "quality": "hd",
+    "rotation": 0
+  },
+  {
+    "imageId": "test-generated-4",
+    "title": "Sunflower Close-up",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y5YTgyNSIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPlN1bmZsb3dlcjwvdGV4dD48L3N2Zz4=",
+    "timestamp": 1730019600000,
+    "aiGenerated": true,
+    "originalPrompt": "Close-up of a sunflower filling the entire frame with bold contrast and dramatic lighting",
+    "artStyle": "botanical",
+    "quality": "standard",
+    "rotation": 0
+  },
+  {
+    "imageId": "test-uploaded-2",
+    "title": "Street Photography",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzk1YTVhNiIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPlN0cmVldDwvdGV4dD48L3N2Zz4=",
+    "timestamp": 1729933200000,
+    "aiGenerated": false,
+    "uploadedFilename": "street-photo.jpg"
+  },
+  {
+    "imageId": "test-generated-5",
+    "title": "Minimalist Peaks",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzM0NDk1ZSIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPlBlYWtzPC90ZXh0Pjwvc3ZnPg==",
+    "timestamp": 1729846800000,
+    "aiGenerated": true,
+    "originalPrompt": "Minimalist mountain peaks under dramatic stormy clouds, bold silhouettes, high contrast",
+    "artStyle": "minimalist",
+    "quality": "hd",
+    "rotation": 0
+  },
+  {
+    "imageId": "test-generated-6",
+    "title": "Forest Path",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzI3YWU2MCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPkZvcmVzdDwvdGV4dD48L3N2Zz4=",
+    "timestamp": 1729760400000,
+    "aiGenerated": true,
+    "originalPrompt": "Winding forest path with dappled sunlight, ink drawing style, detailed foliage",
+    "artStyle": "ink-drawing",
+    "quality": "standard",
+    "rotation": 0
+  },
+  {
+    "imageId": "test-generated-7",
+    "title": "Zen Garden",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2FhOGY3YyIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPlplbjwvdGV4dD48L3N2Zz4=",
+    "timestamp": 1729674000000,
+    "aiGenerated": true,
+    "originalPrompt": "Zen garden with raked sand patterns and stones, minimalist composition, top-down view",
+    "artStyle": "minimalist",
+    "quality": "hd",
+    "rotation": 0
+  },
+  {
+    "imageId": "test-generated-8",
+    "title": "Urban Skyline",
+    "thumbnail": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzJjM2U1MCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPkNpdHk8L3RleHQ+PC9zdmc+",
+    "timestamp": 1729587600000,
+    "aiGenerated": true,
+    "originalPrompt": "Urban skyline at sunset, bold silhouettes against vibrant sky, high contrast",
+    "artStyle": "geometric",
+    "quality": "standard",
+    "rotation": 0
+  }
+]

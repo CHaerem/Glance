@@ -89,7 +89,23 @@
 
         <!-- My Collection Mode -->
         <div class="browse-section" id="myCollectionMode">
-            <div class="art-grid" id="collectionGrid"></div>
+            <!-- Collection Controls -->
+            <div class="collection-controls">
+                <input type="text" id="collectionSearch" class="collection-search" placeholder="search collection...">
+                <div class="collection-sort">
+                    <label class="sort-label">sort by</label>
+                    <select id="collectionSort" class="sort-select">
+                        <option value="date-desc">newest first</option>
+                        <option value="date-asc">oldest first</option>
+                        <option value="title-asc">title (a-z)</option>
+                        <option value="title-desc">title (z-a)</option>
+                        <option value="artist-asc">artist (a-z)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Collection Grid -->
+            <div class="collection-grid" id="collectionGrid"></div>
 
             <!-- Show more button -->
             <div class="show-more" id="collectionShowMore" style="display: none;">

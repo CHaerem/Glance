@@ -71,10 +71,12 @@ class MockAPI {
                 '[2025-10-30 10:17:12] Display refresh complete',
                 '[2025-10-30 10:17:13] Entering deep sleep for 60 minutes'
             ],
-            collections: this.generateMockCollections()
+            collections: this.generateMockCollections(),
+            myCollection: []
         };
 
         this.generateDemoImage();
+        this.initializeMyCollection();
     }
 
     /**
@@ -439,6 +441,71 @@ class MockAPI {
         console.log(`[MockAPI] Generated ${demoPrompts.length} demo images for history`);
     }
 
+    initializeMyCollection() {
+        // Initialize collection with mix of generated and external artworks
+        const now = Date.now();
+
+        // Add some generated images to collection
+        const generatedImages = Array.from(this.storage.images.values()).slice(0, 3);
+        generatedImages.forEach((img, index) => {
+            this.storage.myCollection.push({
+                id: img.imageId,
+                imageId: img.imageId,
+                thumbnail: img.thumbnail,
+                originalImage: img.originalImage,
+                originalImageMime: img.originalImageMime,
+                title: img.originalPrompt.substring(0, 50),
+                originalPrompt: img.originalPrompt,
+                artist: 'Generated',
+                collectionType: 'generated',
+                addedAt: now - (index * 3600000),
+                timestamp: img.timestamp
+            });
+        });
+
+        // Add some external artworks
+        const externalArtworks = [
+            {
+                id: 'external-1',
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Tsunami_by_hokusai_19th_century.jpg/400px-Tsunami_by_hokusai_19th_century.jpg',
+                title: 'The Great Wave off Kanagawa',
+                artist: 'Katsushika Hokusai',
+                year: '1831',
+                thumbnail: this.generatePlaceholderSVG('Hokusai', '#1a6c9c'),
+                collectionType: 'external',
+                addedAt: now - 4 * 3600000
+            },
+            {
+                id: 'external-2',
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/400px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg',
+                title: 'The Starry Night',
+                artist: 'Vincent van Gogh',
+                year: '1889',
+                thumbnail: this.generatePlaceholderSVG('Van Gogh', '#4a5f8c'),
+                collectionType: 'external',
+                addedAt: now - 8 * 3600000
+            },
+            {
+                id: 'external-3',
+                imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg/400px-Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg',
+                title: 'The Creation of Adam',
+                artist: 'Michelangelo',
+                year: '1512',
+                thumbnail: this.generatePlaceholderSVG('Michelangelo', '#8b7355'),
+                collectionType: 'external',
+                addedAt: now - 12 * 3600000
+            }
+        ];
+
+        this.storage.myCollection.push(...externalArtworks);
+        console.log(`[MockAPI] Initialized collection with ${this.storage.myCollection.length} items`);
+    }
+
+    generatePlaceholderSVG(text, color) {
+        const svg = `<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="200" fill="${color}"/><text x="100" y="100" font-family="sans-serif" font-size="18" fill="white" text-anchor="middle" dominant-baseline="middle">${text}</text></svg>`;
+        return `data:image/svg+xml;base64,${btoa(svg)}`;
+    }
+
     generateMockCollections() {
         return [
             { id: 'renaissance-masters', name: 'Renaissance Masters', description: 'Great works from the Renaissance period' },
@@ -458,32 +525,61 @@ class MockAPI {
                 { title: 'Mona Lisa', artist: 'Leonardo da Vinci', style: 'portrait' },
                 { title: 'The Birth of Venus', artist: 'Sandro Botticelli', style: 'portrait' },
                 { title: 'The School of Athens', artist: 'Raphael', style: 'geometric' },
-                { title: 'The Creation of Adam', artist: 'Michelangelo', style: 'portrait' }
+                { title: 'The Creation of Adam', artist: 'Michelangelo', style: 'portrait' },
+                { title: 'Primavera', artist: 'Sandro Botticelli', style: 'landscape' },
+                { title: 'The Last Supper', artist: 'Leonardo da Vinci', style: 'geometric' },
+                { title: 'David', artist: 'Michelangelo', style: 'portrait' },
+                { title: 'The Sistine Madonna', artist: 'Raphael', style: 'portrait' }
             ],
             'dutch-masters': [
                 { title: 'Girl with a Pearl Earring', artist: 'Johannes Vermeer', style: 'portrait' },
                 { title: 'The Night Watch', artist: 'Rembrandt', style: 'abstract' },
-                { title: 'The Milkmaid', artist: 'Johannes Vermeer', style: 'portrait' }
+                { title: 'The Milkmaid', artist: 'Johannes Vermeer', style: 'portrait' },
+                { title: 'The Anatomy Lesson', artist: 'Rembrandt', style: 'geometric' },
+                { title: 'View of Delft', artist: 'Johannes Vermeer', style: 'landscape' },
+                { title: 'The Jewish Bride', artist: 'Rembrandt', style: 'portrait' },
+                { title: 'The Music Lesson', artist: 'Johannes Vermeer', style: 'portrait' },
+                { title: 'The Storm on the Sea', artist: 'Rembrandt', style: 'landscape' }
             ],
             'impressionists': [
                 { title: 'Water Lilies', artist: 'Claude Monet', style: 'landscape' },
                 { title: 'Bal du moulin de la Galette', artist: 'Pierre-Auguste Renoir', style: 'abstract' },
-                { title: 'Impression, Sunrise', artist: 'Claude Monet', style: 'landscape' }
+                { title: 'Impression, Sunrise', artist: 'Claude Monet', style: 'landscape' },
+                { title: 'The Luncheon', artist: 'Pierre-Auguste Renoir', style: 'abstract' },
+                { title: 'Woman with a Parasol', artist: 'Claude Monet', style: 'portrait' },
+                { title: 'Dance at Le Moulin', artist: 'Pierre-Auguste Renoir', style: 'abstract' },
+                { title: 'Rouen Cathedral', artist: 'Claude Monet', style: 'landscape' },
+                { title: 'The Theatre Box', artist: 'Pierre-Auguste Renoir', style: 'portrait' }
             ],
             'post-impressionists': [
                 { title: 'The Starry Night', artist: 'Vincent van Gogh', style: 'landscape' },
                 { title: 'The Card Players', artist: 'Paul Cézanne', style: 'portrait' },
-                { title: 'A Sunday Afternoon', artist: 'Georges Seurat', style: 'geometric' }
+                { title: 'A Sunday Afternoon', artist: 'Georges Seurat', style: 'geometric' },
+                { title: 'Café Terrace at Night', artist: 'Vincent van Gogh', style: 'landscape' },
+                { title: 'Mont Sainte-Victoire', artist: 'Paul Cézanne', style: 'landscape' },
+                { title: 'Irises', artist: 'Vincent van Gogh', style: 'landscape' },
+                { title: 'The Bathers', artist: 'Paul Cézanne', style: 'abstract' },
+                { title: 'Sunflowers', artist: 'Vincent van Gogh', style: 'landscape' }
             ],
             'japanese-masters': [
                 { title: 'The Great Wave', artist: 'Hokusai', style: 'landscape' },
                 { title: 'Red Fuji', artist: 'Hokusai', style: 'landscape' },
-                { title: 'Plum Blossoms', artist: 'Hiroshige', style: 'minimal' }
+                { title: 'Plum Blossoms', artist: 'Hiroshige', style: 'minimal' },
+                { title: 'Sudden Shower', artist: 'Hiroshige', style: 'landscape' },
+                { title: 'Evening Snow', artist: 'Hiroshige', style: 'landscape' },
+                { title: 'Moonlight on Sumida', artist: 'Hokusai', style: 'landscape' },
+                { title: 'Cherry Blossoms', artist: 'Hiroshige', style: 'minimal' },
+                { title: 'Dragon in Clouds', artist: 'Hokusai', style: 'abstract' }
             ],
             'modern-icons': [
                 { title: 'The Persistence of Memory', artist: 'Salvador Dalí', style: 'abstract' },
                 { title: 'Campbell\'s Soup Cans', artist: 'Andy Warhol', style: 'minimal' },
-                { title: 'The Scream', artist: 'Edvard Munch', style: 'portrait' }
+                { title: 'The Scream', artist: 'Edvard Munch', style: 'portrait' },
+                { title: 'Guernica', artist: 'Pablo Picasso', style: 'abstract' },
+                { title: 'Marilyn Diptych', artist: 'Andy Warhol', style: 'portrait' },
+                { title: 'Les Demoiselles', artist: 'Pablo Picasso', style: 'geometric' },
+                { title: 'The Weeping Woman', artist: 'Pablo Picasso', style: 'portrait' },
+                { title: 'Banana', artist: 'Andy Warhol', style: 'minimal' }
             ]
         };
 
@@ -673,6 +769,12 @@ class MockAPI {
             const imageId = path.split('/')[3];
             this.storage.history = this.storage.history.filter(h => h.imageId !== imageId);
             this.storage.images.delete(imageId);
+
+            // Also remove from myCollection if it exists there
+            this.storage.myCollection = this.storage.myCollection.filter(item =>
+                item.imageId !== imageId && item.id !== imageId
+            );
+
             return { success: true };
         }
 
@@ -684,6 +786,42 @@ class MockAPI {
                 return { success: true };
             }
             return { error: 'Image not found' };
+        }
+
+        if (path === '/api/my-collection' && method === 'GET') {
+            return this.storage.myCollection;
+        }
+
+        if (path === '/api/my-collection' && method === 'POST') {
+            const newItem = {
+                id: 'added-' + Date.now(),
+                ...body,
+                collectionType: 'external',
+                addedAt: Date.now()
+            };
+
+            // Check if already in collection
+            const exists = this.storage.myCollection.find(item =>
+                item.imageUrl === newItem.imageUrl || item.id === newItem.id
+            );
+
+            if (exists) {
+                return { error: 'Artwork already in collection' };
+            }
+
+            this.storage.myCollection.unshift(newItem);
+            return { success: true, id: newItem.id };
+        }
+
+        if (path.startsWith('/api/my-collection/') && method === 'DELETE') {
+            const itemId = path.split('/')[3];
+            const initialLength = this.storage.myCollection.length;
+            this.storage.myCollection = this.storage.myCollection.filter(item => item.id !== itemId);
+
+            if (this.storage.myCollection.length < initialLength) {
+                return { success: true };
+            }
+            return { error: 'Item not found' };
         }
 
         if (path === '/api/art/import' && method === 'POST') {
@@ -839,7 +977,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glance</title>
+    <title>Glance - Enhanced</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -850,6 +988,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             color: #1a1a1a;
             line-height: 1.5;
             min-height: 100vh;
+            overflow-x: hidden;
         }
 
         .container {
@@ -1142,6 +1281,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         }
 
         .art-item {
+            position: relative;
             cursor: pointer;
             transition: transform 0.2s ease;
         }
@@ -1165,6 +1305,28 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        /* Show more button (minimal style) */
+        .show-more {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .show-more-btn {
+            background: transparent;
+            border: none;
+            color: #999;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 8px 16px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: color 0.2s ease;
+        }
+
+        .show-more-btn:hover {
+            color: #666;
         }
 
         /* History */
@@ -1193,6 +1355,19 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             color: #666;
         }
 
+        /* History filter tabs */
+        .history-filters {
+            display: none;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .history-filters.show {
+            display: flex;
+        }
+
         .history-grid {
             display: none;
             grid-template-columns: repeat(4, 1fr);
@@ -1213,6 +1388,10 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             transform: translateY(-2px);
         }
 
+        .history-item:hover .item-overlay {
+            opacity: 1;
+        }
+
         .history-image {
             width: 100%;
             aspect-ratio: 1;
@@ -1221,6 +1400,27 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             background: #f5f5f5;
         }
 
+        /* Hover overlay for metadata */
+        .item-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+            padding: 8px 6px 4px;
+            border-radius: 0 0 4px 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+
+        .item-overlay-text {
+            font-size: 0.65rem;
+            color: #fff;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
         /* Modal */
         .modal {
@@ -1256,11 +1456,11 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             width: 100%;
             max-height: calc(90vh - 80px);
             border-radius: 8px 8px 0 0;
-            aspect-ratio: 3 / 4; /* 1200×1600 display ratio */
-            object-fit: cover; /* Crop to match display aspect ratio */
+            aspect-ratio: 3 / 4;
+            object-fit: cover;
             object-position: 50% 50%;
             transition: transform 0.2s ease;
-            background: #f5f5f5; /* Show margins when zoomed out */
+            background: #f5f5f5;
         }
 
         .modal-info {
@@ -1318,7 +1518,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         }
 
         .modal-image.landscape {
-            aspect-ratio: 4 / 3; /* 1600×1200 landscape */
+            aspect-ratio: 4 / 3;
         }
 
         .crop-controls {
@@ -1479,6 +1679,43 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             color: #999;
         }
 
+        /* Desktop adjustments */
+        @media (min-width: 768px) {
+            .container {
+                max-width: 900px;
+                padding: 60px 40px;
+            }
+
+            .art-grid {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+                gap: 20px;
+            }
+
+            /* Ensure grid items don't exceed max width */
+            .art-item {
+                max-width: 250px;
+                width: 100%;
+            }
+        }
+
+        /* Tablet adjustments */
+        @media (min-width: 601px) and (max-width: 767px) {
+            .container {
+                max-width: 700px;
+                padding: 60px 30px;
+            }
+
+            .art-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 18px;
+            }
+
+            .art-item {
+                max-width: 220px;
+                width: 100%;
+            }
+        }
+
         /* Mobile adjustments */
         @media (max-width: 600px) {
             .container {
@@ -1508,16 +1745,17 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
 
         <!-- Mode Toggle -->
         <div class="mode-toggle">
-            <button class="mode-link" onclick="switchMode('generate')" id="generateLink">generate</button>
+            <button class="mode-link" onclick="switchMode('create')" id="createLink">create</button>
             <span style="color: #e5e5e5;">|</span>
-            <button class="mode-link" onclick="switchMode('browse')" id="browseLink">browse</button>
+            <button class="mode-link" onclick="switchMode('explore')" id="exploreLink">explore</button>
             <span style="color: #e5e5e5;">|</span>
-            <button class="mode-link" onclick="switchMode('upload')" id="uploadLink">upload</button>
+            <button class="mode-link" onclick="switchMode('my-collection')" id="myCollectionLink">my collection</button>
         </div>
 
-        <!-- Generate Mode (default) -->
-        <div class="main-input" id="generateMode">
-            <div class="input-area" id="dropZone">
+        <!-- Create Mode (default) -->
+        <div class="main-input" id="createMode">
+            <!-- Generate Section -->
+            <div class="input-area">
                 <textarea
                     class="main-textarea"
                     id="promptInput"
@@ -1527,40 +1765,58 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                     <button class="btn btn-secondary" onclick="feelingLucky()">Feeling Lucky</button>
                 </div>
             </div>
+
+            <!-- Separator -->
+            <div style="text-align: center; margin: 40px 0 30px; color: #ccc; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
+                or
+            </div>
+
+            <!-- Upload Section -->
+            <div class="input-area" id="dropZone" style="cursor: pointer;" onclick="document.getElementById('fileInput').click()">
+                <div style="padding: 40px 20px; text-align: center;">
+                    <div style="color: #999; font-size: 0.9rem; margin-bottom: 8px;">Upload an image</div>
+                    <div style="color: #ccc; font-size: 0.75rem;">Click or drag image here</div>
+                </div>
+            </div>
         </div>
 
-        <!-- Browse Mode -->
-        <div class="browse-section" id="browseMode">
+        <!-- Explore Mode -->
+        <div class="browse-section" id="exploreMode">
             <div class="search-bar">
                 <input
                     type="text"
                     class="search-input"
                     id="searchInput"
-                    placeholder="Search artists or artworks..."
+                    placeholder="Search for art..."
                     onkeypress="if(event.key === 'Enter') searchArt()">
             </div>
 
-            <div class="filter-bar">
-                <button class="filter-btn active" data-filter="all" onclick="filterArt('all')">all</button>
-                <button class="filter-btn" data-filter="renaissance-masters" onclick="filterArt('renaissance-masters')">renaissance</button>
-                <button class="filter-btn" data-filter="dutch-masters" onclick="filterArt('dutch-masters')">dutch</button>
-                <button class="filter-btn" data-filter="impressionists" onclick="filterArt('impressionists')">impressionists</button>
-                <button class="filter-btn" data-filter="post-impressionists" onclick="filterArt('post-impressionists')">post-impressionists</button>
-                <button class="filter-btn" data-filter="japanese-masters" onclick="filterArt('japanese-masters')">japanese</button>
-                <button class="filter-btn" data-filter="modern-icons" onclick="filterArt('modern-icons')">modern</button>
+            <!-- Suggestions -->
+            <div style="text-align: center; margin: 16px 0; font-size: 0.8rem; color: #666;">
+                <span style="color: #999;">Try:</span>
+                <button class="mode-link" onclick="suggestSearch('Monet')">Monet</button>
+                <span style="color: #e5e5e5;">·</span>
+                <button class="mode-link" onclick="suggestSearch('Japanese art')">Japanese art</button>
+                <span style="color: #e5e5e5;">·</span>
+                <button class="mode-link" onclick="suggestSearch('Bold colors')">Bold colors</button>
             </div>
 
             <div class="art-grid" id="artGrid"></div>
+
+            <!-- Show more button -->
+            <div class="show-more" id="browseShowMore" style="display: none;">
+                <button class="show-more-btn" onclick="showMoreBrowse()">show 8 more</button>
+            </div>
         </div>
 
-        <!-- History -->
-        <div class="history-section">
-            <div class="history-toggle">
-                <button class="history-toggle-btn" onclick="toggleHistory()">
-                    <span id="historyText">show history</span>
-                </button>
+        <!-- My Collection Mode -->
+        <div class="browse-section" id="myCollectionMode">
+            <div class="art-grid" id="collectionGrid"></div>
+
+            <!-- Show more button -->
+            <div class="show-more" id="collectionShowMore" style="display: none;">
+                <button class="show-more-btn" onclick="showMoreCollection()">show 8 more</button>
             </div>
-            <div class="history-grid" id="historyGrid"></div>
         </div>
     </div>
 
@@ -1603,7 +1859,9 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             <div class="modal-info">
                 <div class="modal-actions">
                     <button class="btn btn-primary" onclick="applyModalArt()">Apply to Display</button>
-                    <button class="btn btn-danger" id="deleteModalBtn" onclick="deleteModalImage()" style="display: none;">Delete</button>
+                </div>
+                <div style="text-align: center; margin-top: 12px;">
+                    <button class="mode-link" id="modalSecondaryAction" onclick="handleSecondaryAction()" style="display: none;"></button>
                 </div>
             </div>
         </div>
@@ -1614,10 +1872,38 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
 
     <script>
         // Global state
-        let currentMode = 'generate';
+        let currentMode = 'create';
         let currentArtResults = [];
         let selectedModalArt = null;
-        let defaultOrientation = 'portrait'; // Default orientation from settings
+        let selectedHistoryItem = null;
+        let defaultOrientation = 'portrait';
+        let secondaryActionType = null; // 'add', 'remove', 'delete'
+
+        // Browse state
+        let browseDisplayCount = getInitialDisplayCount();
+        let collectionDisplayCount = getInitialDisplayCount();
+        let allArtworks = [];
+        let myCollection = [];
+        let filteredCollection = [];
+        let currentFilter = 'all';
+        let collectionSearchQuery = '';
+        let collectionSortBy = 'date-desc';
+
+        // Determine initial display count based on screen size
+        function getInitialDisplayCount() {
+            const width = window.innerWidth;
+            if (width >= 768) return 16; // Desktop: 4 rows of 4 columns
+            if (width >= 601) return 12; // Tablet: 4 rows of 3 columns
+            return 8; // Mobile: 8 items in single column
+        }
+
+        // Determine increment for "show more" based on screen size
+        function getShowMoreIncrement() {
+            const width = window.innerWidth;
+            if (width >= 768) return 12; // Desktop: 3 more rows
+            if (width >= 601) return 9; // Tablet: 3 more rows
+            return 8; // Mobile: 8 more items
+        }
 
         // Load settings
         async function loadSettings() {
@@ -1627,7 +1913,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                 defaultOrientation = settings.defaultOrientation || 'portrait';
             } catch (error) {
                 console.error('Failed to load settings:', error);
-                defaultOrientation = 'portrait'; // Fallback to portrait
+                defaultOrientation = 'portrait';
             }
         }
 
@@ -1645,43 +1931,48 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
             loadCurrentDisplay();
-            loadHistory();
             loadAllArt();
+            loadMyCollection();
             setupDragDrop();
             setInterval(loadCurrentDisplay, 30000);
         });
-
-        // Toggle device details
-        function toggleDetails() {
-            const status = document.getElementById('deviceStatus');
-            const text = document.getElementById('detailsText');
-            status.classList.toggle('show');
-            text.textContent = status.classList.contains('show') ? 'hide details' : 'show details';
-        }
-
-        // Toggle history
-        function toggleHistory() {
-            const history = document.getElementById('historyGrid');
-            const text = document.getElementById('historyText');
-            history.classList.toggle('show');
-            text.textContent = history.classList.contains('show') ? 'hide history' : 'show history';
-        }
 
         // Mode switching
         function switchMode(mode) {
             currentMode = mode;
 
-            document.getElementById('generateMode').style.display = mode === 'generate' ? 'block' : 'none';
-            document.getElementById('browseMode').classList.toggle('show', mode === 'browse');
+            // Hide all modes
+            document.getElementById('createMode').style.display = 'none';
+            document.getElementById('exploreMode').classList.remove('show');
+            document.getElementById('myCollectionMode').classList.remove('show');
 
-            document.getElementById('generateLink').style.color = mode === 'generate' ? '#1a1a1a' : '#999';
-            document.getElementById('browseLink').style.color = mode === 'browse' ? '#1a1a1a' : '#999';
-            document.getElementById('uploadLink').style.color = mode === 'upload' ? '#1a1a1a' : '#999';
-
-            if (mode === 'upload') {
-                document.getElementById('fileInput').click();
-                setTimeout(() => switchMode('generate'), 100);
+            // Show selected mode
+            if (mode === 'create') {
+                document.getElementById('createMode').style.display = 'block';
+            } else if (mode === 'explore') {
+                document.getElementById('exploreMode').classList.add('show');
+                browseDisplayCount = 8;
+                if (currentArtResults.length === 0) {
+                    loadAllArt(); // Load initial art
+                } else {
+                    displayArtResults();
+                }
+            } else if (mode === 'my-collection') {
+                document.getElementById('myCollectionMode').classList.add('show');
+                collectionDisplayCount = 8;
+                displayMyCollection();
             }
+
+            // Update tab colors
+            document.getElementById('createLink').style.color = mode === 'create' ? '#1a1a1a' : '#999';
+            document.getElementById('exploreLink').style.color = mode === 'explore' ? '#1a1a1a' : '#999';
+            document.getElementById('myCollectionLink').style.color = mode === 'my-collection' ? '#1a1a1a' : '#999';
+        }
+
+        // Suggestion click
+        function suggestSearch(query) {
+            document.getElementById('searchInput').value = query;
+            searchArt();
         }
 
         // Load current display
@@ -1695,7 +1986,6 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                     const img = document.getElementById('currentImageThumb');
                     const prompt = document.getElementById('currentImagePrompt');
 
-                    // Use originalImage as base64 data URL
                     img.src = `data:${data.originalImageMime || 'image/png'};base64,${data.originalImage}`;
                     preview.classList.add('show');
 
@@ -1704,30 +1994,6 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                         prompt.classList.add('show');
                     } else {
                         prompt.classList.remove('show');
-                    }
-                }
-
-                // Update device status
-                if (data.deviceStatus) {
-                    const state = document.getElementById('deviceState');
-                    const battery = document.getElementById('batteryVoltage');
-                    const signal = document.getElementById('signalStrength');
-                    const wake = document.getElementById('nextWake');
-
-                    state.textContent = data.deviceStatus.status === 'awake' ? 'Online' : 'Sleeping';
-                    state.className = 'status-value ' + (data.deviceStatus.status === 'awake' ? 'status-online' : 'status-offline');
-
-                    if (data.deviceStatus.batteryVoltage) {
-                        battery.textContent = data.deviceStatus.batteryVoltage.toFixed(1) + 'V';
-                    }
-
-                    if (data.deviceStatus.signalStrength) {
-                        signal.textContent = data.deviceStatus.signalStrength + ' dBm';
-                    }
-
-                    if (data.deviceStatus.nextSleepSeconds) {
-                        const minutes = Math.floor(data.deviceStatus.nextSleepSeconds / 60);
-                        wake.textContent = minutes + ' min';
                     }
                 }
             } catch (error) {
@@ -1740,14 +2006,12 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             const prompt = document.getElementById('promptInput').value.trim();
             if (!prompt) return;
 
-            // Show generation overlay
             const overlay = document.getElementById('generationOverlay');
             const promptText = document.getElementById('generationPromptText');
             promptText.textContent = `"${prompt}"`;
             overlay.classList.add('show');
 
             try {
-                // Use default orientation for generation
                 const rotation = defaultOrientation === 'landscape' ? 90 : 0;
 
                 const response = await fetch('/api/generate-art', {
@@ -1758,23 +2022,14 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
 
                 if (response.ok) {
                     const data = await response.json();
-
-                    // Clear input
                     document.getElementById('promptInput').value = '';
-
-                    // Load the new current display
                     await loadCurrentDisplay();
-
-                    // Hide generation overlay
                     overlay.classList.remove('show');
 
-                    // Open preview modal with the generated image
-                    // The response includes 'current' object which has the imageId
                     const imageId = (data.current && data.current.imageId) || data.imageId;
                     await openGeneratedImagePreview(imageId);
 
-                    // Reload history
-                    setTimeout(loadHistory, 1000);
+                    setTimeout(loadMyCollection, 1000);
                 } else {
                     overlay.classList.remove('show');
                     const errorData = await response.json();
@@ -1790,7 +2045,6 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         // Open preview modal for newly generated image
         async function openGeneratedImagePreview(imageId) {
             try {
-                // Fetch the generated image from images.json
                 const response = await fetch(`/api/images/${imageId}`);
                 if (!response.ok) {
                     console.error('Generated image not found');
@@ -1800,20 +2054,13 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                 const item = await response.json();
                 selectedHistoryItem = item;
 
-                // Set modal image - use originalImage for better quality preview
                 const imageSrc = item.originalImage
                     ? `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`
                     : `data:image/png;base64,${item.thumbnail}`;
 
                 document.getElementById('modalImage').src = imageSrc;
-
-                // Apply default orientation
                 applyDefaultOrientation();
-
-                // Show delete button for generated images
                 document.getElementById('deleteModalBtn').style.display = 'inline-block';
-
-                // Open modal
                 document.getElementById('artModal').classList.add('show');
             } catch (error) {
                 console.error('Failed to open preview:', error);
@@ -1850,21 +2097,18 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                 const response = await fetch(`/api/art/search?q=${encodeURIComponent(query)}`);
                 const data = await response.json();
                 currentArtResults = data.results || [];
+                browseDisplayCount = 8;
                 displayArtResults();
             } catch (error) {
                 grid.innerHTML = '<div class="loading">Search failed</div>';
             }
         }
 
-        let allArtworks = [];
-        let currentFilter = 'all';
-
         async function loadAllArt() {
             try {
                 const response = await fetch('/api/collections');
                 const data = await response.json();
 
-                // Flatten all artworks from all collections with collection ID
                 allArtworks = [];
                 for (const collection of data.collections) {
                     const collResponse = await fetch(`/api/collections/${collection.id}`);
@@ -1881,73 +2125,251 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             }
         }
 
+        async function loadMyCollection() {
+            try {
+                const response = await fetch('/api/my-collection');
+                myCollection = await response.json();
+
+                if (currentBrowseView === 'my-collection') {
+                    displayMyCollection();
+                }
+            } catch (error) {
+                console.error('Failed to load my collection:', error);
+            }
+        }
+
+        function displayMyCollection() {
+            const grid = document.getElementById('collectionGrid');
+            const showMoreBtn = document.getElementById('collectionShowMore');
+
+            if (myCollection.length === 0) {
+                grid.innerHTML = '<div class="loading">Your collection is empty</div>';
+                showMoreBtn.style.display = 'none';
+                return;
+            }
+
+            const displayedItems = myCollection.slice(0, collectionDisplayCount);
+            grid.innerHTML = displayedItems.map(item => {
+                // Handle different item types
+                const imageUrl = item.imageUrl || (item.thumbnail ? `data:image/png;base64,${item.thumbnail}` : '');
+                const title = item.title || item.originalPrompt?.substring(0, 30) || 'Untitled';
+                const artist = item.artist || (item.collectionType === 'generated' ? 'Generated' : 'Uploaded');
+
+                return `
+                    <div class="art-item" onclick='openCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+                        <img class="art-image" src="${imageUrl}" alt="${title}">
+                        <div class="art-title">${title} ${artist !== 'Generated' && artist !== 'Uploaded' ? `· ${artist}` : ''}</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Show "show more" button if there are more results
+            if (collectionDisplayCount < myCollection.length) {
+                const increment = getShowMoreIncrement();
+                document.getElementById('showMoreCollectionBtn').textContent = `show ${increment} more`;
+                showMoreBtn.style.display = 'block';
+            } else {
+                showMoreBtn.style.display = 'none';
+            }
+        }
+
+        function showMoreCollection() {
+            collectionDisplayCount += getShowMoreIncrement();
+            displayMyCollection();
+        }
+
         function filterArt(collectionId) {
             currentFilter = collectionId;
 
-            // Update active button
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.dataset.filter === collectionId) {
-                    btn.classList.add('active');
-                }
-            });
-
-            // Filter artworks
             if (collectionId === 'all') {
                 currentArtResults = allArtworks;
             } else {
                 currentArtResults = allArtworks.filter(art => art.collectionId === collectionId);
             }
 
+            browseDisplayCount = 8;
             displayArtResults();
         }
 
         function displayArtResults() {
             const grid = document.getElementById('artGrid');
+            const showMoreBtn = document.getElementById('browseShowMore');
 
             if (currentArtResults.length === 0) {
                 grid.innerHTML = '<div class="loading">No results</div>';
+                showMoreBtn.style.display = 'none';
                 return;
             }
 
-            grid.innerHTML = currentArtResults.slice(0, 8).map(art => `
+            const displayedResults = currentArtResults.slice(0, browseDisplayCount);
+            grid.innerHTML = displayedResults.map(art => `
                 <div class="art-item" onclick='previewArt(${JSON.stringify(art).replace(/'/g, "&apos;")})'>
                     <img class="art-image" src="${art.thumbnail || art.imageUrl}" alt="${art.title}">
                     <div class="art-title">${art.title}</div>
                 </div>
             `).join('');
+
+            // Show "show more" button if there are more results
+            if (browseDisplayCount < currentArtResults.length) {
+                const increment = getShowMoreIncrement();
+                document.getElementById('showMoreBrowseBtn').textContent = `show ${increment} more`;
+                showMoreBtn.style.display = 'block';
+            } else {
+                showMoreBtn.style.display = 'none';
+            }
+        }
+
+        function showMoreBrowse() {
+            browseDisplayCount += getShowMoreIncrement();
+            displayArtResults();
         }
 
         function previewArt(art) {
             selectedModalArt = art;
+            selectedHistoryItem = null;
             document.getElementById('modalImage').src = art.imageUrl;
-
-            // Apply default orientation
             applyDefaultOrientation();
 
-            // Hide delete button for browse results (only show for history items)
-            document.getElementById('deleteModalBtn').style.display = 'none';
+            // Show "add to collection" link
+            const secondaryAction = document.getElementById('modalSecondaryAction');
+            secondaryAction.textContent = 'add to collection';
+            secondaryAction.style.display = 'block';
+            secondaryActionType = 'add';
 
             document.getElementById('artModal').classList.add('show');
+        }
+
+        async function openCollectionItem(item) {
+            try {
+                selectedHistoryItem = item;
+                selectedModalArt = null;
+
+                // Determine image source
+                let imageSrc;
+                if (item.imageUrl) {
+                    imageSrc = item.imageUrl;
+                } else if (item.originalImage) {
+                    imageSrc = `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`;
+                } else if (item.thumbnail) {
+                    imageSrc = `data:image/png;base64,${item.thumbnail}`;
+                }
+
+                document.getElementById('modalImage').src = imageSrc;
+                applyDefaultOrientation();
+
+                // Set appropriate secondary action
+                const secondaryAction = document.getElementById('modalSecondaryAction');
+                if (item.collectionType === 'generated' || item.collectionType === 'uploaded') {
+                    secondaryAction.textContent = 'delete';
+                    secondaryAction.style.display = 'block';
+                    secondaryActionType = 'delete';
+                } else if (item.collectionType === 'added') {
+                    secondaryAction.textContent = 'remove from collection';
+                    secondaryAction.style.display = 'block';
+                    secondaryActionType = 'remove';
+                } else {
+                    secondaryAction.style.display = 'none';
+                    secondaryActionType = null;
+                }
+
+                document.getElementById('artModal').classList.add('show');
+            } catch (error) {
+                console.error('Failed to open collection item:', error);
+            }
         }
 
         function closeModal() {
             document.getElementById('artModal').classList.remove('show');
             selectedModalArt = null;
             selectedHistoryItem = null;
-            document.getElementById('deleteModalBtn').style.display = 'none';
+            secondaryActionType = null;
+            document.getElementById('modalSecondaryAction').style.display = 'none';
 
             const modalImage = document.getElementById('modalImage');
-            // Reset to portrait orientation
             modalImage.classList.remove('landscape');
-            // Reset crop position
             cropX = 50;
             cropY = 50;
             modalImage.style.objectPosition = '50% 50%';
-            // Reset zoom
             zoomLevel = 1.0;
             modalImage.style.transform = 'scale(1)';
             modalImage.style.objectFit = 'cover';
+        }
+
+        async function handleSecondaryAction() {
+            if (secondaryActionType === 'add') {
+                await addToCollection();
+            } else if (secondaryActionType === 'delete') {
+                await deleteModalImage();
+            } else if (secondaryActionType === 'remove') {
+                await removeFromCollection();
+            }
+        }
+
+        async function addToCollection() {
+            if (!selectedModalArt) return;
+
+            try {
+                const response = await fetch('/api/my-collection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageUrl: selectedModalArt.imageUrl,
+                        title: selectedModalArt.title,
+                        artist: selectedModalArt.artist,
+                        year: selectedModalArt.year,
+                        thumbnail: selectedModalArt.thumbnail,
+                        collectionId: selectedModalArt.collectionId,
+                        wikimedia: selectedModalArt.wikimedia
+                    })
+                });
+
+                if (response.ok) {
+                    // Hide the action after adding
+                    document.getElementById('modalSecondaryAction').style.display = 'none';
+                    secondaryActionType = null;
+
+                    // Reload collection
+                    await loadMyCollection();
+
+                    console.log('Added to collection');
+                } else {
+                    const data = await response.json();
+                    if (data.error === 'Artwork already in collection') {
+                        document.getElementById('modalSecondaryAction').style.display = 'none';
+                        secondaryActionType = null;
+                    } else {
+                        alert('Failed to add to collection: ' + data.error);
+                    }
+                }
+            } catch (error) {
+                console.error('Add to collection failed:', error);
+                alert('Failed to add to collection');
+            }
+        }
+
+        async function removeFromCollection() {
+            if (!selectedHistoryItem || !selectedHistoryItem.id) return;
+
+            if (!confirm('Remove this artwork from your collection?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/my-collection/${selectedHistoryItem.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    closeModal();
+                    await loadMyCollection();
+                } else {
+                    const data = await response.json();
+                    alert('Failed to remove: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Remove failed:', error);
+                alert('Failed to remove from collection');
+            }
         }
 
         function togglePreviewOrientation() {
@@ -1956,9 +2378,9 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         }
 
         // Crop adjustment
-        let cropX = 50; // percentage
-        let cropY = 50; // percentage
-        const CROP_STEP = 5; // percentage step for each adjustment
+        let cropX = 50;
+        let cropY = 50;
+        const CROP_STEP = 5;
 
         function adjustCrop(direction) {
             const modalImage = document.getElementById('modalImage');
@@ -1986,7 +2408,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         }
 
         // Zoom adjustment
-        let zoomLevel = 1.0; // 1.0 = fill (cover), < 1.0 = margins (contain)
+        let zoomLevel = 1.0;
         const ZOOM_STEP = 0.1;
 
         function adjustZoom(direction) {
@@ -2004,19 +2426,14 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                     break;
             }
 
-            // Scale > 1.0 = zoom in (more crop)
-            // Scale < 1.0 = zoom out (show margins)
             modalImage.style.transform = `scale(${zoomLevel})`;
 
-            // When zoomed out (scale < 1), switch to contain to show margins
-            // When zoomed in (scale >= 1), use cover to crop
             if (zoomLevel < 1.0) {
                 modalImage.style.objectFit = 'contain';
             } else {
                 modalImage.style.objectFit = 'cover';
             }
         }
-
 
         // File upload
         function setupDragDrop() {
@@ -2050,7 +2467,6 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         }
 
         async function handleFileUpload(file) {
-            // Show upload overlay
             const overlay = document.getElementById('generationOverlay');
             const statusText = document.getElementById('generationStatusText');
             const promptText = document.getElementById('generationPromptText');
@@ -2072,25 +2488,14 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
 
                 if (response.ok) {
                     const data = await response.json();
-
-                    // Clear file input
                     document.getElementById('fileInput').value = '';
-
-                    // Load the new current display
                     await loadCurrentDisplay();
-
-                    // Hide upload overlay
                     overlay.classList.remove('show');
-
-                    // Reset overlay text for next generation
                     statusText.textContent = 'Generating image...';
                     filenameText.textContent = '';
 
-                    // Open preview modal with the uploaded image
                     await openGeneratedImagePreview(data.imageId || 'current');
-
-                    // Reload history
-                    setTimeout(loadHistory, 1000);
+                    setTimeout(loadMyCollection, 1000);
                 } else {
                     overlay.classList.remove('show');
                     statusText.textContent = 'Generating image...';
@@ -2107,34 +2512,9 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
             }
         }
 
-        // History
-        let selectedHistoryItem = null;
-
-        async function loadHistory() {
-            try {
-                const response = await fetch('/api/history');
-                const history = await response.json();
-
-                const grid = document.getElementById('historyGrid');
-
-                if (history.length === 0) {
-                    grid.innerHTML = '';
-                    return;
-                }
-
-                grid.innerHTML = history.slice(0, 8).map(item => `
-                    <div class="history-item" onclick="openHistoryPreview('${item.imageId}')">
-                        <img class="history-image" src="data:image/png;base64,${item.thumbnail}" alt="">
-                    </div>
-                `).join('');
-            } catch (error) {
-                console.error('History load failed:', error);
-            }
-        }
-
+        // History (kept for generated/uploaded images)
         async function openHistoryPreview(imageId) {
             try {
-                // Fetch full image data from images.json endpoint
                 const response = await fetch(`/api/images/${imageId}`);
                 if (!response.ok) {
                     console.error('Image not found');
@@ -2144,20 +2524,13 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                 const item = await response.json();
                 selectedHistoryItem = item;
 
-                // Set modal image - use originalImage for better quality preview
                 const imageSrc = item.originalImage
                     ? `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`
                     : `data:image/png;base64,${item.thumbnail}`;
 
                 document.getElementById('modalImage').src = imageSrc;
-
-                // Apply default orientation
                 applyDefaultOrientation();
-
-                // Show delete button for history items
                 document.getElementById('deleteModalBtn').style.display = 'inline-block';
-
-                // Open modal
                 document.getElementById('artModal').classList.add('show');
             } catch (error) {
                 console.error('Failed to open preview:', error);
@@ -2169,21 +2542,17 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
 
             try {
                 let response;
-
-                // Get rotation from modal orientation
                 const modalImage = document.getElementById('modalImage');
                 const isLandscape = modalImage.classList.contains('landscape');
                 const rotation = isLandscape ? 90 : 0;
 
                 if (selectedHistoryItem) {
-                    // Load from history with rotation
                     response = await fetch(`/api/history/${selectedHistoryItem.imageId}/load`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ rotation })
                     });
                 } else if (selectedModalArt) {
-                    // Apply browse result with rotation
                     response = await fetch('/api/art/import', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -2208,7 +2577,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
         async function deleteModalImage() {
             if (!selectedHistoryItem) return;
 
-            if (!confirm('Are you sure you want to delete this image from history?')) {
+            if (!confirm('Are you sure you want to delete this image?')) {
                 return;
             }
 
@@ -2216,7 +2585,7 @@ console.log('[MockAPI] Preview mode activated - generating artistic placeholders
                 const response = await fetch(`/api/history/${selectedHistoryItem.imageId}`, { method: 'DELETE' });
                 if (response.ok) {
                     closeModal();
-                    loadHistory();
+                    await loadMyCollection();
                 } else {
                     const data = await response.json();
                     alert('Failed to delete: ' + (data.error || 'Unknown error'));
