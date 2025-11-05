@@ -216,6 +216,23 @@ Glance/
 - **🎨 E-Ink Optimized** - AI prompts emphasize full-bleed, high-contrast compositions
 - **💾 Personal Collection** - Unified view of generated, uploaded, and saved artworks
 
+### Semantic Visual Search (CLIP-Powered)
+- **🎯 Search by Vibe** - "peaceful blue water" finds Japanese winter landscapes, not keyword matching
+- **✨ Visual Similarity** - "More like this" finds artworks with 0.73-0.84 similarity accuracy
+- **🧠 Personalized Recommendations** - Taste profile learns from your interactions (likes weighted 2x)
+- **⚡ Local & Fast** - CLIP ViT-B/32 runs locally (~600MB cached), ~200ms searches, no API costs
+- **📈 Scalable Collection** - Start with 105 artworks, easily scale to 1000-5000
+
+**Scale Up Your Collection:**
+```bash
+cd server
+# Requires Qdrant running: docker run -d -p 6333:6333 qdrant/qdrant
+node scripts/populate-from-museums.js 100   # Add 200 artworks (100/museum)
+node scripts/populate-from-museums.js 500   # Scale to 1000 artworks (500/museum)
+```
+
+See [SEMANTIC_SEARCH_READY.md](SEMANTIC_SEARCH_READY.md) for full documentation and API endpoints.
+
 ## 📊 Performance & Power
 
 | Metric | Value | Notes |
