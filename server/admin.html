@@ -95,6 +95,32 @@
         .logs-controls {
             display: flex;
             gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .log-filter {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .log-search {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            min-width: 200px;
+        }
+
+        .log-search::placeholder {
+            color: #666;
         }
 
         .log-btn {
@@ -140,6 +166,295 @@
 
         .log-output::-webkit-scrollbar-thumb:hover {
             background: #444;
+        }
+
+        /* Enhanced log output with structured entries */
+        .log-output-enhanced {
+            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+            font-size: 0.75rem;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .log-output-enhanced::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-output-enhanced::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .log-output-enhanced::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .log-entry:hover {
+            background: #2a2a2a;
+        }
+
+        .log-timestamp {
+            color: #666;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            min-width: 80px;
+        }
+
+        .log-level {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .log-level-INFO {
+            background: #1e40af20;
+            color: #60a5fa;
+        }
+
+        .log-level-ERROR {
+            background: #dc262620;
+            color: #ef4444;
+        }
+
+        .log-level-WARNING {
+            background: #d9770620;
+            color: #f59e0b;
+        }
+
+        .log-source {
+            font-size: 0.65rem;
+            color: #888;
+            background: #2a2a2a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .log-message {
+            color: #e5e5e5;
+            flex: 1;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        /* Recent activity timeline */
+        .activity-container {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 40px;
+        }
+
+        .activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .activity-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .activity-item {
+            background: #fff;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .activity-item:hover {
+            background: #fafafa;
+        }
+
+        .activity-item.success {
+            border-left-color: #10b981;
+        }
+
+        .activity-item.failure {
+            border-left-color: #ef4444;
+        }
+
+        .activity-item.incomplete {
+            border-left-color: #f59e0b;
+        }
+
+        .activity-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .activity-time {
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+            min-width: 100px;
+        }
+
+        .activity-stats {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex: 1;
+            font-size: 0.75rem;
+        }
+
+        .activity-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .activity-stat-label {
+            color: #999;
+        }
+
+        .activity-stat-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .activity-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .activity-badge.success {
+            background: #10b98120;
+            color: #10b981;
+        }
+
+        .activity-badge.failure {
+            background: #ef444420;
+            color: #ef4444;
+        }
+
+        .activity-badge.incomplete {
+            background: #f59e0b20;
+            color: #f59e0b;
+        }
+
+        /* Wake cycle diagnostics */
+        .diagnostic-container {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 40px;
+        }
+
+        .diagnostic-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .diagnostic-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .diagnostic-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .diagnostic-stat {
+            background: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .diagnostic-stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .diagnostic-stat-label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .timeline {
+            background: #fff;
+            border-radius: 6px;
+            padding: 16px;
+        }
+
+        .timeline-event {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 8px 0;
+            border-left: 2px solid #e5e5e5;
+            padding-left: 16px;
+            margin-left: 6px;
+            position: relative;
+        }
+
+        .timeline-event::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 12px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            border: 2px solid #fff;
+        }
+
+        .timeline-event.error::before {
+            background: #ef4444;
+        }
+
+        .timeline-event.error {
+            border-left-color: #ef4444;
+        }
+
+        .timeline-time {
+            color: #666;
+            font-size: 0.7rem;
+            font-family: 'SF Mono', monospace;
+            min-width: 60px;
+        }
+
+        .timeline-message {
+            flex: 1;
+            font-size: 0.8rem;
+            color: #333;
+            line-height: 1.5;
         }
 
         /* Back link */
@@ -792,109 +1107,53 @@
         </div>
     </div>
 
-    <h2>API Usage Statistics</h2>
-    <div class="stats-container">
-        <div class="stats-header">
-            <div>
-                <div style="font-size: 0.75rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">Time Range</div>
-            </div>
-            <div class="stats-controls">
-                <button class="stats-btn" onclick="loadStats('1h')">1 Hour</button>
-                <button class="stats-btn" onclick="loadStats('24h')">24 Hours</button>
-                <button class="stats-btn" onclick="loadStats('7d')">7 Days</button>
-                <button class="stats-btn active" onclick="loadStats('all')">All Time</button>
-                <button class="stats-btn" onclick="refreshStats()">Refresh</button>
-            </div>
+
+    <h2>Recent Wake Cycles</h2>
+    <div class="activity-container">
+        <div class="activity-header">
+            <div class="activity-title">Last 10 Wake Cycles</div>
+            <button class="log-btn" onclick="refreshRecentActivity()">Refresh</button>
         </div>
+        <div id="recentActivityList">Loading activity...</div>
+    </div>
 
-        <!-- OpenAI Statistics -->
-        <div style="margin-bottom: 24px;">
-            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">OpenAI API Usage</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="openaiCalls">--</div>
-                    <div class="stat-label">Total Calls</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="openaiTokens">--</div>
-                    <div class="stat-label">Total Tokens</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="openaiCost">--</div>
-                    <div class="stat-label">Estimated Cost</div>
-                </div>
-            </div>
-
-            <div class="api-source-list">
-                <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">By Model</div>
-                <div id="openaiModelStats">Loading...</div>
-            </div>
+    <h2>Latest Wake Cycle Details</h2>
+    <div class="diagnostic-container">
+        <div class="diagnostic-header">
+            <div class="diagnostic-title">Event Timeline</div>
+            <button class="log-btn" onclick="refreshWakeCycle()">Refresh</button>
         </div>
-
-        <!-- Museum API Statistics -->
-        <div style="margin-bottom: 24px;">
-            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">Museum API Calls</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="museumCalls">--</div>
-                    <div class="stat-label">Total API Calls</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="museumSuccessRate">--</div>
-                    <div class="stat-label">Success Rate</div>
-                </div>
-            </div>
-
-            <div class="api-source-list">
-                <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">By Source</div>
-                <div id="museumSourceStats">Loading...</div>
-            </div>
-        </div>
-
-        <!-- Log Statistics -->
-        <div>
-            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 12px; color: #666;">System Logs</div>
-            <div class="log-chart">
-                <div class="chart-title">Log Activity</div>
-                <div class="chart-bar">
-                    <div class="chart-label">INFO</div>
-                    <div class="chart-bar-bg">
-                        <div class="chart-bar-fill" id="logInfoBar" style="width: 0%">0</div>
-                    </div>
-                </div>
-                <div class="chart-bar">
-                    <div class="chart-label">ERROR</div>
-                    <div class="chart-bar-bg">
-                        <div class="chart-bar-fill" id="logErrorBar" style="width: 0%; background: #ef4444;">0</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div id="wakeCycleTimeline">Loading diagnostics...</div>
     </div>
 
     <h2>Device Logs</h2>
     <div class="logs-container">
         <div class="logs-header">
-            <div class="logs-title">ESP32 Activity</div>
+            <div class="logs-title">Combined ESP32 + Server Activity</div>
             <div class="logs-controls">
-                <button class="log-btn" onclick="refreshDeviceLogs()">Refresh</button>
-                <button class="log-btn" onclick="clearDeviceLogs()">Clear</button>
-            </div>
-        </div>
-        <div class="log-output" id="deviceLogOutput">Loading device logs...</div>
-    </div>
-
-    <h2>Server Logs</h2>
-    <div class="logs-container">
-        <div class="logs-header">
-            <div class="logs-title">Console Output</div>
-            <div class="logs-controls">
-                <button class="log-btn" onclick="refreshLogs()">Refresh</button>
-                <button class="log-btn" onclick="clearLogs()">Clear</button>
+                <select id="logLevelFilter" class="log-filter" onchange="loadCombinedLogs()">
+                    <option value="">All Levels</option>
+                    <option value="INFO">INFO</option>
+                    <option value="ERROR">ERROR</option>
+                </select>
+                <input type="text" id="logSearchInput" class="log-search" placeholder="Search logs..." onkeyup="filterLogs()">
+                <button class="log-btn" onclick="loadCombinedLogs()">Refresh</button>
                 <button class="log-btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">Auto: Off</button>
             </div>
         </div>
-        <div class="log-output" id="logOutput">Loading logs...</div>
+        <div class="log-output-enhanced" id="combinedLogOutput">Loading logs...</div>
+    </div>
+
+    <h2>Server Console</h2>
+    <div class="logs-container" style="margin-bottom: 40px;">
+        <div class="logs-header">
+            <div class="logs-title">Server Debug Output (Last 100 entries)</div>
+            <div class="logs-controls">
+                <button class="log-btn" onclick="loadServerLogs()">Refresh</button>
+                <button class="log-btn" onclick="clearServerLogs()">Clear Display</button>
+            </div>
+        </div>
+        <div class="log-output-enhanced" id="serverLogOutput">Loading server logs...</div>
     </div>
 
     <script>
@@ -1210,202 +1469,250 @@
             }
         }
 
-        // Statistics
-        let currentStatsRange = 'all';
 
-        async function loadStats(range = 'all') {
+        // Combined logs storage for filtering
+        let allCombinedLogs = [];
+
+        // Load combined device logs (ESP32 + server activity)
+        async function loadCombinedLogs() {
             try {
-                currentStatsRange = range;
+                const levelFilter = document.getElementById('logLevelFilter').value;
+                const url = levelFilter ? `/api/device-logs-combined?limit=200&level=${levelFilter}` : '/api/device-logs-combined?limit=200';
 
-                // Update active button
-                document.querySelectorAll('.stats-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-                event?.target?.classList.add('active');
-
-                const response = await fetch(`/api/stats?range=${range}`);
-                const stats = await response.json();
-
-                // OpenAI Statistics
-                document.getElementById('openaiCalls').textContent = stats.openai.summary.totalCalls || 0;
-
-                const tokens = stats.openai.summary.totalTokens || 0;
-                document.getElementById('openaiTokens').textContent = tokens > 1000 ?
-                    `${(tokens / 1000).toFixed(1)}K` : tokens;
-
-                const cost = stats.openai.summary.totalCost || 0;
-                document.getElementById('openaiCost').textContent = `$${cost.toFixed(4)}`;
-
-                // OpenAI Model Breakdown
-                const modelStatsDiv = document.getElementById('openaiModelStats');
-                const byModel = stats.openai.summary.byModel || {};
-
-                if (Object.keys(byModel).length === 0) {
-                    modelStatsDiv.innerHTML = '<div style="color: #999; font-size: 0.8rem; padding: 8px 0;">No OpenAI API calls yet</div>';
-                } else {
-                    const modelNames = {
-                        'gpt-image-1': 'GPT Image (gpt-image-1)',
-                        'gpt-4': 'GPT-4',
-                        'gpt-4o': 'GPT-4o',
-                        'gpt-4o-mini': 'GPT-4o Mini'
-                    };
-
-                    let html = '';
-                    for (const [model, data] of Object.entries(byModel)) {
-                        const percentage = stats.openai.summary.totalCalls > 0 ?
-                            (data.calls / stats.openai.summary.totalCalls * 100) : 0;
-
-                        html += `
-                            <div class="api-source-item">
-                                <div>
-                                    <div class="api-source-name">${modelNames[model] || model}</div>
-                                    <div class="api-bar">
-                                        <div class="api-bar-fill" style="width: ${percentage}%"></div>
-                                    </div>
-                                </div>
-                                <div class="api-source-stats">
-                                    <span>${data.calls} calls</span>
-                                    <span>${data.tokens > 1000 ? (data.tokens / 1000).toFixed(1) + 'K' : data.tokens} tokens</span>
-                                    <span>$${data.cost.toFixed(4)}</span>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    modelStatsDiv.innerHTML = html;
-                }
-
-                // Museum API Statistics
-                const totalMuseumCalls = stats.apiCalls.summary.totalCalls || 0;
-                document.getElementById('museumCalls').textContent = totalMuseumCalls;
-
-                // Calculate success rate
-                const bySource = stats.apiCalls.summary.bySource || {};
-                let totalSuccesses = 0;
-                let totalAttempts = 0;
-                for (const data of Object.values(bySource)) {
-                    totalSuccesses += data.successes || 0;
-                    totalAttempts += data.calls || 0;
-                }
-                const successRate = totalAttempts > 0 ? (totalSuccesses / totalAttempts * 100) : 0;
-                document.getElementById('museumSuccessRate').textContent = `${successRate.toFixed(1)}%`;
-
-                // Museum Source Breakdown
-                const sourceStatsDiv = document.getElementById('museumSourceStats');
-                if (Object.keys(bySource).length === 0) {
-                    sourceStatsDiv.innerHTML = '<div style="color: #999; font-size: 0.8rem; padding: 8px 0;">No museum API calls yet</div>';
-                } else {
-                    let html = '';
-                    const sortedSources = Object.entries(bySource).sort((a, b) => b[1].calls - a[1].calls);
-
-                    for (const [source, data] of sortedSources) {
-                        const percentage = totalMuseumCalls > 0 ? (data.calls / totalMuseumCalls * 100) : 0;
-                        const sourceSuccessRate = data.calls > 0 ? (data.successes / data.calls * 100) : 0;
-
-                        html += `
-                            <div class="api-source-item">
-                                <div style="flex: 1;">
-                                    <div class="api-source-name">${source}</div>
-                                    <div class="api-bar">
-                                        <div class="api-bar-fill" style="width: ${percentage}%"></div>
-                                    </div>
-                                </div>
-                                <div class="api-source-stats">
-                                    <span>${data.calls} calls</span>
-                                    <span style="color: ${sourceSuccessRate > 80 ? '#10b981' : sourceSuccessRate > 50 ? '#f59e0b' : '#ef4444'}">${sourceSuccessRate.toFixed(0)}% success</span>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    sourceStatsDiv.innerHTML = html;
-                }
-
-                // Log Statistics
-                const logSummary = stats.logs.summary || {};
-                const infoCount = logSummary.byLevel?.INFO || 0;
-                const errorCount = logSummary.byLevel?.ERROR || 0;
-                const totalLogs = infoCount + errorCount;
-
-                if (totalLogs > 0) {
-                    const infoPercent = (infoCount / totalLogs * 100);
-                    const errorPercent = (errorCount / totalLogs * 100);
-
-                    const infoBar = document.getElementById('logInfoBar');
-                    infoBar.style.width = `${infoPercent}%`;
-                    infoBar.textContent = infoCount;
-
-                    const errorBar = document.getElementById('logErrorBar');
-                    errorBar.style.width = `${errorPercent}%`;
-                    errorBar.textContent = errorCount;
-                } else {
-                    document.getElementById('logInfoBar').style.width = '0%';
-                    document.getElementById('logInfoBar').textContent = '0';
-                    document.getElementById('logErrorBar').style.width = '0%';
-                    document.getElementById('logErrorBar').textContent = '0';
-                }
-
-            } catch (error) {
-                console.error('Failed to load statistics:', error);
-            }
-        }
-
-        function refreshStats() {
-            loadStats(currentStatsRange);
-        }
-
-        // Load device logs
-        async function loadDeviceLogs() {
-            try {
-                const response = await fetch('/api/device-logs');
+                const response = await fetch(url);
                 const data = await response.json();
 
-                const logOutput = document.getElementById('deviceLogOutput');
-                if (data.logs && data.logs.length > 0) {
-                    logOutput.textContent = data.logs.join('\n');
-                    // Auto-scroll to bottom
-                    logOutput.scrollTop = logOutput.scrollHeight;
-                } else {
-                    logOutput.textContent = 'No device activity yet';
-                }
+                allCombinedLogs = data.logs || [];
+                renderCombinedLogs(allCombinedLogs);
             } catch (error) {
-                console.error('Failed to load device logs:', error);
-                document.getElementById('deviceLogOutput').textContent = 'Error loading device logs';
+                console.error('Failed to load combined logs:', error);
+                document.getElementById('combinedLogOutput').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading logs</div>';
             }
         }
 
-        function refreshDeviceLogs() {
-            loadDeviceLogs();
+        function renderCombinedLogs(logs) {
+            const logOutput = document.getElementById('combinedLogOutput');
+
+            if (logs.length === 0) {
+                logOutput.innerHTML = '<div style="color: #666; padding: 12px;">No logs available</div>';
+                return;
+            }
+
+            let html = '';
+            logs.forEach(log => {
+                const timestamp = new Date(log.timestamp);
+                const timeStr = timestamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const errorClass = (log.level === 'ERROR' || log.message.toLowerCase().includes('error') || log.message.toLowerCase().includes('failed')) ? ' error' : '';
+
+                html += `
+                    <div class="log-entry${errorClass}">
+                        <div class="log-timestamp">${timeStr}</div>
+                        <div class="log-level log-level-${log.level}">${log.level}</div>
+                        <div class="log-source">${log.source}</div>
+                        <div class="log-message">${escapeHtml(log.message)}</div>
+                    </div>
+                `;
+            });
+
+            logOutput.innerHTML = html;
+            // Auto-scroll to top (newest first)
+            logOutput.scrollTop = 0;
         }
 
-        function clearDeviceLogs() {
-            document.getElementById('deviceLogOutput').textContent = '';
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
-        // Load server logs
-        async function loadLogs() {
+        function filterLogs() {
+            const searchTerm = document.getElementById('logSearchInput').value.toLowerCase();
+
+            if (!searchTerm) {
+                renderCombinedLogs(allCombinedLogs);
+                return;
+            }
+
+            const filtered = allCombinedLogs.filter(log =>
+                log.message.toLowerCase().includes(searchTerm)
+            );
+
+            renderCombinedLogs(filtered);
+        }
+
+        // Recent activity timeline
+        async function refreshRecentActivity() {
+            try {
+                const response = await fetch('/api/wake-cycle-diagnostics');
+                const data = await response.json();
+
+                const listElement = document.getElementById('recentActivityList');
+
+                if (!data.recentCycles || data.recentCycles.length === 0) {
+                    listElement.innerHTML = '<div style="color: #666; padding: 12px;">No wake cycle data available yet</div>';
+                    return;
+                }
+
+                let html = '';
+                data.recentCycles.forEach((cycle, index) => {
+                    const startTime = new Date(cycle.startTime);
+                    const timeStr = startTime.toLocaleString('en-GB', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    const durationSec = Math.round(cycle.duration / 1000);
+                    const errorCount = cycle.errors.length;
+                    const status = cycle.incomplete ? 'incomplete' : (errorCount > 0 ? 'failure' : 'success');
+                    const statusText = cycle.incomplete ? 'Active' : (errorCount > 0 ? 'Errors' : 'Success');
+
+                    html += `
+                        <div class="activity-item ${status}">
+                            <div class="activity-summary">
+                                <div class="activity-time">${timeStr}</div>
+                                <div class="activity-stats">
+                                    <div class="activity-stat">
+                                        <span class="activity-stat-label">Duration:</span>
+                                        <span class="activity-stat-value">${durationSec}s</span>
+                                    </div>
+                                    <div class="activity-stat">
+                                        <span class="activity-stat-label">Events:</span>
+                                        <span class="activity-stat-value">${cycle.events.length}</span>
+                                    </div>
+                                    ${errorCount > 0 ? `
+                                    <div class="activity-stat">
+                                        <span class="activity-stat-label">Errors:</span>
+                                        <span class="activity-stat-value" style="color: #ef4444;">${errorCount}</span>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                                <div class="activity-badge ${status}">${statusText}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                listElement.innerHTML = html;
+            } catch (error) {
+                console.error('Failed to load recent activity:', error);
+                document.getElementById('recentActivityList').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading activity</div>';
+            }
+        }
+
+        // Wake cycle diagnostics
+        async function refreshWakeCycle() {
+            try {
+                const response = await fetch('/api/wake-cycle-diagnostics');
+                const data = await response.json();
+
+                const timeline = document.getElementById('wakeCycleTimeline');
+
+                if (!data.latestCycle) {
+                    timeline.innerHTML = '<div style="color: #666; padding: 12px;">No wake cycle data available yet</div>';
+                    return;
+                }
+
+                const cycle = data.latestCycle;
+                const durationSec = Math.round(cycle.duration / 1000);
+                const errorCount = cycle.errors.length;
+
+                let html = `
+                    <div class="diagnostic-summary">
+                        <div class="diagnostic-stat">
+                            <div class="diagnostic-stat-value">${durationSec}s</div>
+                            <div class="diagnostic-stat-label">Duration</div>
+                        </div>
+                        <div class="diagnostic-stat">
+                            <div class="diagnostic-stat-value">${cycle.events.length}</div>
+                            <div class="diagnostic-stat-label">Events</div>
+                        </div>
+                        <div class="diagnostic-stat">
+                            <div class="diagnostic-stat-value" style="color: ${errorCount > 0 ? '#ef4444' : '#10b981'}">${errorCount}</div>
+                            <div class="diagnostic-stat-label">Errors</div>
+                        </div>
+                        <div class="diagnostic-stat">
+                            <div class="diagnostic-stat-value">${cycle.incomplete ? 'Active' : 'Complete'}</div>
+                            <div class="diagnostic-stat-label">Status</div>
+                        </div>
+                    </div>
+                    <div class="timeline">
+                `;
+
+                // Show max 10 most relevant events
+                const relevantEvents = cycle.events.slice(0, 10);
+                relevantEvents.forEach((event, index) => {
+                    const relativeTime = index === 0 ? '0s' : '+' + Math.round((event.time - cycle.startTime) / 1000) + 's';
+                    const isError = event.level === 'ERROR' || event.message.toLowerCase().includes('error') || event.message.toLowerCase().includes('failed');
+                    const errorClass = isError ? ' error' : '';
+
+                    html += `
+                        <div class="timeline-event${errorClass}">
+                            <div class="timeline-time">${relativeTime}</div>
+                            <div class="timeline-message">${escapeHtml(event.message)}</div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                timeline.innerHTML = html;
+            } catch (error) {
+                console.error('Failed to load wake cycle diagnostics:', error);
+                document.getElementById('wakeCycleTimeline').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading diagnostics</div>';
+            }
+        }
+
+        // Load server console logs with structured display
+        async function loadServerLogs() {
             try {
                 const response = await fetch('/api/logs');
                 const data = await response.json();
 
-                const logOutput = document.getElementById('logOutput');
+                const logOutput = document.getElementById('serverLogOutput');
                 if (data.logs && data.logs.length > 0) {
-                    logOutput.textContent = data.logs.join('\n');
-                    // Auto-scroll to bottom
+                    // Parse and structure server logs
+                    let html = '';
+                    data.logs.forEach(logStr => {
+                        // Parse: [2025-01-05 12:34:56] LOG: message or [2025-01-05 12:34:56] ERROR: message
+                        const match = logStr.match(/\[([^\]]+)\] (LOG|ERROR): (.+)/);
+                        if (match) {
+                            const timeStr = match[1];
+                            const level = match[2] === 'ERROR' ? 'ERROR' : 'INFO';
+                            const message = match[3];
+                            const timestamp = new Date(timeStr);
+                            const time = timestamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                            const errorClass = level === 'ERROR' ? ' error' : '';
+
+                            html += `
+                                <div class="log-entry${errorClass}">
+                                    <div class="log-timestamp">${time}</div>
+                                    <div class="log-level log-level-${level}">${level}</div>
+                                    <div class="log-source">server</div>
+                                    <div class="log-message">${escapeHtml(message)}</div>
+                                </div>
+                            `;
+                        } else {
+                            // Fallback for unparsed logs
+                            html += `
+                                <div class="log-entry">
+                                    <div class="log-message" style="flex: 1;">${escapeHtml(logStr)}</div>
+                                </div>
+                            `;
+                        }
+                    });
+                    logOutput.innerHTML = html;
                     logOutput.scrollTop = logOutput.scrollHeight;
                 } else {
-                    logOutput.textContent = 'No logs available';
+                    logOutput.innerHTML = '<div style="color: #666; padding: 12px;">No server logs available</div>';
                 }
             } catch (error) {
-                console.error('Failed to load logs:', error);
-                document.getElementById('logOutput').textContent = 'Error loading logs';
+                console.error('Failed to load server logs:', error);
+                document.getElementById('serverLogOutput').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading server logs</div>';
             }
         }
 
-        function refreshLogs() {
-            loadLogs();
-        }
-
-        function clearLogs() {
-            document.getElementById('logOutput').textContent = '';
+        function clearServerLogs() {
+            document.getElementById('serverLogOutput').innerHTML = '<div style="color: #666; padding: 12px;">Cleared (refresh to reload)</div>';
         }
 
         function toggleAutoRefresh() {
@@ -1416,10 +1723,10 @@
                 btn.textContent = 'Auto: Off';
             } else {
                 autoRefreshInterval = setInterval(() => {
-                    loadLogs();
-                    loadDeviceLogs();
+                    loadCombinedLogs();
+                    refreshWakeCycle();
                     loadDeviceStatus();
-                }, 2000);
+                }, 3000);
                 btn.textContent = 'Auto: On';
             }
         }
@@ -1429,9 +1736,10 @@
             loadSettings();
             loadDeviceStatus();
             loadSystemInfo();
-            loadStats('all'); // Load statistics
-            loadLogs();
-            loadDeviceLogs();
+            refreshRecentActivity();
+            loadCombinedLogs();
+            refreshWakeCycle();
+            loadServerLogs();
             setInterval(loadDeviceStatus, 5000); // Update status every 5s
         });
     </script>

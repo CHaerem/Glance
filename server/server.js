@@ -20,6 +20,11 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || null;
 // Initialize OpenAI client if API key is available
 const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
+// File caching to reduce disk I/O on Raspberry Pi
+const fileCache = new Map();
+const CACHE_TTL = 5000; // 5 seconds cache for frequently accessed files
+const fileLocks = new Map(); // Prevent concurrent writes causing corruption
+
 // Dev mode is now handled client-side:
 // - Production server includes devServerHost in /api/current.json
 // - ESP32 tries dev server first, falls back to production if unreachable
@@ -1107,14 +1112,33 @@ function getRandomLuckyPrompt() {
 	return themes[Math.floor(Math.random() * themes.length)];
 }
 
-// Helper functions
-async function readJSONFile(filename) {
+// Helper functions with caching and locking
+async function readJSONFile(filename, useCache = true) {
 	try {
+		// Check cache first for frequently accessed files
+		if (useCache && fileCache.has(filename)) {
+			const cached = fileCache.get(filename);
+			if (Date.now() - cached.timestamp < CACHE_TTL) {
+				return cached.data;
+			}
+		}
+
 		await ensureDataDir();
 		const data = await fs.readFile(path.join(DATA_DIR, filename), "utf8");
-		return JSON.parse(data);
+		const parsed = JSON.parse(data);
+
+		// Cache the result
+		if (useCache) {
+			fileCache.set(filename, { data: parsed, timestamp: Date.now() });
+		}
+
+		return parsed;
 	} catch (error) {
-		console.error(`Error reading ${filename}:`, error.message);
+		// Only log errors for files that should exist
+		const optionalFiles = ['playlist.json', 'my-collection.json'];
+		if (!optionalFiles.includes(filename)) {
+			console.error(`Error reading ${filename}:`, error.message);
+		}
 		return null;
 	}
 }
@@ -1122,10 +1146,33 @@ async function readJSONFile(filename) {
 async function writeJSONFile(filename, data) {
 	try {
 		await ensureDataDir();
-		await fs.writeFile(
-			path.join(DATA_DIR, filename),
-			JSON.stringify(data, null, 2)
-		);
+
+		// Use a lock to prevent concurrent writes
+		const lockKey = filename;
+		if (fileLocks.has(lockKey)) {
+			// Wait for existing write to complete
+			await fileLocks.get(lockKey);
+		}
+
+		// Create a promise for this write operation
+		let resolveLock;
+		const lockPromise = new Promise(resolve => { resolveLock = resolve; });
+		fileLocks.set(lockKey, lockPromise);
+
+		try {
+			// Write to a temporary file first, then rename (atomic operation)
+			const filePath = path.join(DATA_DIR, filename);
+			const tempPath = filePath + '.tmp';
+			await fs.writeFile(tempPath, JSON.stringify(data, null, 2));
+			await fs.rename(tempPath, filePath);
+
+			// Invalidate cache
+			fileCache.delete(filename);
+		} finally {
+			// Release lock
+			fileLocks.delete(lockKey);
+			resolveLock();
+		}
 	} catch (error) {
 		console.error(`Error writing ${filename}:`, error.message);
 		throw error;
@@ -1292,7 +1339,7 @@ app.get("/api/current.json", async (req, res) => {
 	}
 });
 
-// Get current image with full data for web UI
+// Get current image with full data for web UI (with caching)
 app.get("/api/current-full.json", async (req, res) => {
 	try {
 		const current = (await readJSONFile("current.json")) || {
@@ -1301,6 +1348,12 @@ app.get("/api/current-full.json", async (req, res) => {
 			timestamp: Date.now(),
 			sleepDuration: 3600000000,
 		};
+
+		// Add caching headers to reduce requests from web UI
+		res.set({
+			'Cache-Control': 'public, max-age=5', // Cache for 5 seconds
+			'ETag': `"${current.imageId}-${current.timestamp}"` // Cache based on imageId and timestamp
+		});
 
 		// Return full data including image for web UI
 		console.log(`Serving full current data for web UI: imageId=${current.imageId}`);
@@ -4477,6 +4530,147 @@ app.get("/api/logs", (_req, res) => {
 
 app.get("/api/device-logs", (_req, res) => {
 	res.json({ logs: deviceLogs });
+});
+
+// Combined device logs (activity + detailed ESP32 logs)
+app.get("/api/device-logs-combined", async (req, res) => {
+	try {
+		const { limit = 100, level } = req.query;
+		const deviceId = process.env.DEVICE_ID || "esp32-001";
+
+		// Get ESP32 detailed logs from logs.json
+		const allLogs = (await readJSONFile("logs.json")) || {};
+		const esp32Logs = allLogs[deviceId] || [];
+
+		// Get high-level activity logs from memory
+		const activityLogs = deviceLogs || [];
+
+		// Combine and sort by timestamp
+		const combined = [];
+
+		// Add ESP32 logs with structured format
+		esp32Logs.forEach(log => {
+			combined.push({
+				timestamp: log.timestamp,
+				level: log.level || 'INFO',
+				message: log.message,
+				source: 'esp32',
+				deviceTime: log.deviceTime
+			});
+		});
+
+		// Add activity logs (parse timestamp from message)
+		activityLogs.forEach(logStr => {
+			// Parse: [2025-01-05 12:34:56] message
+			const match = logStr.match(/\[([^\]]+)\] (.+)/);
+			if (match) {
+				const timeStr = match[1];
+				const message = match[2];
+				// Convert Oslo time to timestamp (approximate)
+				const timestamp = new Date(timeStr).getTime() || Date.now();
+				combined.push({
+					timestamp,
+					level: 'INFO',
+					message,
+					source: 'server'
+				});
+			}
+		});
+
+		// Sort by timestamp (newest first)
+		combined.sort((a, b) => b.timestamp - a.timestamp);
+
+		// Filter by level if specified
+		let filtered = combined;
+		if (level) {
+			filtered = combined.filter(log => log.level === level.toUpperCase());
+		}
+
+		// Limit results
+		const limited = filtered.slice(0, parseInt(limit));
+
+		res.json({
+			deviceId,
+			logs: limited,
+			total: filtered.length
+		});
+	} catch (error) {
+		console.error("Error getting combined logs:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
+});
+
+// Wake cycle diagnostics
+app.get("/api/wake-cycle-diagnostics", async (_req, res) => {
+	try {
+		const deviceId = process.env.DEVICE_ID || "esp32-001";
+		const allLogs = (await readJSONFile("logs.json")) || {};
+		const esp32Logs = allLogs[deviceId] || [];
+
+		// Get last 50 logs to analyze latest wake cycle
+		const recentLogs = esp32Logs.slice(-50);
+
+		// Find wake cycle boundaries (look for boot/wake messages)
+		const wakeCycles = [];
+		let currentCycle = null;
+
+		recentLogs.forEach(log => {
+			const msg = log.message.toLowerCase();
+
+			// Start of wake cycle
+			if (msg.includes('awakened') || msg.includes('boot count')) {
+				if (currentCycle) {
+					wakeCycles.push(currentCycle);
+				}
+				currentCycle = {
+					startTime: log.timestamp,
+					events: [],
+					errors: []
+				};
+			}
+
+			if (currentCycle) {
+				currentCycle.events.push({
+					time: log.timestamp,
+					message: log.message,
+					level: log.level
+				});
+
+				if (log.level === 'ERROR' || msg.includes('error') || msg.includes('failed')) {
+					currentCycle.errors.push(log.message);
+				}
+
+				// Mark end of cycle
+				if (msg.includes('entering deep sleep') || msg.includes('sleeping')) {
+					currentCycle.endTime = log.timestamp;
+					currentCycle.duration = currentCycle.endTime - currentCycle.startTime;
+					wakeCycles.push(currentCycle);
+					currentCycle = null;
+				}
+			}
+		});
+
+		// Add incomplete current cycle if exists
+		if (currentCycle) {
+			currentCycle.endTime = Date.now();
+			currentCycle.duration = currentCycle.endTime - currentCycle.startTime;
+			currentCycle.incomplete = true;
+			wakeCycles.push(currentCycle);
+		}
+
+		// Get latest cycle
+		const latestCycle = wakeCycles.length > 0 ? wakeCycles[wakeCycles.length - 1] : null;
+
+		res.json({
+			deviceId,
+			latestCycle,
+			recentCycles: wakeCycles.slice(-5),
+			totalCycles: wakeCycles.length
+		});
+	} catch (error) {
+		console.error("Error getting wake cycle diagnostics:", error);
+		res.status(500).json({ error: "Internal server error" });
+	}
 });
 
 // Time endpoint for ESP32 clock alignment

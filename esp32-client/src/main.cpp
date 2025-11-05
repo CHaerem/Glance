@@ -113,6 +113,7 @@ void setup() {
 
     if (batteryVoltage < LOW_BATTERY_THRESHOLD) {
         Debug("Low battery detected, entering extended sleep\r\n");
+        sendLogToServer("Low battery detected, entering extended sleep", "WARNING");
         enterDeepSleep(DEFAULT_SLEEP_TIME * 2); // Double sleep time for low battery
         return;
     }
@@ -120,10 +121,15 @@ void setup() {
     // Connect to WiFi
     if (!connectToWiFi()) {
         Debug("WiFi connection failed, displaying fallback flag\r\n");
+        sendLogToServer("WiFi connection failed after 20 attempts", "ERROR");
         generateAndDisplayBhutanFlag();
         enterDeepSleep(DEFAULT_SLEEP_TIME);
         return;
     }
+
+    // Log successful WiFi connection
+    String wifiMsg = "WiFi connected successfully, signal: " + String(WiFi.RSSI()) + " dBm";
+    sendLogToServer(wifiMsg.c_str());
 
     // Report device status
     int signalStrength = WiFi.RSSI();
@@ -191,6 +197,7 @@ void setup() {
     if (!metadataFetched) {
         // Failed to fetch metadata - skip display update to save power
         Debug("Skipping display update due to metadata fetch failure\r\n");
+        sendLogToServer("Metadata fetch failed, skipping display update", "ERROR");
         reportDeviceStatus("metadata_fetch_failed", batteryVoltage, signalStrength, batteryPercent, isCharging);
     } else if (!imageChanged) {
         // Image hasn't changed, skip display update
@@ -198,9 +205,11 @@ void setup() {
     } else {
         // Image has changed or this is first boot, proceed with update
         Debug("Proceeding with display update\r\n");
+        sendLogToServer("Starting display update for new image");
 
         // Initialize e-Paper display
         Debug("Initializing e-Paper display...\r\n");
+        sendLogToServer("Initializing e-Paper display hardware");
         DEV_Module_Init();
         delay(2000);
         EPD_13IN3E_Init();
@@ -208,8 +217,10 @@ void setup() {
 
         // Clear display with white background first
         Debug("Clearing display...\r\n");
+        sendLogToServer("Clearing display (30-45s)");
         EPD_13IN3E_Clear(EINK_WHITE);
         Debug("Display cleared\r\n");
+        sendLogToServer("Display cleared, starting image download");
         delay(1000);
 
         // Download and display image from server
@@ -351,14 +362,14 @@ bool downloadImageToPSRAM() {
     Debug("Regular heap: " + String(ESP.getFreeHeap()) + " bytes\r\n");
     Debug("PSRAM free: " + String(ESP.getFreePsram()) + " bytes\r\n");
     Debug("Heap caps PSRAM: " + String(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)) + " bytes\r\n");
-    
+
     // Use streaming approach: only allocate e-ink output buffer (960KB)
     const int EINK_BUFFER_SIZE = IMAGE_BUFFER_SIZE; // 960KB
     const int CHUNK_SIZE = 4096; // 4KB chunks for streaming
-    
+
     uint8_t* einkBuffer = nullptr;
     uint8_t* rgbChunk = nullptr;
-    
+
     // Allocate e-ink buffer in PSRAM
     if (ESP.getFreePsram() > EINK_BUFFER_SIZE) {
         einkBuffer = (uint8_t*)ps_malloc(EINK_BUFFER_SIZE);
@@ -369,20 +380,22 @@ bool downloadImageToPSRAM() {
     if (!einkBuffer) {
         einkBuffer = (uint8_t*)malloc(EINK_BUFFER_SIZE);
     }
-    
+
     // Allocate small RGB chunk buffer in regular heap
     rgbChunk = (uint8_t*)malloc(CHUNK_SIZE);
-    
+
     if (!einkBuffer || !rgbChunk) {
         Debug("ERROR: Cannot allocate streaming buffers!\r\n");
         Debug("E-ink buffer: " + String(EINK_BUFFER_SIZE / 1024) + "KB needed\r\n");
         Debug("Available PSRAM: " + String(ESP.getFreePsram() / 1024) + "KB\r\n");
+        sendLogToServer("ERROR: Memory allocation failed for image buffers", "ERROR");
         if (einkBuffer) free(einkBuffer);
         if (rgbChunk) free(rgbChunk);
         return false;
     }
-    
+
     Debug("SUCCESS: Using streaming approach - e-ink buffer: " + String(EINK_BUFFER_SIZE / 1024) + "KB\r\n");
+    sendLogToServer("Memory allocated, downloading image (3.7MB)");
 
     // Download raw binary image data
     HTTPClient http;
@@ -420,6 +433,8 @@ bool downloadImageToPSRAM() {
 
     if (httpCode != HTTP_CODE_OK) {
         Debug("Download failed with code: " + String(httpCode) + "\r\n");
+        String errMsg = "ERROR: Image download failed with HTTP code " + String(httpCode);
+        sendLogToServer(errMsg.c_str(), "ERROR");
         if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
             heap_caps_free(einkBuffer);
         } else {
@@ -491,13 +506,15 @@ bool downloadImageToPSRAM() {
     // Display if we got most of the image
     if (pixelIndex >= (DISPLAY_WIDTH * DISPLAY_HEIGHT * 0.9)) {
         Debug("Displaying streamed image...\r\n");
-        
+        sendLogToServer("Rendering image to display (30-45s)");
+
         // Small delay for Feather v2 power stabilization
         delay(2000);
         esp_task_wdt_reset();
-        
+
         EPD_13IN3E_Display(einkBuffer);
         Debug("SUCCESS: Streamed image displayed!\r\n");
+        sendLogToServer("Image successfully displayed on e-ink panel");
         
         // Clean up
         if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM) > 0) {
