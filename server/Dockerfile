@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Add metadata
 LABEL org.opencontainers.image.title="Glance Server" \
@@ -16,8 +16,12 @@ ENV BUILD_DATE=$BUILD_DATE
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install build dependencies for native modules (better-sqlite3)
+RUN apk add --no-cache \
+    dumb-init \
+    python3 \
+    make \
+    g++
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
@@ -31,6 +35,9 @@ COPY simple-ui.html ./
 COPY admin.html ./
 COPY bhutan.svg ./
 COPY public ./public
+COPY routes ./routes
+COPY services ./services
+COPY scripts ./scripts
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
