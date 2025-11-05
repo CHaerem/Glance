@@ -613,15 +613,13 @@ async function findSimilarArt() {
     grid.innerHTML = '<div class="loading">Finding similar artworks...</div>';
 
     try {
-        const response = await fetch('/api/art/similar', {
+        // Use semantic similarity search (CLIP-based visual matching)
+        const response = await fetch('/api/semantic/similar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                title: selectedModalArt.title,
-                artist: selectedModalArt.artist,
-                date: selectedModalArt.date,
-                department: selectedModalArt.department,
-                source: selectedModalArt.source
+                artworkId: selectedModalArt.id,
+                limit: 30 // Get more similar artworks
             })
         });
 
@@ -636,9 +634,9 @@ async function findSimilarArt() {
         // Display results
         displayArtResults();
 
-        // Show reasoning if available
-        if (data.metadata?.reasoning) {
-            console.log(`Similarity: ${data.metadata.reasoning}`);
+        // Log similarity metadata if available
+        if (data.metadata) {
+            console.log(`Found ${data.results.length} visually similar artworks using CLIP embeddings`);
         }
     } catch (error) {
         console.error('Similar artwork search failed:', error);

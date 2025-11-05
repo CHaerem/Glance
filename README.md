@@ -9,7 +9,9 @@
 🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles
 🎨 **6-Color Display** - Beautiful Spectra 6 e-paper technology
 🤖 **AI Art Generation** - GPT-4o powered artwork optimized for e-ink displays
-🔍 **AI Smart Search** - Natural language search across museum art collections
+🔍 **Semantic Visual Search** - CLIP-powered search by vibe, not keywords
+✨ **Visual Similarity** - "More like this" finds artworks with 0.73-0.84 similarity
+🎯 **Personalized Recommendations** - Taste profile learns from your interactions
 🖼️ **Personal Gallery** - Unified collection of generated, uploaded, and saved artworks
 📱 **Minimal Web Interface** - Clean, calm design for creating and exploring art
 🌐 **Local First** - Runs on your Raspberry Pi, no cloud dependencies
@@ -308,16 +310,19 @@ docker exec glance-server env | grep IMAGE_VERSION
 - [x] Node.js server with modular architecture
 - [x] AI art generation with GPT-4o
 - [x] AI-powered museum art search
+- [x] **Semantic visual search with CLIP** - Find art by vibe, not keywords
+- [x] **"More like this"** - Visual similarity search (0.73-0.84 accuracy)
+- [x] **Personalized recommendations** - Taste profile learns from interactions
 - [x] Personal art collection management
 - [x] Clean, minimalistic web interface
 - [x] Automated deployment pipeline
 - [x] Comprehensive test coverage
 
 ### 🔮 Future Ideas
-- [ ] Personalized recommendations based on preferences
-- [ ] "More like this" feature for similar artworks
 - [ ] Scheduling art for different times of day
 - [ ] Battery usage analytics and optimization
+- [ ] Multi-device synchronization
+- [ ] Collaborative collections
 
 ## 📚 Documentation
 

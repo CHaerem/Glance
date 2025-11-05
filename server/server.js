@@ -180,11 +180,11 @@ const BUILD_DATE_HUMAN = formatBuildDate(BUILD_DATE);
 
 // Simple in-memory cache for museum API responses
 const artSearchCache = new Map();
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const ART_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 function getCachedResult(key) {
 	const cached = artSearchCache.get(key);
-	if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+	if (cached && Date.now() - cached.timestamp < ART_CACHE_TTL) {
 		console.log(`Cache hit: ${key}`);
 		return cached.data;
 	}
@@ -4323,6 +4323,10 @@ app.post("/api/art/import", async (req, res) => {
 		res.status(500).json({ error: "Internal server error: " + error.message });
 	}
 });
+
+// Semantic search routes (SigLIP 2 embeddings)
+const semanticSearchRoutes = require('./routes/semantic-search');
+app.use('/api/semantic', semanticSearchRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
