@@ -64,12 +64,18 @@ ehthumbs.db
 .clang_complete
 .gcc-flags.json
 
-# Server data directory  
+# Server data directory
 server/data/
 server/uploads/
+data/
+
+# Root-level package files (only server/package.json should be tracked)
+/package.json
+/package-lock.json
 
 # Development and debugging files
 *.bak
+*.backup
 *.old
 *.tmp
 *~debug*
