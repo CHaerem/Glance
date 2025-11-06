@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 # Add metadata
 LABEL org.opencontainers.image.title="Glance Server" \
@@ -16,12 +16,13 @@ ENV BUILD_DATE=$BUILD_DATE
 
 WORKDIR /app
 
-# Install build dependencies for native modules (better-sqlite3)
-RUN apk add --no-cache \
+# Install build dependencies for native modules (better-sqlite3, onnxruntime-node)
+RUN apt-get update && apt-get install -y \
     dumb-init \
     python3 \
     make \
-    g++
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
@@ -54,7 +55,7 @@ EXPOSE 3000
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+    CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
