@@ -7,13 +7,20 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
+      - glance-data:/app/data
+      - glance-uploads:/app/uploads
+      - huggingface-cache:/root/.cache/huggingface
     environment:
       - NODE_ENV=production
       - PORT=3000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - QDRANT_URL=http://qdrant:6333
       - DOCKER_IMAGE_VERSION=${IMAGE_VERSION:-local}
       - BUILD_DATE=${BUILD_DATE:-unknown}
+    depends_on:
+      qdrant:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
@@ -22,6 +29,30 @@ services:
       retries: 3
       start_period: 40s
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: glance-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
-  data:
+  glance-data:
+    driver: local
+  glance-uploads:
+    driver: local
+  qdrant-storage:
+    driver: local
+  huggingface-cache:
     driver: local

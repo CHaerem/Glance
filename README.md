@@ -284,6 +284,181 @@ cd esp32-client/
 ./build.sh clean    # Clean build files
 ```
 
+## 💾 Persistent Storage & Data Management
+
+Glance uses a multi-layered storage architecture for reliable data persistence:
+
+### Storage Architecture
+
+**SQLite Database** (`data/embeddings.db`)
+- Artwork metadata and embeddings
+- User interaction history (likes, displays, skips)
+- Personalized taste profiles
+- 768-dimensional SigLIP embeddings for recommendations
+
+**Qdrant Vector Database** (Port 6333)
+- High-performance vector similarity search
+- 512-dimensional CLIP embeddings
+- Semantic search by natural language
+- Visual similarity matching
+
+**JSON Files** (`data/`)
+- `current.json` - Current display image (7.4 MB with base64 RGB data)
+- `playlist.json` - Automated playlist configuration
+- `my-collection.json` - User's saved artwork collection
+- `collections.json` - Collection metadata
+- `user-interactions.json` - Recent interaction history
+
+**File Storage** (`uploads/`)
+- User-uploaded images
+- Processed artwork files
+
+### Docker Compose Setup
+
+The `docker-compose.yml` includes persistent volumes for all data:
+
+```yaml
+services:
+  glance-server:
+    volumes:
+      - glance-data:/app/data              # SQLite + JSON files
+      - glance-uploads:/app/uploads        # User uploads
+      - huggingface-cache:/root/.cache/huggingface  # ML models (~600MB)
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - HF_TOKEN=${HF_TOKEN:-}            # Optional: Hugging Face API
+    depends_on:
+      - qdrant
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"                        # REST API
+      - "6334:6334"                        # gRPC (optional)
+    volumes:
+      - qdrant-storage:/qdrant/storage    # Vector database
+
+volumes:
+  glance-data:
+  glance-uploads:
+  qdrant-storage:
+  huggingface-cache:
+```
+
+### Storage Initialization
+
+Verify and initialize storage:
+
+```bash
+cd server/
+npm run init:storage
+```
+
+This command will:
+- Create necessary data directories
+- Initialize SQLite database with proper schema
+- Verify Qdrant connection
+- Report storage statistics and file sizes
+
+**Output example:**
+```
+✓ Directory exists: /app/data
+✓ SQLite database initialized
+  - Total artworks: 1,247
+  - With embeddings: 1,247
+  - Coverage: 100%
+✓ Qdrant connection successful
+  - Total artworks indexed: 1,247
+  - Vector size: 512
+💾 Storage Status Report
+  Data Directory: 14.2 MB
+  Uploads Directory: 42.8 MB (15 files)
+```
+
+### Data Persistence Strategy
+
+**Local Development:**
+```bash
+# Data stored in ./server/data/ and ./server/uploads/
+npm start
+```
+
+**Docker Deployment:**
+```bash
+# Named volumes persist across container restarts
+docker-compose up -d
+
+# View volume locations
+docker volume inspect glance_glance-data
+docker volume inspect glance_qdrant-storage
+```
+
+**Backup Strategy:**
+```bash
+# Backup SQLite database
+docker cp glance-server:/app/data/embeddings.db ./backup/
+
+# Backup all data
+docker run --rm \
+  -v glance_glance-data:/data \
+  -v $(pwd)/backup:/backup \
+  alpine tar czf /backup/glance-data.tar.gz -C /data .
+
+# Backup Qdrant
+docker run --rm \
+  -v glance_qdrant-storage:/qdrant \
+  -v $(pwd)/backup:/backup \
+  alpine tar czf /backup/qdrant-storage.tar.gz -C /qdrant .
+```
+
+### Environment Variables
+
+**Required:**
+- `OPENAI_API_KEY` - For AI art generation (optional if not using AI features)
+
+**Optional:**
+- `HF_TOKEN` - Hugging Face API token for SigLIP embeddings (falls back to local CLIP)
+- `QDRANT_URL` - Qdrant server URL (default: `http://localhost:6333`)
+- `PORT` - Server port (default: 3000)
+- `NODE_ENV` - Environment mode (production/development)
+
+### Populating the Vector Database
+
+Index artworks from various sources:
+
+```bash
+cd server/
+
+# Index from JSON collection
+node scripts/populate-qdrant.js path/to/artworks.json
+
+# Index WikiArt dataset
+node scripts/populate-qdrant-wikiart.js
+
+# Fetch and index from museums
+node scripts/populate-from-museums.js
+```
+
+### Storage Monitoring
+
+**Check database stats via API:**
+```bash
+# SQLite statistics
+curl http://localhost:3000/api/semantic/stats
+
+# Qdrant statistics
+curl http://localhost:6333/collections/artworks
+```
+
+**Monitor disk usage:**
+```bash
+# Local development
+du -sh server/data server/uploads
+
+# Docker volumes
+docker system df -v | grep glance
+```
+
 ## 🚢 Deployment & Updates
 
 ### Automated Deployment
