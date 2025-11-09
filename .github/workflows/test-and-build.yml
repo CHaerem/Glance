@@ -11,9 +11,8 @@ on:
 
 jobs:
   build-and-deploy:
-    # Use self-hosted ARM64 runner on Raspberry Pi for native builds (1-2 min vs 6-7 min)
-    # Security: This workflow only runs on pushes to main (line 14), NOT on PRs from forks
-    runs-on: [self-hosted, ARM64, raspberry-pi]
+    # Use GitHub-hosted runners (faster than self-hosted Pi due to better CPU/network)
+    runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
@@ -49,20 +48,26 @@ jobs:
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        # Use local cache on self-hosted runner (much faster than gha for self-hosted)
-        cache-from: type=local,src=/tmp/.buildx-cache
-        cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
         build-args: |
           IMAGE_VERSION=${{ github.sha }}
           BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
-    - name: Deploy to serverpi (local)
+    - name: Join tailnet (with SSH)
+      uses: tailscale/github-action@v3
+      with:
+        oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+        oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+        tags: tag:ci
+        args: --ssh
+
+    - name: Deploy to serverpi
       run: |
         SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-        # Runner is on Pi, so just deploy locally
-        mkdir -p ~/glance
-        cp docker-compose.yml ~/glance/
-        cd ~/glance
-        IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose pull
-        IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose up -d
+        # Copy latest docker-compose.yml to Pi
+        scp -o StrictHostKeyChecking=no docker-compose.yml chris@100.108.19.115:~/glance/docker-compose.yml
+        # Deploy with updated config
+        tailscale ssh chris@100.108.19.115 \
+          "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose up -d"
 
