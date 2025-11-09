@@ -3,8 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>Glance - Admin</title>
     <style>
+        /* Light mode (default) */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #fafafa;
+            --bg-logs: #1a1a1a;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666;
+            --text-tertiary: #999;
+            --border-primary: #e5e5e5;
+            --border-secondary: #f0f0f0;
+            --button-bg: #1a1a1a;
+            --button-text: #ffffff;
+            --button-hover: #333;
+            --input-bg: #ffffff;
+            --input-border: #e5e5e5;
+            --input-border-focus: #1a1a1a;
+            --logs-bg: #1a1a1a;
+            --logs-bg-secondary: #2a2a2a;
+            --logs-border: #444;
+            --logs-text: #e5e5e5;
+            --logs-text-dim: #999;
+            --scrollbar-track: #0a0a0a;
+            --scrollbar-thumb: #333;
+            --scrollbar-thumb-hover: #444;
+        }
+
+        /* Dark mode (system preference) */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2a2a2a;
+                --bg-tertiary: #252525;
+                --bg-logs: #0a0a0a;
+                --text-primary: #e5e5e5;
+                --text-secondary: #b0b0b0;
+                --text-tertiary: #888;
+                --border-primary: #404040;
+                --border-secondary: #333;
+                --button-bg: #e5e5e5;
+                --button-text: #1a1a1a;
+                --button-hover: #d0d0d0;
+                --input-bg: #2a2a2a;
+                --input-border: #404040;
+                --input-border-focus: #e5e5e5;
+                --logs-bg: #0a0a0a;
+                --logs-bg-secondary: #1a1a1a;
+                --logs-border: #333;
+                --logs-text: #e5e5e5;
+                --logs-text-dim: #888;
+                --scrollbar-track: #0a0a0a;
+                --scrollbar-thumb: #333;
+                --scrollbar-thumb-hover: #444;
+            }
+        }
+
+        /* Dark mode (manual override) */
+        :root[data-theme="dark"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-tertiary: #252525;
+            --bg-logs: #0a0a0a;
+            --text-primary: #e5e5e5;
+            --text-secondary: #b0b0b0;
+            --text-tertiary: #888;
+            --border-primary: #404040;
+            --border-secondary: #333;
+            --button-bg: #e5e5e5;
+            --button-text: #1a1a1a;
+            --button-hover: #d0d0d0;
+            --input-bg: #2a2a2a;
+            --input-border: #404040;
+            --input-border-focus: #e5e5e5;
+            --logs-bg: #0a0a0a;
+            --logs-bg-secondary: #1a1a1a;
+            --logs-border: #333;
+            --logs-text: #e5e5e5;
+            --logs-text-dim: #888;
+            --scrollbar-track: #0a0a0a;
+            --scrollbar-thumb: #333;
+            --scrollbar-thumb-hover: #444;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,8 +97,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #ffffff;
-            color: #1a1a1a;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             line-height: 1.6;
             padding: 20px;
             max-width: 1000px;
@@ -26,13 +110,14 @@
             font-weight: 600;
             margin-bottom: 40px;
             text-align: center;
+            color: var(--text-primary);
         }
 
         h2 {
             font-size: 1.125rem;
             font-weight: 600;
             margin: 30px 0 16px 0;
-            color: #666;
+            color: var(--text-secondary);
             text-transform: uppercase;
             font-size: 0.75rem;
             letter-spacing: 0.5px;
@@ -47,7 +132,7 @@
         }
 
         .status-item {
-            background: #f5f5f5;
+            background: var(--bg-secondary);
             border-radius: 12px;
             padding: 16px;
             text-align: center;
@@ -57,10 +142,11 @@
             font-size: 1.125rem;
             font-weight: 600;
             margin-bottom: 4px;
+            color: var(--text-primary);
         }
 
         .status-label {
-            color: #666;
+            color: var(--text-secondary);
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -72,7 +158,7 @@
 
         /* Logs */
         .logs-container {
-            background: #1a1a1a;
+            background: var(--logs-bg);
             border-radius: 8px;
             padding: 16px;
             margin-bottom: 40px;
@@ -86,7 +172,7 @@
         }
 
         .logs-title {
-            color: #999;
+            color: var(--logs-text-dim);
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -100,9 +186,9 @@
         }
 
         .log-filter {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #fff;
+            background: var(--logs-bg-secondary);
+            border: 1px solid var(--logs-border);
+            color: var(--logs-text);
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 0.75rem;
@@ -110,9 +196,9 @@
         }
 
         .log-search {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #fff;
+            background: var(--logs-bg-secondary);
+            border: 1px solid var(--logs-border);
+            color: var(--logs-text);
             padding: 6px 12px;
             border-radius: 6px;
             font-size: 0.75rem;
@@ -120,13 +206,13 @@
         }
 
         .log-search::placeholder {
-            color: #666;
+            color: var(--text-secondary);
         }
 
         .log-btn {
-            background: #333;
-            border: none;
-            color: #999;
+            background: var(--logs-bg-secondary);
+            border: 1px solid var(--logs-border);
+            color: var(--logs-text-dim);
             font-size: 0.75rem;
             padding: 4px 12px;
             border-radius: 4px;
@@ -136,14 +222,14 @@
         }
 
         .log-btn:hover {
-            background: #444;
-            color: #fff;
+            background: var(--logs-border);
+            color: var(--logs-text);
         }
 
         .log-output {
             font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
             font-size: 0.75rem;
-            color: #e5e5e5;
+            color: var(--logs-text);
             line-height: 1.5;
             max-height: 400px;
             overflow-y: auto;
@@ -156,16 +242,16 @@
         }
 
         .log-output::-webkit-scrollbar-track {
-            background: #0a0a0a;
+            background: var(--scrollbar-track);
         }
 
         .log-output::-webkit-scrollbar-thumb {
-            background: #333;
+            background: var(--scrollbar-thumb);
             border-radius: 4px;
         }
 
         .log-output::-webkit-scrollbar-thumb:hover {
-            background: #444;
+            background: var(--scrollbar-thumb-hover);
         }
 
         /* Enhanced log output with structured entries */
@@ -462,14 +548,14 @@
             position: fixed;
             top: 20px;
             left: 20px;
-            color: #999;
+            color: var(--text-tertiary);
             text-decoration: none;
             font-size: 0.85rem;
             transition: color 0.2s ease;
         }
 
         .back-link:hover {
-            color: #1a1a1a;
+            color: var(--text-primary);
         }
 
         /* System info */
@@ -501,7 +587,7 @@
 
         /* Settings */
         .settings-form {
-            background: #f5f5f5;
+            background: var(--bg-secondary);
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 40px;
@@ -513,7 +599,7 @@
 
         .form-label {
             display: block;
-            color: #666;
+            color: var(--text-secondary);
             font-size: 0.85rem;
             font-weight: 500;
             margin-bottom: 8px;
@@ -522,26 +608,28 @@
         .form-input {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid #e5e5e5;
+            border: 1px solid var(--input-border);
             border-radius: 4px;
             font-size: 0.9rem;
             font-family: inherit;
+            background: var(--input-bg);
+            color: var(--text-primary);
         }
 
         .form-input:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--input-border-focus);
         }
 
         .form-hint {
-            color: #999;
+            color: var(--text-tertiary);
             font-size: 0.75rem;
             margin-top: 4px;
         }
 
         .btn-primary {
-            background: #1a1a1a;
-            color: white;
+            background: var(--button-bg);
+            color: var(--button-text);
             border: none;
             padding: 10px 20px;
             border-radius: 4px;
@@ -552,11 +640,11 @@
         }
 
         .btn-primary:hover {
-            background: #333;
+            background: var(--button-hover);
         }
 
         .btn-primary:disabled {
-            background: #999;
+            background: var(--text-tertiary);
             cursor: not-allowed;
         }
 
@@ -579,24 +667,25 @@
         }
 
         .preset-btn {
-            background: #fff;
-            border: 1px solid #e5e5e5;
+            background: var(--input-bg);
+            border: 1px solid var(--border-primary);
             padding: 6px 12px;
             border-radius: 4px;
             font-size: 0.75rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            color: var(--text-primary);
         }
 
         .preset-btn:hover {
-            border-color: #1a1a1a;
-            background: #f5f5f5;
+            border-color: var(--input-border-focus);
+            background: var(--bg-tertiary);
         }
 
         /* Server identification */
         .server-id {
             font-size: 0.75rem;
-            color: #999;
+            color: var(--text-tertiary);
             text-align: center;
             margin-bottom: 24px;
             font-family: 'Monaco', 'Courier New', monospace;
@@ -984,6 +1073,24 @@
         </div>
 
         <div class="form-group">
+            <label class="form-label">Interface Theme</label>
+            <div style="display: flex; gap: 12px;">
+                <button type="button" class="preset-btn" id="themeAuto" onclick="selectTheme('auto')" style="flex: 1;">
+                    Auto (System)
+                </button>
+                <button type="button" class="preset-btn" id="themeLight" onclick="selectTheme('light')" style="flex: 1;">
+                    Light
+                </button>
+                <button type="button" class="preset-btn" id="themeDark" onclick="selectTheme('dark')" style="flex: 1;">
+                    Dark
+                </button>
+            </div>
+            <div class="form-hint">
+                Choose interface theme or follow system preference.
+            </div>
+        </div>
+
+        <div class="form-group">
             <label class="form-label">
                 <input type="checkbox" id="nightSleepEnabled" onchange="toggleNightSleepInputs()" style="margin-right: 8px; width: auto;">
                 Night Sleep
@@ -1159,6 +1266,63 @@
     <script>
         let autoRefreshInterval = null;
         let selectedOrientation = 'portrait'; // Default orientation
+
+        // Theme management
+        function initTheme() {
+            // Check for saved theme preference or default to system preference
+            const savedTheme = localStorage.getItem('theme');
+            const root = document.documentElement;
+
+            if (savedTheme && savedTheme !== 'auto') {
+                root.setAttribute('data-theme', savedTheme);
+            } else {
+                root.removeAttribute('data-theme');
+            }
+
+            // Update button styles
+            updateThemeButtons(savedTheme || 'auto');
+        }
+
+        function selectTheme(theme) {
+            const root = document.documentElement;
+
+            if (theme === 'auto') {
+                root.removeAttribute('data-theme');
+                localStorage.removeItem('theme');
+            } else {
+                root.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            }
+
+            updateThemeButtons(theme);
+        }
+
+        function updateThemeButtons(selectedTheme) {
+            const autoBtn = document.getElementById('themeAuto');
+            const lightBtn = document.getElementById('themeLight');
+            const darkBtn = document.getElementById('themeDark');
+
+            // Reset all buttons
+            [autoBtn, lightBtn, darkBtn].forEach(btn => {
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            });
+
+            // Highlight selected button
+            let activeBtn;
+            if (selectedTheme === 'auto') activeBtn = autoBtn;
+            else if (selectedTheme === 'light') activeBtn = lightBtn;
+            else if (selectedTheme === 'dark') activeBtn = darkBtn;
+
+            if (activeBtn) {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+                              (selectedTheme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                activeBtn.style.background = isDark ? '#e5e5e5' : '#1a1a1a';
+                activeBtn.style.color = isDark ? '#1a1a1a' : '#fff';
+                activeBtn.style.borderColor = isDark ? '#e5e5e5' : '#1a1a1a';
+            }
+        }
 
         // Select orientation
         function selectOrientation(orientation) {
@@ -1733,6 +1897,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
             loadSettings();
             loadDeviceStatus();
             loadSystemInfo();

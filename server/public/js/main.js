@@ -15,28 +15,6 @@ function initTheme() {
     if (savedTheme) {
         root.setAttribute('data-theme', savedTheme);
     }
-
-    // Add theme toggle listener
-    const themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = root.getAttribute('data-theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-            let newTheme;
-            if (!currentTheme) {
-                // No manual override yet, toggle based on system preference
-                newTheme = prefersDark ? 'light' : 'dark';
-            } else if (currentTheme === 'dark') {
-                newTheme = 'light';
-            } else {
-                newTheme = 'dark';
-            }
-
-            root.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-        });
-    }
 }
 
 // Browse state
