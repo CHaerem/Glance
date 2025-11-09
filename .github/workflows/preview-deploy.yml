@@ -40,12 +40,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'server/package-lock.json'
 
       - name: Install dependencies
         run: |
@@ -69,21 +71,33 @@ jobs:
         if: steps.deploy-path.outputs.is_pr == 'true'
         continue-on-error: true
         run: |
-          # Try to fetch existing gh-pages branch to preserve other PR previews
-          git fetch origin gh-pages:gh-pages 2>/dev/null || echo "No gh-pages branch yet"
-
           # Create staging directory
           mkdir -p _site
 
-          # If gh-pages exists, copy its content to preserve other PRs
-          if git rev-parse --verify gh-pages >/dev/null 2>&1; then
+          # Use sparse checkout for faster fetching - only get what we need
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
             echo "Fetching existing content from gh-pages branch..."
-            git checkout gh-pages -- . 2>/dev/null || true
 
-            # Copy everything except .git
-            find . -maxdepth 1 ! -name . ! -name .git ! -name _site ! -name server ! -name .github -exec cp -r {} _site/ \;
+            # Shallow clone gh-pages content
+            git fetch --depth=1 origin gh-pages
+            git checkout origin/gh-pages -- . 2>/dev/null || true
 
-            # Go back to our branch
+            # Move content to _site, excluding repo files
+            find . -mindepth 1 -maxdepth 1 \
+              ! -name '.' \
+              ! -name '..' \
+              ! -name '.git' \
+              ! -name '_site' \
+              ! -name 'server' \
+              ! -name '.github' \
+              ! -name 'esp32-client' \
+              ! -name 'scripts' \
+              ! -name 'docker-compose.yml' \
+              ! -name 'LICENSE' \
+              ! -name '*.md' \
+              -exec mv {} _site/ \; 2>/dev/null || true
+
+            # Return to our branch
             git checkout ${{ github.ref_name }}
           else
             echo "No existing gh-pages content found (first deployment)"
@@ -241,7 +255,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: gh-pages
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Remove PR preview directory
         run: |
