@@ -10,7 +10,9 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: [self-hosted, ARM64]
+    # Use self-hosted ARM64 runner on Raspberry Pi for native builds (1-2 min vs 6-7 min)
+    # Security: This workflow only runs on pushes to main (line 14), NOT on PRs from forks
+    runs-on: [self-hosted, ARM64, raspberry-pi]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
@@ -52,13 +54,13 @@ jobs:
           IMAGE_VERSION=${{ github.sha }}
           BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
-    - name: Deploy locally (runner is on the Pi)
+    - name: Deploy to serverpi (local)
       run: |
         SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-        # Copy latest docker-compose.yml
-        cp docker-compose.yml ~/glance/docker-compose.yml
-        # Deploy with updated config (runner is already on the Pi!)
-        cd ~/glance && \
-          IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose pull && \
-          IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose up -d
+        # Runner is on Pi, so just deploy locally
+        mkdir -p ~/glance
+        cp docker-compose.yml ~/glance/
+        cd ~/glance
+        IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose pull
+        IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose up -d
 
