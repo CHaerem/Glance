@@ -1,5 +1,6 @@
 name: Build and Deploy
 
+# Self-hosted ARM64 runner configured and listening for jobs
 on:
   push:
     branches: [ main, develop ]
