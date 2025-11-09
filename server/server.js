@@ -4409,6 +4409,34 @@ app.get("/admin", async (_req, res) => {
 	}
 });
 
+// Ambient dashboard for touchscreen kiosk mode
+app.get("/dashboard", async (_req, res) => {
+	try {
+		let dashboardPath = path.join(__dirname, 'dashboard.html');
+
+		try {
+			await fs.access(dashboardPath);
+		} catch {
+			// Fallback to parent directory (for local development)
+			dashboardPath = path.join(__dirname, '..', 'dashboard.html');
+		}
+
+		const dashboardContent = await fs.readFile(dashboardPath, 'utf8');
+
+		res.set({
+			'Cache-Control': 'no-cache, no-store, must-revalidate',
+			'Pragma': 'no-cache',
+			'Expires': '0',
+			'ETag': `"${Date.now()}"`
+		});
+
+		res.send(dashboardContent);
+	} catch (error) {
+		console.error('Error serving dashboard file:', error);
+		res.status(500).send('Dashboard page not found');
+	}
+});
+
 // Enhanced UI preview (development)
 app.get("/preview", async (_req, res) => {
 	try {

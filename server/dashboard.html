@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=480, height=320, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Glance Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            width: 480px;
+            height: 320px;
+            overflow: hidden;
+            cursor: none;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top section - Current artwork */
+        #artwork-section {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        #artwork-img {
+            max-width: 100%;
+            max-height: 180px;
+            object-fit: contain;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #artwork-img.loaded {
+            opacity: 1;
+        }
+
+        #artwork-info {
+            position: absolute;
+            bottom: 10px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        #artwork-title {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        #artwork-artist {
+            opacity: 0.7;
+            font-size: 10px;
+        }
+
+        /* Bottom status bar */
+        #status-bar {
+            height: 60px;
+            background: #111;
+            border-top: 1px solid #222;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            font-size: 12px;
+        }
+
+        #time {
+            font-size: 24px;
+            font-weight: 300;
+            letter-spacing: -0.5px;
+        }
+
+        #status-info {
+            text-align: right;
+            font-size: 10px;
+            opacity: 0.6;
+            line-height: 1.4;
+        }
+
+        /* Touch zones (invisible) */
+        .touch-zone {
+            position: absolute;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #touch-top {
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+        }
+
+        #touch-bottom {
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            height: calc(50% - 60px);
+        }
+
+        /* Loading state */
+        .loading {
+            opacity: 0.5;
+        }
+
+        /* Feedback animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .pulse {
+            animation: pulse 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <!-- Touch zone for "next" -->
+        <div class="touch-zone" id="touch-top"></div>
+
+        <!-- Artwork display -->
+        <div id="artwork-section">
+            <img id="artwork-img" alt="Current artwork">
+            <div id="artwork-info">
+                <div id="artwork-title">Loading...</div>
+                <div id="artwork-artist"></div>
+            </div>
+        </div>
+
+        <!-- Touch zone for "like" -->
+        <div class="touch-zone" id="touch-bottom"></div>
+
+        <!-- Status bar -->
+        <div id="status-bar">
+            <div id="time">--:--</div>
+            <div id="status-info">
+                <div id="next-update">Next: --</div>
+                <div id="collection-size">-- artworks</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+
+        // Update time every second
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+            document.getElementById('time').textContent = timeStr;
+        }
+
+        // Fetch current artwork data
+        async function fetchCurrentArtwork() {
+            try {
+                const response = await fetch('/api/current.json');
+                const data = await response.json();
+                currentData = data;
+                updateDisplay(data);
+            } catch (error) {
+                console.error('Error fetching artwork:', error);
+            }
+        }
+
+        // Update display with artwork data
+        function updateDisplay(data) {
+            const img = document.getElementById('artwork-img');
+            const title = document.getElementById('artwork-title');
+            const artist = document.getElementById('artwork-artist');
+
+            // Update artwork image
+            if (data.imageUrl || data.imagePath) {
+                const imgUrl = data.imageUrl || `/uploads/${data.imagePath}`;
+                img.src = imgUrl;
+                img.onload = () => img.classList.add('loaded');
+            }
+
+            // Update artwork info
+            title.textContent = data.imageTitle || data.title || 'Untitled';
+            artist.textContent = data.artist || '';
+
+            // Update next refresh time if available
+            if (data.sleepMinutes) {
+                const nextTime = new Date(Date.now() + data.sleepMinutes * 60000);
+                const nextStr = nextTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+                document.getElementById('next-update').textContent = `Next: ${nextStr}`;
+            }
+        }
+
+        // Fetch collection stats
+        async function fetchStats() {
+            try {
+                const response = await fetch('/api/my-collection');
+                const data = await response.json();
+                if (data.images) {
+                    document.getElementById('collection-size').textContent =
+                        `${data.images.length} artworks`;
+                }
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+
+        // Touch handlers
+        document.getElementById('touch-top').addEventListener('click', async () => {
+            document.getElementById('touch-top').classList.add('pulse');
+            setTimeout(() => {
+                document.getElementById('touch-top').classList.remove('pulse');
+            }, 300);
+
+            // Request next artwork
+            try {
+                await fetch('/api/command/next', { method: 'POST' });
+                setTimeout(fetchCurrentArtwork, 1000);
+            } catch (error) {
+                console.error('Error requesting next:', error);
+            }
+        });
+
+        document.getElementById('touch-bottom').addEventListener('click', async () => {
+            document.getElementById('touch-bottom').classList.add('pulse');
+            setTimeout(() => {
+                document.getElementById('touch-bottom').classList.remove('pulse');
+            }, 300);
+
+            // Like current artwork
+            if (currentData && currentData.imageId) {
+                try {
+                    await fetch('/api/like', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ imageId: currentData.imageId })
+                    });
+                } catch (error) {
+                    console.error('Error liking artwork:', error);
+                }
+            }
+        });
+
+        // Initialize
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        fetchCurrentArtwork();
+        fetchStats();
+
+        // Refresh data every 30 seconds
+        setInterval(fetchCurrentArtwork, 30000);
+        setInterval(fetchStats, 300000); // 5 minutes
+
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', e => e.preventDefault());
+    </script>
+</body>
+</html>

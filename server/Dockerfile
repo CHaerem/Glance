@@ -34,6 +34,7 @@ RUN npm install --production --no-dev && npm cache clean --force
 COPY server.js ./
 COPY simple-ui.html ./
 COPY admin.html ./
+COPY dashboard.html ./
 COPY bhutan.svg ./
 COPY public ./public
 COPY routes ./routes
