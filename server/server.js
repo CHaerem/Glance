@@ -4218,16 +4218,29 @@ app.post("/api/art/import", async (req, res) => {
 		console.log(`Importing artwork: ${title} from ${imageUrl} (rotation: ${rotationDegrees}°)`);
 
 		// Fetch the image
-		const imageResponse = await fetch(imageUrl);
+		let imageResponse;
+		try {
+			imageResponse = await fetch(imageUrl);
+		} catch (fetchError) {
+			console.error("Failed to fetch image from URL:", fetchError.message);
+			return res.status(400).json({ error: `Failed to fetch image: ${fetchError.message}` });
+		}
+
 		if (!imageResponse.ok) {
-			return res.status(400).json({ error: "Failed to fetch image" });
+			console.error(`Image fetch returned status: ${imageResponse.status}`);
+			return res.status(400).json({ error: `Failed to fetch image: HTTP ${imageResponse.status}` });
 		}
 
 		const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+		console.log(`✓ Downloaded image: ${imageBuffer.length} bytes`);
+
+		// Ensure upload directory exists
+		await ensureDir(UPLOAD_DIR);
 
 		// Save to temporary file
 		const tempPath = path.join(UPLOAD_DIR, `temp-${Date.now()}.jpg`);
 		await fs.writeFile(tempPath, imageBuffer);
+		console.log(`✓ Saved to temp file: ${tempPath}`);
 
 		// Determine dimensions based on rotation
 		const targetWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 1600 : 1200;
@@ -4235,6 +4248,7 @@ app.post("/api/art/import", async (req, res) => {
 
 		// Process image with Sharp (resize and dither for e-ink)
 		// convertImageToRGB(imagePath, rotation, targetWidth, targetHeight, options)
+		console.log(`Processing image for e-ink display...`);
 		const ditheredRgbBuffer = await convertImageToRGB(
 			tempPath,
 			rotationDegrees,
@@ -4246,6 +4260,7 @@ app.post("/api/art/import", async (req, res) => {
 				sharpen: false
 			}
 		);
+		console.log(`✓ Image processed and dithered`);
 
 		// Create thumbnail with correct dimensions
 		const thumbnailWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 400 : 300;
@@ -4320,7 +4335,11 @@ app.post("/api/art/import", async (req, res) => {
 		res.json({ success: true, message: "Artwork imported successfully" });
 	} catch (error) {
 		console.error("Error importing art:", error);
-		res.status(500).json({ error: "Internal server error: " + error.message });
+		console.error("Stack trace:", error.stack);
+		res.status(500).json({
+			error: "Internal server error: " + error.message,
+			details: error.stack
+		});
 	}
 });
 
