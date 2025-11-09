@@ -25,12 +25,15 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first for better Docker layer caching
+# Dependencies layer - only rebuilds when package.json changes
 COPY package*.json ./
 
 # Install dependencies with production optimization
+# This is the slowest layer but cached unless package.json changes
 RUN npm install --production --no-dev && npm cache clean --force
 
 # Copy source code, UI files, and assets
+# These layers rebuild when code changes but are fast (no npm install)
 COPY server.js ./
 COPY simple-ui.html ./
 COPY admin.html ./

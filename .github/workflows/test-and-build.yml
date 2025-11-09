@@ -3,6 +3,10 @@ name: Build and Deploy
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'server/**'
+      - 'docker-compose.yml'
+      - '.github/workflows/test-and-build.yml'
 
 jobs:
   build-and-deploy:
