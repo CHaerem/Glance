@@ -83,8 +83,19 @@ jobs:
             git checkout origin/gh-pages -- . 2>/dev/null || true
 
             # Move content to _site, excluding repo files
-            shopt -s extglob dotglob
-            mv !(.|..|.git|_site|server|.github|esp32-client|scripts|docker-compose.yml|*.md|LICENSE) _site/ 2>/dev/null || true
+            find . -mindepth 1 -maxdepth 1 \
+              ! -name '.' \
+              ! -name '..' \
+              ! -name '.git' \
+              ! -name '_site' \
+              ! -name 'server' \
+              ! -name '.github' \
+              ! -name 'esp32-client' \
+              ! -name 'scripts' \
+              ! -name 'docker-compose.yml' \
+              ! -name 'LICENSE' \
+              ! -name '*.md' \
+              -exec mv {} _site/ \; 2>/dev/null || true
 
             # Return to our branch
             git checkout ${{ github.ref_name }}
