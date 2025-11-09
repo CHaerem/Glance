@@ -45,8 +45,8 @@ COPY scripts ./scripts
 RUN groupadd --gid 1001 nodejs && \
     useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home glance
 
-# Create data directory with proper permissions
-RUN mkdir -p /app/data && chown -R glance:nodejs /app
+# Create data and uploads directories with proper permissions
+RUN mkdir -p /app/data /app/uploads && chown -R glance:nodejs /app
 
 # Switch to non-root user
 USER glance
