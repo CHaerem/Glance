@@ -41,8 +41,8 @@ COPY services ./services
 COPY scripts ./scripts
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S glance -u 1001 -G nodejs
+RUN groupadd --gid 1001 nodejs && \
+    useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home glance
 
 # Create data directory with proper permissions
 RUN mkdir -p /app/data && chown -R glance:nodejs /app
