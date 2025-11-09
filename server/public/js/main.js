@@ -1048,7 +1048,7 @@ async function applyModalArt() {
             // Show loading for artwork import (this is the slow one!)
             statusText.textContent = 'Processing artwork...';
             promptText.textContent = `${selectedModalArt.title}${selectedModalArt.artist ? ' · ' + selectedModalArt.artist : ''}`;
-            filenameText.textContent = 'Downloading and optimizing for e-ink display (this may take 30-60 seconds)';
+            filenameText.textContent = 'Downloading and optimizing for e-ink display (this may take 15-30 seconds)';
             overlay.classList.add('show');
 
             response = await fetch('/api/art/import', {
