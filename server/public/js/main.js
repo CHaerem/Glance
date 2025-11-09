@@ -1021,6 +1021,11 @@ async function openHistoryPreview(imageId) {
 async function applyModalArt() {
     if (!selectedModalArt && !selectedHistoryItem) return;
 
+    const overlay = document.getElementById('generationOverlay');
+    const statusText = document.getElementById('generationStatusText');
+    const promptText = document.getElementById('generationPromptText');
+    const filenameText = document.getElementById('generationFilenameText');
+
     try {
         let response;
         const modalImage = document.getElementById('modalImage');
@@ -1028,12 +1033,24 @@ async function applyModalArt() {
         const rotation = isLandscape ? 90 : 0;
 
         if (selectedHistoryItem) {
+            // Show loading for history items
+            statusText.textContent = 'Applying image...';
+            promptText.textContent = selectedHistoryItem.title || selectedHistoryItem.originalPrompt || '';
+            filenameText.textContent = '';
+            overlay.classList.add('show');
+
             response = await fetch(`/api/history/${selectedHistoryItem.imageId}/load`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rotation })
             });
         } else if (selectedModalArt) {
+            // Show loading for artwork import (this is the slow one!)
+            statusText.textContent = 'Processing artwork...';
+            promptText.textContent = `${selectedModalArt.title}${selectedModalArt.artist ? ' · ' + selectedModalArt.artist : ''}`;
+            filenameText.textContent = 'Downloading and optimizing for e-ink display (this may take 30-60 seconds)';
+            overlay.classList.add('show');
+
             response = await fetch('/api/art/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1047,11 +1064,22 @@ async function applyModalArt() {
         }
 
         if (response && response.ok) {
+            overlay.classList.remove('show');
+            statusText.textContent = 'Generating image...';
+            filenameText.textContent = '';
             closeModal();
             setTimeout(loadCurrentDisplay, 2000);
+        } else {
+            overlay.classList.remove('show');
+            const errorData = await response.json();
+            alert('Failed to apply: ' + (errorData.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Apply art failed:', error);
+        overlay.classList.remove('show');
+        statusText.textContent = 'Generating image...';
+        filenameText.textContent = '';
+        alert('Failed to apply artwork: ' + error.message);
     }
 }
 
