@@ -49,8 +49,9 @@ jobs:
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        # Use local cache on self-hosted runner (much faster than gha for self-hosted)
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
         build-args: |
           IMAGE_VERSION=${{ github.sha }}
           BUILD_DATE=${{ github.event.head_commit.timestamp }}
