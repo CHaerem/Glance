@@ -231,8 +231,6 @@ node scripts/populate-from-museums.js 100   # Add 200 artworks (100/museum)
 node scripts/populate-from-museums.js 500   # Scale to 1000 artworks (500/museum)
 ```
 
-See [SEMANTIC_SEARCH_READY.md](SEMANTIC_SEARCH_READY.md) for full documentation and API endpoints.
-
 ## 📊 Performance & Power
 
 | Metric | Value | Notes |
