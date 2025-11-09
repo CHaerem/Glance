@@ -1016,7 +1016,7 @@
     <!-- Server identification -->
     <div class="server-id" id="serverId"></div>
 
-    <h2>Wake Schedule</h2>
+    <h2>ESP32 Display Settings</h2>
     <div class="settings-form">
         <div class="form-group">
             <label class="form-label" for="sleepDuration">Update Interval (minutes)</label>
@@ -1034,7 +1034,7 @@
                 <button class="preset-btn" onclick="setSleepPreset(720)">12 hours</button>
                 <button class="preset-btn" onclick="setSleepPreset(1440)">24 hours</button>
             </div>
-            <div style="margin-top: 12px; padding: 12px; background: #fff; border-radius: 4px; font-size: 0.85rem; color: #666;">
+            <div style="margin-top: 12px; padding: 12px; background: var(--input-bg); border-radius: 4px; font-size: 0.85rem; color: var(--text-secondary);">
                 <strong>Next wake times:</strong> <span id="nextWakeTimes">--</span>
             </div>
         </div>
@@ -1069,24 +1069,6 @@
             </div>
             <div class="form-hint">
                 Default orientation for image previews and AI generation.
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">Interface Theme</label>
-            <div style="display: flex; gap: 12px;">
-                <button type="button" class="preset-btn" id="themeAuto" onclick="selectTheme('auto')" style="flex: 1;">
-                    Auto (System)
-                </button>
-                <button type="button" class="preset-btn" id="themeLight" onclick="selectTheme('light')" style="flex: 1;">
-                    Light
-                </button>
-                <button type="button" class="preset-btn" id="themeDark" onclick="selectTheme('dark')" style="flex: 1;">
-                    Dark
-                </button>
-            </div>
-            <div class="form-hint">
-                Choose interface theme or follow system preference.
             </div>
         </div>
 
@@ -1166,8 +1148,29 @@
             </div>
         </div>
 
-        <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+        <button class="btn-primary" onclick="saveSettings()">Save ESP32 Settings</button>
         <div class="success-message" id="successMessage">Settings saved! ESP32 will use new settings on next wake.</div>
+    </div>
+
+    <h2>Server Settings</h2>
+    <div class="settings-form">
+        <div class="form-group">
+            <label class="form-label">Interface Theme</label>
+            <div style="display: flex; gap: 12px;">
+                <button type="button" class="preset-btn" id="themeAuto" onclick="selectTheme('auto')" style="flex: 1;">
+                    Auto (System)
+                </button>
+                <button type="button" class="preset-btn" id="themeLight" onclick="selectTheme('light')" style="flex: 1;">
+                    Light
+                </button>
+                <button type="button" class="preset-btn" id="themeDark" onclick="selectTheme('dark')" style="flex: 1;">
+                    Dark
+                </button>
+            </div>
+            <div class="form-hint">
+                Choose web interface theme or follow system preference. Changes apply immediately.
+            </div>
+        </div>
     </div>
 
     <h2>Device Status</h2>
