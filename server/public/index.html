@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>Glance</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
@@ -25,9 +26,9 @@
         <!-- Mode Toggle -->
         <div class="mode-toggle">
             <button class="mode-link" id="createLink">create</button>
-            <span style="color: #e5e5e5;">|</span>
+            <span class="separator-text">|</span>
             <button class="mode-link" id="exploreLink">explore</button>
-            <span style="color: #e5e5e5;">|</span>
+            <span class="separator-text">|</span>
             <button class="mode-link" id="myCollectionLink">my collection</button>
         </div>
 
@@ -46,15 +47,15 @@
             </div>
 
             <!-- Separator -->
-            <div style="text-align: center; margin: 40px 0 30px; color: #ccc; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
+            <div class="muted-text" style="text-align: center; margin: 40px 0 30px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px;">
                 or
             </div>
 
             <!-- Upload Section -->
             <div class="input-area" id="dropZone" style="cursor: pointer;">
                 <div style="padding: 40px 20px; text-align: center;">
-                    <div style="color: #999; font-size: 0.9rem; margin-bottom: 8px;">Upload an image</div>
-                    <div style="color: #ccc; font-size: 0.75rem;">Click or drag image here</div>
+                    <div class="help-text" style="font-size: 0.9rem; margin-bottom: 8px;">Upload an image</div>
+                    <div class="muted-text" style="font-size: 0.75rem;">Click or drag image here</div>
                 </div>
             </div>
         </div>
@@ -70,12 +71,12 @@
             </div>
 
             <!-- Suggestions -->
-            <div style="text-align: center; margin: 16px 0; font-size: 0.8rem; color: #666;">
-                <span style="color: #999;">Try:</span>
+            <div class="secondary-text" style="text-align: center; margin: 16px 0; font-size: 0.8rem;">
+                <span class="help-text">Try:</span>
                 <button class="mode-link suggestion-link" data-query="Monet">Monet</button>
-                <span style="color: #e5e5e5;">·</span>
+                <span class="separator-text">·</span>
                 <button class="mode-link suggestion-link" data-query="Japanese art">Japanese art</button>
-                <span style="color: #e5e5e5;">·</span>
+                <span class="separator-text">·</span>
                 <button class="mode-link suggestion-link" data-query="Bold colors">Bold colors</button>
             </div>
 
@@ -113,6 +114,12 @@
             </div>
         </div>
     </div>
+
+    <!-- Dark Mode Toggle -->
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+        <span class="theme-icon-light">☀</span>
+        <span class="theme-icon-dark">☾</span>
+    </button>
 
     <!-- Admin Link -->
     <a href="/admin" class="admin-link">admin</a>
