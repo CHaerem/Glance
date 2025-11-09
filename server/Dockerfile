@@ -1,3 +1,23 @@
+# Build stage - compiles native modules with build tools
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies for native modules (better-sqlite3, sharp)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package files first for better Docker layer caching
+COPY package*.json ./
+
+# Install dependencies with production optimization
+# This is the slowest layer but cached unless package.json changes
+RUN npm install --production --no-dev && npm cache clean --force
+
+# Runtime stage - clean image without build tools
 FROM node:20-slim
 
 # Add metadata
@@ -16,24 +36,15 @@ ENV BUILD_DATE=$BUILD_DATE
 
 WORKDIR /app
 
-# Install build dependencies for native modules (better-sqlite3, onnxruntime-node)
+# Install only runtime dependencies (dumb-init)
 RUN apt-get update && apt-get install -y \
     dumb-init \
-    python3 \
-    make \
-    g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files first for better Docker layer caching
-# Dependencies layer - only rebuilds when package.json changes
-COPY package*.json ./
-
-# Install dependencies with production optimization
-# This is the slowest layer but cached unless package.json changes
-RUN npm install --production --no-dev && npm cache clean --force
+# Copy built node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy source code, UI files, and assets
-# These layers rebuild when code changes but are fast (no npm install)
 COPY server.js ./
 COPY simple-ui.html ./
 COPY admin.html ./
