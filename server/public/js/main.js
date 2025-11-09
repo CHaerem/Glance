@@ -12,8 +12,10 @@ function initTheme() {
     const savedTheme = localStorage.getItem('theme');
     const root = document.documentElement;
 
-    if (savedTheme) {
+    if (savedTheme && savedTheme !== 'auto') {
         root.setAttribute('data-theme', savedTheme);
+    } else {
+        root.removeAttribute('data-theme');
     }
 }
 
