@@ -11,7 +11,8 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --ci --coverage --watchAll=false",
     "build:preview": "node preview/build-preview.js",
-    "preview:serve": "npm run build:preview && cd preview && python3 -m http.server 8080"
+    "preview:serve": "npm run build:preview && cd preview && python3 -m http.server 8080",
+    "init:storage": "node scripts/init-storage.js"
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.1",
