@@ -24,6 +24,11 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            transition: opacity 1s ease;
+        }
+
+        body.dimmed {
+            opacity: 0.01;
         }
 
         /* Clock */
@@ -290,43 +295,22 @@
         // Prevent context menu
         document.addEventListener('contextmenu', e => e.preventDefault());
 
-        // Backlight control after inactivity
+        // Screen dimming after inactivity
         let dimTimeout;
         const DIM_DELAY = 30000; // 30 seconds
-        let isBacklightOn = true;
-
-        async function setBacklight(state) {
-            try {
-                const response = await fetch('/api/backlight', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ state: state })
-                });
-                if (response.ok) {
-                    isBacklightOn = (state === 'on');
-                    console.log('Backlight:', state);
-                } else {
-                    console.error('Backlight control failed:', await response.text());
-                }
-            } catch (error) {
-                console.error('Error controlling backlight:', error);
-            }
-        }
 
         function resetDimTimer() {
-            // Turn backlight on if it was off
-            if (!isBacklightOn) {
-                setBacklight('on');
-            }
+            // Remove dimmed class immediately
+            document.body.classList.remove('dimmed');
 
             // Clear existing timeout
             if (dimTimeout) {
                 clearTimeout(dimTimeout);
             }
 
-            // Set new timeout to turn off backlight
+            // Set new timeout to dim screen
             dimTimeout = setTimeout(() => {
-                setBacklight('off');
+                document.body.classList.add('dimmed');
             }, DIM_DELAY);
         }
 

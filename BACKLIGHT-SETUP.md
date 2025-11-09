@@ -1,97 +1,59 @@
-# Backlight Control Setup
+# Display Dimming for MHS35 Touchscreen
 
-This document explains how to set up secure backlight control for the touchscreen dashboard.
+## Hardware Limitation
 
-## Security Design
+**The MHS35 3.5" LCD does not support software-controllable backlight.** This is a limitation of small SPI TFT displays - the backlight is hardwired and always on when the display has power.
 
-The Glance server needs to control the LCD backlight to dim the screen after inactivity. Instead of running the container as root (insecure), we use Linux udev rules to grant specific permissions to the video group.
+After investigation, we found:
+- `/sys/class/backlight` directory exists but is empty (no backlight device)
+- The MHS35 device tree overlay does not expose backlight control
+- `xset dpms force off` does not affect the backlight
+- Small SPI displays typically don't have controllable backlights
 
-**Security benefits:**
-- Container runs as non-root user (UID 1001)
-- Only has write access to backlight device (not full system)
-- Uses principle of least privilege
-- Follows Linux security best practices
+## Current Solution: CSS Opacity Dimming
 
-## Setup Instructions
+The dashboard uses CSS opacity to visually dim the screen after 30 seconds of inactivity:
+- Sets `opacity: 0.01` on the body element
+- Screen appears nearly black
+- **Note**: The backlight physically remains on (minimal light emission)
+- Touch interaction restores full brightness instantly
 
-### One-Time Setup on serverpi
+This is the best achievable solution without hardware modification
 
-Run this command on your serverpi (Raspberry Pi) **once** to configure permissions:
+## No Setup Required
 
-```bash
-# Make the setup script executable and run it
-chmod +x setup-backlight-permissions.sh
-./setup-backlight-permissions.sh
-```
-
-This script:
-1. Creates a udev rule at `/etc/udev/rules.d/99-backlight.rules`
-2. Makes backlight brightness files writable by the `video` group (GID 44)
-3. Applies permissions to existing backlight devices
-4. Reloads udev rules
-
-### Deploy with Docker Compose
-
-After running the setup script, deploy normally:
+The CSS dimming works automatically - no configuration needed. Just deploy:
 
 ```bash
 cd ~/glance
 docker compose up -d
 ```
 
-The container will run as the `glance` user (non-root) with access to the `video` group, allowing it to control backlight brightness.
+The dashboard at `http://serverpi:3000/dashboard` will automatically dim after 30 seconds of inactivity.
 
-## How It Works
+## Hardware Modification Alternative
 
-1. **udev rule**: When a backlight device is detected, udev automatically sets group ownership to `video` and makes it group-writable
-2. **Docker user mapping**: Container runs as UID 1001 (glance) with supplementary GID 44 (video)
-3. **File access**: The glance user can write to `/sys/class/backlight/*/brightness` via video group membership
-4. **Backlight API**: Server endpoint `/api/backlight` writes `0` (off) or `255` (on) to the brightness file
-5. **Dashboard**: After 30s of inactivity, calls API to turn off backlight; touch turns it back on
+If you need true backlight control (to completely eliminate light emission), you would need to:
 
-## Verification
+1. **Identify the backlight power line** on the MHS35 PCB
+2. **Add a MOSFET/transistor** controlled by a GPIO pin
+3. **Wire GPIO control** from the Raspberry Pi to the transistor
+4. **Update software** to control the GPIO pin
 
-Check that permissions are correct:
+**Warning**: This requires:
+- Soldering skills
+- Understanding of electronics
+- Potentially voiding warranty
+- Risk of damaging the display
 
-```bash
-# Check udev rule exists
-cat /etc/udev/rules.d/99-backlight.rules
+For most use cases, the CSS opacity dimming is sufficient.
 
-# Check backlight device permissions
-ls -l /sys/class/backlight/*/brightness
-# Should show: -rw-rw-r-- 1 root video ...
-```
+## How CSS Dimming Works
 
-## Troubleshooting
+1. Dashboard JavaScript monitors touch/click events
+2. After 30 seconds of no interaction, adds `dimmed` class to body
+3. CSS applies `opacity: 0.01` - screen appears nearly black
+4. Any touch/click removes the `dimmed` class instantly
+5. Screen returns to full brightness
 
-**Backlight not dimming:**
-
-1. Check container logs:
-   ```bash
-   docker logs glance-server | grep -i backlight
-   ```
-
-2. Verify permissions:
-   ```bash
-   ls -l /sys/class/backlight/*/brightness
-   ```
-   Should show group `video` with write permission.
-
-3. Test manually inside container:
-   ```bash
-   docker exec -it glance-server sh
-   echo 0 > /sys/class/backlight/*/brightness  # Should dim
-   echo 255 > /sys/class/backlight/*/brightness  # Should brighten
-   ```
-
-**Permission denied errors:**
-
-Re-run the setup script:
-```bash
-./setup-backlight-permissions.sh
-```
-
-Then restart the container:
-```bash
-docker compose restart glance-server
-```
+The dimmed screen still emits minimal backlight, but is visually dark enough for most ambient/calm display purposes.

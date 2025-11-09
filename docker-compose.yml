@@ -2,16 +2,12 @@ services:
   glance-server:
     image: ${DOCKER_USERNAME:-chaerem}/glance-server:${IMAGE_VERSION:-latest}
     container_name: glance-server
-    user: "1001:44"  # glance user (UID 1001) with video group (GID 44) for backlight access
-    group_add:
-      - "44"  # video group
     ports:
       - "3000:3000"
     volumes:
       - glance-data:/app/data
       - glance-uploads:/app/uploads
       - huggingface-cache:/home/glance/.cache/huggingface
-      - /sys/class/backlight:/sys/class/backlight
     environment:
       - NODE_ENV=production
       - PORT=3000
