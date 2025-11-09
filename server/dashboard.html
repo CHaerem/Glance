@@ -24,6 +24,11 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            transition: opacity 1s ease;
+        }
+
+        body.dimmed {
+            opacity: 0.2;
         }
 
         /* Clock */
@@ -289,6 +294,33 @@
 
         // Prevent context menu
         document.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Screen dimming after inactivity
+        let dimTimeout;
+        const DIM_DELAY = 30000; // 30 seconds
+
+        function resetDimTimer() {
+            // Remove dimmed class immediately
+            document.body.classList.remove('dimmed');
+
+            // Clear existing timeout
+            if (dimTimeout) {
+                clearTimeout(dimTimeout);
+            }
+
+            // Set new timeout to dim screen
+            dimTimeout = setTimeout(() => {
+                document.body.classList.add('dimmed');
+            }, DIM_DELAY);
+        }
+
+        // Reset timer on any user interaction
+        document.addEventListener('click', resetDimTimer);
+        document.addEventListener('touchstart', resetDimTimer);
+        document.addEventListener('touchmove', resetDimTimer);
+
+        // Start the dim timer
+        resetDimTimer();
     </script>
 </body>
 </html>
