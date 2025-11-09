@@ -4487,22 +4487,30 @@ app.post("/api/backlight", async (req, res) => {
 			return res.status(400).json({ error: 'State must be "on" or "off"' });
 		}
 
-		// Control backlight via brightness file
-		// Find the backlight device
-		const { exec } = require('child_process');
-		const util = require('util');
-		const execPromise = util.promisify(exec);
-
 		const brightness = state === 'on' ? '255' : '0';
+		console.log(`Setting backlight to: ${state} (brightness: ${brightness})`);
 
-		// Try to find and control the backlight
+		// Find and control the backlight device
 		// This works for the fb_ili9486 driver used by MHS35
 		try {
-			await execPromise(`echo ${brightness} > /sys/class/backlight/*/brightness 2>/dev/null || true`);
-			res.json({ success: true, state });
+			const glob = require('glob');
+			const backlightPaths = glob.sync('/sys/class/backlight/*/brightness');
+
+			if (backlightPaths.length === 0) {
+				console.error('No backlight device found');
+				return res.status(404).json({ error: 'No backlight device found' });
+			}
+
+			const backlightPath = backlightPaths[0];
+			console.log(`Writing ${brightness} to ${backlightPath}`);
+
+			await fs.writeFile(backlightPath, brightness + '\n');
+			console.log(`Backlight successfully set to ${state}`);
+
+			res.json({ success: true, state, device: backlightPath });
 		} catch (error) {
 			console.error('Backlight control error:', error);
-			res.status(500).json({ error: 'Failed to control backlight' });
+			res.status(500).json({ error: 'Failed to control backlight', details: error.message });
 		}
 	} catch (error) {
 		console.error('Backlight API error:', error);

@@ -2,6 +2,7 @@ services:
   glance-server:
     image: ${DOCKER_USERNAME:-chaerem}/glance-server:${IMAGE_VERSION:-latest}
     container_name: glance-server
+    user: root
     ports:
       - "3000:3000"
     volumes:
