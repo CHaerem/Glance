@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=480, height=320, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Glance Dashboard</title>
+    <title>Glance</title>
     <style>
         * {
             margin: 0;
@@ -14,200 +14,210 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0a0a0a;
-            color: #e0e0e0;
+            background: #000;
+            color: #fff;
             width: 480px;
             height: 320px;
             overflow: hidden;
             cursor: none;
-        }
-
-        #container {
-            width: 100%;
-            height: 100%;
             display: flex;
             flex-direction: column;
-        }
-
-        /* Top section - Current artwork */
-        #artwork-section {
-            flex: 1;
-            display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+        }
+
+        /* Clock */
+        #clock {
+            font-size: 72px;
+            font-weight: 200;
+            letter-spacing: -2px;
+            margin-bottom: 60px;
+            opacity: 0.95;
+        }
+
+        /* Button grid */
+        #controls {
+            display: grid;
+            grid-template-columns: repeat(4, 100px);
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .control-btn {
+            width: 100px;
+            height: 100px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
             position: relative;
         }
 
-        #artwork-img {
-            max-width: 100%;
-            max-height: 180px;
-            object-fit: contain;
-            border-radius: 4px;
-            opacity: 0;
-            transition: opacity 0.5s ease;
+        .control-btn:active {
+            background: #2a2a2a;
+            transform: scale(0.95);
         }
 
-        #artwork-img.loaded {
-            opacity: 1;
+        .control-btn-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
         }
 
-        #artwork-info {
+        .control-btn-label {
+            font-size: 12px;
+            opacity: 0.6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Status indicator */
+        #status {
             position: absolute;
-            bottom: 15px;
-            left: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 12px 16px;
-            border-radius: 6px;
-            font-size: 16px;
-            line-height: 1.5;
-        }
-
-        #artwork-title {
-            font-weight: 600;
-            margin-bottom: 4px;
-            font-size: 18px;
-        }
-
-        #artwork-artist {
-            opacity: 0.8;
-            font-size: 15px;
-        }
-
-        /* Bottom status bar */
-        #status-bar {
-            height: 70px;
-            background: #111;
-            border-top: 1px solid #222;
+            top: 16px;
+            right: 16px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            font-size: 14px;
+            gap: 8px;
+            font-size: 11px;
+            opacity: 0.4;
         }
 
-        #time {
-            font-size: 36px;
-            font-weight: 300;
-            letter-spacing: -0.5px;
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4ade80;
         }
 
-        #status-info {
-            text-align: right;
-            font-size: 13px;
-            opacity: 0.7;
-            line-height: 1.5;
+        .status-dot.offline {
+            background: #ef4444;
         }
 
-        /* Touch zones (invisible) */
-        .touch-zone {
+        /* Info display */
+        #info {
             position: absolute;
-            background: transparent;
-            cursor: pointer;
-        }
-
-        #touch-top {
-            top: 0;
+            bottom: 16px;
             left: 0;
             right: 0;
-            height: 50%;
-        }
-
-        #touch-bottom {
-            bottom: 70px;
-            left: 0;
-            right: 0;
-            height: calc(50% - 70px);
-        }
-
-        /* Loading state */
-        .loading {
-            opacity: 0.5;
+            text-align: center;
+            font-size: 11px;
+            opacity: 0.3;
         }
 
         /* Feedback animation */
-        @keyframes pulse {
-            0% { background: transparent; }
-            50% { background: rgba(255, 255, 255, 0.1); }
-            100% { background: transparent; }
+        @keyframes feedback {
+            0% { background: #1a1a1a; }
+            50% { background: #3a3a3a; }
+            100% { background: #1a1a1a; }
         }
 
-        .pulse {
-            animation: pulse 0.3s ease;
-        }
-
-        /* Touch action indicators */
-        .touch-indicator {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            z-index: 100;
-        }
-
-        #next-indicator {
-            top: 30%;
-        }
-
-        #like-indicator {
-            bottom: 35%;
-        }
-
-        .touch-indicator.show {
-            opacity: 1;
+        .control-btn.active {
+            animation: feedback 0.3s ease;
         }
     </style>
 </head>
 <body>
-    <div id="container">
-        <!-- Touch zone for "next" -->
-        <div class="touch-zone" id="touch-top"></div>
-        <div class="touch-indicator" id="next-indicator">Next →</div>
+    <!-- Status indicator -->
+    <div id="status">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">system</span>
+    </div>
 
-        <!-- Artwork display -->
-        <div id="artwork-section">
-            <img id="artwork-img" alt="Current artwork">
-            <div id="artwork-info">
-                <div id="artwork-title">Loading...</div>
-                <div id="artwork-artist"></div>
-            </div>
-        </div>
+    <!-- Clock -->
+    <div id="clock">--:--</div>
 
-        <!-- Touch zone for "like" -->
-        <div class="touch-zone" id="touch-bottom"></div>
-        <div class="touch-indicator" id="like-indicator">♥ Like</div>
+    <!-- Control buttons -->
+    <div id="controls">
+        <button class="control-btn" id="btn-next">
+            <div class="control-btn-icon">→</div>
+            <div class="control-btn-label">Next</div>
+        </button>
+        <button class="control-btn" id="btn-like">
+            <div class="control-btn-icon">♥</div>
+            <div class="control-btn-label">Like</div>
+        </button>
+        <button class="control-btn" id="btn-random">
+            <div class="control-btn-icon">⚡</div>
+            <div class="control-btn-label">Random</div>
+        </button>
+        <button class="control-btn" id="btn-admin">
+            <div class="control-btn-icon">⋯</div>
+            <div class="control-btn-label">Admin</div>
+        </button>
+    </div>
 
-        <!-- Status bar -->
-        <div id="status-bar">
-            <div id="time">--:--</div>
-            <div id="status-info">
-                <div id="next-update">Next: --</div>
-                <div id="collection-size">-- artworks</div>
-            </div>
-        </div>
+    <!-- Info display -->
+    <div id="info">
+        <span id="collection-info">-- artworks</span>
+        <span style="margin: 0 8px;">•</span>
+        <span id="device-info">waiting...</span>
     </div>
 
     <script>
         let currentData = null;
+        let deviceStatus = { online: false, lastSeen: null };
 
-        // Update time every second
-        function updateTime() {
+        // Update clock
+        function updateClock() {
             const now = new Date();
             const timeStr = now.toLocaleTimeString('en-US', {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: false
             });
-            document.getElementById('time').textContent = timeStr;
+            document.getElementById('clock').textContent = timeStr;
+        }
+
+        // Button feedback
+        function buttonFeedback(btn) {
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 300);
+        }
+
+        // Fetch system status
+        async function fetchStatus() {
+            try {
+                // Get collection size
+                const collectionRes = await fetch('/api/my-collection');
+                const collection = await collectionRes.json();
+                document.getElementById('collection-info').textContent =
+                    `${collection.length} artworks`;
+
+                // Get device logs to check last seen
+                const logsRes = await fetch('/api/logs');
+                const logs = await logsRes.json();
+                if (logs && logs.length > 0) {
+                    const lastLog = logs[0];
+                    const lastSeen = new Date(lastLog.timestamp);
+                    const now = new Date();
+                    const minutesAgo = Math.floor((now - lastSeen) / 60000);
+
+                    const statusDot = document.getElementById('status-dot');
+                    const statusText = document.getElementById('status-text');
+
+                    if (minutesAgo < 5) {
+                        statusDot.classList.remove('offline');
+                        statusText.textContent = 'online';
+                        document.getElementById('device-info').textContent = 'active now';
+                    } else if (minutesAgo < 60) {
+                        statusDot.classList.remove('offline');
+                        statusText.textContent = 'online';
+                        document.getElementById('device-info').textContent = `${minutesAgo}m ago`;
+                    } else {
+                        statusDot.classList.add('offline');
+                        statusText.textContent = 'idle';
+                        const hoursAgo = Math.floor(minutesAgo / 60);
+                        document.getElementById('device-info').textContent = `${hoursAgo}h ago`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
         }
 
         // Fetch current artwork data
@@ -216,81 +226,14 @@
                 const response = await fetch('/api/current-full.json');
                 const data = await response.json();
                 currentData = data;
-                updateDisplay(data);
             } catch (error) {
                 console.error('Error fetching artwork:', error);
             }
         }
 
-        // Update display with artwork data
-        function updateDisplay(data) {
-            const img = document.getElementById('artwork-img');
-            const title = document.getElementById('artwork-title');
-            const artist = document.getElementById('artwork-artist');
-
-            // Update artwork image - handle base64 data
-            if (data.originalImage && data.originalImageMime) {
-                // Use original image with proper MIME type
-                const imgUrl = `data:${data.originalImageMime};base64,${data.originalImage}`;
-                img.src = imgUrl;
-                img.onload = () => img.classList.add('loaded');
-            } else if (data.imageUrl) {
-                // Fallback to URL if available
-                img.src = data.imageUrl;
-                img.onload = () => img.classList.add('loaded');
-            } else if (data.imagePath) {
-                // Fallback to file path
-                img.src = `/uploads/${data.imagePath}`;
-                img.onload = () => img.classList.add('loaded');
-            }
-
-            // Update artwork info
-            title.textContent = data.imageTitle || data.title || 'Untitled';
-            artist.textContent = data.artist || '';
-
-            // Update next refresh time if available
-            if (data.sleepDuration) {
-                // sleepDuration is in microseconds, convert to milliseconds
-                const sleepMs = data.sleepDuration / 1000;
-                const nextTime = new Date(Date.now() + sleepMs);
-                const nextStr = nextTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
-                });
-                document.getElementById('next-update').textContent = `Next: ${nextStr}`;
-            }
-        }
-
-        // Fetch collection stats
-        async function fetchStats() {
-            try {
-                const response = await fetch('/api/my-collection');
-                const data = await response.json();
-                if (data.images) {
-                    document.getElementById('collection-size').textContent =
-                        `${data.images.length} artworks`;
-                }
-            } catch (error) {
-                console.error('Error fetching stats:', error);
-            }
-        }
-
-        // Touch handlers
-        document.getElementById('touch-top').addEventListener('click', async () => {
-            const zone = document.getElementById('touch-top');
-            const indicator = document.getElementById('next-indicator');
-
-            // Visual feedback
-            zone.classList.add('pulse');
-            indicator.classList.add('show');
-
-            setTimeout(() => {
-                zone.classList.remove('pulse');
-                indicator.classList.remove('show');
-            }, 500);
-
-            // Request next artwork
+        // Button: Next
+        document.getElementById('btn-next').addEventListener('click', async () => {
+            buttonFeedback(document.getElementById('btn-next'));
             try {
                 await fetch('/api/command/next', { method: 'POST' });
                 setTimeout(fetchCurrentArtwork, 1000);
@@ -299,20 +242,9 @@
             }
         });
 
-        document.getElementById('touch-bottom').addEventListener('click', async () => {
-            const zone = document.getElementById('touch-bottom');
-            const indicator = document.getElementById('like-indicator');
-
-            // Visual feedback
-            zone.classList.add('pulse');
-            indicator.classList.add('show');
-
-            setTimeout(() => {
-                zone.classList.remove('pulse');
-                indicator.classList.remove('show');
-            }, 500);
-
-            // Like current artwork
+        // Button: Like
+        document.getElementById('btn-like').addEventListener('click', async () => {
+            buttonFeedback(document.getElementById('btn-like'));
             if (currentData && currentData.imageId) {
                 try {
                     await fetch('/api/like', {
@@ -326,18 +258,34 @@
             }
         });
 
+        // Button: Random
+        document.getElementById('btn-random').addEventListener('click', async () => {
+            buttonFeedback(document.getElementById('btn-random'));
+            try {
+                await fetch('/api/command/random', { method: 'POST' });
+                setTimeout(fetchCurrentArtwork, 1000);
+            } catch (error) {
+                console.error('Error requesting random:', error);
+            }
+        });
+
+        // Button: Admin
+        document.getElementById('btn-admin').addEventListener('click', () => {
+            buttonFeedback(document.getElementById('btn-admin'));
+            window.location.href = '/admin';
+        });
+
         // Initialize
-        updateTime();
-        setInterval(updateTime, 1000);
+        updateClock();
+        setInterval(updateClock, 1000);
 
         fetchCurrentArtwork();
-        fetchStats();
+        fetchStatus();
 
-        // Refresh data every 30 seconds
-        setInterval(fetchCurrentArtwork, 30000);
-        setInterval(fetchStats, 300000); // 5 minutes
+        // Refresh status every 30 seconds
+        setInterval(fetchStatus, 30000);
 
-        // Prevent context menu on long press
+        // Prevent context menu
         document.addEventListener('contextmenu', e => e.preventDefault());
     </script>
 </body>
