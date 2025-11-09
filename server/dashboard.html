@@ -180,7 +180,7 @@
         // Fetch current artwork data
         async function fetchCurrentArtwork() {
             try {
-                const response = await fetch('/api/current.json');
+                const response = await fetch('/api/current-full.json');
                 const data = await response.json();
                 currentData = data;
                 updateDisplay(data);
@@ -195,10 +195,19 @@
             const title = document.getElementById('artwork-title');
             const artist = document.getElementById('artwork-artist');
 
-            // Update artwork image
-            if (data.imageUrl || data.imagePath) {
-                const imgUrl = data.imageUrl || `/uploads/${data.imagePath}`;
+            // Update artwork image - handle base64 data
+            if (data.originalImage && data.originalImageMime) {
+                // Use original image with proper MIME type
+                const imgUrl = `data:${data.originalImageMime};base64,${data.originalImage}`;
                 img.src = imgUrl;
+                img.onload = () => img.classList.add('loaded');
+            } else if (data.imageUrl) {
+                // Fallback to URL if available
+                img.src = data.imageUrl;
+                img.onload = () => img.classList.add('loaded');
+            } else if (data.imagePath) {
+                // Fallback to file path
+                img.src = `/uploads/${data.imagePath}`;
                 img.onload = () => img.classList.add('loaded');
             }
 
@@ -207,8 +216,10 @@
             artist.textContent = data.artist || '';
 
             // Update next refresh time if available
-            if (data.sleepMinutes) {
-                const nextTime = new Date(Date.now() + data.sleepMinutes * 60000);
+            if (data.sleepDuration) {
+                // sleepDuration is in microseconds, convert to milliseconds
+                const sleepMs = data.sleepDuration / 1000;
+                const nextTime = new Date(Date.now() + sleepMs);
                 const nextStr = nextTime.toLocaleTimeString('en-US', {
                     hour: '2-digit',
                     minute: '2-digit',
