@@ -1026,31 +1026,35 @@ async function applyModalArt() {
     const promptText = document.getElementById('generationPromptText');
     const filenameText = document.getElementById('generationFilenameText');
 
+    // Save references before closing modal (closeModal sets these to null)
+    const artToApply = selectedModalArt;
+    const historyToApply = selectedHistoryItem;
+    const modalImage = document.getElementById('modalImage');
+    const isLandscape = modalImage.classList.contains('landscape');
+    const rotation = isLandscape ? 90 : 0;
+
+    // Close modal BEFORE showing overlay so overlay is visible on top
+    closeModal();
+
     try {
         let response;
-        const modalImage = document.getElementById('modalImage');
-        const isLandscape = modalImage.classList.contains('landscape');
-        const rotation = isLandscape ? 90 : 0;
 
-        // Close modal BEFORE showing overlay so overlay is visible on top
-        closeModal();
-
-        if (selectedHistoryItem) {
+        if (historyToApply) {
             // Show loading for history items
             statusText.textContent = 'Applying image...';
-            promptText.textContent = selectedHistoryItem.title || selectedHistoryItem.originalPrompt || '';
+            promptText.textContent = historyToApply.title || historyToApply.originalPrompt || '';
             filenameText.textContent = '';
             overlay.classList.add('show');
 
-            response = await fetch(`/api/history/${selectedHistoryItem.imageId}/load`, {
+            response = await fetch(`/api/history/${historyToApply.imageId}/load`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rotation })
             });
-        } else if (selectedModalArt) {
+        } else if (artToApply) {
             // Show loading for artwork import (this is the slow one!)
             statusText.textContent = 'Processing artwork...';
-            promptText.textContent = `${selectedModalArt.title}${selectedModalArt.artist ? ' · ' + selectedModalArt.artist : ''}`;
+            promptText.textContent = `${artToApply.title}${artToApply.artist ? ' · ' + artToApply.artist : ''}`;
             filenameText.textContent = 'Downloading and optimizing for e-ink display (this may take 15-30 seconds)';
             overlay.classList.add('show');
 
@@ -1058,9 +1062,9 @@ async function applyModalArt() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    imageUrl: selectedModalArt.imageUrl,
-                    title: selectedModalArt.title,
-                    artist: selectedModalArt.artist,
+                    imageUrl: artToApply.imageUrl,
+                    title: artToApply.title,
+                    artist: artToApply.artist,
                     rotation: rotation
                 })
             });
@@ -1071,10 +1075,13 @@ async function applyModalArt() {
             statusText.textContent = 'Generating image...';
             filenameText.textContent = '';
             setTimeout(loadCurrentDisplay, 2000);
-        } else {
+        } else if (response) {
             overlay.classList.remove('show');
             const errorData = await response.json();
             alert('Failed to apply: ' + (errorData.error || 'Unknown error'));
+        } else {
+            overlay.classList.remove('show');
+            alert('Failed to apply: No response received');
         }
     } catch (error) {
         console.error('Apply art failed:', error);
