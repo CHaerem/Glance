@@ -8,6 +8,7 @@ services:
       - glance-data:/app/data
       - glance-uploads:/app/uploads
       - huggingface-cache:/root/.cache/huggingface
+      - /sys/class/backlight:/sys/class/backlight
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -26,6 +27,7 @@ services:
         reservations:
           memory: 512M
     restart: unless-stopped
+    privileged: true
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s

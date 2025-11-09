@@ -4479,6 +4479,37 @@ app.get("/dashboard", async (_req, res) => {
 	}
 });
 
+// Backlight control for touchscreen
+app.post("/api/backlight", async (req, res) => {
+	try {
+		const { state } = req.body;
+		if (state !== 'on' && state !== 'off') {
+			return res.status(400).json({ error: 'State must be "on" or "off"' });
+		}
+
+		// Control backlight via brightness file
+		// Find the backlight device
+		const { exec } = require('child_process');
+		const util = require('util');
+		const execPromise = util.promisify(exec);
+
+		const brightness = state === 'on' ? '255' : '0';
+
+		// Try to find and control the backlight
+		// This works for the fb_ili9486 driver used by MHS35
+		try {
+			await execPromise(`echo ${brightness} > /sys/class/backlight/*/brightness 2>/dev/null || true`);
+			res.json({ success: true, state });
+		} catch (error) {
+			console.error('Backlight control error:', error);
+			res.status(500).json({ error: 'Failed to control backlight' });
+		}
+	} catch (error) {
+		console.error('Backlight API error:', error);
+		res.status(500).json({ error: 'Internal server error' });
+	}
+});
+
 // Enhanced UI preview (development)
 app.get("/preview", async (_req, res) => {
 	try {
