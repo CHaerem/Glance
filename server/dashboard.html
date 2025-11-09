@@ -24,6 +24,11 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            transition: opacity 1s ease;
+        }
+
+        body.dimmed {
+            opacity: 0.01;
         }
 
         /* Clock */
@@ -293,40 +298,40 @@
         // Screen dimming after inactivity
         let dimTimeout;
         const DIM_DELAY = 30000; // 30 seconds
-        let isBacklightOn = true;
-
-        async function setBacklight(state) {
-            try {
-                await fetch('/api/backlight', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ state: state })
-                });
-                isBacklightOn = (state === 'on');
-            } catch (error) {
-                console.error('Error controlling backlight:', error);
-            }
-        }
 
         function resetDimTimer() {
-            // Turn backlight on immediately if it was off
-            if (!isBacklightOn) {
-                setBacklight('on');
-            }
+            // Remove dimmed class immediately
+            document.body.classList.remove('dimmed');
 
             // Clear existing timeout
             if (dimTimeout) {
                 clearTimeout(dimTimeout);
             }
 
-            // Set new timeout to turn off backlight
+            // Set new timeout to dim screen
             dimTimeout = setTimeout(() => {
-                setBacklight('off');
+                document.body.classList.add('dimmed');
+
+                // Also try to turn off backlight via API (may not work in container)
+                fetch('/api/backlight', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ state: 'off' })
+                }).catch(() => {}); // Ignore errors
             }, DIM_DELAY);
         }
 
         // Reset timer on any user interaction
-        document.addEventListener('click', resetDimTimer);
+        document.addEventListener('click', () => {
+            // Also try to turn on backlight via API (may not work in container)
+            fetch('/api/backlight', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ state: 'on' })
+            }).catch(() => {}); // Ignore errors
+
+            resetDimTimer();
+        });
         document.addEventListener('touchstart', resetDimTimer);
         document.addEventListener('touchmove', resetDimTimer);
 
