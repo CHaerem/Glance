@@ -1032,6 +1032,9 @@ async function applyModalArt() {
         const isLandscape = modalImage.classList.contains('landscape');
         const rotation = isLandscape ? 90 : 0;
 
+        // Close modal BEFORE showing overlay so overlay is visible on top
+        closeModal();
+
         if (selectedHistoryItem) {
             // Show loading for history items
             statusText.textContent = 'Applying image...';
@@ -1067,7 +1070,6 @@ async function applyModalArt() {
             overlay.classList.remove('show');
             statusText.textContent = 'Generating image...';
             filenameText.textContent = '';
-            closeModal();
             setTimeout(loadCurrentDisplay, 2000);
         } else {
             overlay.classList.remove('show');
