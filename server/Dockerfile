@@ -48,7 +48,6 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY server.js ./
 COPY simple-ui.html ./
 COPY admin.html ./
-COPY dashboard.html ./
 COPY bhutan.svg ./
 COPY public ./public
 COPY routes ./routes
