@@ -6,6 +6,19 @@ let selectedHistoryItem = null;
 let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
 
+// Theme management
+function initTheme() {
+    // Check for saved theme preference or default to system preference
+    const savedTheme = localStorage.getItem('theme');
+    const root = document.documentElement;
+
+    if (savedTheme && savedTheme !== 'auto') {
+        root.setAttribute('data-theme', savedTheme);
+    } else {
+        root.removeAttribute('data-theme');
+    }
+}
+
 // Browse state
 let browseDisplayCount = getInitialDisplayCount();
 let collectionDisplayCount = getInitialDisplayCount();
@@ -57,6 +70,7 @@ function applyDefaultOrientation() {
 // Initialize
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     loadSettings();
     loadCurrentDisplay();
     loadAllArt();
