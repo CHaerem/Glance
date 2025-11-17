@@ -16,9 +16,9 @@ Complete guide to add real battery voltage monitoring to your ESP32 e-ink displa
 ### Wiring Steps
 
 ```
-PowerBoost BAT pin → [100kΩ] → Junction → [100kΩ] → GND
-                                   ↓
-                             ESP32 GPIO 4
+LiPo Amigo Pro VBAT pin → [100kΩ] → Junction → [100kΩ] → GND
+                                        ↓
+                                  ESP32 GPIO 4
 ```
 
 **Safety:** Measure voltage at junction before connecting to GPIO 4. Must be ≤2.5V (should be ~2.1V).
@@ -62,19 +62,20 @@ cd esp32-client/
 ### Your Setup
 
 ```
-LiPo Battery → PowerBoost 1000C → USB-C (5V) → ESP32-S3 → E-ink Display
-                     ↓
-                  BAT pin
-               (3.0-4.2V)
+PiJuice 12Ah LiPo → LiPo Amigo Pro → MiniBoost 5V → USB-C (5V) → ESP32-S3 → E-ink Display
+                          ↓
+                      VBAT pin
+                    (3.0-4.2V)
 ```
 
 **The Problem:**
 - ESP32 receives constant 5V via USB-C regardless of battery level
+- MiniBoost 5V regulates output, hiding actual battery voltage
 - Cannot measure battery without additional wiring
 
 **The Solution:**
-- Connect PowerBoost **BAT pin** to ESP32 **GPIO 4** via voltage divider
-- BAT pin outputs actual battery voltage (3.0V-4.2V)
+- Connect **LiPo Amigo Pro VBAT pin** to ESP32 **GPIO 4** via voltage divider
+- VBAT pin outputs actual battery voltage (3.0V-4.2V)
 - Voltage divider makes it safe for ESP32 (converts to 1.5V-2.1V)
 
 ---
@@ -99,25 +100,47 @@ LiPo Battery → PowerBoost 1000C → USB-C (5V) → ESP32-S3 → E-ink Display
 
 ### Step 1: Identify the Pins
 
-**On PowerBoost 1000C:**
-- **BAT pin** - Near JST battery connector, outputs raw battery voltage
-- **GND pin** - Any ground pin
+**On LiPo Amigo Pro:**
+- **VBAT pin** - Battery voltage monitoring pin (labeled on board), outputs raw battery voltage (3.0V-4.2V)
+  - Located on the castellated edge pads
+  - Look for "VBAT" silkscreen label
+  - **Alternative**: You can also solder directly to the BAT+ pad near the JST connector
+- **GND pin** - Ground pin (shared with device output)
+  - Multiple GND pads available on castellated edges
+  - Can also use GND from DEVICE JST connector
+
+**Note on LiPo Amigo Pro pinout:**
+```
+        USB-C (charging)
+            │
+    ┌───────────────┐
+    │  LiPo Amigo   │
+    │     Pro       │
+    ├───────────────┤  Castellated Pads:
+    │ VBAT          │  ← Battery voltage monitoring (3.0-4.2V)
+    │ GND           │  ← Ground
+    │ VDEV          │  ← Device output voltage
+    └───────────────┘
+     │           │
+    BAT       DEVICE (to MiniBoost)
+ (2-pin JST)  (2-pin JST)
+```
 
 **On ESP32-S3 (Good Display board):**
 - **GPIO 4** - May be labeled IO4 or GPIO4
-- **GND** - Any ground pin
+- **GND** - Any ground pin (shared via USB-C connection)
 
 ### Step 2: Build the Voltage Divider
 
 **Circuit Diagram:**
 ```
-PowerBoost BAT pin (3.0-4.2V)
+LiPo Amigo Pro VBAT pin (3.0-4.2V)
         │
         ├─────────[R1: 100kΩ]─────┬─────> ESP32 GPIO 4
         │                         │
         │                    [R2: 100kΩ]
         │                         │
-PowerBoost GND ───────────────────┴─────> ESP32 GND
+LiPo Amigo GND ───────────────────┴─────> ESP32 GND (via USB-C)
 ```
 
 **How it works:**
@@ -131,31 +154,32 @@ ESP32 ADC maximum is 3.3V, so 2.1V is perfectly safe.
 
 **Option A: Breadboard (Quick Testing)**
 1. Insert both 100kΩ resistors in breadboard in series
-2. Wire from PowerBoost BAT pin to first resistor
+2. Wire from LiPo Amigo Pro VBAT pin to first resistor
 3. Wire from junction (between resistors) to ESP32 GPIO 4
 4. Wire from second resistor to GND
 
 **Option B: Soldered (Permanent)**
-1. Solder R1 (100kΩ) to PowerBoost BAT pin
+1. Solder R1 (100kΩ) to LiPo Amigo Pro VBAT pin
 2. Solder R2 (100kΩ) to other end of R1
 3. Solder wire from R1-R2 junction to ESP32 GPIO 4
-4. Solder other end of R2 to ESP32 GND
+4. Solder other end of R2 to GND (can use LiPo Amigo GND or ESP32 GND - they're connected via USB-C)
 5. Use heat shrink to protect connections
 
 **Visual Reference:**
 ```
-PowerBoost 1000C                       ESP32-S3
-┌────────────────┐                   ┌──────────────┐
-│                │                   │              │
-│  [BAT] ●───────┼──wire──[R1]──┬───┼──●[GPIO 4]   │
-│                │          100kΩ│   │              │
-│                │               │   │              │
-│  [GND] ●───────┼──────────[R2]─┴───┼──●[GND]      │
-│                │          100kΩ    │              │
-│                │                   │              │
-│  [USB-C] ●═════╪══════cable════════╪══●[USB-C]    │
-│  (5V out)      │                   │  (power in)  │
-└────────────────┘                   └──────────────┘
+LiPo Amigo Pro                 MiniBoost 5V               ESP32-S3
+┌──────────────┐              ┌──────────────┐         ┌──────────────┐
+│              │              │              │         │              │
+│ [VBAT] ●─────┼──[R1]──┬─────┼──────────────┼─────────┼──●[GPIO 4]   │
+│              │  100kΩ │     │              │         │              │
+│              │        │     │              │         │              │
+│ [GND] ●──────┼──[R2]──┴─────┼──────────────┼─────────┼──●[GND]      │
+│              │  100kΩ       │              │         │              │
+│              │              │              │         │              │
+│ [DEVICE] ●═══╪══JST cable═══╪══●[VIN]      │         │              │
+│  (JST out)   │              │  [5V] ●══════╪═USB-C═══╪══●[USB-C]    │
+└──────────────┘              └──────────────┘         │  (power in)  │
+                                                        └──────────────┘
 ```
 
 ### Step 4: Safety Checks (CRITICAL!)
@@ -446,6 +470,6 @@ If voltage increases >50mV since last wake, charging detected.
 
 ---
 
-**Last Updated:** 2025-10-31
-**Firmware Version:** v2-psram-battery-3.0
-**Status:** Ready for implementation
+**Last Updated:** 2025-11-15
+**Hardware:** LiPo Amigo Pro + Adafruit MiniBoost 5V + ESP32 GoodDisplay
+**Status:** Implemented and ready for testing

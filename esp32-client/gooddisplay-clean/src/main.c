@@ -17,6 +17,9 @@
 #include "GDEP133C02.h"
 #include "comm.h"
 #include "pindefine.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 
 // WiFi credentials - set via environment variables during build
 // Example: export WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword"
@@ -27,9 +30,9 @@
 #define WIFI_PASSWORD  "Yellowfinch924"
 #endif
 
-// Server URL - use Mac for development
+// Server URL - production: serverpi.local, dev override with env var
 #ifndef SERVER_URL
-#define SERVER_BASE    "http://192.168.1.26:3000"
+#define SERVER_BASE    "http://serverpi.local:3000"
 #else
 #define SERVER_BASE    SERVER_URL
 #endif
@@ -54,6 +57,17 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 // NVS keys for persistent storage (survives power cycle)
 #define NVS_NAMESPACE "glance"
 #define NVS_KEY_IMAGE_ID "image_id"
+
+// Battery monitoring configuration
+#define BATTERY_ADC_CHANNEL ADC_CHANNEL_3  // GPIO 4 on ESP32-S3
+#define BATTERY_ADC_ATTEN   ADC_ATTEN_DB_12  // 0-3.3V range
+#define VOLTAGE_DIVIDER_RATIO 2.0f  // 2:1 divider (2x 10kΩ resistors)
+
+// Battery protection thresholds (LiPo safe discharge levels)
+#define BATTERY_CRITICAL 3.3f  // Below this: emergency mode (stop waking up)
+#define BATTERY_LOW      3.5f  // Below this: low battery warning
+#define BATTERY_CHARGED  3.6f  // Above this after critical: resume normal operation
+#define EMERGENCY_SLEEP_DURATION (24ULL * 60 * 60 * 1000000)  // 24 hours
 
 // Load last image ID from NVS (persistent storage)
 bool load_last_image_id(char* image_id, size_t max_len) {
@@ -108,6 +122,46 @@ void save_last_image_id(const char* image_id) {
     nvs_close(nvs_handle);
 }
 
+// Read battery voltage from LiPo Amigo Pro VBAT pin via voltage divider
+float read_battery_voltage(void) {
+    // Configure ADC
+    adc_oneshot_unit_handle_t adc_handle;
+    adc_oneshot_unit_init_cfg_t init_config = {
+        .unit_id = ADC_UNIT_1,
+        .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adc_handle));
+
+    adc_oneshot_chan_cfg_t config = {
+        .atten = BATTERY_ADC_ATTEN,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, BATTERY_ADC_CHANNEL, &config));
+
+    // Read raw ADC value
+    int raw_value = 0;
+    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, BATTERY_ADC_CHANNEL, &raw_value));
+
+    // Clean up
+    ESP_ERROR_CHECK(adc_oneshot_del_unit(adc_handle));
+
+    // Convert raw ADC to voltage
+    // ESP32-S3 ADC with 12-bit resolution (0-4095) and DB_12 attenuation (0-3.3V)
+    float adc_voltage = (raw_value / 4095.0f) * 3.3f;
+
+    // Account for voltage divider (2:1 ratio)
+    float battery_voltage = adc_voltage * VOLTAGE_DIVIDER_RATIO;
+
+    // Clamp to valid LiPo range
+    if (battery_voltage < 2.5f) battery_voltage = 3.0f;  // Below min = empty
+    if (battery_voltage > 4.3f) battery_voltage = 4.2f;  // Above max = full
+
+    printf("Battery ADC: %d -> %.2fV (ADC) -> %.2fV (battery)\n",
+           raw_value, adc_voltage, battery_voltage);
+
+    return battery_voltage;
+}
+
 void get_device_id(void) {
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -120,6 +174,9 @@ void report_device_status(const char* status_msg) {
     wifi_ap_record_t ap_info;
     esp_wifi_sta_get_ap_info(&ap_info);
 
+    // Read actual battery voltage
+    float battery_voltage = read_battery_voltage();
+
     char post_data[512];
     snprintf(post_data, sizeof(post_data),
         "{\"deviceId\":\"%s\",\"status\":{"
@@ -129,7 +186,7 @@ void report_device_status(const char* status_msg) {
         "\"bootCount\":%lu,"
         "\"status\":\"%s\"}}",
         device_id,
-        3.7,  // TODO: Read actual battery voltage
+        battery_voltage,
         ap_info.rssi,
         (unsigned long)esp_get_free_heap_size(),
         (unsigned long)boot_count,
@@ -490,6 +547,16 @@ void app_main(void)
     if (reset_reason == ESP_RST_POWERON) {
         printf("=== POWER ON RESET ===\n");
         boot_count = 0;
+
+        // Power cycle should force display refresh - clear last image ID
+        nvs_handle_t nvs_handle;
+        esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+        if (err == ESP_OK) {
+            nvs_erase_key(nvs_handle, NVS_KEY_IMAGE_ID);
+            nvs_commit(nvs_handle);
+            nvs_close(nvs_handle);
+            printf("Cleared last image ID - will force refresh\n");
+        }
     } else {
         boot_count++;
         printf("=== BOOT #%lu (from deep sleep) ===\n", boot_count);
@@ -497,6 +564,50 @@ void app_main(void)
 
     // Get device ID
     get_device_id();
+
+    // ===== BATTERY CHECK FIRST (before WiFi to save power) =====
+    printf("\n=== Checking battery level ===\n");
+    float battery_voltage = read_battery_voltage();
+
+    if (battery_voltage < BATTERY_CRITICAL) {
+        printf("⚠️  CRITICAL BATTERY: %.2fV (threshold: %.2fV)\n", battery_voltage, BATTERY_CRITICAL);
+        printf("Entering emergency mode...\n");
+
+        // Initialize WiFi to report critical battery
+        nvs_flash_init();
+        wifi_init();
+
+        printf("Waiting for WiFi (quick timeout)...\n");
+        EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                                               WIFI_CONNECTED_BIT,
+                                               pdFALSE, pdTRUE,
+                                               pdMS_TO_TICKS(10000));  // Short timeout
+
+        if (bits & WIFI_CONNECTED_BIT) {
+            printf("WiFi connected - reporting critical battery\n");
+            report_device_status("battery_critical");
+        } else {
+            printf("WiFi failed - skipping report to save power\n");
+        }
+
+        // Show RED screen with battery warning
+        printf("Displaying battery warning (RED)...\n");
+        initEPD();
+        epdDisplayColor(RED);
+
+        // Sleep for 24 hours - will check battery again when waking up
+        printf("💤 Entering emergency deep sleep for 24 hours\n");
+        printf("Device will check battery again after sleep\n");
+        printf("Please charge the battery!\n");
+        esp_deep_sleep(EMERGENCY_SLEEP_DURATION);
+    }
+
+    if (battery_voltage < BATTERY_LOW) {
+        printf("⚠️  Low battery: %.2fV (threshold: %.2fV)\n", battery_voltage, BATTERY_LOW);
+        printf("Will continue operation but recommend charging\n");
+    } else {
+        printf("✅ Battery OK: %.2fV\n", battery_voltage);
+    }
 
     // Initialize WiFi
     nvs_flash_init();
@@ -517,7 +628,13 @@ void app_main(void)
     }
 
     printf("WiFi connected!\n");
-    report_device_status("connected");
+
+    // Report status based on battery level
+    if (battery_voltage < BATTERY_LOW) {
+        report_device_status("battery_low");
+    } else {
+        report_device_status("connected");
+    }
 
     // Fetch metadata from server
     metadata_t metadata = {0};
@@ -525,6 +642,13 @@ void app_main(void)
 
     if (fetch_metadata(&metadata)) {
         sleep_duration = metadata.sleep_duration;
+
+        // If battery is low, double the sleep duration to conserve power
+        if (battery_voltage < BATTERY_LOW) {
+            sleep_duration *= 2;
+            printf("⚠️  Low battery: doubling sleep duration to %llu seconds\n",
+                   sleep_duration / 1000000);
+        }
 
         // Only download if we have a new image
         if (metadata.has_new_image) {

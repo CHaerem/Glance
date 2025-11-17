@@ -2125,10 +2125,27 @@ app.post("/api/device-status", async (req, res) => {
 			addDeviceLog(`🔋 Device ${deviceId} started charging`);
 		}
 
+		// Calculate battery percentage from voltage (LiPo discharge curve)
+		const batteryVoltage = parseFloat(status.batteryVoltage) || 0;
+		let batteryPercent = parseInt(status.batteryPercent);
+
+		// If ESP32 doesn't send percent, calculate it from voltage
+		if (!batteryPercent && batteryVoltage > 0) {
+			// LiPo voltage to percentage mapping (approximate)
+			if (batteryVoltage >= 4.2) batteryPercent = 100;
+			else if (batteryVoltage >= 4.0) batteryPercent = 80 + ((batteryVoltage - 4.0) / 0.2) * 20;
+			else if (batteryVoltage >= 3.7) batteryPercent = 50 + ((batteryVoltage - 3.7) / 0.3) * 30;
+			else if (batteryVoltage >= 3.5) batteryPercent = 30 + ((batteryVoltage - 3.5) / 0.2) * 20;
+			else if (batteryVoltage >= 3.3) batteryPercent = 10 + ((batteryVoltage - 3.3) / 0.2) * 20;
+			else if (batteryVoltage >= 3.0) batteryPercent = ((batteryVoltage - 3.0) / 0.3) * 10;
+			else batteryPercent = 0;
+			batteryPercent = Math.round(batteryPercent);
+		}
+
 		// Update device status with sanitized data
 		devices[deviceId] = {
-			batteryVoltage: parseFloat(status.batteryVoltage) || 0,
-			batteryPercent: parseInt(status.batteryPercent) || 0,
+			batteryVoltage: batteryVoltage,
+			batteryPercent: batteryPercent || 0,
 			isCharging: isCharging,
 			lastChargeTimestamp: lastChargeTimestamp,
 			signalStrength: parseInt(status.signalStrength) || 0,

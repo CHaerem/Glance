@@ -63,23 +63,68 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
 
 ### 3. Power System
 
-#### Primary Battery - PiJuice 20,000mAh
-- **Capacity**: 20,000mAh (74Wh)
-- **Output**: 5V/2.4A max per port
+#### Primary Battery - PiJuice 12,000mAh LiPo
+- **Capacity**: 12,000mAh (~44Wh)
+- **Voltage**: 3.7V nominal (3.0V-4.2V range)
 - **Chemistry**: Lithium Polymer (LiPo)
-- **Features**: 
-  - Multiple USB outputs
-  - LED battery level indicator
-  - Pass-through charging
-
-#### Power Management Board - LiPo Amigo Pro
-- **Function**: Battery management and power delivery
-- **Interface**: USB-C to controller board
+- **Connector**: 2-pin JST connector
 - **Features**:
-  - Battery protection circuitry
-  - Voltage regulation
-  - Charging management
-  - Power path management
+  - High discharge rate for display refresh
+  - Rechargeable via LiPo Amigo Pro
+  - Long-term deep sleep support
+
+#### Power Management - LiPo Amigo Pro
+- **Manufacturer**: Pimoroni
+- **Function**: LiPo/LiIon battery charger and protection
+- **Input**: USB-C (5V for charging)
+- **Output Connectors**:
+  - **BAT**: 2-pin JST for battery connection
+  - **DEVICE**: 2-pin JST for device power output
+- **Key Pins**:
+  - **VBAT**: Battery voltage monitoring pin (3.0V-4.2V)
+  - **VDEV**: Device output voltage
+  - **GND**: Common ground
+- **Features**:
+  - Automatic charging when USB-C connected
+  - Over-charge/discharge protection
+  - Battery voltage accessible via VBAT pin
+  - Pass-through power delivery
+  - LED charging indicators
+
+#### Boost Converter - Adafruit MiniBoost 5V
+- **Model**: TPS61023-based boost converter
+- **Input**: 2-5V DC (from LiPo Amigo Pro DEVICE output)
+- **Output**: 5.2V @ 1A (regulated)
+- **Connector**: USB-C output to ESP32
+- **Key Pins**:
+  - **VIN**: Input from LiPo Amigo Pro
+  - **GND**: Common ground
+  - **5V OUT**: Regulated 5V output
+  - **EN**: Enable pin (pulled HIGH by default)
+- **Features**:
+  - Efficient boost conversion (85-95% efficiency)
+  - Low quiescent current
+  - True disconnect via EN pin
+  - Over 5V to account for cable drop
+
+#### Power Flow Diagram
+```
+[PiJuice 12Ah LiPo]
+       │ 2-pin JST
+       ↓
+[LiPo Amigo Pro]
+   │         │
+   │ VBAT    │ DEVICE (2-pin JST)
+   │ (mon.)  ↓
+   │    [Adafruit MiniBoost 5V]
+   │              │ USB-C
+   │              ↓
+   │        [ESP32-133C02]
+   │              │
+   │              ↓
+   ↓        [13.3" Display]
+[Voltage Divider → GPIO 4]
+```
 
 #### Power Budget Analysis
 - **Display Refresh**: ~500mW for 19 seconds = ~2.6mWh per update
