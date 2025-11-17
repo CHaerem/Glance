@@ -541,6 +541,12 @@ void app_main(void)
     // Don't clear display on boot - preserve existing image!
     printf("Hardware initialized, display preserved\n");
 
+    // Initialize NVS first (required before any NVS operations)
+    esp_err_t nvs_init_err = nvs_flash_init();
+    if (nvs_init_err != ESP_OK) {
+        printf("ERROR: NVS flash init failed: %s\n", esp_err_to_name(nvs_init_err));
+    }
+
     // Check boot reason
     esp_reset_reason_t reset_reason = esp_reset_reason();
 
@@ -555,7 +561,9 @@ void app_main(void)
             nvs_erase_key(nvs_handle, NVS_KEY_IMAGE_ID);
             nvs_commit(nvs_handle);
             nvs_close(nvs_handle);
-            printf("Cleared last image ID - will force refresh\n");
+            printf("✅ Cleared last image ID - will force refresh\n");
+        } else {
+            printf("⚠️  Failed to clear NVS: %s\n", esp_err_to_name(err));
         }
     } else {
         boot_count++;
@@ -573,8 +581,7 @@ void app_main(void)
         printf("⚠️  CRITICAL BATTERY: %.2fV (threshold: %.2fV)\n", battery_voltage, BATTERY_CRITICAL);
         printf("Entering emergency mode...\n");
 
-        // Initialize WiFi to report critical battery
-        nvs_flash_init();
+        // Initialize WiFi to report critical battery (NVS already initialized above)
         wifi_init();
 
         printf("Waiting for WiFi (quick timeout)...\n");
@@ -609,8 +616,7 @@ void app_main(void)
         printf("✅ Battery OK: %.2fV\n", battery_voltage);
     }
 
-    // Initialize WiFi
-    nvs_flash_init();
+    // Initialize WiFi (NVS already initialized above)
     wifi_init();
 
     printf("Waiting for WiFi...\n");
