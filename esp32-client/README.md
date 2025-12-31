@@ -108,6 +108,30 @@ Commands are queued on the server and executed when the device wakes up or durin
 - **Low Battery Protection:** Extended sleep when battery < 3.3V
 - **Watchdog Timer:** 5-minute timeout prevents hangs
 
+### Battery Monitoring (Good Display ESP32-133C02)
+
+The Good Display board supports battery monitoring via an external voltage divider:
+
+**Hardware Setup:**
+```
+LiPo Battery → LiPo Amigo Pro (VBAT) → Voltage Divider → GPIO 2
+                    ↓
+              3.3V out → MiniBoost 5V → ESP32 USB-C
+```
+
+**Voltage Divider Circuit:**
+- 2x 10kΩ resistors in series (2:1 ratio)
+- Input: VBAT from LiPo Amigo Pro (raw battery voltage)
+- Output: Connected to GPIO 2 (ADC1_CH1) on ESP32
+- Ground: Common with ESP32 GND
+
+**Battery Thresholds:**
+| Voltage | Status | Action |
+|---------|--------|--------|
+| > 3.6V | Normal | Regular 1-hour sleep cycle |
+| 3.5-3.6V | Low | Warning, doubles sleep duration |
+| < 3.3V | Critical | Emergency 24-hour sleep, red screen |
+
 ### Battery Optimization
 - **Adaptive Sleep:** Longer sleep when battery is low
 - **Quick Updates:** Skips display refresh if image unchanged

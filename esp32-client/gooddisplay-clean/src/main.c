@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -20,6 +21,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
+#include "driver/gpio.h"
 
 // WiFi credentials - set via environment variables during build
 // Example: export WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword"
@@ -59,7 +61,10 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define NVS_KEY_IMAGE_ID "image_id"
 
 // Battery monitoring configuration
-#define BATTERY_ADC_CHANNEL ADC_CHANNEL_3  // GPIO 4 on ESP32-S3
+// GPIO 2 = ADC1_CH1 - connected to unlabeled solder pad on Good Display ESP32-133C02
+// Pad identified by "2 sec HIGH" timing in GPIO discovery mode
+#define BATTERY_ADC_CHANNEL ADC_CHANNEL_1  // GPIO 2 on ESP32-S3
+#define BATTERY_GPIO        2
 #define BATTERY_ADC_ATTEN   ADC_ATTEN_DB_12  // 0-3.3V range
 #define VOLTAGE_DIVIDER_RATIO 2.0f  // 2:1 divider (2x 10kΩ resistors)
 
@@ -122,9 +127,9 @@ void save_last_image_id(const char* image_id) {
     nvs_close(nvs_handle);
 }
 
-// Read battery voltage from LiPo Amigo Pro VBAT pin via voltage divider
+// Read battery voltage from GPIO 2 (ADC1_CH1) via voltage divider
+// Voltage divider: VBAT -> 10k -> GPIO2 -> 10k -> GND (2:1 ratio)
 float read_battery_voltage(void) {
-    // Configure ADC
     adc_oneshot_unit_handle_t adc_handle;
     adc_oneshot_unit_init_cfg_t init_config = {
         .unit_id = ADC_UNIT_1,
@@ -133,32 +138,29 @@ float read_battery_voltage(void) {
     ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adc_handle));
 
     adc_oneshot_chan_cfg_t config = {
-        .atten = BATTERY_ADC_ATTEN,
+        .atten = ADC_ATTEN_DB_12,  // 0-3.3V range
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, BATTERY_ADC_CHANNEL, &config));
 
-    // Read raw ADC value
-    int raw_value = 0;
-    ESP_ERROR_CHECK(adc_oneshot_read(adc_handle, BATTERY_ADC_CHANNEL, &raw_value));
+    // Take multiple readings and average for stability
+    int total = 0;
+    const int num_samples = 10;
+    for (int i = 0; i < num_samples; i++) {
+        int raw = 0;
+        adc_oneshot_read(adc_handle, BATTERY_ADC_CHANNEL, &raw);
+        total += raw;
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+    int avg_raw = total / num_samples;
 
-    // Clean up
-    ESP_ERROR_CHECK(adc_oneshot_del_unit(adc_handle));
-
-    // Convert raw ADC to voltage
-    // ESP32-S3 ADC with 12-bit resolution (0-4095) and DB_12 attenuation (0-3.3V)
-    float adc_voltage = (raw_value / 4095.0f) * 3.3f;
-
-    // Account for voltage divider (2:1 ratio)
+    float adc_voltage = (avg_raw / 4095.0f) * 3.3f;
     float battery_voltage = adc_voltage * VOLTAGE_DIVIDER_RATIO;
 
-    // Clamp to valid LiPo range
-    if (battery_voltage < 2.5f) battery_voltage = 3.0f;  // Below min = empty
-    if (battery_voltage > 4.3f) battery_voltage = 4.2f;  // Above max = full
+    printf("Battery: raw=%d, adc=%.2fV, bat=%.2fV (GPIO %d)\n",
+           avg_raw, adc_voltage, battery_voltage, BATTERY_GPIO);
 
-    printf("Battery ADC: %d -> %.2fV (ADC) -> %.2fV (battery)\n",
-           raw_value, adc_voltage, battery_voltage);
-
+    ESP_ERROR_CHECK(adc_oneshot_del_unit(adc_handle));
     return battery_voltage;
 }
 
