@@ -691,6 +691,9 @@ const SPECTRA_6_PALETTE = [
 	{ r: 0, g: 255, b: 0, name: "Green" }          // Pure green (matches ESP32)
 ];
 
+// Pre-computed LAB values for palette colors (initialized after rgbToLab is defined)
+let SPECTRA_6_PALETTE_LAB = null;
+
 // Convert RGB to LAB color space for better perceptual color matching
 function rgbToLab(r, g, b) {
 	// Normalize RGB to 0-1
@@ -802,8 +805,24 @@ function deltaE2000(L1, a1, b1, L2, a2, b2) {
 // This cache reduces processing time from 30-60s to 5-15s with zero quality loss
 const colorCache = new Map();
 
+// Initialize pre-computed LAB values for palette colors (call once at startup)
+function initPaletteLab() {
+	if (SPECTRA_6_PALETTE_LAB === null) {
+		SPECTRA_6_PALETTE_LAB = SPECTRA_6_PALETTE.map(color => ({
+			...color,
+			lab: rgbToLab(color.r, color.g, color.b)
+		}));
+		console.log('Pre-computed LAB values for Spectra 6 palette');
+	}
+}
+
 // Find closest color using Delta E 2000 (CIEDE2000) - most accurate perceptual matching
 function findClosestSpectraColor(r, g, b) {
+	// Ensure palette LAB values are pre-computed
+	if (SPECTRA_6_PALETTE_LAB === null) {
+		initPaletteLab();
+	}
+
 	// Check cache first (RGB packed as single number for fast lookup)
 	const cacheKey = (r << 16) | (g << 8) | b;
 	const cached = colorCache.get(cacheKey);
@@ -813,10 +832,11 @@ function findClosestSpectraColor(r, g, b) {
 
 	const [L1, A1, B1] = rgbToLab(r, g, b);
 	let minDistance = Infinity;
-	let closestColor = SPECTRA_6_PALETTE[1]; // Default to white
+	let closestColor = SPECTRA_6_PALETTE_LAB[1]; // Default to white
 
-	for (const color of SPECTRA_6_PALETTE) {
-		const [L2, A2, B2] = rgbToLab(color.r, color.g, color.b);
+	// Use pre-computed LAB values for palette colors (avoids 6 rgbToLab calls per lookup)
+	for (const color of SPECTRA_6_PALETTE_LAB) {
+		const [L2, A2, B2] = color.lab;
 
 		// Use Delta E 2000 for industry-standard perceptual color difference
 		const distance = deltaE2000(L1, A1, B1, L2, A2, B2);
@@ -991,13 +1011,19 @@ async function convertImageToRGB(
 			ditherAlgorithm = 'floyd-steinberg', // or 'atkinson' for high-contrast art
 			enhanceContrast = true,              // Boost contrast for better e-ink display
 			sharpen = false,                     // Optional sharpening for line art
-			autoCropWhitespace = true            // Auto-crop whitespace margins from AI images
+			autoCropWhitespace = true,           // Auto-crop whitespace margins from AI images
+			cropX = 50,                          // Crop position X (0-100%, 50 = center)
+			cropY = 50,                          // Crop position Y (0-100%, 50 = center)
+			zoomLevel = 1.0                      // Zoom level (1.0 = fit, >1 = zoom in)
 		} = options;
 
 		// Build Sharp processing pipeline for art optimization
 		let sharpPipeline = sharp(imagePath);
 
-		// Apply rotation FIRST if needed (before resize)
+		// Auto-rotate based on EXIF orientation (fixes phone photo orientation)
+		sharpPipeline = sharpPipeline.rotate(); // No argument = auto-rotate from EXIF
+
+		// Apply additional rotation if needed (user-specified rotation)
 		if (rotation !== 0) {
 			sharpPipeline = sharpPipeline.rotate(rotation);
 		}
@@ -1011,6 +1037,39 @@ async function convertImageToRGB(
 			} catch (trimError) {
 				console.log('No significant whitespace to crop');
 			}
+		}
+
+		// Get image dimensions for crop calculations (need fresh pipeline for metadata)
+		const metadataPipeline = sharp(imagePath).rotate(); // Apply same EXIF rotation
+		if (rotation !== 0) {
+			metadataPipeline.rotate(rotation);
+		}
+		const metadata = await metadataPipeline.metadata();
+		const imgWidth = metadata.width || 1200;
+		const imgHeight = metadata.height || 1600;
+
+		// Calculate crop/zoom if not default values
+		if (zoomLevel !== 1.0 || cropX !== 50 || cropY !== 50) {
+			// Calculate the visible area based on zoom
+			const visibleWidth = Math.round(imgWidth / zoomLevel);
+			const visibleHeight = Math.round(imgHeight / zoomLevel);
+
+			// Calculate crop position (cropX/cropY are 0-100%, where 50 is center)
+			// When cropX=0, extract from left edge; when cropX=100, extract from right edge
+			const maxOffsetX = imgWidth - visibleWidth;
+			const maxOffsetY = imgHeight - visibleHeight;
+			const extractX = Math.round((cropX / 100) * maxOffsetX);
+			const extractY = Math.round((cropY / 100) * maxOffsetY);
+
+			// Extract the visible region
+			sharpPipeline = sharpPipeline.extract({
+				left: Math.max(0, extractX),
+				top: Math.max(0, extractY),
+				width: Math.min(visibleWidth, imgWidth - extractX),
+				height: Math.min(visibleHeight, imgHeight - extractY)
+			});
+
+			console.log(`Applied crop/zoom: zoom=${zoomLevel}, position=(${cropX}%, ${cropY}%), extract=${visibleWidth}x${visibleHeight} at (${extractX}, ${extractY})`);
 		}
 
 		// Always resize to target dimensions (e-ink display expects 1200x1600)
@@ -1546,78 +1605,60 @@ app.post("/api/preview", upload.single("image"), async (req, res) => {
 	}
 });
 
-// Upload and set as current image endpoint
+// Upload image to history (preview before applying)
+// Fast upload - saves original only, dithering happens when user clicks "Apply"
 app.post("/api/upload", upload.single("image"), async (req, res) => {
 	try {
 		if (!req.file) {
 			return res.status(400).json({ error: "No file uploaded" });
 		}
 
-		console.log(`Uploading image: ${req.file.originalname}`);
+		console.log(`Uploading image for preview: ${req.file.originalname}`);
 
 		const imageId = uuidv4();
 		const timestamp = Date.now();
 
-		// Create optimized version of original for web display (max 800px wide, maintain aspect ratio)
-		const optimizedOriginalBuffer = await sharp(req.file.path)
-			.resize(800, null, {
-				fit: "inside",
-				withoutEnlargement: true // Don't upscale small images
-			})
-			.jpeg({ quality: 85 }) // JPEG with good quality, smaller than PNG
-			.toBuffer();
+		// Create optimized original and thumbnail in parallel for faster uploads
+		const [optimizedOriginalBuffer, thumbnailBuffer] = await Promise.all([
+			// Optimized version for web display (max 800px wide, maintain aspect ratio)
+			sharp(req.file.path)
+				.rotate() // Auto-rotate based on EXIF
+				.resize(800, null, {
+					fit: "inside",
+					withoutEnlargement: true
+				})
+				.jpeg({ quality: 85 })
+				.toBuffer(),
+			// Thumbnail for web preview (300x400)
+			sharp(req.file.path)
+				.rotate() // Auto-rotate based on EXIF
+				.resize(300, 400, { fit: "inside" })
+				.png()
+				.toBuffer()
+		]);
 
-		// Process image for e-ink display
-		const ditheredRgbBuffer = await convertImageToRGB(req.file.path, 0, 1200, 1600, {
-			ditherAlgorithm: 'floyd-steinberg',
-			enhanceContrast: true,
-			sharpen: false
-		});
-
-		// Create thumbnail for web preview (300x400)
-		const thumbnailBuffer = await sharp(req.file.path)
-			.resize(300, 400, { fit: "inside" })
-			.png()
-			.toBuffer();
+		// NOTE: Skip dithering here - it will happen when user clicks "Apply to Display"
+		// This makes uploads much faster and allows user to adjust crop/zoom first
 
 		// Encode as base64
-		const imageBase64 = ditheredRgbBuffer.toString("base64");
 		const originalImageBase64 = optimizedOriginalBuffer.toString("base64");
 		const thumbnailBase64 = thumbnailBuffer.toString("base64");
 
-		// Get default sleep duration from settings
-		const settings = (await readJSONFile("settings.json")) || { defaultSleepDuration: 3600000000 };
+		const title = `Uploaded: ${req.file.originalname}`;
 
-		// Create current.json entry
-		const current = {
-			title: `Uploaded: ${req.file.originalname}`,
-			image: imageBase64,
-			originalImage: originalImageBase64,
-			originalImageMime: 'image/jpeg', // Optimized as JPEG
-			imageId: imageId,
-			timestamp: timestamp,
-			sleepDuration: settings.defaultSleepDuration,
-			rotation: 0,
-			aiGenerated: false,
-			uploadedFilename: req.file.originalname
-		};
-
-		await writeJSONFile("current.json", current);
-
-		// Store in images archive for history (metadata only, not full RGB data)
+		// Store in images archive for history (original only, dithered image created on apply)
 		const imagesArchive = (await readJSONFile("images.json")) || {};
 		imagesArchive[imageId] = {
-			title: current.title,
+			title: title,
 			imageId: imageId,
 			timestamp: timestamp,
-			sleepDuration: current.sleepDuration,
-			rotation: current.rotation,
+			rotation: 0,
 			originalImage: originalImageBase64, // Optimized version for preview
 			originalImageMime: 'image/jpeg', // Optimized as JPEG
 			thumbnail: thumbnailBase64,
 			aiGenerated: false,
 			uploadedFilename: req.file.originalname
-			// Note: We don't store the large 'image' (processed RGB) field to prevent JSON size issues
+			// Note: 'image' (processed RGB) will be generated when user applies with adjustments
 		};
 		await writeJSONFile("images.json", imagesArchive);
 
@@ -1625,7 +1666,7 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 		const history = (await readJSONFile("history.json")) || [];
 		history.unshift({
 			imageId: imageId,
-			title: current.title,
+			title: title,
 			thumbnail: thumbnailBase64,
 			timestamp: timestamp,
 			aiGenerated: false,
@@ -1646,13 +1687,14 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 		// Clean up uploaded file
 		await fs.unlink(req.file.path);
 
-		console.log(`Image uploaded successfully: ${imageId}`);
-		addDeviceLog(`New image uploaded: "${req.file.originalname}"`);
+		console.log(`Image uploaded for preview: ${imageId}`);
+		addDeviceLog(`New image uploaded for preview: "${req.file.originalname}"`);
 
 		res.json({
 			success: true,
 			imageId: imageId,
-			title: current.title
+			title: title,
+			message: "Image uploaded. Adjust crop/zoom and click Apply to display."
 		});
 	} catch (error) {
 		console.error("Error uploading image:", error);
@@ -2534,7 +2576,7 @@ app.get("/api/images/:imageId", async (req, res) => {
 app.post("/api/history/:imageId/load", async (req, res) => {
 	try {
 		const { imageId } = req.params;
-		const { rotation } = req.body;
+		const { rotation, cropX, cropY, zoomLevel } = req.body;
 
 		// Get image data from images archive
 		const imagesArchive = (await readJSONFile("images.json")) || {};
@@ -2546,14 +2588,21 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 
 		// Use provided rotation or fall back to stored rotation
 		const rotationDegrees = rotation !== undefined ? parseInt(rotation) : (imageData.rotation || 0);
+		const cropXVal = cropX !== undefined ? parseFloat(cropX) : 50;
+		const cropYVal = cropY !== undefined ? parseFloat(cropY) : 50;
+		const zoomVal = zoomLevel !== undefined ? parseFloat(zoomLevel) : 1.0;
 
-		// If rotation changed or no processed RGB data, regenerate it
-		if (!imageData.image || rotationDegrees !== (imageData.rotation || 0)) {
+		// Check if we need to regenerate (rotation, crop, or zoom changed, or no processed data)
+		const needsRegenerate = !imageData.image ||
+			rotationDegrees !== (imageData.rotation || 0) ||
+			cropXVal !== 50 || cropYVal !== 50 || zoomVal !== 1.0;
+
+		if (needsRegenerate) {
 			if (!imageData.originalImage) {
 				return res.status(400).json({ error: "Cannot reprocess image: original not available" });
 			}
 
-			console.log(`Regenerating processed image for ${imageId} with rotation ${rotationDegrees}°...`);
+			console.log(`Regenerating processed image for ${imageId} with rotation ${rotationDegrees}°, crop (${cropXVal}%, ${cropYVal}%), zoom ${zoomVal}x...`);
 
 			// Save original to temp file
 			const originalBuffer = Buffer.from(imageData.originalImage, 'base64');
@@ -2565,7 +2614,7 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 			const targetWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 1600 : 1200;
 			const targetHeight = (rotationDegrees === 90 || rotationDegrees === 270) ? 1200 : 1600;
 
-			// Regenerate RGB data with new rotation
+			// Regenerate RGB data with new rotation and crop/zoom
 			const rgbBuffer = await convertImageToRGB(
 				tempPath,
 				rotationDegrees,
@@ -2574,7 +2623,10 @@ app.post("/api/history/:imageId/load", async (req, res) => {
 				{
 					ditherAlgorithm: 'floyd-steinberg',
 					enhanceContrast: true,
-					sharpen: false
+					sharpen: false,
+					cropX: cropXVal,
+					cropY: cropYVal,
+					zoomLevel: zoomVal
 				}
 			);
 
@@ -4248,14 +4300,17 @@ app.get("/api/art/random", async (req, res) => {
 
 app.post("/api/art/import", async (req, res) => {
 	try {
-		const { imageUrl, title, artist, source, rotation } = req.body;
+		const { imageUrl, title, artist, source, rotation, cropX, cropY, zoomLevel } = req.body;
 
 		if (!imageUrl) {
 			return res.status(400).json({ error: "Image URL required" });
 		}
 
 		const rotationDegrees = rotation || 0;
-		console.log(`Importing artwork: ${title} from ${imageUrl} (rotation: ${rotationDegrees}°)`);
+		const cropXVal = cropX !== undefined ? parseFloat(cropX) : 50;
+		const cropYVal = cropY !== undefined ? parseFloat(cropY) : 50;
+		const zoomVal = zoomLevel !== undefined ? parseFloat(zoomLevel) : 1.0;
+		console.log(`Importing artwork: ${title} from ${imageUrl} (rotation: ${rotationDegrees}°, crop: ${cropXVal}%/${cropYVal}%, zoom: ${zoomVal}x)`);
 
 		// Fetch the image
 		let imageResponse;
@@ -4297,7 +4352,10 @@ app.post("/api/art/import", async (req, res) => {
 			{
 				ditherAlgorithm: 'floyd-steinberg',
 				enhanceContrast: true,
-				sharpen: false
+				sharpen: false,
+				cropX: cropXVal,
+				cropY: cropYVal,
+				zoomLevel: zoomVal
 			}
 		);
 		console.log(`✓ Image processed and dithered`);

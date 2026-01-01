@@ -1515,12 +1515,12 @@
                 if (response.ok) {
                     const data = await response.json();
                     document.getElementById('fileInput').value = '';
-                    await loadCurrentDisplay();
                     overlay.classList.remove('show');
                     statusText.textContent = 'Generating image...';
                     filenameText.textContent = '';
 
-                    await openGeneratedImagePreview(data.imageId || 'current');
+                    // Open preview modal so user can adjust crop/zoom before applying
+                    await openGeneratedImagePreview(data.imageId);
                     setTimeout(loadMyCollection, 1000);
                 } else {
                     overlay.classList.remove('show');
@@ -1572,11 +1572,19 @@
                 const isLandscape = modalImage.classList.contains('landscape');
                 const rotation = isLandscape ? 90 : 0;
 
+                // Include crop and zoom settings from the preview
+                const adjustmentParams = {
+                    rotation,
+                    cropX,
+                    cropY,
+                    zoomLevel
+                };
+
                 if (selectedHistoryItem) {
                     response = await fetch(`/api/history/${selectedHistoryItem.imageId}/load`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ rotation })
+                        body: JSON.stringify(adjustmentParams)
                     });
                 } else if (selectedModalArt) {
                     response = await fetch('/api/art/import', {
@@ -1586,13 +1594,17 @@
                             imageUrl: selectedModalArt.imageUrl,
                             title: selectedModalArt.title,
                             artist: selectedModalArt.artist,
-                            rotation: rotation
+                            ...adjustmentParams
                         })
                     });
                 }
 
                 if (response && response.ok) {
                     closeModal();
+                    // Reset crop/zoom for next image
+                    cropX = 50;
+                    cropY = 50;
+                    zoomLevel = 1.0;
                     setTimeout(loadCurrentDisplay, 2000);
                 }
             } catch (error) {
