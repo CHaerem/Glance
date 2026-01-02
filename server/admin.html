@@ -748,14 +748,19 @@
 
             valueEl.className = 'battery-graph-value ' + valueClass;
 
-            // Format estimated time remaining
+            // Format estimated time remaining with confidence
             let timeRemaining = '';
-            if (status.estimatedHoursRemaining && !status.isCharging) {
-                const hrs = status.estimatedHoursRemaining;
-                if (hrs >= 24) {
-                    timeRemaining = ` · ~${Math.round(hrs / 24)}d left`;
-                } else {
-                    timeRemaining = ` · ~${hrs}h left`;
+            const est = status.batteryEstimate;
+            if (est && !status.isCharging) {
+                const hrs = est.hoursRemaining;
+                if (hrs >= 48) {
+                    timeRemaining = ` · ~${Math.round(hrs / 24)}d`;
+                } else if (hrs >= 1) {
+                    timeRemaining = ` · ~${hrs}h`;
+                }
+                // Show confidence indicator
+                if (est.confidence < 50) {
+                    timeRemaining += ' (learning)';
                 }
             }
 

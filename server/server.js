@@ -2181,16 +2181,53 @@ app.post("/api/device-status", async (req, res) => {
 		}
 
 		// Track battery history (keep last 100 readings)
+		// Include whether this was a display update for energy modeling
 		const batteryHistory = previousDevice.batteryHistory || [];
+		const isDisplayUpdate = status.status === 'display_updating' || status.status === 'display_complete';
+
 		if (batteryVoltage > 0) {
 			batteryHistory.push({
 				timestamp: Date.now(),
 				voltage: batteryVoltage,
-				isCharging: isCharging
+				isCharging: isCharging,
+				isDisplayUpdate: isDisplayUpdate
 			});
 			// Keep only last 100 readings
 			if (batteryHistory.length > 100) {
 				batteryHistory.shift();
+			}
+		}
+
+		// Track usage statistics for battery estimation
+		const usageStats = previousDevice.usageStats || {
+			totalWakes: 0,
+			totalDisplayUpdates: 0,
+			totalVoltageDrop: 0,
+			lastFullCharge: null,
+			wakesThisCycle: 0,
+			displayUpdatesThisCycle: 0,
+			voltageAtFullCharge: null
+		};
+
+		// If we just started charging, save the cycle stats
+		if (isCharging && !previousDevice.isCharging) {
+			usageStats.lastFullCharge = Date.now();
+			usageStats.voltageAtFullCharge = batteryVoltage;
+			usageStats.wakesThisCycle = 0;
+			usageStats.displayUpdatesThisCycle = 0;
+		}
+
+		// Count this wake (only when not charging)
+		if (!isCharging && previousVoltage > 0) {
+			usageStats.totalWakes++;
+			usageStats.wakesThisCycle++;
+			if (isDisplayUpdate) {
+				usageStats.totalDisplayUpdates++;
+				usageStats.displayUpdatesThisCycle++;
+			}
+			// Track voltage drop from last reading
+			if (voltageDelta < 0) {
+				usageStats.totalVoltageDrop += Math.abs(voltageDelta);
 			}
 		}
 
@@ -2217,6 +2254,7 @@ app.post("/api/device-status", async (req, res) => {
 			isCharging: isCharging,
 			lastChargeTimestamp: lastChargeTimestamp,
 			batteryHistory: batteryHistory,
+			usageStats: usageStats,
 			signalStrength: parseInt(status.signalStrength) || 0,
 			freeHeap: parseInt(status.freeHeap) || 0,
 			bootCount: parseInt(status.bootCount) || 0,
@@ -2303,26 +2341,39 @@ app.get("/api/esp32-status", async (req, res) => {
 			sleepDuration = calculateNightSleepDuration(settings);
 		}
 
-		// Estimate remaining battery life from discharge rate
-		let estimatedHoursRemaining = null;
-		const history = deviceStatus.batteryHistory || [];
-		if (history.length >= 3 && !deviceStatus.isCharging) {
-			// Calculate discharge rate from history (exclude charging periods)
-			const dischargeReadings = history.filter(h => !h.isCharging);
-			if (dischargeReadings.length >= 2) {
-				const first = dischargeReadings[0];
-				const last = dischargeReadings[dischargeReadings.length - 1];
-				const hoursPassed = (last.timestamp - first.timestamp) / (1000 * 60 * 60);
-				const voltageDrop = first.voltage - last.voltage;
+		// Smart battery estimation using usage statistics
+		let batteryEstimate = null;
+		const stats = deviceStatus.usageStats;
 
-				if (hoursPassed > 0.1 && voltageDrop > 0) {
-					const dropPerHour = voltageDrop / hoursPassed;
-					// Estimate hours until 3.3V (critical threshold)
-					const voltageRemaining = deviceStatus.batteryVoltage - 3.3;
-					if (voltageRemaining > 0 && dropPerHour > 0) {
-						estimatedHoursRemaining = Math.round(voltageRemaining / dropPerHour);
-					}
-				}
+		if (stats && stats.totalWakes >= 3 && !deviceStatus.isCharging) {
+			// Calculate average voltage drop per wake
+			const avgDropPerWake = stats.totalVoltageDrop / stats.totalWakes;
+
+			// Calculate display update ratio (how often do we actually update?)
+			const displayUpdateRatio = stats.totalDisplayUpdates / stats.totalWakes;
+
+			// Voltage remaining until critical (3.3V)
+			const voltageRemaining = deviceStatus.batteryVoltage - 3.3;
+
+			if (avgDropPerWake > 0 && voltageRemaining > 0) {
+				// Estimate remaining wake cycles
+				const remainingCycles = Math.floor(voltageRemaining / avgDropPerWake);
+
+				// Convert to hours using current sleep duration
+				const sleepHours = sleepDuration / (1000000 * 60 * 60); // microseconds to hours
+				const estimatedHours = Math.round(remainingCycles * sleepHours);
+
+				// Confidence increases with more data
+				const confidence = Math.min(100, Math.round((stats.totalWakes / 20) * 100));
+
+				batteryEstimate = {
+					hoursRemaining: estimatedHours,
+					cyclesRemaining: remainingCycles,
+					confidence: confidence,
+					avgDropPerWake: Math.round(avgDropPerWake * 1000) / 1000, // mV precision
+					displayUpdateRatio: Math.round(displayUpdateRatio * 100),
+					dataPoints: stats.totalWakes
+				};
 			}
 		}
 
@@ -2334,7 +2385,8 @@ app.get("/api/esp32-status", async (req, res) => {
 			isCharging: deviceStatus.isCharging,
 			lastChargeTimestamp: deviceStatus.lastChargeTimestamp,
 			batteryHistory: deviceStatus.batteryHistory || [],
-			estimatedHoursRemaining: estimatedHoursRemaining,
+			batteryEstimate: batteryEstimate,
+			usageStats: stats || null,
 			signalStrength: deviceStatus.signalStrength,
 			lastSeen: deviceStatus.lastSeen,
 			sleepDuration: sleepDuration, // in microseconds
