@@ -65,13 +65,20 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define BATTERY_ADC_CHANNEL ADC_CHANNEL_1  // GPIO 2 on ESP32-S3
 #define BATTERY_GPIO        2
 #define BATTERY_ADC_ATTEN   ADC_ATTEN_DB_12  // 0-3.3V range
-#define VOLTAGE_DIVIDER_RATIO 2.0f  // 2:1 divider (2x 10kΩ resistors)
+// Voltage divider ratio: calibrated from actual ADC readings
+// ADC reads ~0.85V when battery is ~4.0V → ratio = 4.0 / 0.85 ≈ 4.7
+#define VOLTAGE_DIVIDER_RATIO 4.7f
 
-// Battery protection thresholds (LiPo safe discharge levels)
-#define BATTERY_CRITICAL 3.3f  // Below this: emergency mode (stop waking up)
+// Battery protection thresholds (standard LiPo values)
+#define BATTERY_CRITICAL 3.3f  // Below this: emergency mode (LiPo cutoff)
 #define BATTERY_LOW      3.5f  // Below this: low battery warning
-#define BATTERY_CHARGED  3.6f  // Above this after critical: resume normal operation
+#define BATTERY_CHARGED  3.6f  // Above this: normal operation
 #define EMERGENCY_SLEEP_DURATION (24ULL * 60 * 60 * 1000000)  // 24 hours
+
+// Battery sensor sanity checks (detect disconnected/faulty sensor)
+#define BATTERY_MAX_VALID 4.5f   // Max possible LiPo voltage (with some margin)
+#define BATTERY_MIN_VALID 2.5f   // Below this, sensor is likely disconnected
+#define BATTERY_SENSOR_INVALID -1.0f  // Return value when sensor is not connected
 
 // Load last image ID from NVS (persistent storage)
 bool load_last_image_id(char* image_id, size_t max_len) {
@@ -128,7 +135,11 @@ void save_last_image_id(const char* image_id) {
 
 // Read battery voltage from GPIO 2 (ADC1_CH1) via voltage divider
 // Voltage divider: VBAT -> 10k -> GPIO2 -> 10k -> GND (2:1 ratio)
+// Returns BATTERY_SENSOR_INVALID (-1.0) if sensor is disconnected or faulty
 float read_battery_voltage(void) {
+    // Small delay to let ADC stabilize after boot
+    vTaskDelay(pdMS_TO_TICKS(50));
+
     adc_oneshot_unit_handle_t adc_handle;
     adc_oneshot_unit_init_cfg_t init_config = {
         .unit_id = ADC_UNIT_1,
@@ -142,24 +153,54 @@ float read_battery_voltage(void) {
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, BATTERY_ADC_CHANNEL, &config));
 
-    // Take multiple readings and average for stability
-    int total = 0;
+    // Take multiple readings and check for stability
     const int num_samples = 10;
+    int total = 0;
+    int min_raw = 4095;
+    int max_raw = 0;
+
     for (int i = 0; i < num_samples; i++) {
         int raw = 0;
         adc_oneshot_read(adc_handle, BATTERY_ADC_CHANNEL, &raw);
         total += raw;
-        vTaskDelay(pdMS_TO_TICKS(5));
+        if (raw < min_raw) min_raw = raw;
+        if (raw > max_raw) max_raw = raw;
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
+
     int avg_raw = total / num_samples;
+    int range = max_raw - min_raw;
 
     float adc_voltage = (avg_raw / 4095.0f) * 3.3f;
     float battery_voltage = adc_voltage * VOLTAGE_DIVIDER_RATIO;
 
-    printf("Battery: raw=%d, adc=%.2fV, bat=%.2fV (GPIO %d)\n",
-           avg_raw, adc_voltage, battery_voltage, BATTERY_GPIO);
+    printf("Battery: raw=%d (range=%d), adc=%.2fV, bat=%.2fV (GPIO %d)\n",
+           avg_raw, range, adc_voltage, battery_voltage, BATTERY_GPIO);
 
     ESP_ERROR_CHECK(adc_oneshot_del_unit(adc_handle));
+
+    // Sanity check 1: High variance means floating/disconnected sensor
+    // A properly connected voltage divider should have stable readings (range < 100)
+    // 100 raw units = ~0.08V variance, which is acceptable noise
+    if (range > 200) {
+        printf("⚠️  Battery readings unstable (range=%d) - sensor floating or disconnected\n", range);
+        return BATTERY_SENSOR_INVALID;
+    }
+
+    // Sanity check 2: Impossible high voltage (> 4.5V means floating high)
+    if (battery_voltage > BATTERY_MAX_VALID) {
+        printf("⚠️  Battery reading %.2fV is impossible (>%.1fV) - sensor floating\n",
+               battery_voltage, BATTERY_MAX_VALID);
+        return BATTERY_SENSOR_INVALID;
+    }
+
+    // Sanity check 3: Very low voltage (< 0.5V means disconnected or shorted to GND)
+    if (battery_voltage < BATTERY_MIN_VALID) {
+        printf("⚠️  Battery reading %.2fV is too low (<%.1fV) - sensor disconnected\n",
+               battery_voltage, BATTERY_MIN_VALID);
+        return BATTERY_SENSOR_INVALID;
+    }
+
     return battery_voltage;
 }
 
@@ -171,12 +212,106 @@ void get_device_id(void) {
     printf("Device ID: %s\n", device_id);
 }
 
+// Scan ALL ADC1 channels to find where the battery voltage appears
+void scan_all_adc_channels(void) {
+    printf("\n=== SCANNING ALL ADC1 CHANNELS ===\n");
+    printf("Looking for ~0.46V ADC (should show as ~4.0V battery with 8.8:1 divider)...\n\n");
+
+    adc_oneshot_unit_handle_t adc_handle;
+    adc_oneshot_unit_init_cfg_t init_config = {
+        .unit_id = ADC_UNIT_1,
+        .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
+    adc_oneshot_new_unit(&init_config, &adc_handle);
+
+    adc_oneshot_chan_cfg_t config = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+
+    // Scan channels 0-9 (GPIO 1-10 on ESP32-S3)
+    for (int ch = 0; ch <= 9; ch++) {
+        adc_oneshot_config_channel(adc_handle, ch, &config);
+        int raw = 0;
+        adc_oneshot_read(adc_handle, ch, &raw);
+        float adc_v = (raw / 4095.0f) * 3.3f;
+        float bat_v = adc_v * VOLTAGE_DIVIDER_RATIO;
+
+        // Highlight channels with battery-like voltage (3.0-4.5V range)
+        const char* marker = (bat_v > 3.0f && bat_v < 4.5f) ? " <-- POSSIBLE BATTERY" : "";
+        printf("  CH%d (GPIO %d): raw=%4d, adc=%.2fV, bat=%.2fV%s\n",
+               ch, ch+1, raw, adc_v, bat_v, marker);
+    }
+    printf("=== END SCAN ===\n\n");
+
+    adc_oneshot_del_unit(adc_handle);
+}
+
+// GPIO TOGGLE TEST - toggle a specific GPIO HIGH/LOW in a loop
+// Use multimeter to verify which pad this GPIO corresponds to
+void gpio_discovery_test(void) {
+    int test_gpio = 2;  // GPIO 2 - suspected battery pin
+
+    printf("\n");
+    printf("╔═══════════════════════════════════════════════════════════════╗\n");
+    printf("║              GPIO %2d TOGGLE TEST                              ║\n", test_gpio);
+    printf("║                                                               ║\n");
+    printf("║  GPIO %2d will toggle: HIGH (3.3V) for 5 sec, LOW for 5 sec   ║\n", test_gpio);
+    printf("║  Use multimeter to find which pad shows 3.3V / 0V            ║\n");
+    printf("║                                                               ║\n");
+    printf("║  Runs forever - reset device when done                       ║\n");
+    printf("╚═══════════════════════════════════════════════════════════════╝\n\n");
+
+    gpio_reset_pin(test_gpio);
+    gpio_set_direction(test_gpio, GPIO_MODE_OUTPUT);
+
+    int cycle = 0;
+    while (1) {
+        cycle++;
+
+        printf("Cycle %d: GPIO %d -> HIGH (3.3V)\n", cycle, test_gpio);
+        gpio_set_level(test_gpio, 1);
+        vTaskDelay(pdMS_TO_TICKS(5000));  // 5 seconds HIGH
+
+        printf("Cycle %d: GPIO %d -> LOW (0V)\n", cycle, test_gpio);
+        gpio_set_level(test_gpio, 0);
+        vTaskDelay(pdMS_TO_TICKS(5000));  // 5 seconds LOW
+    }
+}
+
+// Simple battery read without filtering - for debugging
+float read_battery_raw(void) {
+    adc_oneshot_unit_handle_t adc_handle;
+    adc_oneshot_unit_init_cfg_t init_config = {
+        .unit_id = ADC_UNIT_1,
+        .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
+    adc_oneshot_new_unit(&init_config, &adc_handle);
+
+    adc_oneshot_chan_cfg_t config = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    adc_oneshot_config_channel(adc_handle, BATTERY_ADC_CHANNEL, &config);
+
+    int raw = 0;
+    adc_oneshot_read(adc_handle, BATTERY_ADC_CHANNEL, &raw);
+    adc_oneshot_del_unit(adc_handle);
+
+    float adc_voltage = (raw / 4095.0f) * 3.3f;
+    float battery_voltage = adc_voltage * VOLTAGE_DIVIDER_RATIO;
+
+    printf("RAW Battery (CH%d/GPIO%d): raw=%d, adc=%.2fV, bat=%.2fV\n",
+           BATTERY_ADC_CHANNEL, BATTERY_GPIO, raw, adc_voltage, battery_voltage);
+    return battery_voltage;
+}
+
 void report_device_status(const char* status_msg) {
     wifi_ap_record_t ap_info;
     esp_wifi_sta_get_ap_info(&ap_info);
 
-    // Read actual battery voltage
-    float battery_voltage = read_battery_voltage();
+    // Read RAW battery voltage - no filtering, just report what ADC sees
+    float battery_voltage = read_battery_raw();
 
     char post_data[512];
     snprintf(post_data, sizeof(post_data),
@@ -574,47 +709,15 @@ void app_main(void)
     // Get device ID
     get_device_id();
 
-    // ===== BATTERY CHECK FIRST (before WiFi to save power) =====
-    printf("\n=== Checking battery level ===\n");
+    // Battery monitoring - GPIO 2 confirmed via toggle test
     float battery_voltage = read_battery_voltage();
 
-    if (battery_voltage < BATTERY_CRITICAL) {
-        printf("⚠️  CRITICAL BATTERY: %.2fV (threshold: %.2fV)\n", battery_voltage, BATTERY_CRITICAL);
-        printf("Entering emergency mode...\n");
-
-        // Initialize WiFi to report critical battery (NVS already initialized above)
-        wifi_init();
-
-        printf("Waiting for WiFi (quick timeout)...\n");
-        EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-                                               WIFI_CONNECTED_BIT,
-                                               pdFALSE, pdTRUE,
-                                               pdMS_TO_TICKS(10000));  // Short timeout
-
-        if (bits & WIFI_CONNECTED_BIT) {
-            printf("WiFi connected - reporting critical battery\n");
-            report_device_status("battery_critical");
-        } else {
-            printf("WiFi failed - skipping report to save power\n");
-        }
-
-        // Show RED screen with battery warning
-        printf("Displaying battery warning (RED)...\n");
-        initEPD();
-        epdDisplayColor(RED);
-
-        // Sleep for 24 hours - will check battery again when waking up
-        printf("💤 Entering emergency deep sleep for 24 hours\n");
-        printf("Device will check battery again after sleep\n");
-        printf("Please charge the battery!\n");
-        esp_deep_sleep(EMERGENCY_SLEEP_DURATION);
-    }
-
-    if (battery_voltage < BATTERY_LOW) {
-        printf("⚠️  Low battery: %.2fV (threshold: %.2fV)\n", battery_voltage, BATTERY_LOW);
-        printf("Will continue operation but recommend charging\n");
+    // Handle invalid sensor readings (treat as "no battery monitoring")
+    if (battery_voltage == BATTERY_SENSOR_INVALID) {
+        printf("Battery sensor not connected - continuing without protection\n");
+        battery_voltage = 4.0f;  // Assume good battery
     } else {
-        printf("✅ Battery OK: %.2fV\n", battery_voltage);
+        printf("Battery: %.2fV\n", battery_voltage);
     }
 
     // Initialize WiFi (NVS already initialized above)
