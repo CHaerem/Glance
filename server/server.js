@@ -2391,7 +2391,8 @@ app.get("/api/esp32-status", async (req, res) => {
 			lastSeen: deviceStatus.lastSeen,
 			sleepDuration: sleepDuration, // in microseconds
 			freeHeap: deviceStatus.freeHeap,
-			status: deviceStatus.status
+			status: deviceStatus.status,
+			currentImage: current.title || null
 		});
 	} catch (error) {
 		console.error("Error getting ESP32 status:", error);

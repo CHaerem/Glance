@@ -395,6 +395,24 @@
         .graph-container {
             height: 80px;
             position: relative;
+            display: flex;
+            gap: 6px;
+        }
+
+        .graph-y-axis {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 0.6rem;
+            color: #999;
+            min-width: 28px;
+            text-align: right;
+            padding: 2px 0;
+        }
+
+        .graph-svg-container {
+            flex: 1;
+            height: 100%;
         }
 
         .graph-svg {
@@ -424,6 +442,42 @@
             font-size: 0.65rem;
             color: #999;
             margin-top: 4px;
+            margin-left: 34px; /* Align with graph (y-axis width + gap) */
+        }
+
+        /* Device Stats */
+        .stats-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 12px 16px;
+            flex: 1;
+            min-width: 80px;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: #999;
+        }
+
+        .stat-error {
+            color: #f59e0b;
         }
 
         /* Mobile */
@@ -475,14 +529,40 @@
             <span class="battery-graph-value" id="batteryGraphValue">--</span>
         </div>
         <div class="graph-container">
-            <svg class="graph-svg" id="batteryGraphSvg" viewBox="0 0 300 80" preserveAspectRatio="none">
-                <path class="graph-area" id="graphArea"></path>
-                <path class="graph-line" id="graphLine"></path>
-            </svg>
+            <div class="graph-y-axis">
+                <span id="graphVoltMax">--</span>
+                <span id="graphVoltMin">--</span>
+            </div>
+            <div class="graph-svg-container">
+                <svg class="graph-svg" id="batteryGraphSvg" viewBox="0 0 300 80" preserveAspectRatio="none">
+                    <path class="graph-area" id="graphArea"></path>
+                    <path class="graph-line" id="graphLine"></path>
+                </svg>
+            </div>
         </div>
         <div class="graph-labels">
             <span id="graphTimeStart">--</span>
             <span id="graphTimeEnd">Now</span>
+        </div>
+    </div>
+
+    <!-- Device Stats -->
+    <div class="stats-row" id="statsSection" style="display: none;">
+        <div class="stat-item">
+            <span class="stat-value" id="statWakes">--</span>
+            <span class="stat-label">Wakes</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="statUpdates">--</span>
+            <span class="stat-label">Display updates</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="statImage">--</span>
+            <span class="stat-label">Current image</span>
+        </div>
+        <div class="stat-item" id="statErrorItem" style="display: none;">
+            <span class="stat-value stat-error" id="statError">--</span>
+            <span class="stat-label">Last issue</span>
         </div>
     </div>
 
@@ -722,8 +802,53 @@
 
                 // Update battery graph
                 updateBatteryGraph(s);
+
+                // Update device stats
+                updateDeviceStats(s);
             } catch (e) {
                 console.error('Failed to load status:', e);
+            }
+        }
+
+        // Update device stats row
+        function updateDeviceStats(status) {
+            const section = document.getElementById('statsSection');
+            const stats = status.usageStats;
+
+            // Only show if we have data
+            if (!stats && !status.currentImage) {
+                section.style.display = 'none';
+                return;
+            }
+            section.style.display = 'flex';
+
+            // Wakes and updates
+            if (stats) {
+                document.getElementById('statWakes').textContent = stats.totalWakes || 0;
+                document.getElementById('statUpdates').textContent = stats.totalDisplayUpdates || 0;
+            }
+
+            // Current image
+            const imageEl = document.getElementById('statImage');
+            if (status.currentImage) {
+                // Truncate long titles
+                const title = status.currentImage.length > 20
+                    ? status.currentImage.substring(0, 18) + '…'
+                    : status.currentImage;
+                imageEl.textContent = title;
+                imageEl.title = status.currentImage; // Full title on hover
+            } else {
+                imageEl.textContent = '--';
+            }
+
+            // Last error/issue (only show if there's a problem)
+            const errorItem = document.getElementById('statErrorItem');
+            const errorEl = document.getElementById('statError');
+            if (status.status && status.status !== 'ok' && status.status !== 'ready') {
+                errorItem.style.display = 'block';
+                errorEl.textContent = status.status.replace(/_/g, ' ');
+            } else {
+                errorItem.style.display = 'none';
             }
         }
 
@@ -806,6 +931,10 @@
             } else {
                 graphLine.classList.remove('graph-charging');
             }
+
+            // Update y-axis labels (voltage range)
+            document.getElementById('graphVoltMax').textContent = maxV.toFixed(1) + 'V';
+            document.getElementById('graphVoltMin').textContent = minV.toFixed(1) + 'V';
 
             // Update time labels
             if (history.length > 0) {
