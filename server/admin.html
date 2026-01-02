@@ -355,6 +355,77 @@
             margin-top: 24px;
         }
 
+        /* Battery Graph */
+        .battery-graph {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .battery-graph-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .battery-graph-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .battery-graph-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .battery-graph-value.charging {
+            color: #10b981;
+        }
+
+        .battery-graph-value.low {
+            color: #f59e0b;
+        }
+
+        .battery-graph-value.critical {
+            color: #ef4444;
+        }
+
+        .graph-container {
+            height: 80px;
+            position: relative;
+        }
+
+        .graph-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .graph-line {
+            fill: none;
+            stroke: #1a1a1a;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .graph-area {
+            fill: rgba(26, 26, 26, 0.1);
+        }
+
+        .graph-charging {
+            stroke: #10b981;
+        }
+
+        .graph-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.65rem;
+            color: #999;
+            margin-top: 4px;
+        }
+
         /* Mobile */
         @media (max-width: 480px) {
             body { padding: 16px; }
@@ -394,6 +465,24 @@
         <div class="status-item">
             <div class="status-value" id="signalDisplay">--</div>
             <div class="status-label">Signal</div>
+        </div>
+    </div>
+
+    <!-- Battery Graph -->
+    <div class="battery-graph" id="batteryGraphSection" style="display: none;">
+        <div class="battery-graph-header">
+            <span class="battery-graph-title">Battery History</span>
+            <span class="battery-graph-value" id="batteryGraphValue">--</span>
+        </div>
+        <div class="graph-container">
+            <svg class="graph-svg" id="batteryGraphSvg" viewBox="0 0 300 80" preserveAspectRatio="none">
+                <path class="graph-area" id="graphArea"></path>
+                <path class="graph-line" id="graphLine"></path>
+            </svg>
+        </div>
+        <div class="graph-labels">
+            <span id="graphTimeStart">--</span>
+            <span id="graphTimeEnd">Now</span>
         </div>
     </div>
 
@@ -630,8 +719,82 @@
                     countdownEl.textContent = 'No data';
                     card.className = 'next-wake-card offline';
                 }
+
+                // Update battery graph
+                updateBatteryGraph(s);
             } catch (e) {
                 console.error('Failed to load status:', e);
+            }
+        }
+
+        // Render battery graph
+        function updateBatteryGraph(status) {
+            const section = document.getElementById('batteryGraphSection');
+            const history = status.batteryHistory || [];
+
+            if (history.length < 2) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+
+            // Update header value with current status
+            const valueEl = document.getElementById('batteryGraphValue');
+            let valueClass = '';
+            if (status.isCharging) valueClass = 'charging';
+            else if (status.batteryPercent < 20) valueClass = 'critical';
+            else if (status.batteryPercent < 40) valueClass = 'low';
+
+            valueEl.className = 'battery-graph-value ' + valueClass;
+            valueEl.textContent = status.isCharging
+                ? `${status.batteryVoltage}V ⚡ Charging`
+                : `${status.batteryVoltage}V (${status.batteryPercent}%)`;
+
+            // Calculate graph dimensions
+            const width = 300;
+            const height = 80;
+            const padding = 4;
+
+            // Find min/max voltage for scaling (with some padding)
+            const voltages = history.map(h => h.voltage);
+            const minV = Math.min(...voltages) - 0.1;
+            const maxV = Math.max(...voltages) + 0.1;
+            const range = maxV - minV || 0.5;
+
+            // Generate path points
+            const points = history.map((h, i) => {
+                const x = padding + (i / (history.length - 1)) * (width - 2 * padding);
+                const y = height - padding - ((h.voltage - minV) / range) * (height - 2 * padding);
+                return { x, y, charging: h.isCharging };
+            });
+
+            // Create line path
+            const linePath = points.map((p, i) =>
+                (i === 0 ? 'M' : 'L') + `${p.x.toFixed(1)},${p.y.toFixed(1)}`
+            ).join(' ');
+
+            // Create area path (for fill)
+            const areaPath = linePath +
+                ` L${points[points.length-1].x.toFixed(1)},${height} L${points[0].x.toFixed(1)},${height} Z`;
+
+            // Update SVG paths
+            document.getElementById('graphLine').setAttribute('d', linePath);
+            document.getElementById('graphArea').setAttribute('d', areaPath);
+
+            // Check if currently charging (green line)
+            const graphLine = document.getElementById('graphLine');
+            if (status.isCharging) {
+                graphLine.classList.add('graph-charging');
+            } else {
+                graphLine.classList.remove('graph-charging');
+            }
+
+            // Update time labels
+            if (history.length > 0) {
+                const firstTime = new Date(history[0].timestamp);
+                document.getElementById('graphTimeStart').textContent =
+                    firstTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
             }
         }
 

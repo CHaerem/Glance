@@ -2156,8 +2156,21 @@ app.post("/api/device-status", async (req, res) => {
 		const devices = (await readJSONFile("devices.json")) || {};
 		const previousDevice = devices[deviceId] || {};
 
-		// Detect charging event
-		const isCharging = status.isCharging === true;
+		// Calculate battery percentage from voltage first (needed for charging detection)
+		const batteryVoltage = parseFloat(status.batteryVoltage) || 0;
+
+		// Detect charging: either explicit flag OR voltage rising significantly
+		let isCharging = status.isCharging === true;
+		const previousVoltage = previousDevice.batteryVoltage || 0;
+		const voltageDelta = batteryVoltage - previousVoltage;
+
+		// If voltage increased by more than 0.05V, likely charging
+		// (Normal discharge doesn't show voltage increases)
+		if (!isCharging && previousVoltage > 0 && voltageDelta > 0.05) {
+			isCharging = true;
+			console.log(`[Battery] Charging detected via voltage rise: ${previousVoltage}V → ${batteryVoltage}V (+${voltageDelta.toFixed(2)}V)`);
+		}
+
 		let lastChargeTimestamp = previousDevice.lastChargeTimestamp || null;
 
 		// Update lastChargeTimestamp if currently charging and wasn't charging before
@@ -2167,8 +2180,21 @@ app.post("/api/device-status", async (req, res) => {
 			addDeviceLog(`🔋 Device ${deviceId} started charging`);
 		}
 
+		// Track battery history (keep last 100 readings)
+		const batteryHistory = previousDevice.batteryHistory || [];
+		if (batteryVoltage > 0) {
+			batteryHistory.push({
+				timestamp: Date.now(),
+				voltage: batteryVoltage,
+				isCharging: isCharging
+			});
+			// Keep only last 100 readings
+			if (batteryHistory.length > 100) {
+				batteryHistory.shift();
+			}
+		}
+
 		// Calculate battery percentage from voltage (LiPo discharge curve)
-		const batteryVoltage = parseFloat(status.batteryVoltage) || 0;
 		let batteryPercent = parseInt(status.batteryPercent);
 
 		// If ESP32 doesn't send percent, calculate it from voltage
@@ -2190,6 +2216,7 @@ app.post("/api/device-status", async (req, res) => {
 			batteryPercent: batteryPercent || 0,
 			isCharging: isCharging,
 			lastChargeTimestamp: lastChargeTimestamp,
+			batteryHistory: batteryHistory,
 			signalStrength: parseInt(status.signalStrength) || 0,
 			freeHeap: parseInt(status.freeHeap) || 0,
 			bootCount: parseInt(status.bootCount) || 0,
@@ -2199,6 +2226,21 @@ app.post("/api/device-status", async (req, res) => {
 		};
 
 		await writeJSONFile("devices.json", devices);
+
+		// Low battery alerts (only if not charging)
+		const previousPercent = previousDevice.batteryPercent || 100;
+		if (!isCharging && batteryPercent > 0) {
+			// Critical battery alert (<15%)
+			if (batteryPercent < 15 && previousPercent >= 15) {
+				console.log(`[Battery] CRITICAL: Device ${deviceId} at ${batteryPercent}%`);
+				addDeviceLog(`⚠️ CRITICAL: Battery at ${batteryPercent}% - device may shut down soon`);
+			}
+			// Low battery alert (<30%)
+			else if (batteryPercent < 30 && previousPercent >= 30) {
+				console.log(`[Battery] LOW: Device ${deviceId} at ${batteryPercent}%`);
+				addDeviceLog(`🔋 Low battery: ${batteryPercent}% - consider charging`);
+			}
+		}
 
 		const batteryInfo = `${batteryVoltage}V (${batteryPercent}%)${isCharging ? ' [Charging]' : ''}`;
 		const logMessage = `Device ${deviceId} reported: Battery ${batteryInfo}, Signal ${status.signalStrength}dBm, Status: ${status.status}`;
@@ -2268,6 +2310,7 @@ app.get("/api/esp32-status", async (req, res) => {
 			batteryPercent: deviceStatus.batteryPercent,
 			isCharging: deviceStatus.isCharging,
 			lastChargeTimestamp: deviceStatus.lastChargeTimestamp,
+			batteryHistory: deviceStatus.batteryHistory || [],
 			signalStrength: deviceStatus.signalStrength,
 			lastSeen: deviceStatus.lastSeen,
 			sleepDuration: sleepDuration, // in microseconds
