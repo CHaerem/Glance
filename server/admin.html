@@ -17,515 +17,114 @@
             color: #1a1a1a;
             line-height: 1.6;
             padding: 20px;
-            max-width: 1000px;
+            max-width: 600px;
             margin: 0 auto;
         }
 
-        h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 40px;
-            text-align: center;
+        a { color: #666; text-decoration: none; }
+        a:hover { color: #1a1a1a; }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
         }
 
-        h2 {
-            font-size: 1.125rem;
+        .header h1 {
+            font-size: 1.25rem;
             font-weight: 600;
-            margin: 30px 0 16px 0;
-            color: #666;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.5px;
         }
 
-        /* Device Status */
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-bottom: 40px;
+        .back-link {
+            font-size: 0.85rem;
+        }
+
+        /* Device Status Bar */
+        .status-bar {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: #f5f5f5;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .status-item {
-            background: #f5f5f5;
-            border-radius: 12px;
-            padding: 16px;
             text-align: center;
-        }
-
-        .status-value {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .status-label {
-            color: #666;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 500;
-        }
-
-        .status-online { color: #10b981; }
-        .status-offline { color: #6b7280; }
-
-        /* Logs */
-        .logs-container {
-            background: #1a1a1a;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 40px;
-        }
-
-        .logs-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .logs-title {
-            color: #999;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .logs-controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .log-filter {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            cursor: pointer;
-        }
-
-        .log-search {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #fff;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            min-width: 200px;
-        }
-
-        .log-search::placeholder {
-            color: #666;
-        }
-
-        .log-btn {
-            background: #333;
-            border: none;
-            color: #999;
-            font-size: 0.75rem;
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .log-btn:hover {
-            background: #444;
-            color: #fff;
-        }
-
-        .log-output {
-            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
-            font-size: 0.75rem;
-            color: #e5e5e5;
-            line-height: 1.5;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-
-        .log-output::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .log-output::-webkit-scrollbar-track {
-            background: #0a0a0a;
-        }
-
-        .log-output::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
-        }
-
-        .log-output::-webkit-scrollbar-thumb:hover {
-            background: #444;
-        }
-
-        /* Enhanced log output with structured entries */
-        .log-output-enhanced {
-            font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
-            font-size: 0.75rem;
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .log-output-enhanced::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .log-output-enhanced::-webkit-scrollbar-track {
-            background: #0a0a0a;
-        }
-
-        .log-output-enhanced::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
-        }
-
-        .log-entry {
-            padding: 8px 12px;
-            border-bottom: 1px solid #2a2a2a;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .log-entry:hover {
-            background: #2a2a2a;
-        }
-
-        .log-timestamp {
-            color: #666;
-            font-size: 0.7rem;
-            white-space: nowrap;
             min-width: 80px;
         }
 
-        .log-level {
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.65rem;
+        .status-value {
+            font-size: 1rem;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            min-width: 50px;
-            text-align: center;
         }
 
-        .log-level-INFO {
-            background: #1e40af20;
-            color: #60a5fa;
-        }
-
-        .log-level-ERROR {
-            background: #dc262620;
-            color: #ef4444;
-        }
-
-        .log-level-WARNING {
-            background: #d9770620;
-            color: #f59e0b;
-        }
-
-        .log-source {
-            font-size: 0.65rem;
-            color: #888;
-            background: #2a2a2a;
-            padding: 2px 6px;
-            border-radius: 4px;
-            min-width: 50px;
-            text-align: center;
-        }
-
-        .log-message {
-            color: #e5e5e5;
-            flex: 1;
-            line-height: 1.5;
-            word-wrap: break-word;
-        }
-
-        /* Recent activity timeline */
-        .activity-container {
-            background: #f5f5f5;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 40px;
-        }
-
-        .activity-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .activity-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #666;
-        }
-
-        .activity-item {
-            background: #fff;
-            border-radius: 6px;
-            padding: 12px 16px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-            border-left: 3px solid transparent;
-        }
-
-        .activity-item:hover {
-            background: #fafafa;
-        }
-
-        .activity-item.success {
-            border-left-color: #10b981;
-        }
-
-        .activity-item.failure {
-            border-left-color: #ef4444;
-        }
-
-        .activity-item.incomplete {
-            border-left-color: #f59e0b;
-        }
-
-        .activity-summary {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .activity-time {
-            font-size: 0.8rem;
-            color: #666;
-            font-weight: 500;
-            min-width: 100px;
-        }
-
-        .activity-stats {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            flex: 1;
-            font-size: 0.75rem;
-        }
-
-        .activity-stat {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .activity-stat-label {
-            color: #999;
-        }
-
-        .activity-stat-value {
-            color: #333;
-            font-weight: 500;
-        }
-
-        .activity-badge {
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .activity-badge.success {
-            background: #10b98120;
-            color: #10b981;
-        }
-
-        .activity-badge.failure {
-            background: #ef444420;
-            color: #ef4444;
-        }
-
-        .activity-badge.incomplete {
-            background: #f59e0b20;
-            color: #f59e0b;
-        }
-
-        /* Wake cycle diagnostics */
-        .diagnostic-container {
-            background: #f5f5f5;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 40px;
-        }
-
-        .diagnostic-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .diagnostic-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #666;
-        }
-
-        .diagnostic-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .diagnostic-stat {
-            background: #fff;
-            padding: 12px;
-            border-radius: 6px;
-            text-align: center;
-        }
-
-        .diagnostic-stat-value {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .diagnostic-stat-label {
+        .status-label {
             font-size: 0.7rem;
             color: #666;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
-        .timeline {
-            background: #fff;
-            border-radius: 6px;
-            padding: 16px;
-        }
-
-        .timeline-event {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 8px 0;
-            border-left: 2px solid #e5e5e5;
-            padding-left: 16px;
-            margin-left: 6px;
-            position: relative;
-        }
-
-        .timeline-event::before {
-            content: '';
-            position: absolute;
-            left: -6px;
-            top: 12px;
-            width: 10px;
-            height: 10px;
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: #10b981;
-            border: 2px solid #fff;
+            margin-right: 4px;
         }
 
-        .timeline-event.error::before {
-            background: #ef4444;
+        .status-dot.online { background: #10b981; }
+        .status-dot.offline { background: #9ca3af; }
+
+        /* Section */
+        .section {
+            margin-bottom: 16px;
         }
 
-        .timeline-event.error {
-            border-left-color: #ef4444;
-        }
-
-        .timeline-time {
-            color: #666;
-            font-size: 0.7rem;
-            font-family: 'SF Mono', monospace;
-            min-width: 60px;
-        }
-
-        .timeline-message {
-            flex: 1;
-            font-size: 0.8rem;
-            color: #333;
-            line-height: 1.5;
-        }
-
-        /* Back link */
-        .back-link {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            color: #999;
-            text-decoration: none;
-            font-size: 0.85rem;
-            transition: color 0.2s ease;
-        }
-
-        .back-link:hover {
-            color: #1a1a1a;
-        }
-
-        /* System info */
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 12px;
-            margin-bottom: 40px;
-        }
-
-        .info-item {
-            background: #f5f5f5;
-            border-radius: 8px;
-            padding: 12px 16px;
-        }
-
-        .info-label {
-            color: #666;
+        .section-header {
             font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 4px;
+            margin-bottom: 12px;
         }
 
-        .info-value {
-            font-size: 0.9rem;
-            font-family: 'SF Mono', 'Monaco', monospace;
-        }
-
-        /* Settings */
-        .settings-form {
+        /* Settings Card */
+        .card {
             background: #f5f5f5;
-            border-radius: 8px;
+            border-radius: 12px;
             padding: 20px;
-            margin-bottom: 40px;
+            margin-bottom: 16px;
         }
 
-        .form-group {
-            margin-bottom: 20px;
+        .form-row {
+            margin-bottom: 16px;
+        }
+
+        .form-row:last-child {
+            margin-bottom: 0;
         }
 
         .form-label {
             display: block;
-            color: #666;
             font-size: 0.85rem;
             font-weight: 500;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .form-input {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #e5e5e5;
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 0.9rem;
-            font-family: inherit;
+            background: #fff;
         }
 
         .form-input:focus {
@@ -534,46 +133,14 @@
         }
 
         .form-hint {
-            color: #999;
             font-size: 0.75rem;
+            color: #999;
             margin-top: 4px;
-        }
-
-        .btn-primary {
-            background: #1a1a1a;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        .btn-primary:hover {
-            background: #333;
-        }
-
-        .btn-primary:disabled {
-            background: #999;
-            cursor: not-allowed;
-        }
-
-        .success-message {
-            color: #10b981;
-            font-size: 0.85rem;
-            margin-top: 12px;
-            display: none;
-        }
-
-        .success-message.show {
-            display: block;
         }
 
         .preset-buttons {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             margin-top: 8px;
             flex-wrap: wrap;
         }
@@ -581,1138 +148,538 @@
         .preset-btn {
             background: #fff;
             border: 1px solid #e5e5e5;
-            padding: 6px 12px;
+            padding: 6px 10px;
             border-radius: 4px;
             font-size: 0.75rem;
             cursor: pointer;
-            transition: all 0.2s ease;
         }
 
         .preset-btn:hover {
             border-color: #1a1a1a;
-            background: #f5f5f5;
         }
 
-        /* Server identification */
-        .server-id {
-            font-size: 0.75rem;
-            color: #999;
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .checkbox-label input {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-primary {
+            background: #1a1a1a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            background: #333;
+        }
+
+        .success-msg {
+            color: #10b981;
+            font-size: 0.85rem;
             text-align: center;
-            margin-bottom: 24px;
-            font-family: 'Monaco', 'Courier New', monospace;
+            margin-top: 12px;
+            display: none;
         }
 
-        /* Statistics */
-        .stats-container {
+        .success-msg.show {
+            display: block;
+        }
+
+        /* Collapsible */
+        .collapsible {
             background: #f5f5f5;
             border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 40px;
+            margin-bottom: 12px;
+            overflow: hidden;
         }
 
-        .stats-header {
+        .collapsible-header {
+            padding: 14px 16px;
+            cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            user-select: none;
         }
 
-        .stats-controls {
+        .collapsible-header:hover {
+            background: #ebebeb;
+        }
+
+        .collapsible-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .collapsible-icon {
+            font-size: 0.75rem;
+            color: #999;
+            transition: transform 0.2s;
+        }
+
+        .collapsible.open .collapsible-icon {
+            transform: rotate(90deg);
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 0 16px 16px;
+        }
+
+        .collapsible.open .collapsible-content {
+            display: block;
+        }
+
+        /* Logs */
+        .log-container {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.7rem;
+            color: #e5e5e5;
+            padding: 4px 0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: #666;
+            margin-right: 8px;
+        }
+
+        .log-error {
+            color: #ef4444;
+        }
+
+        .log-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .log-btn {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .log-btn:hover {
+            border-color: #1a1a1a;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #999;
+            padding: 20px 0;
+            border-top: 1px solid #f0f0f0;
+            margin-top: 24px;
+        }
+
+        .footer a {
+            color: #666;
+        }
+
+        /* Night sleep time inputs */
+        .time-range {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .time-range select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* Orientation buttons */
+        .orientation-btns {
             display: flex;
             gap: 8px;
         }
 
-        .stats-btn {
-            background: #fff;
-            border: 1px solid #e5e5e5;
-            color: #666;
-            font-size: 0.75rem;
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .stats-btn:hover {
-            background: #1a1a1a;
-            color: #fff;
-            border-color: #1a1a1a;
-        }
-
-        .stats-btn.active {
-            background: #1a1a1a;
-            color: #fff;
-            border-color: #1a1a1a;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: #fff;
-            border-radius: 8px;
-            padding: 16px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .stat-label {
-            color: #666;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 500;
-        }
-
-        .stat-sublabel {
-            color: #999;
-            font-size: 0.7rem;
-            margin-top: 2px;
-        }
-
-        .api-source-list {
-            background: #fff;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 12px;
-        }
-
-        .api-source-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-
-        .api-source-item:last-child {
-            border-bottom: none;
-        }
-
-        .api-source-name {
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .api-source-stats {
-            display: flex;
-            gap: 16px;
-            font-size: 0.75rem;
-            color: #666;
-        }
-
-        .api-bar {
-            background: #f0f0f0;
-            height: 8px;
-            border-radius: 4px;
-            margin-top: 4px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .api-bar-fill {
-            background: #1a1a1a;
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-
-        .log-chart {
-            background: #fff;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 12px;
-        }
-
-        .chart-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            color: #666;
-        }
-
-        .chart-bar {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .chart-label {
-            width: 60px;
-            font-size: 0.75rem;
-            color: #666;
-        }
-
-        .chart-bar-bg {
+        .orientation-btn {
             flex: 1;
-            background: #f0f0f0;
-            height: 24px;
-            border-radius: 4px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .chart-bar-fill {
-            background: #1a1a1a;
-            height: 100%;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            padding: 0 8px;
-            color: #fff;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            margin-bottom: 40px;
-        }
-
-        .info-item {
-            background: #f5f5f5;
-            border-radius: 12px;
-            padding: 16px;
+            padding: 10px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 0.8rem;
+            cursor: pointer;
             text-align: center;
         }
 
-        .info-label {
-            color: #666;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 500;
-            margin-bottom: 8px;
+        .orientation-btn.active {
+            background: #1a1a1a;
+            color: #fff;
+            border-color: #1a1a1a;
         }
 
-        .info-value {
-            font-size: 1rem;
-            font-weight: 600;
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 768px) {
-            body {
-                padding: 16px;
-                overflow-x: hidden;
-            }
-
-            h1 {
-                font-size: 1.5rem;
-            }
-
-            h2 {
-                font-size: 1.2rem;
-                margin-top: 32px;
-            }
-
-            .stats-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-            }
-
-            .stats-controls {
-                flex-wrap: wrap;
-                width: 100%;
-            }
-
-            .stats-btn {
-                flex: 1;
-                min-width: 70px;
-                font-size: 0.7rem;
-                padding: 6px 8px;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .info-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .api-source-item {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-
-            .api-source-stats {
-                flex-wrap: wrap;
-                gap: 12px;
-                font-size: 0.7rem;
-            }
-
-            .log-output {
-                font-size: 0.7rem;
-            }
-
-            .settings-group {
-                margin-bottom: 20px;
-            }
-
-            input[type="number"],
-            input[type="text"],
-            select {
-                font-size: 16px; /* Prevents iOS zoom on input focus */
-            }
-
-            /* Stack device status on mobile */
-            .device-status {
-                flex-direction: column;
-                gap: 16px;
-            }
-
-            .status-item {
-                min-width: 100%;
-            }
-        }
-
-        /* Small mobile devices */
+        /* Mobile */
         @media (max-width: 480px) {
-            body {
-                padding: 12px;
-            }
-
-            h1 {
-                font-size: 1.3rem;
-            }
-
-            h2 {
-                font-size: 1.1rem;
-            }
-
-            .stats-btn {
-                font-size: 0.65rem;
-                padding: 5px 6px;
-            }
-
-            .stat-value {
-                font-size: 1.2rem;
-            }
-
-            .stat-label {
-                font-size: 0.7rem;
-            }
-
-            .api-source-name {
-                font-size: 0.8rem;
-            }
-
-            .chart-label {
-                width: 50px;
-                font-size: 0.7rem;
-            }
+            body { padding: 16px; }
+            .status-bar { gap: 12px; padding: 12px; }
+            .status-item { min-width: 70px; }
+            .status-value { font-size: 0.9rem; }
         }
     </style>
 </head>
 <body>
-    <a href="/" class="back-link">← back</a>
-
-    <h1>Admin</h1>
-
-    <!-- Server identification -->
-    <div class="server-id" id="serverId"></div>
-
-    <h2>Wake Schedule</h2>
-    <div class="settings-form">
-        <div class="form-group">
-            <label class="form-label" for="sleepDuration">Update Interval (minutes)</label>
-            <input type="number" id="sleepDuration" class="form-input" min="5" max="1440" step="1" placeholder="60">
-            <div class="form-hint">
-                ESP32 wakes at clock-aligned intervals. For example, with 30 minutes it wakes at :00 and :30 of each hour, not at random times like 12:02 or 12:32.
-            </div>
-            <div class="preset-buttons">
-                <button class="preset-btn" onclick="setSleepPreset(5)">5 min</button>
-                <button class="preset-btn" onclick="setSleepPreset(15)">15 min</button>
-                <button class="preset-btn" onclick="setSleepPreset(30)">30 min</button>
-                <button class="preset-btn" onclick="setSleepPreset(60)">1 hour</button>
-                <button class="preset-btn" onclick="setSleepPreset(120)">2 hours</button>
-                <button class="preset-btn" onclick="setSleepPreset(360)">6 hours</button>
-                <button class="preset-btn" onclick="setSleepPreset(720)">12 hours</button>
-                <button class="preset-btn" onclick="setSleepPreset(1440)">24 hours</button>
-            </div>
-            <div style="margin-top: 12px; padding: 12px; background: #fff; border-radius: 4px; font-size: 0.85rem; color: #666;">
-                <strong>Next wake times:</strong> <span id="nextWakeTimes">--</span>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">
-                <input type="checkbox" id="devMode" style="margin-right: 8px; width: auto;">
-                Development Mode
-            </label>
-            <div class="form-hint" id="devModeHint">
-                ESP32 will try dev server first, fallback to production if unreachable. Auto-disables if dev server is down.
-            </div>
-        </div>
-
-        <div class="form-group" id="devServerHostGroup" style="display: none;">
-            <label class="form-label" for="devServerHost">Development Server Host</label>
-            <input type="text" id="devServerHost" class="form-input" placeholder="192.168.1.100:3000">
-            <div class="form-hint">
-                Your development laptop IP and port (auto-detected).
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label" for="defaultOrientation">Default Display Orientation</label>
-            <div style="display: flex; gap: 12px;">
-                <button type="button" class="preset-btn" id="orientationPortrait" onclick="selectOrientation('portrait')" style="flex: 1;">
-                    Portrait (1200×1600)
-                </button>
-                <button type="button" class="preset-btn" id="orientationLandscape" onclick="selectOrientation('landscape')" style="flex: 1;">
-                    Landscape (1600×1200)
-                </button>
-            </div>
-            <div class="form-hint">
-                Default orientation for image previews and AI generation.
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label class="form-label">
-                <input type="checkbox" id="nightSleepEnabled" onchange="toggleNightSleepInputs()" style="margin-right: 8px; width: auto;">
-                Night Sleep
-            </label>
-            <div class="form-hint">
-                Keep display asleep during nighttime hours.
-            </div>
-            <div id="nightSleepInputs" style="display: none; margin-top: 12px;">
-                <div style="display: flex; gap: 12px; align-items: center;">
-                    <div style="flex: 1;">
-                        <label class="form-label" for="nightSleepStartHour" style="margin-bottom: 4px;">From</label>
-                        <select id="nightSleepStartHour" class="form-input">
-                            <option value="0">00:00 (12 AM)</option>
-                            <option value="1">01:00 (1 AM)</option>
-                            <option value="2">02:00 (2 AM)</option>
-                            <option value="3">03:00 (3 AM)</option>
-                            <option value="4">04:00 (4 AM)</option>
-                            <option value="5">05:00 (5 AM)</option>
-                            <option value="6">06:00 (6 AM)</option>
-                            <option value="7">07:00 (7 AM)</option>
-                            <option value="8">08:00 (8 AM)</option>
-                            <option value="9">09:00 (9 AM)</option>
-                            <option value="10">10:00 (10 AM)</option>
-                            <option value="11">11:00 (11 AM)</option>
-                            <option value="12">12:00 (12 PM)</option>
-                            <option value="13">13:00 (1 PM)</option>
-                            <option value="14">14:00 (2 PM)</option>
-                            <option value="15">15:00 (3 PM)</option>
-                            <option value="16">16:00 (4 PM)</option>
-                            <option value="17">17:00 (5 PM)</option>
-                            <option value="18">18:00 (6 PM)</option>
-                            <option value="19">19:00 (7 PM)</option>
-                            <option value="20">20:00 (8 PM)</option>
-                            <option value="21">21:00 (9 PM)</option>
-                            <option value="22">22:00 (10 PM)</option>
-                            <option value="23">23:00 (11 PM)</option>
-                        </select>
-                    </div>
-                    <div style="padding-top: 20px; color: #999;">—</div>
-                    <div style="flex: 1;">
-                        <label class="form-label" for="nightSleepEndHour" style="margin-bottom: 4px;">To</label>
-                        <select id="nightSleepEndHour" class="form-input">
-                            <option value="0">00:00 (12 AM)</option>
-                            <option value="1">01:00 (1 AM)</option>
-                            <option value="2">02:00 (2 AM)</option>
-                            <option value="3">03:00 (3 AM)</option>
-                            <option value="4">04:00 (4 AM)</option>
-                            <option value="5">05:00 (5 AM)</option>
-                            <option value="6">06:00 (6 AM)</option>
-                            <option value="7">07:00 (7 AM)</option>
-                            <option value="8">08:00 (8 AM)</option>
-                            <option value="9">09:00 (9 AM)</option>
-                            <option value="10">10:00 (10 AM)</option>
-                            <option value="11">11:00 (11 AM)</option>
-                            <option value="12">12:00 (12 PM)</option>
-                            <option value="13">13:00 (1 PM)</option>
-                            <option value="14">14:00 (2 PM)</option>
-                            <option value="15">15:00 (3 PM)</option>
-                            <option value="16">16:00 (4 PM)</option>
-                            <option value="17">17:00 (5 PM)</option>
-                            <option value="18">18:00 (6 PM)</option>
-                            <option value="19">19:00 (7 PM)</option>
-                            <option value="20">20:00 (8 PM)</option>
-                            <option value="21">21:00 (9 PM)</option>
-                            <option value="22">22:00 (10 PM)</option>
-                            <option value="23">23:00 (11 PM)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-hint" style="margin-top: 8px;">
-                    Display stays asleep during selected hours.
-                </div>
-            </div>
-        </div>
-
-        <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
-        <div class="success-message" id="successMessage">Settings saved! ESP32 will use new settings on next wake.</div>
+    <div class="header">
+        <h1>Admin</h1>
+        <a href="/" class="back-link">Back to gallery</a>
     </div>
 
-    <h2>Device Status</h2>
-    <div class="status-grid">
+    <!-- Device Status Bar -->
+    <div class="status-bar">
         <div class="status-item">
-            <div class="status-value" id="deviceState">--</div>
+            <div class="status-value" id="deviceState">
+                <span class="status-dot offline"></span>--
+            </div>
             <div class="status-label">Status</div>
         </div>
         <div class="status-item">
-            <div class="status-value" id="batteryVoltage">--V</div>
+            <div class="status-value" id="batteryDisplay">--</div>
             <div class="status-label">Battery</div>
         </div>
         <div class="status-item">
-            <div class="status-value" id="lastCharged">--</div>
-            <div class="status-label">Last Charged</div>
-        </div>
-        <div class="status-item">
-            <div class="status-value" id="signalStrength">--</div>
+            <div class="status-value" id="signalDisplay">--</div>
             <div class="status-label">Signal</div>
         </div>
         <div class="status-item">
-            <div class="status-value" id="nextWake">--</div>
-            <div class="status-label">Next Update</div>
+            <div class="status-value" id="nextWakeDisplay">--</div>
+            <div class="status-label">Next Wake</div>
         </div>
     </div>
 
-    <h2>System Information</h2>
-    <div class="info-grid">
-        <div class="info-item">
-            <div class="info-label">Server Version</div>
-            <div class="info-value" id="serverVersion">--</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Node.js Version</div>
-            <div class="info-value" id="nodeVersion">--</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Uptime</div>
-            <div class="info-value" id="uptime">--</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Platform</div>
-            <div class="info-value" id="platform">--</div>
+    <!-- Settings -->
+    <div class="section">
+        <div class="section-header">Settings</div>
+        <div class="card">
+            <div class="form-row">
+                <label class="form-label">Update Interval</label>
+                <input type="number" id="sleepDuration" class="form-input" min="5" max="1440" placeholder="15">
+                <div class="preset-buttons">
+                    <button class="preset-btn" onclick="setPreset(5)">5m</button>
+                    <button class="preset-btn" onclick="setPreset(15)">15m</button>
+                    <button class="preset-btn" onclick="setPreset(30)">30m</button>
+                    <button class="preset-btn" onclick="setPreset(60)">1h</button>
+                    <button class="preset-btn" onclick="setPreset(360)">6h</button>
+                    <button class="preset-btn" onclick="setPreset(1440)">24h</button>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label class="form-label">Display Orientation</label>
+                <div class="orientation-btns">
+                    <button class="orientation-btn" id="btnPortrait" onclick="setOrientation('portrait')">Portrait</button>
+                    <button class="orientation-btn" id="btnLandscape" onclick="setOrientation('landscape')">Landscape</button>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="nightSleepEnabled" onchange="toggleNightSleep()">
+                    Night Sleep
+                </label>
+                <div id="nightSleepOptions" style="display: none;">
+                    <div class="time-range">
+                        <select id="nightStart">
+                            <option value="21">21:00</option>
+                            <option value="22">22:00</option>
+                            <option value="23" selected>23:00</option>
+                            <option value="0">00:00</option>
+                        </select>
+                        <span>to</span>
+                        <select id="nightEnd">
+                            <option value="5" selected>05:00</option>
+                            <option value="6">06:00</option>
+                            <option value="7">07:00</option>
+                            <option value="8">08:00</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-row" id="devModeRow">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="devMode" onchange="toggleDevMode()">
+                    Development Mode
+                </label>
+                <div id="devServerOptions" style="display: none; margin-top: 8px;">
+                    <input type="text" id="devServerHost" class="form-input" placeholder="192.168.1.100:3000">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+                <div class="success-msg" id="successMsg">Settings saved!</div>
+            </div>
         </div>
     </div>
 
-
-    <h2>Recent Wake Cycles</h2>
-    <div class="activity-container">
-        <div class="activity-header">
-            <div class="activity-title">Last 10 Wake Cycles</div>
-            <button class="log-btn" onclick="refreshRecentActivity()">Refresh</button>
+    <!-- Logs (collapsible) -->
+    <div class="collapsible" id="logsSection">
+        <div class="collapsible-header" onclick="toggleSection('logsSection')">
+            <span class="collapsible-title">Logs</span>
+            <span class="collapsible-icon">&#9654;</span>
         </div>
-        <div id="recentActivityList">Loading activity...</div>
-    </div>
-
-    <h2>Latest Wake Cycle Details</h2>
-    <div class="diagnostic-container">
-        <div class="diagnostic-header">
-            <div class="diagnostic-title">Event Timeline</div>
-            <button class="log-btn" onclick="refreshWakeCycle()">Refresh</button>
-        </div>
-        <div id="wakeCycleTimeline">Loading diagnostics...</div>
-    </div>
-
-    <h2>Device Logs</h2>
-    <div class="logs-container">
-        <div class="logs-header">
-            <div class="logs-title">Combined ESP32 + Server Activity</div>
-            <div class="logs-controls">
-                <select id="logLevelFilter" class="log-filter" onchange="loadCombinedLogs()">
-                    <option value="">All Levels</option>
-                    <option value="INFO">INFO</option>
-                    <option value="ERROR">ERROR</option>
-                </select>
-                <input type="text" id="logSearchInput" class="log-search" placeholder="Search logs..." onkeyup="filterLogs()">
-                <button class="log-btn" onclick="loadCombinedLogs()">Refresh</button>
+        <div class="collapsible-content">
+            <div class="log-controls">
+                <button class="log-btn" onclick="loadLogs()">Refresh</button>
                 <button class="log-btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">Auto: Off</button>
             </div>
+            <div class="log-container" id="logOutput">Loading...</div>
         </div>
-        <div class="log-output-enhanced" id="combinedLogOutput">Loading logs...</div>
     </div>
 
-    <h2>Server Console</h2>
-    <div class="logs-container" style="margin-bottom: 40px;">
-        <div class="logs-header">
-            <div class="logs-title">Server Debug Output (Last 100 entries)</div>
-            <div class="logs-controls">
-                <button class="log-btn" onclick="loadServerLogs()">Refresh</button>
-                <button class="log-btn" onclick="clearServerLogs()">Clear Display</button>
-            </div>
+    <!-- Diagnostics (collapsible) -->
+    <div class="collapsible" id="diagSection">
+        <div class="collapsible-header" onclick="toggleSection('diagSection')">
+            <span class="collapsible-title">Diagnostics</span>
+            <span class="collapsible-icon">&#9654;</span>
         </div>
-        <div class="log-output-enhanced" id="serverLogOutput">Loading server logs...</div>
+        <div class="collapsible-content">
+            <div class="log-controls">
+                <button class="log-btn" onclick="loadDiagnostics()">Refresh</button>
+            </div>
+            <div id="diagOutput" style="font-size: 0.8rem;">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <span id="serverInfo">Loading...</span>
     </div>
 
     <script>
         let autoRefreshInterval = null;
-        let selectedOrientation = 'portrait'; // Default orientation
+        let selectedOrientation = 'portrait';
 
-        // Select orientation
-        function selectOrientation(orientation) {
-            selectedOrientation = orientation;
-
-            // Update button styles
-            const portraitBtn = document.getElementById('orientationPortrait');
-            const landscapeBtn = document.getElementById('orientationLandscape');
-
-            if (orientation === 'portrait') {
-                portraitBtn.style.background = '#1a1a1a';
-                portraitBtn.style.color = '#fff';
-                landscapeBtn.style.background = '';
-                landscapeBtn.style.color = '';
-            } else {
-                landscapeBtn.style.background = '#1a1a1a';
-                landscapeBtn.style.color = '#fff';
-                portraitBtn.style.background = '';
-                portraitBtn.style.color = '';
-            }
+        // Toggle collapsible sections
+        function toggleSection(id) {
+            document.getElementById(id).classList.toggle('open');
         }
 
         // Load settings
         async function loadSettings() {
             try {
-                const response = await fetch('/api/settings');
-                const settings = await response.json();
+                const res = await fetch('/api/settings');
+                const s = await res.json();
 
-                // Convert microseconds to minutes
-                const minutes = Math.round(settings.defaultSleepDuration / 1000000 / 60);
-                document.getElementById('sleepDuration').value = minutes;
+                document.getElementById('sleepDuration').value = Math.round(s.defaultSleepDuration / 1000000 / 60);
+                document.getElementById('devMode').checked = s.devMode || false;
+                document.getElementById('devServerHost').value = s.devServerHost || '';
+                document.getElementById('nightSleepEnabled').checked = s.nightSleepEnabled || false;
+                document.getElementById('nightStart').value = s.nightSleepStartHour || 23;
+                document.getElementById('nightEnd').value = s.nightSleepEndHour || 5;
 
-                // Load dev mode settings (default to true if not set)
-                const devMode = settings.devMode !== undefined ? settings.devMode : true;
-                document.getElementById('devMode').checked = devMode;
-                document.getElementById('devServerHost').value = settings.devServerHost || '';
+                setOrientation(s.defaultOrientation || 'portrait');
+                toggleNightSleep();
+                toggleDevMode();
 
-                // Load orientation setting (default to portrait if not set)
-                const orientation = settings.defaultOrientation || 'portrait';
-                selectOrientation(orientation);
-
-                // Load night sleep settings (default to disabled)
-                const nightSleepEnabled = settings.nightSleepEnabled || false;
-                document.getElementById('nightSleepEnabled').checked = nightSleepEnabled;
-                document.getElementById('nightSleepStartHour').value = settings.nightSleepStartHour || 23;
-                document.getElementById('nightSleepEndHour').value = settings.nightSleepEndHour || 5;
-                toggleNightSleepInputs();
-
-                // Show/hide dev server host field based on dev mode
-                toggleDevServerHost();
-
-                // Calculate and show next wake times
-                updateNextWakeTimes(minutes);
-            } catch (error) {
-                console.error('Failed to load settings:', error);
-            }
-        }
-
-        // Initialize server identification
-        function initServerId() {
-            const serverId = document.getElementById('serverId');
-            const hostname = window.location.hostname;
-            const isProduction = hostname.includes('serverpi') || hostname.includes('raspberrypi');
-
-            if (isProduction) {
-                serverId.textContent = 'production: ' + window.location.host;
-            } else {
-                serverId.textContent = 'development: ' + window.location.host;
-
-                // Hide dev mode settings on development server
-                // (only production server should control where ESP32 connects)
-                const devModeGroup = document.querySelector('.form-group:has(#devMode)');
-                const devServerHostGroup = document.getElementById('devServerHostGroup');
-                if (devModeGroup) devModeGroup.style.display = 'none';
-                if (devServerHostGroup) devServerHostGroup.style.display = 'none';
-            }
-        }
-
-        // Toggle dev server host visibility and auto-fill IP
-        async function toggleDevServerHost() {
-            const devMode = document.getElementById('devMode').checked;
-            const hostGroup = document.getElementById('devServerHostGroup');
-            const hostInput = document.getElementById('devServerHost');
-
-            hostGroup.style.display = devMode ? 'block' : 'none';
-
-            // Auto-fill client IP when toggling dev mode ON
-            if (devMode && !hostInput.value) {
-                try {
-                    const response = await fetch('/api/client-ip');
-                    const data = await response.json();
-                    if (data.ip && !data.ip.startsWith('::')) {
-                        hostInput.value = data.ip + ':3000';
-                        hostInput.placeholder = data.ip + ':3000';
-                    }
-                } catch (error) {
-                    console.log('Could not auto-detect IP:', error);
+                // Hide dev mode on dev server
+                if (!window.location.hostname.includes('serverpi')) {
+                    document.getElementById('devModeRow').style.display = 'none';
                 }
+            } catch (e) {
+                console.error('Failed to load settings:', e);
             }
-        }
-
-        // Toggle night sleep inputs visibility
-        function toggleNightSleepInputs() {
-            const enabled = document.getElementById('nightSleepEnabled').checked;
-            const inputs = document.getElementById('nightSleepInputs');
-            inputs.style.display = enabled ? 'block' : 'none';
-        }
-
-        // Calculate and display next wake times
-        function updateNextWakeTimes(intervalMinutes) {
-            if (!intervalMinutes || intervalMinutes < 5) {
-                document.getElementById('nextWakeTimes').textContent = '--';
-                return;
-            }
-
-            const now = new Date();
-            const intervalMs = intervalMinutes * 60 * 1000;
-            const nowMs = now.getTime();
-
-            // Calculate next 3 wake times
-            const msSinceLastInterval = nowMs % intervalMs;
-            const msUntilNext = intervalMs - msSinceLastInterval;
-
-            const wakeTimes = [];
-            for (let i = 0; i < 3; i++) {
-                const wakeTime = new Date(nowMs + msUntilNext + (i * intervalMs));
-                const timeStr = wakeTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
-                });
-                wakeTimes.push(timeStr);
-            }
-
-            document.getElementById('nextWakeTimes').textContent = wakeTimes.join(', ');
-        }
-
-        // Add event listener to dev mode checkbox
-        document.addEventListener('DOMContentLoaded', () => {
-            initServerId();
-            document.getElementById('devMode').addEventListener('change', toggleDevServerHost);
-        });
-
-        // Set preset value
-        function setSleepPreset(minutes) {
-            document.getElementById('sleepDuration').value = minutes;
-            updateNextWakeTimes(minutes);
         }
 
         // Save settings
         async function saveSettings() {
             try {
                 const minutes = parseInt(document.getElementById('sleepDuration').value);
-
                 if (!minutes || minutes < 5 || minutes > 1440) {
-                    alert('Please enter a value between 5 and 1440 minutes');
+                    alert('Enter a value between 5 and 1440 minutes');
                     return;
                 }
 
-                // Convert minutes to microseconds
-                const microseconds = minutes * 60 * 1000000;
-
-                // Get dev mode settings
-                const devMode = document.getElementById('devMode').checked;
-                const devServerHost = document.getElementById('devServerHost').value.trim();
-
-                // Get night sleep settings
-                const nightSleepEnabled = document.getElementById('nightSleepEnabled').checked;
-                const nightSleepStartHour = parseInt(document.getElementById('nightSleepStartHour').value) || 23;
-                const nightSleepEndHour = parseInt(document.getElementById('nightSleepEndHour').value) || 5;
-
-                const response = await fetch('/api/settings', {
+                await fetch('/api/settings', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        defaultSleepDuration: microseconds,
-                        devMode: devMode,
-                        devServerHost: devServerHost || undefined,
+                        defaultSleepDuration: minutes * 60 * 1000000,
                         defaultOrientation: selectedOrientation,
-                        nightSleepEnabled: nightSleepEnabled,
-                        nightSleepStartHour: nightSleepStartHour,
-                        nightSleepEndHour: nightSleepEndHour
+                        devMode: document.getElementById('devMode').checked,
+                        devServerHost: document.getElementById('devServerHost').value.trim(),
+                        nightSleepEnabled: document.getElementById('nightSleepEnabled').checked,
+                        nightSleepStartHour: parseInt(document.getElementById('nightStart').value),
+                        nightSleepEndHour: parseInt(document.getElementById('nightEnd').value)
                     })
                 });
 
-                if (response.ok) {
-                    const successMsg = document.getElementById('successMessage');
-                    successMsg.classList.add('show');
-                    setTimeout(() => successMsg.classList.remove('show'), 3000);
-                } else {
-                    const error = await response.json();
-                    alert('Failed to save settings: ' + error.error);
-                }
-            } catch (error) {
-                console.error('Failed to save settings:', error);
+                const msg = document.getElementById('successMsg');
+                msg.classList.add('show');
+                setTimeout(() => msg.classList.remove('show'), 2000);
+            } catch (e) {
                 alert('Failed to save settings');
             }
+        }
+
+        function setPreset(min) {
+            document.getElementById('sleepDuration').value = min;
+        }
+
+        function setOrientation(o) {
+            selectedOrientation = o;
+            document.getElementById('btnPortrait').classList.toggle('active', o === 'portrait');
+            document.getElementById('btnLandscape').classList.toggle('active', o === 'landscape');
+        }
+
+        function toggleNightSleep() {
+            const enabled = document.getElementById('nightSleepEnabled').checked;
+            document.getElementById('nightSleepOptions').style.display = enabled ? 'block' : 'none';
+        }
+
+        function toggleDevMode() {
+            const enabled = document.getElementById('devMode').checked;
+            document.getElementById('devServerOptions').style.display = enabled ? 'block' : 'none';
         }
 
         // Load device status
         async function loadDeviceStatus() {
             try {
-                const response = await fetch('/api/esp32-status');
-                const status = await response.json();
+                const res = await fetch('/api/esp32-status');
+                const s = await res.json();
 
-                document.getElementById('deviceState').textContent = status.state || 'Unknown';
-                document.getElementById('deviceState').className =
-                    status.state === 'online' ? 'status-value status-online' : 'status-value status-offline';
+                // Status
+                const stateEl = document.getElementById('deviceState');
+                const isOnline = s.state === 'online';
+                stateEl.innerHTML = `<span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? 'Online' : 'Offline'}`;
 
-                // Battery display with percentage and charging indicator
-                if (status.batteryVoltage) {
-                    let batteryText = `${status.batteryVoltage}V`;
-                    if (status.batteryPercent !== null && status.batteryPercent !== undefined) {
-                        batteryText += ` (${status.batteryPercent}%)`;
-                    }
-                    if (status.isCharging) {
-                        batteryText += ' ⚡';
-                    }
-                    document.getElementById('batteryVoltage').textContent = batteryText;
+                // Battery
+                if (s.batteryVoltage) {
+                    let bat = `${s.batteryVoltage}V`;
+                    if (s.batteryPercent != null) bat += ` (${s.batteryPercent}%)`;
+                    if (s.isCharging) bat += ' ⚡';
+                    document.getElementById('batteryDisplay').textContent = bat;
                 } else {
-                    document.getElementById('batteryVoltage').textContent = '--';
+                    document.getElementById('batteryDisplay').textContent = '--';
                 }
 
-                // Last charged display
-                if (status.lastChargeTimestamp) {
-                    const lastCharge = new Date(status.lastChargeTimestamp);
-                    const now = new Date();
-                    const diffMinutes = Math.floor((now - lastCharge) / 1000 / 60);
+                // Signal
+                document.getElementById('signalDisplay').textContent = s.signalStrength ? `${s.signalStrength}dBm` : '--';
 
-                    if (diffMinutes < 1) {
-                        document.getElementById('lastCharged').textContent = 'Just now';
-                    } else if (diffMinutes < 60) {
-                        document.getElementById('lastCharged').textContent = `${diffMinutes}m ago`;
-                    } else if (diffMinutes < 1440) { // Less than 24 hours
-                        const hours = Math.floor(diffMinutes / 60);
-                        document.getElementById('lastCharged').textContent = `${hours}h ago`;
-                    } else {
-                        const days = Math.floor(diffMinutes / 1440);
-                        document.getElementById('lastCharged').textContent = `${days}d ago`;
-                    }
-                } else {
-                    document.getElementById('lastCharged').textContent = 'Never';
-                }
-
-                document.getElementById('signalStrength').textContent =
-                    status.signalStrength ? `${status.signalStrength} dBm` : '--';
-
-                // Calculate next wake time
-                if (status.lastSeen && status.sleepDuration) {
-                    const lastSeen = status.lastSeen;
-                    const sleepDurationMs = status.sleepDuration / 1000; // Convert microseconds to milliseconds
-                    const nextWakeTime = lastSeen + sleepDurationMs;
-                    const now = Date.now();
-                    const diffMs = nextWakeTime - now;
-
+                // Next wake
+                if (s.lastSeen && s.sleepDuration) {
+                    const nextWake = s.lastSeen + (s.sleepDuration / 1000);
+                    const diffMs = nextWake - Date.now();
                     if (diffMs > 0) {
-                        // Future wake time
-                        const diffMinutes = Math.floor(diffMs / 1000 / 60);
-                        if (diffMinutes < 1) {
-                            document.getElementById('nextWake').textContent = 'Soon';
-                        } else if (diffMinutes < 60) {
-                            document.getElementById('nextWake').textContent = `${diffMinutes}m`;
-                        } else {
-                            const hours = Math.floor(diffMinutes / 60);
-                            const minutes = diffMinutes % 60;
-                            document.getElementById('nextWake').textContent = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-                        }
+                        const mins = Math.floor(diffMs / 60000);
+                        document.getElementById('nextWakeDisplay').textContent = mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h ${mins%60}m`;
                     } else {
-                        // Past due (should have woken already)
-                        const overdue = Math.floor(Math.abs(diffMs) / 1000 / 60);
-                        document.getElementById('nextWake').textContent = overdue < 2 ? 'Now' : `Overdue ${overdue}m`;
+                        document.getElementById('nextWakeDisplay').textContent = 'Soon';
                     }
                 } else {
-                    document.getElementById('nextWake').textContent = '--';
+                    document.getElementById('nextWakeDisplay').textContent = '--';
                 }
-            } catch (error) {
-                console.error('Failed to load device status:', error);
+            } catch (e) {
+                console.error('Failed to load status:', e);
+            }
+        }
+
+        // Load logs
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/device-logs-combined?limit=50');
+                const data = await res.json();
+                const logs = data.logs || [];
+
+                if (logs.length === 0) {
+                    document.getElementById('logOutput').innerHTML = '<div style="color:#666">No logs</div>';
+                    return;
+                }
+
+                let html = '';
+                logs.forEach(log => {
+                    const time = new Date(log.timestamp).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+                    const isError = log.level === 'ERROR' || log.message.toLowerCase().includes('error');
+                    html += `<div class="log-entry ${isError ? 'log-error' : ''}">
+                        <span class="log-time">${time}</span>${log.message}
+                    </div>`;
+                });
+                document.getElementById('logOutput').innerHTML = html;
+            } catch (e) {
+                document.getElementById('logOutput').innerHTML = '<div style="color:#ef4444">Error loading logs</div>';
+            }
+        }
+
+        // Load diagnostics
+        async function loadDiagnostics() {
+            try {
+                const res = await fetch('/api/wake-cycle-diagnostics');
+                const data = await res.json();
+
+                if (!data.latestCycle) {
+                    document.getElementById('diagOutput').innerHTML = 'No wake cycle data yet';
+                    return;
+                }
+
+                const c = data.latestCycle;
+                const dur = Math.round(c.duration / 1000);
+                const errors = c.errors.length;
+
+                let html = `<div style="margin-bottom:12px">
+                    <strong>Last cycle:</strong> ${dur}s duration, ${c.events.length} events, ${errors} errors
+                </div>`;
+
+                if (data.recentCycles && data.recentCycles.length > 1) {
+                    html += '<div style="color:#666; font-size:0.75rem">';
+                    html += `Recent: ${data.recentCycles.length} cycles tracked`;
+                    html += '</div>';
+                }
+
+                document.getElementById('diagOutput').innerHTML = html;
+            } catch (e) {
+                document.getElementById('diagOutput').innerHTML = 'Error loading diagnostics';
             }
         }
 
         // Load system info
         async function loadSystemInfo() {
             try {
-                const response = await fetch('/api/system-info');
-                const info = await response.json();
-
-                // Format version with GitHub link if it's a SHA
-                const versionEl = document.getElementById('serverVersion');
-                const version = info.version || 'local';
-
-                if (version.startsWith('sha-')) {
-                    const sha = version.substring(4); // Remove 'sha-' prefix
-                    versionEl.innerHTML = `<a href="https://github.com/CHaerem/Glance/commit/${sha}" target="_blank" style="color: #0969da; text-decoration: none;">${version}</a>`;
-                } else {
-                    versionEl.textContent = version;
-                }
-
-                document.getElementById('nodeVersion').textContent = info.nodeVersion || process.version;
-                document.getElementById('platform').textContent = info.platform || navigator.platform;
-
-                if (info.uptime) {
-                    const hours = Math.floor(info.uptime / 3600);
-                    const minutes = Math.floor((info.uptime % 3600) / 60);
-                    document.getElementById('uptime').textContent = `${hours}h ${minutes}m`;
-                }
-            } catch (error) {
-                console.error('Failed to load system info:', error);
+                const res = await fetch('/api/system-info');
+                const info = await res.json();
+                const hours = Math.floor(info.uptime / 3600);
+                const mins = Math.floor((info.uptime % 3600) / 60);
+                document.getElementById('serverInfo').innerHTML =
+                    `${info.version || 'local'} &middot; Node ${info.nodeVersion} &middot; Up ${hours}h ${mins}m`;
+            } catch (e) {
+                document.getElementById('serverInfo').textContent = 'Server info unavailable';
             }
-        }
-
-
-        // Combined logs storage for filtering
-        let allCombinedLogs = [];
-
-        // Load combined device logs (ESP32 + server activity)
-        async function loadCombinedLogs() {
-            try {
-                const levelFilter = document.getElementById('logLevelFilter').value;
-                const url = levelFilter ? `/api/device-logs-combined?limit=200&level=${levelFilter}` : '/api/device-logs-combined?limit=200';
-
-                const response = await fetch(url);
-                const data = await response.json();
-
-                allCombinedLogs = data.logs || [];
-                renderCombinedLogs(allCombinedLogs);
-            } catch (error) {
-                console.error('Failed to load combined logs:', error);
-                document.getElementById('combinedLogOutput').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading logs</div>';
-            }
-        }
-
-        function renderCombinedLogs(logs) {
-            const logOutput = document.getElementById('combinedLogOutput');
-
-            if (logs.length === 0) {
-                logOutput.innerHTML = '<div style="color: #666; padding: 12px;">No logs available</div>';
-                return;
-            }
-
-            let html = '';
-            logs.forEach(log => {
-                const timestamp = new Date(log.timestamp);
-                const timeStr = timestamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                const errorClass = (log.level === 'ERROR' || log.message.toLowerCase().includes('error') || log.message.toLowerCase().includes('failed')) ? ' error' : '';
-
-                html += `
-                    <div class="log-entry${errorClass}">
-                        <div class="log-timestamp">${timeStr}</div>
-                        <div class="log-level log-level-${log.level}">${log.level}</div>
-                        <div class="log-source">${log.source}</div>
-                        <div class="log-message">${escapeHtml(log.message)}</div>
-                    </div>
-                `;
-            });
-
-            logOutput.innerHTML = html;
-            // Auto-scroll to top (newest first)
-            logOutput.scrollTop = 0;
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
-        function filterLogs() {
-            const searchTerm = document.getElementById('logSearchInput').value.toLowerCase();
-
-            if (!searchTerm) {
-                renderCombinedLogs(allCombinedLogs);
-                return;
-            }
-
-            const filtered = allCombinedLogs.filter(log =>
-                log.message.toLowerCase().includes(searchTerm)
-            );
-
-            renderCombinedLogs(filtered);
-        }
-
-        // Recent activity timeline
-        async function refreshRecentActivity() {
-            try {
-                const response = await fetch('/api/wake-cycle-diagnostics');
-                const data = await response.json();
-
-                const listElement = document.getElementById('recentActivityList');
-
-                if (!data.recentCycles || data.recentCycles.length === 0) {
-                    listElement.innerHTML = '<div style="color: #666; padding: 12px;">No wake cycle data available yet</div>';
-                    return;
-                }
-
-                let html = '';
-                data.recentCycles.forEach((cycle, index) => {
-                    const startTime = new Date(cycle.startTime);
-                    const timeStr = startTime.toLocaleString('en-GB', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    const durationSec = Math.round(cycle.duration / 1000);
-                    const errorCount = cycle.errors.length;
-                    const status = cycle.incomplete ? 'incomplete' : (errorCount > 0 ? 'failure' : 'success');
-                    const statusText = cycle.incomplete ? 'Active' : (errorCount > 0 ? 'Errors' : 'Success');
-
-                    html += `
-                        <div class="activity-item ${status}">
-                            <div class="activity-summary">
-                                <div class="activity-time">${timeStr}</div>
-                                <div class="activity-stats">
-                                    <div class="activity-stat">
-                                        <span class="activity-stat-label">Duration:</span>
-                                        <span class="activity-stat-value">${durationSec}s</span>
-                                    </div>
-                                    <div class="activity-stat">
-                                        <span class="activity-stat-label">Events:</span>
-                                        <span class="activity-stat-value">${cycle.events.length}</span>
-                                    </div>
-                                    ${errorCount > 0 ? `
-                                    <div class="activity-stat">
-                                        <span class="activity-stat-label">Errors:</span>
-                                        <span class="activity-stat-value" style="color: #ef4444;">${errorCount}</span>
-                                    </div>
-                                    ` : ''}
-                                </div>
-                                <div class="activity-badge ${status}">${statusText}</div>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                listElement.innerHTML = html;
-            } catch (error) {
-                console.error('Failed to load recent activity:', error);
-                document.getElementById('recentActivityList').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading activity</div>';
-            }
-        }
-
-        // Wake cycle diagnostics
-        async function refreshWakeCycle() {
-            try {
-                const response = await fetch('/api/wake-cycle-diagnostics');
-                const data = await response.json();
-
-                const timeline = document.getElementById('wakeCycleTimeline');
-
-                if (!data.latestCycle) {
-                    timeline.innerHTML = '<div style="color: #666; padding: 12px;">No wake cycle data available yet</div>';
-                    return;
-                }
-
-                const cycle = data.latestCycle;
-                const durationSec = Math.round(cycle.duration / 1000);
-                const errorCount = cycle.errors.length;
-
-                let html = `
-                    <div class="diagnostic-summary">
-                        <div class="diagnostic-stat">
-                            <div class="diagnostic-stat-value">${durationSec}s</div>
-                            <div class="diagnostic-stat-label">Duration</div>
-                        </div>
-                        <div class="diagnostic-stat">
-                            <div class="diagnostic-stat-value">${cycle.events.length}</div>
-                            <div class="diagnostic-stat-label">Events</div>
-                        </div>
-                        <div class="diagnostic-stat">
-                            <div class="diagnostic-stat-value" style="color: ${errorCount > 0 ? '#ef4444' : '#10b981'}">${errorCount}</div>
-                            <div class="diagnostic-stat-label">Errors</div>
-                        </div>
-                        <div class="diagnostic-stat">
-                            <div class="diagnostic-stat-value">${cycle.incomplete ? 'Active' : 'Complete'}</div>
-                            <div class="diagnostic-stat-label">Status</div>
-                        </div>
-                    </div>
-                    <div class="timeline">
-                `;
-
-                // Show max 10 most relevant events
-                const relevantEvents = cycle.events.slice(0, 10);
-                relevantEvents.forEach((event, index) => {
-                    const relativeTime = index === 0 ? '0s' : '+' + Math.round((event.time - cycle.startTime) / 1000) + 's';
-                    const isError = event.level === 'ERROR' || event.message.toLowerCase().includes('error') || event.message.toLowerCase().includes('failed');
-                    const errorClass = isError ? ' error' : '';
-
-                    html += `
-                        <div class="timeline-event${errorClass}">
-                            <div class="timeline-time">${relativeTime}</div>
-                            <div class="timeline-message">${escapeHtml(event.message)}</div>
-                        </div>
-                    `;
-                });
-
-                html += '</div>';
-                timeline.innerHTML = html;
-            } catch (error) {
-                console.error('Failed to load wake cycle diagnostics:', error);
-                document.getElementById('wakeCycleTimeline').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading diagnostics</div>';
-            }
-        }
-
-        // Load server console logs with structured display
-        async function loadServerLogs() {
-            try {
-                const response = await fetch('/api/logs');
-                const data = await response.json();
-
-                const logOutput = document.getElementById('serverLogOutput');
-                if (data.logs && data.logs.length > 0) {
-                    // Parse and structure server logs
-                    let html = '';
-                    data.logs.forEach(logStr => {
-                        // Parse: [2025-01-05 12:34:56] LOG: message or [2025-01-05 12:34:56] ERROR: message
-                        const match = logStr.match(/\[([^\]]+)\] (LOG|ERROR): (.+)/);
-                        if (match) {
-                            const timeStr = match[1];
-                            const level = match[2] === 'ERROR' ? 'ERROR' : 'INFO';
-                            const message = match[3];
-                            const timestamp = new Date(timeStr);
-                            const time = timestamp.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                            const errorClass = level === 'ERROR' ? ' error' : '';
-
-                            html += `
-                                <div class="log-entry${errorClass}">
-                                    <div class="log-timestamp">${time}</div>
-                                    <div class="log-level log-level-${level}">${level}</div>
-                                    <div class="log-source">server</div>
-                                    <div class="log-message">${escapeHtml(message)}</div>
-                                </div>
-                            `;
-                        } else {
-                            // Fallback for unparsed logs
-                            html += `
-                                <div class="log-entry">
-                                    <div class="log-message" style="flex: 1;">${escapeHtml(logStr)}</div>
-                                </div>
-                            `;
-                        }
-                    });
-                    logOutput.innerHTML = html;
-                    logOutput.scrollTop = logOutput.scrollHeight;
-                } else {
-                    logOutput.innerHTML = '<div style="color: #666; padding: 12px;">No server logs available</div>';
-                }
-            } catch (error) {
-                console.error('Failed to load server logs:', error);
-                document.getElementById('serverLogOutput').innerHTML = '<div style="color: #ef4444; padding: 12px;">Error loading server logs</div>';
-            }
-        }
-
-        function clearServerLogs() {
-            document.getElementById('serverLogOutput').innerHTML = '<div style="color: #666; padding: 12px;">Cleared (refresh to reload)</div>';
         }
 
         function toggleAutoRefresh() {
@@ -1723,8 +690,7 @@
                 btn.textContent = 'Auto: Off';
             } else {
                 autoRefreshInterval = setInterval(() => {
-                    loadCombinedLogs();
-                    refreshWakeCycle();
+                    loadLogs();
                     loadDeviceStatus();
                 }, 3000);
                 btn.textContent = 'Auto: On';
@@ -1736,11 +702,9 @@
             loadSettings();
             loadDeviceStatus();
             loadSystemInfo();
-            refreshRecentActivity();
-            loadCombinedLogs();
-            refreshWakeCycle();
-            loadServerLogs();
-            setInterval(loadDeviceStatus, 5000); // Update status every 5s
+            loadLogs();
+            loadDiagnostics();
+            setInterval(loadDeviceStatus, 5000);
         });
     </script>
 </body>

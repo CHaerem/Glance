@@ -2200,7 +2200,7 @@ app.post("/api/device-status", async (req, res) => {
 
 		await writeJSONFile("devices.json", devices);
 
-		const batteryInfo = `${status.batteryVoltage}V (${status.batteryPercent}%)${isCharging ? ' [Charging]' : ''}`;
+		const batteryInfo = `${batteryVoltage}V (${batteryPercent}%)${isCharging ? ' [Charging]' : ''}`;
 		const logMessage = `Device ${deviceId} reported: Battery ${batteryInfo}, Signal ${status.signalStrength}dBm, Status: ${status.status}`;
 		console.log(logMessage);
 		addDeviceLog(logMessage);
