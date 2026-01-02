@@ -41,6 +41,58 @@
             font-size: 0.85rem;
         }
 
+        /* Next Wake Card - Prominent */
+        .next-wake-card {
+            background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+            color: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .next-wake-label {
+            font-size: 0.75rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .next-wake-time {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+        }
+
+        .next-wake-countdown {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .next-wake-card.soon {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .next-wake-card.soon .next-wake-countdown,
+        .next-wake-card.soon .next-wake-label {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .next-wake-card.overdue {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .next-wake-card.offline {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+        }
+
+        .next-wake-card.offline .next-wake-countdown,
+        .next-wake-card.offline .next-wake-label {
+            color: rgba(255,255,255,0.7);
+        }
+
         /* Device Status Bar */
         .status-bar {
             display: flex;
@@ -48,7 +100,7 @@
             padding: 16px;
             background: #f5f5f5;
             border-radius: 12px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
             justify-content: center;
         }
@@ -81,9 +133,15 @@
         .status-dot.online { background: #10b981; }
         .status-dot.offline { background: #9ca3af; }
 
+        .stale-warning {
+            font-size: 0.7rem;
+            color: #f59e0b;
+            margin-top: 2px;
+        }
+
         /* Section */
         .section {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
         }
 
         .section-header {
@@ -95,7 +153,7 @@
             margin-bottom: 12px;
         }
 
-        /* Settings Card */
+        /* Card */
         .card {
             background: #f5f5f5;
             border-radius: 12px;
@@ -130,12 +188,6 @@
         .form-input:focus {
             outline: none;
             border-color: #1a1a1a;
-        }
-
-        .form-hint {
-            font-size: 0.75rem;
-            color: #999;
-            margin-top: 4px;
         }
 
         .preset-buttons {
@@ -199,114 +251,6 @@
             display: block;
         }
 
-        /* Collapsible */
-        .collapsible {
-            background: #f5f5f5;
-            border-radius: 12px;
-            margin-bottom: 12px;
-            overflow: hidden;
-        }
-
-        .collapsible-header {
-            padding: 14px 16px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            user-select: none;
-        }
-
-        .collapsible-header:hover {
-            background: #ebebeb;
-        }
-
-        .collapsible-title {
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .collapsible-icon {
-            font-size: 0.75rem;
-            color: #999;
-            transition: transform 0.2s;
-        }
-
-        .collapsible.open .collapsible-icon {
-            transform: rotate(90deg);
-        }
-
-        .collapsible-content {
-            display: none;
-            padding: 0 16px 16px;
-        }
-
-        .collapsible.open .collapsible-content {
-            display: block;
-        }
-
-        /* Logs */
-        .log-container {
-            background: #1a1a1a;
-            border-radius: 8px;
-            padding: 12px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .log-entry {
-            font-family: 'SF Mono', Monaco, monospace;
-            font-size: 0.7rem;
-            color: #e5e5e5;
-            padding: 4px 0;
-            border-bottom: 1px solid #2a2a2a;
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .log-time {
-            color: #666;
-            margin-right: 8px;
-        }
-
-        .log-error {
-            color: #ef4444;
-        }
-
-        .log-controls {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .log-btn {
-            background: #fff;
-            border: 1px solid #e5e5e5;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            cursor: pointer;
-        }
-
-        .log-btn:hover {
-            border-color: #1a1a1a;
-        }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            font-size: 0.7rem;
-            color: #999;
-            padding: 20px 0;
-            border-top: 1px solid #f0f0f0;
-            margin-top: 24px;
-        }
-
-        .footer a {
-            color: #666;
-        }
-
         /* Night sleep time inputs */
         .time-range {
             display: flex;
@@ -346,38 +290,69 @@
             border-color: #1a1a1a;
         }
 
-        /* Next Wake Card - Prominent */
-        .next-wake-card {
-            background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
-            color: #fff;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 16px;
+        /* Logs */
+        .log-container {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 12px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.7rem;
+            color: #e5e5e5;
+            padding: 4px 0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: #666;
+            margin-right: 8px;
+        }
+
+        .log-error {
+            color: #ef4444;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .btn-small {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .btn-small:hover {
+            border-color: #1a1a1a;
+        }
+
+        /* Footer */
+        .footer {
             text-align: center;
-        }
-
-        .next-wake-time {
-            font-size: 2.5rem;
-            font-weight: 700;
-            letter-spacing: -1px;
-            margin-bottom: 4px;
-        }
-
-        .next-wake-countdown {
-            font-size: 0.9rem;
+            font-size: 0.7rem;
             color: #999;
-        }
-
-        .next-wake-card.soon {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        }
-
-        .next-wake-card.soon .next-wake-countdown {
-            color: rgba(255,255,255,0.8);
-        }
-
-        .next-wake-card.overdue {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            padding: 20px 0;
+            border-top: 1px solid #f0f0f0;
+            margin-top: 24px;
         }
 
         /* Mobile */
@@ -398,6 +373,7 @@
 
     <!-- Next Wake - Prominent -->
     <div class="next-wake-card" id="nextWakeCard">
+        <div class="next-wake-label">Next Wake</div>
         <div class="next-wake-time" id="nextWakeTime">--:--</div>
         <div class="next-wake-countdown" id="nextWakeCountdown">--</div>
     </div>
@@ -413,6 +389,7 @@
         <div class="status-item">
             <div class="status-value" id="batteryDisplay">--</div>
             <div class="status-label">Battery</div>
+            <div class="stale-warning" id="batteryStale"></div>
         </div>
         <div class="status-item">
             <div class="status-value" id="signalDisplay">--</div>
@@ -486,32 +463,14 @@
         </div>
     </div>
 
-    <!-- Logs (collapsible) -->
-    <div class="collapsible" id="logsSection">
-        <div class="collapsible-header" onclick="toggleSection('logsSection')">
-            <span class="collapsible-title">Logs</span>
-            <span class="collapsible-icon">&#9654;</span>
-        </div>
-        <div class="collapsible-content">
-            <div class="log-controls">
-                <button class="log-btn" onclick="loadLogs()">Refresh</button>
-                <button class="log-btn" id="autoRefreshBtn" onclick="toggleAutoRefresh()">Auto: Off</button>
+    <!-- Logs -->
+    <div class="section">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Recent Logs</span>
+                <button class="btn-small" onclick="loadLogs()">Refresh</button>
             </div>
             <div class="log-container" id="logOutput">Loading...</div>
-        </div>
-    </div>
-
-    <!-- Diagnostics (collapsible) -->
-    <div class="collapsible" id="diagSection">
-        <div class="collapsible-header" onclick="toggleSection('diagSection')">
-            <span class="collapsible-title">Diagnostics</span>
-            <span class="collapsible-icon">&#9654;</span>
-        </div>
-        <div class="collapsible-content">
-            <div class="log-controls">
-                <button class="log-btn" onclick="loadDiagnostics()">Refresh</button>
-            </div>
-            <div id="diagOutput" style="font-size: 0.8rem;">Loading...</div>
         </div>
     </div>
 
@@ -521,13 +480,7 @@
     </div>
 
     <script>
-        let autoRefreshInterval = null;
         let selectedOrientation = 'portrait';
-
-        // Toggle collapsible sections
-        function toggleSection(id) {
-            document.getElementById(id).classList.toggle('open');
-        }
 
         // Load settings
         async function loadSettings() {
@@ -606,39 +559,76 @@
             document.getElementById('devServerOptions').style.display = enabled ? 'block' : 'none';
         }
 
+        // Format time ago
+        function timeAgo(timestamp) {
+            const seconds = Math.floor((Date.now() - timestamp) / 1000);
+            if (seconds < 60) return 'just now';
+            if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+            if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+            return `${Math.floor(seconds / 86400)}d ago`;
+        }
+
         // Load device status
         async function loadDeviceStatus() {
             try {
                 const res = await fetch('/api/esp32-status');
                 const s = await res.json();
 
+                // Check how stale the data is
+                const dataAge = s.lastSeen ? Date.now() - s.lastSeen : Infinity;
+                const isStale = dataAge > 60 * 60 * 1000; // >1 hour old
+                const isVeryStale = dataAge > 24 * 60 * 60 * 1000; // >1 day old
+
                 // Status
                 const stateEl = document.getElementById('deviceState');
                 const isOnline = s.state === 'online';
-                stateEl.innerHTML = `<span class="status-dot ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? 'Online' : 'Offline'}`;
+                if (isOnline) {
+                    stateEl.innerHTML = `<span class="status-dot online"></span>Online`;
+                } else if (s.lastSeen) {
+                    stateEl.innerHTML = `<span class="status-dot offline"></span>${timeAgo(s.lastSeen)}`;
+                } else {
+                    stateEl.innerHTML = `<span class="status-dot offline"></span>Never`;
+                }
 
                 // Battery
+                const batteryEl = document.getElementById('batteryDisplay');
+                const batteryStaleEl = document.getElementById('batteryStale');
                 if (s.batteryVoltage) {
                     let bat = `${s.batteryVoltage}V`;
-                    if (s.batteryPercent != null) bat += ` (${s.batteryPercent}%)`;
+                    if (s.batteryPercent != null) bat += ` ${s.batteryPercent}%`;
                     if (s.isCharging) bat += ' ⚡';
-                    document.getElementById('batteryDisplay').textContent = bat;
+                    batteryEl.textContent = bat;
+                    batteryStaleEl.textContent = isStale ? `(${timeAgo(s.lastSeen)})` : '';
                 } else {
-                    document.getElementById('batteryDisplay').textContent = '--';
+                    batteryEl.textContent = '--';
+                    batteryStaleEl.textContent = '';
                 }
 
                 // Signal
                 document.getElementById('signalDisplay').textContent = s.signalStrength ? `${s.signalStrength}dBm` : '--';
 
-                // Next wake - store for live countdown
+                // Next wake
+                const card = document.getElementById('nextWakeCard');
+                const timeEl = document.getElementById('nextWakeTime');
+                const countdownEl = document.getElementById('nextWakeCountdown');
+
                 if (s.lastSeen && s.sleepDuration) {
-                    window.nextWakeTimestamp = s.lastSeen + (s.sleepDuration / 1000);
-                    updateNextWakeDisplay();
+                    const nextWakeTs = s.lastSeen + (s.sleepDuration / 1000);
+                    window.nextWakeTimestamp = nextWakeTs;
+
+                    // If device is very stale, show offline state
+                    if (isVeryStale) {
+                        timeEl.textContent = '--:--';
+                        countdownEl.textContent = `Device offline since ${timeAgo(s.lastSeen)}`;
+                        card.className = 'next-wake-card offline';
+                    } else {
+                        updateNextWakeDisplay();
+                    }
                 } else {
                     window.nextWakeTimestamp = null;
-                    document.getElementById('nextWakeTime').textContent = '--:--';
-                    document.getElementById('nextWakeCountdown').textContent = 'No data';
-                    document.getElementById('nextWakeCard').className = 'next-wake-card';
+                    timeEl.textContent = '--:--';
+                    countdownEl.textContent = 'No data';
+                    card.className = 'next-wake-card offline';
                 }
             } catch (e) {
                 console.error('Failed to load status:', e);
@@ -648,7 +638,7 @@
         // Load logs
         async function loadLogs() {
             try {
-                const res = await fetch('/api/device-logs-combined?limit=50');
+                const res = await fetch('/api/device-logs-combined?limit=30');
                 const data = await res.json();
                 const logs = data.logs || [];
 
@@ -671,37 +661,6 @@
             }
         }
 
-        // Load diagnostics
-        async function loadDiagnostics() {
-            try {
-                const res = await fetch('/api/wake-cycle-diagnostics');
-                const data = await res.json();
-
-                if (!data.latestCycle) {
-                    document.getElementById('diagOutput').innerHTML = 'No wake cycle data yet';
-                    return;
-                }
-
-                const c = data.latestCycle;
-                const dur = Math.round(c.duration / 1000);
-                const errors = c.errors.length;
-
-                let html = `<div style="margin-bottom:12px">
-                    <strong>Last cycle:</strong> ${dur}s duration, ${c.events.length} events, ${errors} errors
-                </div>`;
-
-                if (data.recentCycles && data.recentCycles.length > 1) {
-                    html += '<div style="color:#666; font-size:0.75rem">';
-                    html += `Recent: ${data.recentCycles.length} cycles tracked`;
-                    html += '</div>';
-                }
-
-                document.getElementById('diagOutput').innerHTML = html;
-            } catch (e) {
-                document.getElementById('diagOutput').innerHTML = 'Error loading diagnostics';
-            }
-        }
-
         // Load system info
         async function loadSystemInfo() {
             try {
@@ -710,24 +669,9 @@
                 const hours = Math.floor(info.uptime / 3600);
                 const mins = Math.floor((info.uptime % 3600) / 60);
                 document.getElementById('serverInfo').innerHTML =
-                    `${info.version || 'local'} &middot; Node ${info.nodeVersion} &middot; Up ${hours}h ${mins}m`;
+                    `${info.version || 'local'} · Node ${info.nodeVersion} · Up ${hours}h ${mins}m`;
             } catch (e) {
                 document.getElementById('serverInfo').textContent = 'Server info unavailable';
-            }
-        }
-
-        function toggleAutoRefresh() {
-            const btn = document.getElementById('autoRefreshBtn');
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-                autoRefreshInterval = null;
-                btn.textContent = 'Auto: Off';
-            } else {
-                autoRefreshInterval = setInterval(() => {
-                    loadLogs();
-                    loadDeviceStatus();
-                }, 3000);
-                btn.textContent = 'Auto: On';
             }
         }
 
@@ -766,7 +710,11 @@
             } else {
                 // Overdue
                 const overdueMins = Math.floor(Math.abs(diffMs) / 60000);
-                countdownEl.textContent = overdueMins < 1 ? 'waking now...' : `${overdueMins}m overdue`;
+                if (overdueMins > 60) {
+                    countdownEl.textContent = `${Math.floor(overdueMins / 60)}h overdue`;
+                } else {
+                    countdownEl.textContent = overdueMins < 1 ? 'waking now...' : `${overdueMins}m overdue`;
+                }
                 card.className = 'next-wake-card overdue';
             }
         }
@@ -777,9 +725,8 @@
             loadDeviceStatus();
             loadSystemInfo();
             loadLogs();
-            loadDiagnostics();
-            setInterval(loadDeviceStatus, 5000);
-            setInterval(updateNextWakeDisplay, 1000); // Live countdown every second
+            setInterval(loadDeviceStatus, 10000);
+            setInterval(updateNextWakeDisplay, 1000);
         });
     </script>
 </body>
