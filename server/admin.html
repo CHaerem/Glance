@@ -346,12 +346,47 @@
             border-color: #1a1a1a;
         }
 
+        /* Next Wake Card - Prominent */
+        .next-wake-card {
+            background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+            color: #fff;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .next-wake-time {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+        }
+
+        .next-wake-countdown {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .next-wake-card.soon {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .next-wake-card.soon .next-wake-countdown {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .next-wake-card.overdue {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
         /* Mobile */
         @media (max-width: 480px) {
             body { padding: 16px; }
             .status-bar { gap: 12px; padding: 12px; }
             .status-item { min-width: 70px; }
             .status-value { font-size: 0.9rem; }
+            .next-wake-time { font-size: 2rem; }
         }
     </style>
 </head>
@@ -359,6 +394,12 @@
     <div class="header">
         <h1>Admin</h1>
         <a href="/" class="back-link">Back to gallery</a>
+    </div>
+
+    <!-- Next Wake - Prominent -->
+    <div class="next-wake-card" id="nextWakeCard">
+        <div class="next-wake-time" id="nextWakeTime">--:--</div>
+        <div class="next-wake-countdown" id="nextWakeCountdown">--</div>
     </div>
 
     <!-- Device Status Bar -->
@@ -376,10 +417,6 @@
         <div class="status-item">
             <div class="status-value" id="signalDisplay">--</div>
             <div class="status-label">Signal</div>
-        </div>
-        <div class="status-item">
-            <div class="status-value" id="nextWakeDisplay">--</div>
-            <div class="status-label">Next Wake</div>
         </div>
     </div>
 
@@ -593,18 +630,15 @@
                 // Signal
                 document.getElementById('signalDisplay').textContent = s.signalStrength ? `${s.signalStrength}dBm` : '--';
 
-                // Next wake
+                // Next wake - store for live countdown
                 if (s.lastSeen && s.sleepDuration) {
-                    const nextWake = s.lastSeen + (s.sleepDuration / 1000);
-                    const diffMs = nextWake - Date.now();
-                    if (diffMs > 0) {
-                        const mins = Math.floor(diffMs / 60000);
-                        document.getElementById('nextWakeDisplay').textContent = mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h ${mins%60}m`;
-                    } else {
-                        document.getElementById('nextWakeDisplay').textContent = 'Soon';
-                    }
+                    window.nextWakeTimestamp = s.lastSeen + (s.sleepDuration / 1000);
+                    updateNextWakeDisplay();
                 } else {
-                    document.getElementById('nextWakeDisplay').textContent = '--';
+                    window.nextWakeTimestamp = null;
+                    document.getElementById('nextWakeTime').textContent = '--:--';
+                    document.getElementById('nextWakeCountdown').textContent = 'No data';
+                    document.getElementById('nextWakeCard').className = 'next-wake-card';
                 }
             } catch (e) {
                 console.error('Failed to load status:', e);
@@ -697,6 +731,46 @@
             }
         }
 
+        // Live countdown for next wake
+        function updateNextWakeDisplay() {
+            if (!window.nextWakeTimestamp) return;
+
+            const now = Date.now();
+            const diffMs = window.nextWakeTimestamp - now;
+            const card = document.getElementById('nextWakeCard');
+            const timeEl = document.getElementById('nextWakeTime');
+            const countdownEl = document.getElementById('nextWakeCountdown');
+
+            // Show the actual wake time
+            const wakeDate = new Date(window.nextWakeTimestamp);
+            timeEl.textContent = wakeDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+            if (diffMs > 0) {
+                // Countdown
+                const totalSecs = Math.floor(diffMs / 1000);
+                const mins = Math.floor(totalSecs / 60);
+                const secs = totalSecs % 60;
+
+                if (mins >= 60) {
+                    const hrs = Math.floor(mins / 60);
+                    const remainMins = mins % 60;
+                    countdownEl.textContent = `in ${hrs}h ${remainMins}m`;
+                } else if (mins > 0) {
+                    countdownEl.textContent = `in ${mins}m ${secs}s`;
+                } else {
+                    countdownEl.textContent = `in ${secs}s`;
+                }
+
+                // Add "soon" class if less than 2 minutes
+                card.className = mins < 2 ? 'next-wake-card soon' : 'next-wake-card';
+            } else {
+                // Overdue
+                const overdueMins = Math.floor(Math.abs(diffMs) / 60000);
+                countdownEl.textContent = overdueMins < 1 ? 'waking now...' : `${overdueMins}m overdue`;
+                card.className = 'next-wake-card overdue';
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
@@ -705,6 +779,7 @@
             loadLogs();
             loadDiagnostics();
             setInterval(loadDeviceStatus, 5000);
+            setInterval(updateNextWakeDisplay, 1000); // Live countdown every second
         });
     </script>
 </body>
