@@ -2216,8 +2216,22 @@ app.post("/api/device-status", async (req, res) => {
 app.get("/api/esp32-status", async (req, res) => {
 	try {
 		const devices = (await readJSONFile("devices.json")) || {};
-		const deviceId = process.env.DEVICE_ID || "esp32-001";
-		const deviceStatus = devices[deviceId];
+
+		// Find most recently seen device (auto-detect active device)
+		let deviceId = process.env.DEVICE_ID;
+		let deviceStatus = deviceId ? devices[deviceId] : null;
+
+		if (!deviceStatus) {
+			// Find device with most recent lastSeen
+			let latestSeen = 0;
+			for (const [id, device] of Object.entries(devices)) {
+				if (device.lastSeen && device.lastSeen > latestSeen) {
+					latestSeen = device.lastSeen;
+					deviceId = id;
+					deviceStatus = device;
+				}
+			}
+		}
 
 		if (!deviceStatus) {
 			return res.json({
@@ -2228,7 +2242,8 @@ app.get("/api/esp32-status", async (req, res) => {
 				lastChargeTimestamp: null,
 				signalStrength: null,
 				lastSeen: null,
-				sleepDuration: null
+				sleepDuration: null,
+				deviceId: null
 			});
 		}
 
@@ -2248,6 +2263,7 @@ app.get("/api/esp32-status", async (req, res) => {
 
 		res.json({
 			state: isOnline ? 'online' : 'offline',
+			deviceId: deviceId,
 			batteryVoltage: deviceStatus.batteryVoltage,
 			batteryPercent: deviceStatus.batteryPercent,
 			isCharging: deviceStatus.isCharging,
