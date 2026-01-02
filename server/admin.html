@@ -190,6 +190,12 @@
             border-color: #1a1a1a;
         }
 
+        .form-hint {
+            font-size: 0.7rem;
+            color: #999;
+            margin-top: 4px;
+        }
+
         .preset-buttons {
             display: flex;
             gap: 6px;
@@ -436,6 +442,26 @@
             stroke: #10b981;
         }
 
+        .signal-line {
+            stroke: #6366f1;
+        }
+
+        .signal-area {
+            fill: rgba(99, 102, 241, 0.1);
+        }
+
+        .signal-good {
+            color: #10b981;
+        }
+
+        .signal-fair {
+            color: #f59e0b;
+        }
+
+        .signal-weak {
+            color: #ef4444;
+        }
+
         .graph-labels {
             display: flex;
             justify-content: space-between;
@@ -546,6 +572,30 @@
         </div>
     </div>
 
+    <!-- Signal Graph -->
+    <div class="battery-graph" id="signalGraphSection" style="display: none;">
+        <div class="battery-graph-header">
+            <span class="battery-graph-title">Signal History</span>
+            <span class="battery-graph-value" id="signalGraphValue">--</span>
+        </div>
+        <div class="graph-container">
+            <div class="graph-y-axis">
+                <span id="signalGraphMax">--</span>
+                <span id="signalGraphMin">--</span>
+            </div>
+            <div class="graph-svg-container">
+                <svg class="graph-svg" id="signalGraphSvg" viewBox="0 0 300 80" preserveAspectRatio="none">
+                    <path class="graph-area signal-area" id="signalArea"></path>
+                    <path class="graph-line signal-line" id="signalLine"></path>
+                </svg>
+            </div>
+        </div>
+        <div class="graph-labels">
+            <span id="signalTimeStart">--</span>
+            <span id="signalTimeEnd">Now</span>
+        </div>
+    </div>
+
     <!-- Device Stats -->
     <div class="stats-row" id="statsSection" style="display: none;">
         <div class="stat-item">
@@ -626,6 +676,12 @@
             </div>
 
             <div class="form-row">
+                <label class="form-label">Low Battery Webhook</label>
+                <input type="text" id="notificationWebhook" class="form-input" placeholder="https://webhook.example.com/notify">
+                <div class="form-hint">Sends POST when battery drops below 30% or 15%</div>
+            </div>
+
+            <div class="form-row">
                 <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
                 <div class="success-msg" id="successMsg">Settings saved!</div>
             </div>
@@ -663,6 +719,7 @@
                 document.getElementById('nightSleepEnabled').checked = s.nightSleepEnabled || false;
                 document.getElementById('nightStart').value = s.nightSleepStartHour || 23;
                 document.getElementById('nightEnd').value = s.nightSleepEndHour || 5;
+                document.getElementById('notificationWebhook').value = s.notificationWebhook || '';
 
                 setOrientation(s.defaultOrientation || 'portrait');
                 toggleNightSleep();
@@ -696,7 +753,8 @@
                         devServerHost: document.getElementById('devServerHost').value.trim(),
                         nightSleepEnabled: document.getElementById('nightSleepEnabled').checked,
                         nightSleepStartHour: parseInt(document.getElementById('nightStart').value),
-                        nightSleepEndHour: parseInt(document.getElementById('nightEnd').value)
+                        nightSleepEndHour: parseInt(document.getElementById('nightEnd').value),
+                        notificationWebhook: document.getElementById('notificationWebhook').value.trim()
                     })
                 });
 
@@ -802,6 +860,9 @@
 
                 // Update battery graph
                 updateBatteryGraph(s);
+
+                // Update signal graph
+                updateSignalGraph(s);
 
                 // Update device stats
                 updateDeviceStats(s);
@@ -941,6 +1002,75 @@
             if (history.length > 0) {
                 const firstTime = new Date(history[0].timestamp);
                 document.getElementById('graphTimeStart').textContent =
+                    firstTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        // Render signal graph
+        function updateSignalGraph(status) {
+            const section = document.getElementById('signalGraphSection');
+            const history = status.signalHistory || [];
+
+            if (history.length < 2) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+
+            // Update header value with signal quality
+            const valueEl = document.getElementById('signalGraphValue');
+            const rssi = status.signalStrength || 0;
+            let quality = 'Good';
+            let valueClass = 'signal-good';
+
+            if (rssi >= -50) { quality = 'Excellent'; valueClass = 'signal-good'; }
+            else if (rssi >= -60) { quality = 'Good'; valueClass = 'signal-good'; }
+            else if (rssi >= -70) { quality = 'Fair'; valueClass = 'signal-fair'; }
+            else { quality = 'Weak'; valueClass = 'signal-weak'; }
+
+            valueEl.className = 'battery-graph-value ' + valueClass;
+            valueEl.textContent = `${rssi}dBm (${quality})`;
+
+            // Calculate graph dimensions
+            const width = 300;
+            const height = 80;
+            const padding = 4;
+
+            // Find min/max RSSI for scaling
+            const values = history.map(h => h.rssi);
+            const minR = Math.min(...values) - 5;
+            const maxR = Math.max(...values) + 5;
+            const range = maxR - minR || 10;
+
+            // Generate path points
+            const points = history.map((h, i) => {
+                const x = padding + (i / (history.length - 1)) * (width - 2 * padding);
+                const y = height - padding - ((h.rssi - minR) / range) * (height - 2 * padding);
+                return { x, y };
+            });
+
+            // Create line path
+            const linePath = points.map((p, i) =>
+                (i === 0 ? 'M' : 'L') + `${p.x.toFixed(1)},${p.y.toFixed(1)}`
+            ).join(' ');
+
+            // Create area path
+            const areaPath = linePath +
+                ` L${points[points.length-1].x.toFixed(1)},${height} L${points[0].x.toFixed(1)},${height} Z`;
+
+            // Update SVG paths
+            document.getElementById('signalLine').setAttribute('d', linePath);
+            document.getElementById('signalArea').setAttribute('d', areaPath);
+
+            // Update y-axis labels
+            document.getElementById('signalGraphMax').textContent = maxR.toFixed(0) + 'dB';
+            document.getElementById('signalGraphMin').textContent = minR.toFixed(0) + 'dB';
+
+            // Update time labels
+            if (history.length > 0) {
+                const firstTime = new Date(history[0].timestamp);
+                document.getElementById('signalTimeStart').textContent =
                     firstTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
             }
         }

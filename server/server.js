@@ -2198,6 +2198,20 @@ app.post("/api/device-status", async (req, res) => {
 			}
 		}
 
+		// Track signal strength history (keep last 100 readings)
+		const signalHistory = previousDevice.signalHistory || [];
+		const signalStrength = parseInt(status.signalStrength) || 0;
+
+		if (signalStrength !== 0) {
+			signalHistory.push({
+				timestamp: Date.now(),
+				rssi: signalStrength
+			});
+			if (signalHistory.length > 100) {
+				signalHistory.shift();
+			}
+		}
+
 		// Track usage statistics for battery estimation
 		const usageStats = previousDevice.usageStats || {
 			totalWakes: 0,
@@ -2255,7 +2269,8 @@ app.post("/api/device-status", async (req, res) => {
 			lastChargeTimestamp: lastChargeTimestamp,
 			batteryHistory: batteryHistory,
 			usageStats: usageStats,
-			signalStrength: parseInt(status.signalStrength) || 0,
+			signalStrength: signalStrength,
+			signalHistory: signalHistory,
 			freeHeap: parseInt(status.freeHeap) || 0,
 			bootCount: parseInt(status.bootCount) || 0,
 			status: sanitizeInput(status.status) || "unknown",
@@ -2272,11 +2287,13 @@ app.post("/api/device-status", async (req, res) => {
 			if (batteryPercent < 15 && previousPercent >= 15) {
 				console.log(`[Battery] CRITICAL: Device ${deviceId} at ${batteryPercent}%`);
 				addDeviceLog(`⚠️ CRITICAL: Battery at ${batteryPercent}% - device may shut down soon`);
+				sendBatteryNotification(deviceId, batteryPercent, batteryVoltage, 'critical');
 			}
 			// Low battery alert (<30%)
 			else if (batteryPercent < 30 && previousPercent >= 30) {
 				console.log(`[Battery] LOW: Device ${deviceId} at ${batteryPercent}%`);
 				addDeviceLog(`🔋 Low battery: ${batteryPercent}% - consider charging`);
+				sendBatteryNotification(deviceId, batteryPercent, batteryVoltage, 'low');
 			}
 		}
 
@@ -2388,6 +2405,7 @@ app.get("/api/esp32-status", async (req, res) => {
 			batteryEstimate: batteryEstimate,
 			usageStats: stats || null,
 			signalStrength: deviceStatus.signalStrength,
+			signalHistory: deviceStatus.signalHistory || [],
 			lastSeen: deviceStatus.lastSeen,
 			sleepDuration: sleepDuration, // in microseconds
 			freeHeap: deviceStatus.freeHeap,
@@ -4699,6 +4717,46 @@ const MAX_LOGS = 100;
 function addDeviceLog(message) {
 	deviceLogs.push(`[${getOsloTimestamp()}] ${message}`);
 	if (deviceLogs.length > MAX_LOGS) deviceLogs.shift();
+}
+
+// Send low battery notification via webhook
+async function sendBatteryNotification(deviceId, batteryPercent, batteryVoltage, level) {
+	try {
+		const settings = (await readJSONFile("settings.json")) || {};
+		const webhookUrl = settings.notificationWebhook;
+
+		if (!webhookUrl) {
+			return; // No webhook configured
+		}
+
+		const payload = {
+			event: 'low_battery',
+			level: level, // 'low' or 'critical'
+			device: deviceId,
+			battery: {
+				percent: batteryPercent,
+				voltage: batteryVoltage
+			},
+			message: level === 'critical'
+				? `⚠️ CRITICAL: Battery at ${batteryPercent}% (${batteryVoltage}V) - device may shut down soon`
+				: `🔋 Low battery: ${batteryPercent}% (${batteryVoltage}V) - consider charging`,
+			timestamp: new Date().toISOString()
+		};
+
+		const response = await fetch(webhookUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+
+		if (response.ok) {
+			console.log(`[Notification] Sent ${level} battery alert to webhook`);
+		} else {
+			console.error(`[Notification] Webhook failed: ${response.status}`);
+		}
+	} catch (error) {
+		console.error(`[Notification] Failed to send webhook: ${error.message}`);
+	}
 }
 
 // Capture console output
