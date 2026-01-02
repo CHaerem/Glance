@@ -2303,6 +2303,29 @@ app.get("/api/esp32-status", async (req, res) => {
 			sleepDuration = calculateNightSleepDuration(settings);
 		}
 
+		// Estimate remaining battery life from discharge rate
+		let estimatedHoursRemaining = null;
+		const history = deviceStatus.batteryHistory || [];
+		if (history.length >= 3 && !deviceStatus.isCharging) {
+			// Calculate discharge rate from history (exclude charging periods)
+			const dischargeReadings = history.filter(h => !h.isCharging);
+			if (dischargeReadings.length >= 2) {
+				const first = dischargeReadings[0];
+				const last = dischargeReadings[dischargeReadings.length - 1];
+				const hoursPassed = (last.timestamp - first.timestamp) / (1000 * 60 * 60);
+				const voltageDrop = first.voltage - last.voltage;
+
+				if (hoursPassed > 0.1 && voltageDrop > 0) {
+					const dropPerHour = voltageDrop / hoursPassed;
+					// Estimate hours until 3.3V (critical threshold)
+					const voltageRemaining = deviceStatus.batteryVoltage - 3.3;
+					if (voltageRemaining > 0 && dropPerHour > 0) {
+						estimatedHoursRemaining = Math.round(voltageRemaining / dropPerHour);
+					}
+				}
+			}
+		}
+
 		res.json({
 			state: isOnline ? 'online' : 'offline',
 			deviceId: deviceId,
@@ -2311,6 +2334,7 @@ app.get("/api/esp32-status", async (req, res) => {
 			isCharging: deviceStatus.isCharging,
 			lastChargeTimestamp: deviceStatus.lastChargeTimestamp,
 			batteryHistory: deviceStatus.batteryHistory || [],
+			estimatedHoursRemaining: estimatedHoursRemaining,
 			signalStrength: deviceStatus.signalStrength,
 			lastSeen: deviceStatus.lastSeen,
 			sleepDuration: sleepDuration, // in microseconds

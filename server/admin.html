@@ -747,9 +747,21 @@
             else if (status.batteryPercent < 40) valueClass = 'low';
 
             valueEl.className = 'battery-graph-value ' + valueClass;
+
+            // Format estimated time remaining
+            let timeRemaining = '';
+            if (status.estimatedHoursRemaining && !status.isCharging) {
+                const hrs = status.estimatedHoursRemaining;
+                if (hrs >= 24) {
+                    timeRemaining = ` · ~${Math.round(hrs / 24)}d left`;
+                } else {
+                    timeRemaining = ` · ~${hrs}h left`;
+                }
+            }
+
             valueEl.textContent = status.isCharging
                 ? `${status.batteryVoltage}V ⚡ Charging`
-                : `${status.batteryVoltage}V (${status.batteryPercent}%)`;
+                : `${status.batteryVoltage}V (${status.batteryPercent}%)${timeRemaining}`;
 
             // Calculate graph dimensions
             const width = 300;
