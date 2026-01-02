@@ -1,6 +1,5 @@
 name: Build and Deploy
 
-# Self-hosted ARM64 runner configured and listening for jobs
 on:
   push:
     branches: [ main, develop ]
@@ -11,34 +10,45 @@ on:
 
 jobs:
   build-and-deploy:
-    # Use GitHub-hosted runners (faster than self-hosted Pi due to better CPU/network)
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
+    # Start Tailscale early (runs in parallel with build)
+    - name: Join tailnet
+      uses: tailscale/github-action@v3
+      with:
+        oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+        oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+        tags: tag:ci
+        args: --ssh
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
+
     - name: Log in to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_TOKEN }}
-        
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
         images: ${{ secrets.DOCKER_USERNAME }}/glance-server
         tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha
           type=raw,value=latest,enable={{is_default_branch}}
-          
+          type=sha,prefix=sha-
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
@@ -48,26 +58,19 @@ jobs:
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        # Use registry cache (faster for arm64 cross-builds)
+        cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/glance-server:buildcache
+        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/glance-server:buildcache,mode=max
         build-args: |
           IMAGE_VERSION=${{ github.sha }}
           BUILD_DATE=${{ github.event.head_commit.timestamp }}
 
-    - name: Join tailnet (with SSH)
-      uses: tailscale/github-action@v3
-      with:
-        oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-        oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
-        tags: tag:ci
-        args: --ssh
-
     - name: Deploy to serverpi
+      env:
+        SHORT_SHA: ${{ github.sha }}
+        OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
-        SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-        # Copy latest docker-compose.yml to Pi
+        SHORT_SHA=${SHORT_SHA:0:7}
+        # Copy docker-compose.yml and deploy in one SSH session
         scp -o StrictHostKeyChecking=no docker-compose.yml chris@100.108.19.115:~/glance/docker-compose.yml
-        # Deploy with updated config, cleanup old images, and restart kiosk
-        tailscale ssh chris@100.108.19.115 \
-          "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose pull && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' docker compose up -d && docker image prune -af && sudo systemctl restart kiosk.service"
-
+        tailscale ssh chris@100.108.19.115 "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${OPENAI_KEY}' docker compose pull --quiet && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${OPENAI_KEY}' docker compose up -d && docker image prune -af --filter 'until=1h' && sudo systemctl restart kiosk.service"
