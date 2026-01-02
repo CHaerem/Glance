@@ -3100,11 +3100,9 @@ app.get("/api/collections/:collectionId", (req, res) => {
 	}
 });
 
-// External art gallery APIs
-app.get("/api/art/search", async (req, res) => {
-	try {
-		const { q: query, limit = 20, offset = 0 } = req.query;
-		const targetCount = parseInt(limit);
+// External art gallery APIs - Core search function (reusable)
+async function performArtSearch(query, targetCount = 20, startOffset = 0) {
+	const offset = startOffset;
 
 		console.log(`Searching for artworks: "${query}", limit: ${targetCount}, offset: ${offset}`);
 
@@ -3864,12 +3862,20 @@ app.get("/api/art/search", async (req, res) => {
 
 		console.log(`Returning ${paginatedResults.length} artworks (Met: ${metResults.length}, ARTIC: ${articResults.length}, CMA: ${cmaResults.length}, Rijks: ${rijksResults.length}, Wikimedia: ${wikimediaResults.length}, V&A: ${vamResults.length}, Harvard: ${harvardResults.length}, Smithsonian: ${smithsonianResults.length})`);
 
-		res.json({
+		return {
 			results: paginatedResults,
 			total: allResults.length,
 			hasMore: allResults.length > (offset + targetCount),
 			sources: sources
-		});
+		};
+}
+
+// Art search API endpoint (wrapper for performArtSearch)
+app.get("/api/art/search", async (req, res) => {
+	try {
+		const { q: query, limit = 20, offset = 0 } = req.query;
+		const result = await performArtSearch(query, parseInt(limit), parseInt(offset));
+		res.json(result);
 	} catch (error) {
 		console.error("Error searching art:", error);
 		res.status(500).json({ error: "Internal server error: " + error.message });
@@ -4053,9 +4059,8 @@ Response: {
 			...(searchParams.subjects || [])
 		].join(" ").trim() || query;
 
-		// Use existing search endpoint with enhanced query
-		const searchResponse = await fetch(`http://localhost:3000/api/art/search?q=${encodeURIComponent(searchQuery)}&limit=20`);
-		const searchResults = await searchResponse.json();
+		// Use the search function directly (no HTTP round-trip)
+		const searchResults = await performArtSearch(searchQuery, 20);
 
 		// Return results with metadata about the search
 		res.json({
@@ -4168,9 +4173,8 @@ Source: ${source || 'Unknown'}`
 		// Build search query from AI-generated terms
 		const searchQuery = similarityParams.searchTerms.join(" ");
 
-		// Search using existing endpoint
-		const searchResponse = await fetch(`http://localhost:3000/api/art/search?q=${encodeURIComponent(searchQuery)}&limit=30`);
-		const searchResults = await searchResponse.json();
+		// Use the search function directly (no HTTP round-trip)
+		const searchResults = await performArtSearch(searchQuery, 30);
 
 		// Filter out the original artwork if it appears in results
 		const filteredResults = (searchResults.results || []).filter(artwork => {

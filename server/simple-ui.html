@@ -752,6 +752,49 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Toast Notifications - Calm, minimal design */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: #1a1a1a;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-top: 8px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: auto;
+            max-width: 320px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            background: #2d5a3d;
+        }
+
+        .toast.error {
+            background: #8b3a3a;
+        }
+
+        .toast.info {
+            background: #3a5a8b;
+        }
     </style>
 </head>
 <body>
@@ -896,7 +939,30 @@
     <!-- Hidden file input -->
     <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
 
+    <!-- Toast notification container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <script>
+        // Toast notification system
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            // Remove after duration
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
         // Global state
         let currentMode = 'create';
         let currentArtResults = [];
@@ -1059,12 +1125,12 @@
                 } else {
                     overlay.classList.remove('show');
                     const errorData = await response.json();
-                    alert('Generation failed: ' + (errorData.error || 'Unknown error'));
+                    showToast('Generation failed: ' + (errorData.error || 'Unknown error'), 'error');
                 }
             } catch (error) {
                 console.error('Generation failed:', error);
                 overlay.classList.remove('show');
-                alert('Generation failed: ' + error.message);
+                showToast('Generation failed: ' + error.message, 'error');
             }
         }
 
@@ -1357,19 +1423,19 @@
                     // Reload collection
                     await loadMyCollection();
 
-                    console.log('Added to collection');
+                    showToast('Added to collection', 'success');
                 } else {
                     const data = await response.json();
                     if (data.error === 'Artwork already in collection') {
                         document.getElementById('modalSecondaryAction').style.display = 'none';
                         secondaryActionType = null;
                     } else {
-                        alert('Failed to add to collection: ' + data.error);
+                        showToast('Failed to add to collection: ' + data.error, 'error');
                     }
                 }
             } catch (error) {
                 console.error('Add to collection failed:', error);
-                alert('Failed to add to collection');
+                showToast('Failed to add to collection', 'error');
             }
         }
 
@@ -1388,13 +1454,14 @@
                 if (response.ok) {
                     closeModal();
                     await loadMyCollection();
+                    showToast('Removed from collection', 'success');
                 } else {
                     const data = await response.json();
-                    alert('Failed to remove: ' + (data.error || 'Unknown error'));
+                    showToast('Failed to remove: ' + (data.error || 'Unknown error'), 'error');
                 }
             } catch (error) {
                 console.error('Remove failed:', error);
-                alert('Failed to remove from collection');
+                showToast('Failed to remove from collection', 'error');
             }
         }
 
@@ -1527,14 +1594,14 @@
                     statusText.textContent = 'Generating image...';
                     filenameText.textContent = '';
                     const errorData = await response.json();
-                    alert('Upload failed: ' + (errorData.error || 'Unknown error'));
+                    showToast('Upload failed: ' + (errorData.error || 'Unknown error'), 'error');
                 }
             } catch (error) {
                 console.error('Upload failed:', error);
                 overlay.classList.remove('show');
                 statusText.textContent = 'Generating image...';
                 filenameText.textContent = '';
-                alert('Upload failed: ' + error.message);
+                showToast('Upload failed: ' + error.message, 'error');
             }
         }
 
@@ -1624,13 +1691,14 @@
                 if (response.ok) {
                     closeModal();
                     await loadMyCollection();
+                    showToast('Image deleted', 'success');
                 } else {
                     const data = await response.json();
-                    alert('Failed to delete: ' + (data.error || 'Unknown error'));
+                    showToast('Failed to delete: ' + (data.error || 'Unknown error'), 'error');
                 }
             } catch (error) {
                 console.error('Delete failed:', error);
-                alert('Failed to delete image');
+                showToast('Failed to delete image', 'error');
             }
         }
     </script>
