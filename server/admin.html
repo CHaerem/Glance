@@ -841,10 +841,11 @@
                 imageEl.textContent = '--';
             }
 
-            // Last error/issue (only show if there's a problem)
+            // Last error/issue (only show if there's an actual problem)
             const errorItem = document.getElementById('statErrorItem');
             const errorEl = document.getElementById('statError');
-            if (status.status && status.status !== 'ok' && status.status !== 'ready') {
+            const normalStatuses = ['ok', 'ready', 'no_update_needed', 'display_updated', 'sleeping', 'awake'];
+            if (status.status && !normalStatuses.includes(status.status)) {
                 errorItem.style.display = 'block';
                 errorEl.textContent = status.status.replace(/_/g, ' ');
             } else {
