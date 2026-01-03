@@ -142,13 +142,15 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
 [Voltage Divider → GPIO 2]
 ```
 
-#### Power Budget Analysis
+#### Power Budget Analysis (Estimates - Not Verified)
 - **Display Refresh**: ~500mW for 19 seconds = ~2.6mWh per update
 - **ESP32 Active**: ~150mA @ 3.3V = ~500mW
-- **ESP32 Deep Sleep**: 10μA @ 3.3V = 0.033mW
-- **Expected Battery Life**: 
+- **ESP32 Deep Sleep**: ~10μA @ 3.3V = ~0.033mW
+- **Estimated Battery Life**:
   - With hourly updates: ~6 months
   - With daily updates: >1 year
+
+*Note: These are theoretical estimates. Actual measurements may vary.*
 
 ### 4. NFC Wake Module (Future Addition)
 

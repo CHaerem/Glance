@@ -134,7 +134,7 @@ void save_last_image_id(const char* image_id) {
 }
 
 // Read battery voltage from GPIO 2 (ADC1_CH1) via voltage divider
-// Voltage divider: VBAT -> 10k -> GPIO2 -> 10k -> GND (2:1 ratio)
+// Voltage divider ratio calibrated to 4.7 from actual ADC readings
 // Returns BATTERY_SENSOR_INVALID (-1.0) if sensor is disconnected or faulty
 float read_battery_voltage(void) {
     // Small delay to let ADC stabilize after boot

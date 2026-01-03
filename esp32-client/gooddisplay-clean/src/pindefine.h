@@ -20,7 +20,7 @@
 #define LOAD_SW		45  // Please set it as output pin
 
 //==============   Battery Monitoring   ==============//
-// Battery voltage via voltage divider (2x 10kΩ, 2:1 ratio)
+// Battery voltage via voltage divider (calibrated ratio: 4.7)
 // Connected to unlabeled solder pad on Good Display ESP32-133C02
 // Pad identified by "2 sec HIGH" timing in GPIO discovery mode
 #define BATTERY_PIN	2   // GPIO 2 = ADC1_CH1
