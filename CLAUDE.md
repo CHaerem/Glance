@@ -34,16 +34,34 @@ Glance/
 │   ├── platformio.ini            # Build environments
 │   └── build.sh                  # Build automation
 ├── server/                       # Node.js Express server
-│   ├── server.js                 # Main server (~5000 lines)
-│   ├── admin.html                # Admin interface
-│   ├── index.html                # Gallery interface
-│   ├── Dockerfile                # Multi-stage Docker build
-│   ├── services/                 # Business logic
+│   ├── server.js                 # Main entry (~500 lines)
+│   ├── routes/                   # API route handlers (9 modules)
+│   │   ├── art.js                # Art search, smart search, similar
+│   │   ├── collections.js        # Curated art collections
+│   │   ├── devices.js            # Device status, commands
+│   │   ├── history.js            # History, playlist, collections
+│   │   ├── images.js             # Current image, binary stream
+│   │   ├── logs.js               # Logging, serial streams
+│   │   ├── semantic-search.js    # Vector similarity search
+│   │   ├── system.js             # Health, settings, build info
+│   │   └── upload.js             # Upload, AI generation
+│   ├── services/                 # Business logic (7 modules)
+│   │   ├── image-processing.js   # Dithering, color conversion
+│   │   ├── museum-api.js         # Museum search orchestration
+│   │   ├── statistics.js         # API tracking, pricing
 │   │   ├── clip-embeddings.js    # CLIP model integration
 │   │   ├── vector-search.js      # Qdrant search
 │   │   └── embedding-db.js       # Embedding cache
+│   ├── utils/                    # Shared utilities (3 modules)
+│   │   ├── time.js               # Oslo timezone, night sleep
+│   │   ├── validation.js         # Input validation
+│   │   └── data-store.js         # JSON file handling
+│   ├── data/                     # Static data files
+│   │   └── curated-collections.json
+│   ├── public/                   # Web interface
+│   ├── Dockerfile                # Multi-stage Docker build
 │   ├── scripts/                  # Data import scripts
-│   └── __tests__/                # Jest test suite
+│   └── __tests__/                # Jest test suite (188 tests)
 ├── scripts/                      # Root utilities
 │   ├── build-and-push.sh         # Docker build & push
 │   └── run-tests.sh              # Test runner
@@ -176,7 +194,7 @@ Server-side processing for e-ink optimization:
 ```bash
 cd server/
 
-# Run all tests
+# Run all tests (188 tests)
 npm test
 
 # Specific test file
@@ -186,11 +204,14 @@ npm test -- image-processing.test.js
 npm run test:coverage
 ```
 
-Test files in `server/__tests__/`:
+Test suites in `server/__tests__/`:
 - `api.test.js` - API endpoint tests
 - `image-processing.test.js` - Dithering & color conversion
 - `eink-conversion.test.js` - E-ink specific processing
 - `full-pipeline.test.js` - End-to-end workflows
+- `upload-endpoint.test.js` - Upload integration tests
+- `services/*.test.js` - Service module tests
+- `utils/*.test.js` - Utility module tests
 
 ## Environment Variables
 
@@ -241,7 +262,9 @@ docker build -t glance-server .
 
 ## Recent Changes
 
+- **Server refactored**: Modular architecture with routes/, services/, utils/
+- Server.js reduced from 5,225 lines to 523 lines (90% reduction)
+- 188 tests all passing
 - Battery monitoring calibrated (4.7 ratio)
 - Admin page simplified (collapsible sections)
-- Battery percentage calculation fixed in server
 - Good Display GPIO 2 confirmed for battery
