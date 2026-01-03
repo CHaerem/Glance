@@ -25,7 +25,7 @@ function createHistoryRoutes({ uploadDir }) {
      * Get image history
      * GET /api/history
      */
-    router.get('/', async (_req, res) => {
+    router.get('/history', async (_req, res) => {
         try {
             const history = (await readJSONFile("history.json")) || [];
             res.json(history);
@@ -59,7 +59,7 @@ function createHistoryRoutes({ uploadDir }) {
      * Load image from history by ID
      * POST /api/history/:imageId/load
      */
-    router.post('/:imageId/load', async (req, res) => {
+    router.post('/history/:imageId/load', async (req, res) => {
         try {
             const { imageId } = req.params;
             const { rotation, cropX, cropY, zoomLevel } = req.body;
@@ -142,7 +142,7 @@ function createHistoryRoutes({ uploadDir }) {
      * Delete image from history
      * DELETE /api/history/:imageId
      */
-    router.delete('/:imageId', async (req, res) => {
+    router.delete('/history/:imageId', async (req, res) => {
         try {
             const { imageId } = req.params;
             let history = (await readJSONFile("history.json")) || [];
