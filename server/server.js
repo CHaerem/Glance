@@ -508,14 +508,16 @@ async function startServer() {
 	});
 }
 
-startServer().catch(console.error);
-
-// Export functions for testing
-if (process.env.NODE_ENV === 'test') {
-	module.exports = {
-		convertImageToRGB,
-		applyDithering,
-		findClosestSpectraColor,
-		app
-	};
+// Only start server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+	startServer().catch(console.error);
 }
+
+// Export for testing
+module.exports = {
+	app,
+	// Re-export image processing functions for tests that depend on them
+	convertImageToRGB: imageProcessing.convertImageToRGB,
+	applyDithering: imageProcessing.applyDithering,
+	findClosestSpectraColor: imageProcessing.findClosestSpectraColor
+};

@@ -172,11 +172,16 @@ describe('Upload Endpoint Integration Tests', () => {
                 .field('enhanceContrast', 'true')
                 .expect(200);
 
-            expect(response.header['content-type']).toContain('image/png');
-            expect(response.body.length).toBeGreaterThan(0);
+            // Preview now returns JSON with base64 preview image
+            expect(response.header['content-type']).toContain('application/json');
+            expect(response.body.success).toBe(true);
+            expect(response.body.preview).toBeDefined();
+            expect(response.body.preview).toContain('data:image/png;base64,');
 
-            // Verify preview dimensions using sharp
-            const previewMetadata = await sharp(response.body).metadata();
+            // Extract base64 data and verify dimensions using sharp
+            const base64Data = response.body.preview.split(',')[1];
+            const previewBuffer = Buffer.from(base64Data, 'base64');
+            const previewMetadata = await sharp(previewBuffer).metadata();
             expect(previewMetadata.width).toBe(600); // Half of 1200
             expect(previewMetadata.height).toBe(800); // Half of 1600
         }, 30000);
@@ -203,7 +208,10 @@ describe('Upload Endpoint Integration Tests', () => {
                 .attach('image', testPath)
                 .expect(200);
 
-            expect(response.body.length).toBeGreaterThan(0);
+            // Preview now returns JSON with base64 preview image
+            expect(response.body.success).toBe(true);
+            expect(response.body.preview).toBeDefined();
+            expect(response.body.rgbSize).toBeGreaterThan(0);
         }, 30000);
     });
 
