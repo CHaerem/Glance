@@ -284,7 +284,7 @@ console.log = function(...args) {
 	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
 	serverLogs.push(`[${getOsloTimestamp()}] LOG: ${message}`);
 	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
-	trackLog('INFO', message);
+	statistics.trackLog('INFO', message);
 	originalLog.apply(console, args);
 };
 
@@ -292,7 +292,7 @@ console.error = function(...args) {
 	const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
 	serverLogs.push(`[${getOsloTimestamp()}] ERROR: ${message}`);
 	if (serverLogs.length > MAX_LOGS) serverLogs.shift();
-	trackLog('ERROR', message);
+	statistics.trackLog('ERROR', message);
 	originalError.apply(console, args);
 };
 
