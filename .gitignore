@@ -64,8 +64,9 @@ ehthumbs.db
 .clang_complete
 .gcc-flags.json
 
-# Server data directory
+# Server data directory (runtime data, not committed)
 server/data/
+!server/data/curated-collections.json
 server/uploads/
 data/
 
