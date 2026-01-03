@@ -590,6 +590,7 @@ class ImageProcessingService {
 
             const { data: imageBuffer, info } = await sharp(Buffer.from(svg))
                 .resize(targetWidth, targetHeight)
+                .removeAlpha()
                 .toColourspace('srgb')
                 .raw()
                 .toBuffer({ resolveWithObject: true });

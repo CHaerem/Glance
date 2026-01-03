@@ -280,6 +280,11 @@ describe('convertImageToRGB Function Tests', () => {
     });
 
     describe('Error Handling', () => {
+        beforeEach(async () => {
+            // Ensure output directory exists for tests that need to write files
+            await fs.mkdir(OUTPUT_DIR, { recursive: true });
+        });
+
         test('should reject non-existent files', async () => {
             const nonExistentPath = path.join(OUTPUT_DIR, 'does-not-exist.png');
 

@@ -50,8 +50,13 @@
     "coverageDirectory": "coverage",
     "collectCoverageFrom": [
       "*.js",
+      "services/**/*.js",
+      "utils/**/*.js",
+      "routes/**/*.js",
       "!coverage/**",
-      "!node_modules/**"
+      "!node_modules/**",
+      "!jest.setup.js",
+      "!**/*.test.js"
     ],
     "coverageReporters": [
       "text",
