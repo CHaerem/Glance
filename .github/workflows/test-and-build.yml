@@ -5,6 +5,7 @@ on:
     branches: [ main, develop ]
     paths:
       - 'server/**'
+      - 'esp32-client/gooddisplay-clean/**'
       - 'docker-compose.yml'
       - '.github/workflows/test-and-build.yml'
 
@@ -16,6 +17,34 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    # Build ESP32 firmware for OTA
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install PlatformIO
+      run: pip install platformio
+
+    - name: Build ESP32 firmware
+      working-directory: esp32-client/gooddisplay-clean
+      env:
+        FIRMWARE_VERSION: ${{ github.sha }}
+        WIFI_SSID: ${{ secrets.WIFI_SSID }}
+        WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
+        DEVICE_ID: "esp32-ota"
+      run: |
+        # Build the firmware
+        pio run --environment esp32s3
+
+        # Copy firmware to server data directory for Docker build
+        mkdir -p ../../server/data
+        cp .pio/build/esp32s3/firmware.bin ../../server/data/firmware.bin
+
+        # Show firmware info
+        ls -la ../../server/data/firmware.bin
+        echo "Firmware version: $FIRMWARE_VERSION"
 
     # Start Tailscale early (runs in parallel with build)
     - name: Join tailnet

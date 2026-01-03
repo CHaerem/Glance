@@ -33,6 +33,7 @@ const createImageRoutes = require("./routes/images");
 const createUploadRoutes = require("./routes/upload");
 const createDeviceRoutes = require("./routes/devices");
 const createLogRoutes = require("./routes/logs");
+const createFirmwareRoutes = require("./routes/firmware");
 
 
 const app = express();
@@ -133,6 +134,13 @@ app.use('/api', deviceRoutes);
 const logRoutes = createLogRoutes();
 app.use('/api', logRoutes);
 
+// Firmware OTA routes - version check and binary download
+const firmwareRoutes = createFirmwareRoutes({
+	dataDir: getDataDir(),
+	firmwareVersion: IMAGE_VERSION,
+	buildDate: BUILD_DATE
+});
+app.use('/api/firmware', firmwareRoutes);
 
 // Semantic search routes (SigLIP 2 embeddings)
 const semanticSearchRoutes = require('./routes/semantic-search');

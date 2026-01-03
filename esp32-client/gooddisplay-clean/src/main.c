@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -21,6 +22,8 @@
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "driver/gpio.h"
+#include "esp_timer.h"
+#include "ota.h"
 
 // WiFi credentials - set via environment variables during build
 // Example: export WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword"
@@ -79,6 +82,10 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define BATTERY_MAX_VALID 4.5f   // Max possible LiPo voltage (with some margin)
 #define BATTERY_MIN_VALID 2.5f   // Below this, sensor is likely disconnected
 #define BATTERY_SENSOR_INVALID -1.0f  // Return value when sensor is not connected
+
+// Battery test mode - set to 1 to enable, 0 for normal operation
+#define BATTERY_TEST_MODE 0
+#define BATTERY_TEST_CYCLES 3  // Number of test cycles before normal mode
 
 // Load last image ID from NVS (persistent storage)
 bool load_last_image_id(char* image_id, size_t max_len) {
@@ -153,23 +160,36 @@ float read_battery_voltage(void) {
     };
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, BATTERY_ADC_CHANNEL, &config));
 
-    // Take multiple readings and check for stability
-    const int num_samples = 10;
-    int total = 0;
+    // Take multiple readings for stability - use median to reject outliers
+    const int num_samples = 20;
+    int samples[20];
     int min_raw = 4095;
     int max_raw = 0;
 
     for (int i = 0; i < num_samples; i++) {
         int raw = 0;
         adc_oneshot_read(adc_handle, BATTERY_ADC_CHANNEL, &raw);
-        total += raw;
+        samples[i] = raw;
         if (raw < min_raw) min_raw = raw;
         if (raw > max_raw) max_raw = raw;
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(5));  // 5ms between samples, 100ms total
     }
 
-    int avg_raw = total / num_samples;
+    // Simple bubble sort for median
+    for (int i = 0; i < num_samples - 1; i++) {
+        for (int j = 0; j < num_samples - i - 1; j++) {
+            if (samples[j] > samples[j + 1]) {
+                int temp = samples[j];
+                samples[j] = samples[j + 1];
+                samples[j + 1] = temp;
+            }
+        }
+    }
+
+    // Use median (average of middle two values for even count)
+    int median_raw = (samples[num_samples/2 - 1] + samples[num_samples/2]) / 2;
     int range = max_raw - min_raw;
+    int avg_raw = median_raw;  // Use median as the "average"
 
     float adc_voltage = (avg_raw / 4095.0f) * 3.3f;
     float battery_voltage = adc_voltage * VOLTAGE_DIVIDER_RATIO;
@@ -310,8 +330,12 @@ void report_device_status(const char* status_msg) {
     wifi_ap_record_t ap_info;
     esp_wifi_sta_get_ap_info(&ap_info);
 
-    // Read RAW battery voltage - no filtering, just report what ADC sees
-    float battery_voltage = read_battery_raw();
+    // Read filtered battery voltage (10 samples, 100ms total)
+    float battery_voltage = read_battery_voltage();
+    // Handle invalid sensor readings
+    if (battery_voltage < 0) {
+        battery_voltage = 0.0f;  // Report 0 if sensor invalid
+    }
 
     char post_data[512];
     snprintf(post_data, sizeof(post_data),
@@ -348,6 +372,121 @@ void report_device_status(const char* status_msg) {
 
     esp_http_client_cleanup(client);
 }
+
+// Forward declaration for wifi_init (defined later)
+void wifi_init(void);
+
+#if BATTERY_TEST_MODE
+// Battery test mode - measures voltage at different states and reports to server
+void send_battery_test_result(const char* test_name, float voltage, int duration_ms) {
+    char post_data[256];
+    snprintf(post_data, sizeof(post_data),
+        "{\"deviceId\":\"%s\",\"test\":\"%s\",\"voltage\":%.3f,\"duration_ms\":%d,\"heap\":%lu}",
+        device_id, test_name, voltage, duration_ms, (unsigned long)esp_get_free_heap_size());
+
+    esp_http_client_config_t config = {
+        .url = SERVER_STATUS_URL,
+        .method = HTTP_METHOD_POST,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+    esp_http_client_perform(client);
+    esp_http_client_cleanup(client);
+
+    printf("TEST [%s]: %.3fV (%dms)\n", test_name, voltage, duration_ms);
+}
+
+void run_battery_test(void) {
+    printf("\n");
+    printf("╔════════════════════════════════════════════╗\n");
+    printf("║     BATTERY TEST MODE - Cycle %lu/%d       ║\n", boot_count + 1, BATTERY_TEST_CYCLES);
+    printf("╚════════════════════════════════════════════╝\n\n");
+
+    int64_t start_time, elapsed;
+
+    // Test 1: Voltage at boot (before WiFi)
+    start_time = esp_timer_get_time();
+    float v_boot = read_battery_voltage();
+    elapsed = (esp_timer_get_time() - start_time) / 1000;
+    printf("1. BOOT voltage: %.3fV\n", v_boot);
+
+    // Test 2: Voltage during WiFi connection
+    printf("2. Connecting to WiFi...\n");
+    start_time = esp_timer_get_time();
+    wifi_init();
+
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+                                           WIFI_CONNECTED_BIT,
+                                           pdFALSE, pdTRUE,
+                                           pdMS_TO_TICKS(30000));
+    elapsed = (esp_timer_get_time() - start_time) / 1000;
+
+    if (!(bits & WIFI_CONNECTED_BIT)) {
+        printf("WiFi FAILED after %lldms\n", elapsed);
+        esp_deep_sleep(10 * 1000000);  // Sleep 10 seconds and retry
+    }
+
+    float v_wifi = read_battery_voltage();
+    printf("   WiFi connected in %lldms, voltage: %.3fV\n", elapsed, v_wifi);
+
+    // Test 3: Voltage while idle (WiFi connected, no activity)
+    printf("3. Idle test (5 seconds)...\n");
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    float v_idle = read_battery_voltage();
+    printf("   Idle voltage: %.3fV\n", v_idle);
+
+    // Send results to server
+    printf("\n4. Sending results to server...\n");
+    send_battery_test_result("boot", v_boot, 0);
+    send_battery_test_result("wifi_connect", v_wifi, (int)elapsed);
+    send_battery_test_result("idle_5s", v_idle, 5000);
+
+    // Test 4: Optional display refresh test
+    printf("5. Display refresh test...\n");
+    start_time = esp_timer_get_time();
+    float v_before_refresh = read_battery_voltage();
+
+    initEPD();
+    // Just clear to white - fast test
+    epdDisplayColor(WHITE);
+
+    elapsed = (esp_timer_get_time() - start_time) / 1000;
+    float v_after_refresh = read_battery_voltage();
+
+    printf("   Before refresh: %.3fV, After: %.3fV (took %lldms)\n",
+           v_before_refresh, v_after_refresh, elapsed);
+    send_battery_test_result("display_refresh", v_after_refresh, (int)elapsed);
+
+    // Summary
+    printf("\n");
+    printf("╔════════════════════════════════════════════╗\n");
+    printf("║           TEST RESULTS SUMMARY             ║\n");
+    printf("╠════════════════════════════════════════════╣\n");
+    printf("║ Boot voltage:      %.3fV                  ║\n", v_boot);
+    printf("║ WiFi connected:    %.3fV                  ║\n", v_wifi);
+    printf("║ Idle (5s):         %.3fV                  ║\n", v_idle);
+    printf("║ After display:     %.3fV                  ║\n", v_after_refresh);
+    printf("║ Voltage range:     %.3fV                  ║\n",
+           fmaxf(fmaxf(v_boot, v_wifi), fmaxf(v_idle, v_after_refresh)) -
+           fminf(fminf(v_boot, v_wifi), fminf(v_idle, v_after_refresh)));
+    printf("╚════════════════════════════════════════════╝\n");
+
+    // Report final status
+    report_device_status("battery_test_complete");
+
+    // Prepare for next cycle or normal operation
+    if (boot_count + 1 < BATTERY_TEST_CYCLES) {
+        printf("\nSleeping 30 seconds before next test cycle...\n");
+        esp_deep_sleep(30 * 1000000);  // 30 second sleep between tests
+    } else {
+        printf("\nBattery test complete! Returning to normal operation.\n");
+        printf("To run more tests, power cycle the device.\n");
+        esp_deep_sleep(DEFAULT_SLEEP_DURATION);
+    }
+}
+#endif // BATTERY_TEST_MODE
 
 typedef struct {
     char image_id[64];
@@ -720,6 +859,13 @@ void app_main(void)
         printf("Battery: %.2fV\n", battery_voltage);
     }
 
+#if BATTERY_TEST_MODE
+    // Run battery test instead of normal operation
+    // This handles its own WiFi init to measure voltage during connection
+    run_battery_test();
+    // run_battery_test() never returns - it loops through test cycles
+#endif
+
     // Initialize WiFi (NVS already initialized above)
     wifi_init();
 
@@ -738,6 +884,37 @@ void app_main(void)
     }
 
     printf("WiFi connected!\n");
+
+    // Mark current firmware as valid (prevents rollback if we got this far)
+    ota_mark_valid();
+
+    // Check for OTA update (only if battery is sufficient)
+    if (battery_voltage >= OTA_MIN_BATTERY_VOLTAGE) {
+        ota_version_info_t ota_info = {0};
+
+        if (ota_check_version(&ota_info)) {
+            // Double-check battery against server's minimum requirement
+            if (battery_voltage >= ota_info.min_battery) {
+                printf("Starting OTA update...\n");
+                report_device_status("ota_updating");
+
+                ota_result_t result = ota_perform_update(&ota_info);
+
+                if (result == OTA_RESULT_SUCCESS) {
+                    printf("OTA complete, rebooting...\n");
+                    esp_restart();  // Reboot into new firmware
+                } else {
+                    printf("OTA failed with code %d, continuing normally\n", result);
+                    report_device_status("ota_failed");
+                }
+            } else {
+                printf("Battery too low for OTA (%.2fV < %.2fV)\n",
+                       battery_voltage, ota_info.min_battery);
+            }
+        }
+    } else {
+        printf("Skipping OTA check - battery low (%.2fV)\n", battery_voltage);
+    }
 
     // Report status based on battery level
     if (battery_voltage < BATTERY_LOW) {
