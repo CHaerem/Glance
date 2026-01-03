@@ -52,6 +52,8 @@ COPY bhutan.svg ./
 COPY public ./public
 COPY routes ./routes
 COPY services ./services
+COPY utils ./utils
+COPY data ./data
 COPY scripts ./scripts
 
 # Create non-root user for security
