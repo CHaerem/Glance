@@ -46,26 +46,27 @@
 
 | Component | Model | Purpose |
 |-----------|-------|---------|
-| **Microcontroller** | ESP32 (HUZZAH32 recommended) | WiFi + Processing |
+| **Controller** | Good Display ESP32-133C02 | ESP32-S3 with QSPI interface |
 | **Display** | Waveshare 13.3" Spectra 6 | 1200×1600 6-color e-paper |
 | **Server** | Raspberry Pi 3/4/Zero 2W | Local server hosting |
-| **Power** | LiPo Battery (3.7V) | Portable operation |
-| **Interface** | SPI + GPIO | Display communication |
+| **Battery** | LiPo 12,000mAh (PiJuice) | Months of battery life |
+| **Power Mgmt** | LiPo Amigo Pro + MiniBoost | Charging + 5V boost |
 
-### 🔌 ESP32 to Display Connections
+### 🔌 ESP32 to Display Connections (Good Display ESP32-133C02)
 
-| ESP32 Pin | HAT+ Pin | Function |
-|-----------|----------|----------|
-| 21        | PWR      | Power Control |
-| 15        | BUSY     | Busy Signal |
-| 4         | RST      | Reset |
-| 17        | DC       | Data/Command |
-| 16        | CS_S     | Chip Select Slave |
-| 5         | CS_M     | Chip Select Master |
-| 18        | CLK      | SPI Clock |
-| 23        | DIN      | SPI Data |
-| GND       | GND      | Ground |
-| 3V        | VCC      | Power Supply |
+| GPIO | Function | Notes |
+|------|----------|-------|
+| 18   | SPI_CS0  | Chip select 0 |
+| 17   | SPI_CS1  | Chip select 1 |
+| 9    | SPI_CLK  | SPI clock |
+| 41   | SPI_Data0 | QSPI data line 0 |
+| 40   | SPI_Data1 | QSPI data line 1 |
+| 39   | SPI_Data2 | QSPI data line 2 |
+| 38   | SPI_Data3 | QSPI data line 3 |
+| 7    | EPD_BUSY | Display busy signal (input) |
+| 6    | EPD_RST  | Display reset (output) |
+| 45   | LOAD_SW  | Load switch control |
+| 2    | BATTERY  | Battery ADC via voltage divider |
 
 ## 🚀 Quick Start
 

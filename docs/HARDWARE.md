@@ -61,6 +61,22 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
 - Support for multiple image update modes
 - Arduino and ESP-IDF compatible
 
+#### GPIO Pin Assignments (Good Display ESP32-133C02)
+
+| Function | GPIO | Notes |
+|----------|------|-------|
+| SPI_CS0 | 18 | Chip select 0 |
+| SPI_CS1 | 17 | Chip select 1 |
+| SPI_CLK | 9 | SPI clock |
+| SPI_Data0 | 41 | QSPI data line 0 |
+| SPI_Data1 | 40 | QSPI data line 1 |
+| SPI_Data2 | 39 | QSPI data line 2 |
+| SPI_Data3 | 38 | QSPI data line 3 |
+| EPD_BUSY | 7 | Display busy signal (input) |
+| EPD_RST | 6 | Display reset (output) |
+| LOAD_SW | 45 | Load switch control (output) |
+| BATTERY_ADC | 2 | Battery voltage via ADC1_CH1 |
+
 ### 3. Power System
 
 #### Primary Battery - PiJuice 12,000mAh LiPo
@@ -123,7 +139,7 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
    │              │
    │              ↓
    ↓        [13.3" Display]
-[Voltage Divider → GPIO 4]
+[Voltage Divider → GPIO 2]
 ```
 
 #### Power Budget Analysis
@@ -161,25 +177,23 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
 ### Hardware Interconnections
 
 ```
-[PiJuice Battery 20Ah] 
+[PiJuice Battery 12Ah]
          |
-    [USB-C Cable]
+    [2-pin JST]
          |
   [LiPo Amigo Pro]
          |
     [USB-C Cable]
          |
+  [Adafruit MiniBoost 5V]
+         |
+    [USB-C Cable]
+         |
   [ESP32-133C02 Controller]
          |
-    [QSPI/SPI Bus]
+    [QSPI Bus]
          |
   [13.3" Spectra 6 Display]
-         
-    [Future: NFC Module]
-         |
-    [SPI/I2C + IRQ]
-         |
-  [ESP32-133C02 Controller]
 ```
 
 ### Communication Protocols
