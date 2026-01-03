@@ -101,6 +101,36 @@ Environment variables `IMAGE_VERSION` and `BUILD_DATE` are automatically set dur
 - `IMAGE_VERSION` – Set automatically during Docker builds
 - `BUILD_DATE` – Set automatically during Docker builds
 
+## Architecture
+
+The server uses a modular architecture with clean separation of concerns:
+
+```
+server/
+├── server.js              # Main entry (middleware, route mounting)
+├── routes/                # API route handlers
+│   ├── art.js             # Art search, smart search, similar, random
+│   ├── collections.js     # Curated art collections
+│   ├── devices.js         # Device status, commands
+│   ├── history.js         # History, playlist, collections
+│   ├── images.js          # Current image, binary stream, preview
+│   ├── logs.js            # Logging, serial streams, diagnostics
+│   ├── semantic-search.js # Vector similarity search
+│   ├── system.js          # Health, settings, build info
+│   └── upload.js          # Upload, AI generation
+├── services/              # Business logic
+│   ├── image-processing.js  # Dithering, color conversion
+│   ├── museum-api.js        # Museum search orchestration
+│   ├── statistics.js        # API tracking, pricing
+│   └── vector-search.js     # CLIP embeddings
+├── utils/                 # Shared utilities
+│   ├── time.js            # Oslo timezone, night sleep
+│   ├── validation.js      # Input validation
+│   └── data-store.js      # JSON file handling
+└── data/                  # Static data files
+    └── curated-collections.json
+```
+
 ## Testing
 
 Run the automated test suite with:
@@ -108,5 +138,7 @@ Run the automated test suite with:
 ```bash
 npm test
 ```
+
+**188 tests** covering image processing, API endpoints, and services.
 
 See [`__tests__/README.md`](./__tests__/README.md) for details about the test setup.

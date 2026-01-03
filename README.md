@@ -180,12 +180,15 @@ Glance/
 │   └── platformio.ini     # PlatformIO configuration
 │
 ├── server/                # 🖥️ Node.js Server
-│   ├── server.js          # Express.js API
+│   ├── server.js          # Express.js entry point
+│   ├── routes/            # API route handlers (9 modules)
+│   ├── services/          # Business logic (7 modules)
+│   ├── utils/             # Shared utilities (3 modules)
 │   ├── public/            # Web interface
 │   │   ├── index.html     # Main template
 │   │   ├── css/           # Stylesheets
 │   │   └── js/            # Modular JavaScript
-│   ├── __tests__/         # Test suite
+│   ├── __tests__/         # Test suite (188 tests)
 │   └── Dockerfile         # Container build
 │
 ├── hardware/              # 🔌 PCB Design (KiCad)
