@@ -599,7 +599,11 @@
         </div>
         <div class="status-item">
             <div class="status-value" id="firmwareDisplay">--</div>
-            <div class="status-label">Firmware</div>
+            <div class="status-label">Client</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="serverVersionDisplay">--</div>
+            <div class="status-label">Server</div>
         </div>
     </div>
 
@@ -858,6 +862,76 @@
             return `${Math.floor(seconds / 86400)}d ago`;
         }
 
+        // Format version display with GitHub link and timestamp
+        function formatVersionDisplay(element, version, buildDate) {
+            if (!version || version === 'unknown' || version === 'local') {
+                element.textContent = version || '--';
+                element.title = '';
+                return;
+            }
+
+            // Extract SHA (handle both "sha-abc1234" and full SHA formats)
+            let sha = version;
+            if (version.startsWith('sha-')) {
+                sha = version.substring(4);
+            }
+
+            // If it's a semantic version (1.2.3), just display it
+            if (/^\d+\.\d+\.\d+/.test(version)) {
+                element.textContent = version;
+                element.title = buildDate ? formatTimestamp(buildDate) : '';
+                return;
+            }
+
+            // For git SHA, create clickable link
+            const shortSha = sha.substring(0, 7);
+            const githubUrl = `https://github.com/CHaerem/Glance/commit/${sha}`;
+
+            // Create clickable link
+            element.innerHTML = `<a href="${githubUrl}" target="_blank" style="color: inherit; text-decoration: none;">${shortSha}</a>`;
+
+            // Add timestamp to title
+            if (buildDate) {
+                element.title = formatTimestamp(buildDate);
+            } else {
+                element.title = `Full SHA: ${sha}`;
+            }
+        }
+
+        // Format timestamp in Oslo timezone
+        function formatTimestamp(isoString) {
+            if (!isoString) return '';
+            try {
+                const date = new Date(isoString);
+                return date.toLocaleString('en-US', {
+                    timeZone: 'Europe/Oslo',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+            } catch (e) {
+                return isoString;
+            }
+        }
+
+        // Fetch and display server version
+        async function updateServerVersion() {
+            try {
+                const res = await fetch('/api/system-info');
+                if (!res.ok) return;
+
+                const data = await res.json();
+                const serverEl = document.getElementById('serverVersionDisplay');
+                formatVersionDisplay(serverEl, data.version, data.buildDate);
+            } catch (error) {
+                console.error('Failed to fetch server version:', error);
+            }
+        }
+
         // Check for OTA updates
         async function checkOTAUpdate(currentVersion) {
             const banner = document.getElementById('otaBanner');
@@ -941,15 +1015,13 @@
                 // Signal
                 document.getElementById('signalDisplay').textContent = s.signalStrength ? `${s.signalStrength}dBm` : '--';
 
-                // Firmware version
+                // Client firmware version
                 const firmwareEl = document.getElementById('firmwareDisplay');
                 if (s.firmwareVersion) {
-                    // Show short version (first 7 chars if git SHA, full if semantic version)
-                    const version = s.firmwareVersion.match(/^\d+\.\d+\.\d+/) ? s.firmwareVersion : s.firmwareVersion.substring(0, 7);
-                    firmwareEl.textContent = version;
-                    firmwareEl.title = s.firmwareVersion; // Full version on hover
+                    formatVersionDisplay(firmwareEl, s.firmwareVersion, null);
                 } else {
                     firmwareEl.textContent = '--';
+                    firmwareEl.title = '';
                 }
 
                 // Check for OTA updates
@@ -1315,6 +1387,7 @@
             loadDeviceStatus();
             loadSystemInfo();
             loadLogs();
+            updateServerVersion();
             setInterval(loadDeviceStatus, 10000);
             setInterval(updateNextWakeDisplay, 1000);
         });

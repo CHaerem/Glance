@@ -51,7 +51,8 @@ function createSystemRoutes({ imageVersion, buildDate, buildDateHuman }) {
      */
     router.get('/system-info', (_req, res) => {
         res.json({
-            version: process.env.DOCKER_IMAGE_VERSION || 'local',
+            version: process.env.DOCKER_IMAGE_VERSION || process.env.IMAGE_VERSION || 'local',
+            buildDate: process.env.BUILD_DATE || null,
             nodeVersion: process.version,
             platform: process.platform,
             uptime: process.uptime(),
