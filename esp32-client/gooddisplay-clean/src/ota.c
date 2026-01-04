@@ -24,7 +24,20 @@ const char* ota_get_version(void) {
  * Compare semantic versions (e.g., "1.2.3")
  * Returns: 1 if v1 > v2, -1 if v1 < v2, 0 if equal
  */
-static int compare_versions(const char* v1, const char* v2) {
+/**
+ * Compare two firmware versions
+ * @param v1 Version string 1 (semver or git SHA)
+ * @param v2 Version string 2 (semver or git SHA)
+ * @param build_date1 Build timestamp for v1 (0 if unknown)
+ * @param build_date2 Build timestamp for v2 (0 if unknown)
+ * @return >0 if v2 is newer, 0 if same, <0 if v2 is older
+ */
+static int compare_versions(const char* v1, const char* v2, uint32_t build_date1, uint32_t build_date2) {
+    // First check if versions are identical
+    if (strcmp(v1, v2) == 0) {
+        return 0;  // Same version
+    }
+
     int major1 = 0, minor1 = 0, patch1 = 0;
     int major2 = 0, minor2 = 0, patch2 = 0;
 
@@ -34,15 +47,45 @@ static int compare_versions(const char* v1, const char* v2) {
 
     // If both are semantic versions, compare numerically
     if (parsed1 == 3 && parsed2 == 3) {
-        if (major1 != major2) return major1 > major2 ? 1 : -1;
-        if (minor1 != minor2) return minor1 > minor2 ? 1 : -1;
-        if (patch1 != patch2) return patch1 > patch2 ? 1 : -1;
+        if (major1 != major2) return major2 > major1 ? 1 : -1;
+        if (minor1 != minor2) return minor2 > minor1 ? 1 : -1;
+        if (patch1 != patch2) return patch2 > patch1 ? 1 : -1;
         return 0;
     }
 
-    // Otherwise, compare as strings (for git SHA or other formats)
-    // Different strings = update available
-    return strcmp(v1, v2) != 0 ? 1 : 0;
+    // For git SHAs or other non-semantic versions, use build dates to determine which is newer
+    // Build dates are Unix timestamps, so larger = more recent
+    if (build_date1 > 0 && build_date2 > 0) {
+        // Both have build dates - compare them
+        if (build_date2 > build_date1) {
+            printf("[%s] Server firmware is newer by build date (%lu > %lu)\n",
+                   TAG, (unsigned long)build_date2, (unsigned long)build_date1);
+            return 1;  // v2 is newer
+        } else if (build_date2 < build_date1) {
+            printf("[%s] Server firmware is OLDER by build date (%lu < %lu) - refusing downgrade\n",
+                   TAG, (unsigned long)build_date2, (unsigned long)build_date1);
+            return -1;  // v2 is older - refuse downgrade
+        }
+        // Same build date but different versions - treat as same
+        return 0;
+    }
+
+    // If only server has build date (current was manually flashed without build date)
+    if (build_date1 == 0 && build_date2 > 0) {
+        printf("[%s] Server firmware has build date, current does not - allowing update\n", TAG);
+        return 1;  // Allow update to CI-built firmware
+    }
+
+    // If current has build date but server doesn't, refuse (incomplete server firmware)
+    if (build_date1 > 0 && build_date2 == 0) {
+        printf("[%s] Server firmware missing build date - refusing update\n", TAG);
+        return -1;
+    }
+
+    // If neither has build dates, refuse update to be safe
+    // This prevents accidental downgrades when build date info is missing
+    printf("[%s] Cannot determine version age (both missing build dates) - refusing update\n", TAG);
+    return -1;
 }
 
 bool ota_check_version(ota_version_info_t* info) {
@@ -131,13 +174,25 @@ bool ota_check_version(ota_version_info_t* info) {
 
     cJSON_Delete(json);
 
-    // Compare versions
-    int cmp = compare_versions(info->version, FIRMWARE_VERSION);
+    // Get current firmware's build timestamp from ESP32 app description
+    // This is set by esp-idf during compilation
+    const esp_app_desc_t* app_desc = esp_app_get_description();
+    uint32_t current_build_date = 0;  // Will be 0 if manually flashed
+    // Note: app_desc->date and time are compile-time strings, not timestamps
+    // For now we'll use 0 for current firmware (no build date available)
+    // Server firmware has build dates from CI/CD
+
+    // Compare versions (current vs server)
+    int cmp = compare_versions(FIRMWARE_VERSION, info->version, current_build_date, info->build_date);
     if (cmp > 0) {
         printf("[%s] Update available: %s -> %s (%lu bytes)\n",
                TAG, FIRMWARE_VERSION, info->version, (unsigned long)info->size);
         info->update_available = true;
         return true;
+    } else if (cmp < 0) {
+        printf("[%s] Server firmware is OLDER - refusing downgrade\n", TAG);
+        info->update_available = false;
+        return false;
     }
 
     printf("[%s] Firmware is up to date: %s\n", TAG, FIRMWARE_VERSION);
