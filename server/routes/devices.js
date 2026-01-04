@@ -192,6 +192,48 @@ function createDeviceRoutes() {
                 addDeviceLog(`Brownout detected (count: ${brownoutCount}) - battery voltage may be too low`);
             }
 
+            // Track firmware version and OTA updates
+            const firmwareVersion = sanitizeInput(status.firmwareVersion) || null;
+            const previousVersion = previousDevice.firmwareVersion || null;
+            const otaHistory = previousDevice.otaHistory || [];
+
+            // Detect OTA update completion (version changed)
+            if (firmwareVersion && previousVersion && firmwareVersion !== previousVersion) {
+                const otaEvent = {
+                    timestamp: Date.now(),
+                    fromVersion: previousVersion,
+                    toVersion: firmwareVersion,
+                    success: true
+                };
+                otaHistory.push(otaEvent);
+                if (otaHistory.length > 10) {
+                    otaHistory.shift(); // Keep last 10 OTA events
+                }
+                console.log(`✅ OTA Update successful: ${previousVersion} -> ${firmwareVersion}`);
+                addDeviceLog(`OTA Update successful: ${previousVersion} -> ${firmwareVersion}`);
+            }
+
+            // Track OTA status changes
+            const deviceStatus = sanitizeInput(status.status) || 'unknown';
+            const previousStatus = previousDevice.status;
+
+            // Detect OTA failure (status changed to ota_failed)
+            if (deviceStatus === 'ota_failed' && previousStatus !== 'ota_failed') {
+                const otaEvent = {
+                    timestamp: Date.now(),
+                    fromVersion: firmwareVersion || previousVersion,
+                    toVersion: 'unknown',
+                    success: false,
+                    error: 'OTA update failed'
+                };
+                otaHistory.push(otaEvent);
+                if (otaHistory.length > 10) {
+                    otaHistory.shift();
+                }
+                console.log(`❌ OTA Update failed for ${deviceId}`);
+                addDeviceLog(`OTA Update failed`);
+            }
+
             // Update device status
             devices[deviceId] = {
                 batteryVoltage: batteryVoltage,
@@ -205,7 +247,9 @@ function createDeviceRoutes() {
                 freeHeap: parseInt(status.freeHeap) || 0,
                 bootCount: parseInt(status.bootCount) || 0,
                 brownoutCount: brownoutCount,
-                status: sanitizeInput(status.status) || 'unknown',
+                firmwareVersion: firmwareVersion,
+                otaHistory: otaHistory,
+                status: deviceStatus,
                 lastSeen: Date.now(),
                 deviceId: sanitizeInput(deviceId),
             };
@@ -328,6 +372,8 @@ function createDeviceRoutes() {
                 sleepDuration: sleepDuration,
                 freeHeap: deviceStatus.freeHeap,
                 brownoutCount: deviceStatus.brownoutCount || 0,
+                firmwareVersion: deviceStatus.firmwareVersion || null,
+                otaHistory: deviceStatus.otaHistory || [],
                 status: deviceStatus.status,
                 currentImage: current.title || null
             });

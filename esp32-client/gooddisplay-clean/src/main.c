@@ -401,6 +401,10 @@ void report_device_status(const char* status_msg, int32_t brownout_count) {
         battery_voltage = 0.0f;  // Report 0 if sensor invalid
     }
 
+    // Get firmware version from OTA module
+    extern const char* ota_get_version(void);
+    const char* firmware_version = ota_get_version();
+
     char post_data[STATUS_POST_BUFFER_SIZE];
     int written = snprintf(post_data, sizeof(post_data),
         "{\"deviceId\":\"%s\",\"status\":{"
@@ -409,6 +413,7 @@ void report_device_status(const char* status_msg, int32_t brownout_count) {
         "\"freeHeap\":%lu,"
         "\"bootCount\":%lu,"
         "\"brownoutCount\":%ld,"
+        "\"firmwareVersion\":\"%s\","
         "\"status\":\"%s\"}}",
         device_id,
         battery_voltage,
@@ -416,6 +421,7 @@ void report_device_status(const char* status_msg, int32_t brownout_count) {
         (unsigned long)esp_get_free_heap_size(),
         (unsigned long)boot_count,
         (long)brownout_count,
+        firmware_version,
         status_msg
     );
 

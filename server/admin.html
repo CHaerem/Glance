@@ -550,6 +550,10 @@
             <div class="status-value" id="signalDisplay">--</div>
             <div class="status-label">Signal</div>
         </div>
+        <div class="status-item">
+            <div class="status-value" id="firmwareDisplay">--</div>
+            <div class="status-label">Firmware</div>
+        </div>
     </div>
 
     <!-- Battery Graph -->
@@ -613,6 +617,10 @@
         <div class="stat-item" id="statBrownoutItem" style="display: none;">
             <span class="stat-value stat-warning" id="statBrownout">--</span>
             <span class="stat-label">Brownouts</span>
+        </div>
+        <div class="stat-item" id="statOtaItem" style="display: none;">
+            <span class="stat-value" id="statOta">--</span>
+            <span class="stat-label">Last OTA</span>
         </div>
         <div class="stat-item">
             <span class="stat-value" id="statImage">--</span>
@@ -842,6 +850,17 @@
                 // Signal
                 document.getElementById('signalDisplay').textContent = s.signalStrength ? `${s.signalStrength}dBm` : '--';
 
+                // Firmware version
+                const firmwareEl = document.getElementById('firmwareDisplay');
+                if (s.firmwareVersion) {
+                    // Show short version (first 7 chars if git SHA, full if semantic version)
+                    const version = s.firmwareVersion.match(/^\d+\.\d+\.\d+/) ? s.firmwareVersion : s.firmwareVersion.substring(0, 7);
+                    firmwareEl.textContent = version;
+                    firmwareEl.title = s.firmwareVersion; // Full version on hover
+                } else {
+                    firmwareEl.textContent = '--';
+                }
+
                 // Next wake
                 const card = document.getElementById('nextWakeCard');
                 const timeEl = document.getElementById('nextWakeTime');
@@ -906,6 +925,24 @@
                 brownoutEl.textContent = brownoutCount;
             } else {
                 brownoutItem.style.display = 'none';
+            }
+
+            // OTA history (only show if we have OTA events)
+            const otaItem = document.getElementById('statOtaItem');
+            const otaEl = document.getElementById('statOta');
+            const otaHistory = status.otaHistory || [];
+            if (otaHistory.length > 0) {
+                const lastOta = otaHistory[otaHistory.length - 1];
+                const timeStr = timeAgo(lastOta.timestamp);
+                const statusStr = lastOta.success ? '✅' : '❌';
+                otaEl.textContent = `${statusStr} ${timeStr}`;
+                otaEl.title = lastOta.success
+                    ? `OTA succeeded: ${lastOta.fromVersion} → ${lastOta.toVersion}`
+                    : `OTA failed: ${lastOta.error || 'Unknown error'}`;
+                otaEl.className = lastOta.success ? 'stat-value' : 'stat-value stat-error';
+                otaItem.style.display = 'block';
+            } else {
+                otaItem.style.display = 'none';
             }
 
             // Current image
