@@ -17,17 +17,34 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 2  # Need previous commit to detect changes
 
-    # Build ESP32 firmware for OTA
+    - name: Check for ESP32 changes
+      id: esp32_changes
+      run: |
+        # Check if ESP32 client files changed in this push
+        if git diff --name-only HEAD~1 HEAD | grep -q "^esp32-client/"; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "ESP32 firmware files changed - will build"
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "No ESP32 firmware changes - skipping build"
+        fi
+
+    # Build ESP32 firmware for OTA (only if ESP32 files changed)
     - name: Set up Python
+      if: steps.esp32_changes.outputs.changed == 'true'
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: Install PlatformIO
+      if: steps.esp32_changes.outputs.changed == 'true'
       run: pip install platformio
 
     - name: Build ESP32 firmware
+      if: steps.esp32_changes.outputs.changed == 'true'
       working-directory: esp32-client/gooddisplay-clean
       env:
         FIRMWARE_VERSION: ${{ github.sha }}
