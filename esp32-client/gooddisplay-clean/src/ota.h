@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 // OTA configuration
-#define OTA_MIN_BATTERY_VOLTAGE  3.6f   // Don't start OTA below this voltage
+#define OTA_MIN_BATTERY_VOLTAGE  3.8f   // Don't start OTA below this voltage (raised from 3.6V to prevent brownouts)
 #define OTA_RECV_TIMEOUT_MS      30000  // 30 second receive timeout
 #define OTA_BUFFER_SIZE          4096   // Download chunk size
 #define OTA_MIN_FIRMWARE_SIZE    100000 // 100KB minimum (sanity check)

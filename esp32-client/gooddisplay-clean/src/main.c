@@ -405,10 +405,14 @@ void report_device_status(const char* status_msg, int32_t brownout_count) {
     extern const char* ota_get_version(void);
     const char* firmware_version = ota_get_version();
 
+    // Detect charging status
+    bool is_charging = is_battery_charging(battery_voltage);
+
     char post_data[STATUS_POST_BUFFER_SIZE];
     int written = snprintf(post_data, sizeof(post_data),
         "{\"deviceId\":\"%s\",\"status\":{"
         "\"batteryVoltage\":%.2f,"
+        "\"isCharging\":%s,"
         "\"signalStrength\":%d,"
         "\"freeHeap\":%lu,"
         "\"bootCount\":%lu,"
@@ -417,6 +421,7 @@ void report_device_status(const char* status_msg, int32_t brownout_count) {
         "\"status\":\"%s\"}}",
         device_id,
         battery_voltage,
+        is_charging ? "true" : "false",
         ap_info.rssi,
         (unsigned long)esp_get_free_heap_size(),
         (unsigned long)boot_count,
@@ -1161,7 +1166,7 @@ void app_main(void)
 
     // Check for OTA updates - but with smart battery protection
     // When CHARGING: Always check (have external power, no brownout risk, fast updates)
-    // When ON BATTERY: Only check if voltage >= 3.6V (enough margin above 3.33V brownout)
+    // When ON BATTERY: Only check if voltage >= 3.8V (safer margin above 3.0-3.3V brownout threshold)
     bool should_check_ota = is_charging || (battery_voltage >= OTA_MIN_BATTERY_VOLTAGE);
 
     if (should_check_ota) {

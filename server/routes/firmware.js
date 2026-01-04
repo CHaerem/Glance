@@ -62,7 +62,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
                     buildDate: buildDate ? new Date(buildDate).getTime() : Date.now(),
                     size: stats.size,
                     sha256: sha256,
-                    minBattery: 3.6,
+                    minBattery: 3.8,  // Raised from 3.6V to prevent brownouts during OTA
                     mtime: currentMtime
                 };
 

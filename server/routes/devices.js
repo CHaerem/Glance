@@ -90,12 +90,19 @@ function createDeviceRoutes() {
             // Calculate battery percentage from voltage first
             const batteryVoltage = parseFloat(status.batteryVoltage) || 0;
 
-            // Detect charging
-            let isCharging = status.isCharging === true;
+            // Detect charging - trust ESP32's explicit isCharging state first
             const previousVoltage = previousDevice.batteryVoltage || 0;
             const voltageDelta = batteryVoltage - previousVoltage;
 
-            if (!isCharging && previousVoltage > 0 && voltageDelta > 0.05) {
+            let isCharging = false;
+
+            // Priority 1: Trust ESP32's charging detection (firmware v1.0.0+)
+            if (typeof status.isCharging === 'boolean') {
+                isCharging = status.isCharging;
+            }
+            // Priority 2: Fallback voltage rise detection for old firmware
+            // Raised threshold from 0.05V to 0.15V to reduce false positives from battery recovery
+            else if (previousVoltage > 0 && voltageDelta > 0.15) {
                 isCharging = true;
                 console.log(`[Battery] Charging detected via voltage rise: ${previousVoltage}V -> ${batteryVoltage}V (+${voltageDelta.toFixed(2)}V)`);
             }
