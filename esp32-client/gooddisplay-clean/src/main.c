@@ -1109,7 +1109,7 @@ void app_main(void)
             }
 
             // Sleep shorter when charging for faster OTA checks
-            printf("Sleeping for %d seconds (charging mode)...\n", CHARGING_SLEEP_DURATION / 1000000);
+            printf("Sleeping for %d seconds (charging mode)...\n", (int)(CHARGING_SLEEP_DURATION / 1000000));
             esp_deep_sleep(CHARGING_SLEEP_DURATION);
         } else {
             // On battery - skip everything and sleep for extended period
