@@ -96,7 +96,11 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define BATTERY_CRITICAL 3.3f  // Below this: emergency mode (LiPo cutoff)
 #define BATTERY_LOW      3.5f  // Below this: low battery warning
 #define BATTERY_CHARGED  3.6f  // Above this: normal operation
-#define DISPLAY_MIN_BATTERY 3.8f  // Minimum voltage for display refresh (prevents brownout during high current draw)
+// DISPLAY THRESHOLD RAISED FOR VOLTAGE SAG:
+// Display draws >1A peak current. Weak batteries with high internal resistance
+// can drop 1.0-1.5V under heavy load! Battery reading 3.8V may sag to 2.3V at 1A.
+// Safe threshold must account for worst-case sag to stay above 2.8V brownout threshold
+#define DISPLAY_MIN_BATTERY 4.1f  // Raised from 3.8V - allows ~1.3V sag under load
 #define EMERGENCY_SLEEP_DURATION (24ULL * 60 * 60 * 1000000)  // 24 hours
 
 // Battery sensor sanity checks (detect disconnected/faulty sensor)
@@ -969,7 +973,9 @@ void app_main(void)
 
     // CRITICAL: If battery is dangerously low, skip ALL initialization and sleep
     // Even EPD init can cause brownouts - we must check battery FIRST
-    const float CRITICAL_BATTERY = 3.2f;  // Absolute minimum for any operation
+    // NOTE: Voltage sag under load! Battery may read 3.5V but drop to <2.8V at 1A load
+    // Weak batteries with high internal resistance need MUCH higher threshold
+    const float CRITICAL_BATTERY = 3.6f;  // Raised to account for voltage sag under load
     bool is_charging = is_battery_charging(battery_voltage);
 
     if (!is_charging && battery_voltage < CRITICAL_BATTERY) {
@@ -1073,9 +1079,8 @@ void app_main(void)
 
     // SECOND BATTERY CHECK - WiFi requires slightly more power than basic init
     // WiFi connection draws ~460mA which can cause brownouts on weak battery
-    // First check was 3.2V minimum for ANY operation (including EPD init)
-    // This check is 3.4V minimum for WiFi specifically
-    const float WIFI_MIN_BATTERY = 3.4f;  // Minimum for WiFi connection (higher than critical threshold)
+    // Account for voltage sag: weak battery may drop 0.4-0.6V under WiFi load
+    const float WIFI_MIN_BATTERY = 3.7f;  // Raised to account for voltage sag (was 3.4V)
 
     if (!is_charging && battery_voltage < WIFI_MIN_BATTERY) {
         printf("🚨 CRITICAL: Battery too low for WiFi (%.2fV < %.2fV)\n",
