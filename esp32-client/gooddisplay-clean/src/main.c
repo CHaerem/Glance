@@ -66,7 +66,7 @@
 // Display timing
 #define DISPLAY_ROW_DELAY_MS       1      // Delay between display rows
 #define DISPLAY_IC_DELAY_MS        50     // Delay between display ICs
-#define WIFI_SHUTDOWN_DELAY_MS     500    // WiFi shutdown stabilization (allow full power-down before display)
+#define WIFI_SHUTDOWN_DELAY_MS     2000   // WiFi shutdown stabilization (allow full power-down before display)
 
 // Brownout recovery
 #define BROWNOUT_THRESHOLD_COUNT   3      // Brownouts before recovery mode
@@ -884,11 +884,12 @@ bool download_and_display_image(void)
     if (pixels_written > 0) {
         printf("Displaying image...\n");
 
-        // POWER OPTIMIZATION: Fully shutdown WiFi before display refresh to save ~100-200mA
-        printf("Shutting down WiFi completely before display refresh...\n");
+        // POWER OPTIMIZATION: Disable WiFi before display refresh to save ~100-200mA
+        // Note: Using disconnect+stop only (like working Oct 2025 version)
+        // deinit() may cause issues, testing without it
+        printf("Disabling WiFi to conserve power during display refresh...\n");
         esp_wifi_disconnect();
         esp_wifi_stop();
-        esp_wifi_deinit();  // CRITICAL: Fully deinitialize WiFi to power down radio
         vTaskDelay(pdMS_TO_TICKS(WIFI_SHUTDOWN_DELAY_MS));
 
         initEPD();
