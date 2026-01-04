@@ -1023,17 +1023,7 @@ void app_main(void)
     } else {
         boot_count++;
         printf("=== BOOT #%lu (from deep sleep) ===\n", boot_count);
-
-        // Reset brownout counter on successful wake from sleep
-        if (brownout_count > 0 && reset_reason == ESP_RST_DEEPSLEEP) {
-            printf("✅ Successful wake - clearing brownout counter (%ld)\n", (long)brownout_count);
-            if (err == ESP_OK) {
-                nvs_erase_key(nvs_handle, BROWNOUT_COUNT_KEY);
-                nvs_erase_key(nvs_handle, BROWNOUT_TIME_KEY);
-                nvs_commit(nvs_handle);
-            }
-            brownout_count = 0;
-        }
+        // Note: Brownout counter is cleared at END of successful wake cycle, not at start
     }
 
     if (err == ESP_OK) {
@@ -1092,14 +1082,42 @@ void app_main(void)
     ota_mark_valid();
 
     // BROWNOUT RECOVERY MODE - Skip heavy operations to prevent boot loop
+    // EXCEPTION: Allow OTA when charging (provides escape hatch - plug in USB to update firmware)
     if (in_brownout_recovery) {
-        printf("⚠️  In brownout recovery - skipping all operations\n");
+        printf("⚠️  In brownout recovery mode (battery too weak)\n");
         report_device_status("brownout_recovery", brownout_count);
 
-        // Sleep for extended period to give battery time to recover
-        uint64_t recovery_sleep = BROWNOUT_RECOVERY_SLEEP_S * 1000000ULL;
-        printf("Sleeping for %d seconds to allow battery recovery...\n", BROWNOUT_RECOVERY_SLEEP_S);
-        esp_deep_sleep(recovery_sleep);
+        // If charging, allow OTA check (safe with external power, provides escape path)
+        if (is_charging) {
+            printf("🔌 Charging detected - checking for OTA update (escape path)\n");
+
+            // Skip display refresh (still too risky), but check for OTA
+            ota_version_info_t ota_info = {0};
+            if (ota_check_version(&ota_info)) {
+                printf("📥 OTA update available, downloading...\n");
+                report_device_status("ota_updating", brownout_count);
+
+                ota_result_t result = ota_perform_update(&ota_info);
+
+                if (result == OTA_RESULT_SUCCESS) {
+                    printf("✅ OTA complete, rebooting...\n");
+                    esp_restart();  // Reboot into new firmware with fixes
+                } else {
+                    printf("❌ OTA failed with code %d\n", result);
+                    report_device_status("ota_failed", brownout_count);
+                }
+            }
+
+            // Sleep shorter when charging for faster OTA checks
+            printf("Sleeping for %d seconds (charging mode)...\n", CHARGING_SLEEP_DURATION / 1000000);
+            esp_deep_sleep(CHARGING_SLEEP_DURATION);
+        } else {
+            // On battery - skip everything and sleep for extended period
+            printf("⏭️  Battery recovery - skipping display and OTA\n");
+            uint64_t recovery_sleep = BROWNOUT_RECOVERY_SLEEP_S * 1000000ULL;
+            printf("Sleeping for %d seconds to allow battery recovery...\n", BROWNOUT_RECOVERY_SLEEP_S);
+            esp_deep_sleep(recovery_sleep);
+        }
         return;  // Never reached, but makes intent clear
     }
 
@@ -1194,6 +1212,19 @@ void app_main(void)
     } else {
         printf("⏭️  Skipping OTA - battery too low (%.2fV < %.2fV)\n",
                battery_voltage, OTA_MIN_BATTERY_VOLTAGE);
+    }
+
+    // Successful wake cycle completed - clear brownout counter
+    // (Only gets here if we didn't brownout during display/OTA operations)
+    if (brownout_count > 0) {
+        printf("✅ Wake cycle successful - clearing brownout counter (%ld)\n", (long)brownout_count);
+        nvs_handle_t nvs_handle_clear;
+        if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle_clear) == ESP_OK) {
+            nvs_erase_key(nvs_handle_clear, "brownout_cnt");
+            nvs_erase_key(nvs_handle_clear, "brownout_time");
+            nvs_commit(nvs_handle_clear);
+            nvs_close(nvs_handle_clear);
+        }
     }
 
     printf("Entering deep sleep for %llu seconds...\n", sleep_duration / 1000000);
