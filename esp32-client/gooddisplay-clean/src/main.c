@@ -950,9 +950,39 @@ void app_main(void)
 
     printf("\n=== GLANCE: WiFi E-ink Art Gallery ===\n");
 
-    // Initialize hardware
+    // CRITICAL: Initialize GPIO and SPI first (needed for battery monitoring)
     initialGpio();
     initialSpi();
+
+    // CRITICAL: Check battery voltage BEFORE any power-hungry operations
+    // EPD init, WiFi, etc. can cause brownouts on weak battery
+    printf("Checking battery voltage...\n");
+    float battery_voltage = read_battery_voltage();
+
+    // Handle invalid sensor readings (treat as "no battery monitoring")
+    if (battery_voltage == BATTERY_SENSOR_INVALID) {
+        printf("Battery sensor not connected - continuing without protection\n");
+        battery_voltage = 4.0f;  // Assume good battery
+    } else {
+        printf("Battery: %.2fV\n", battery_voltage);
+    }
+
+    // CRITICAL: If battery is dangerously low, skip ALL initialization and sleep
+    // Even EPD init can cause brownouts - we must check battery FIRST
+    const float CRITICAL_BATTERY = 3.2f;  // Absolute minimum for any operation
+    bool is_charging = is_battery_charging(battery_voltage);
+
+    if (!is_charging && battery_voltage < CRITICAL_BATTERY) {
+        printf("🚨 CRITICAL BATTERY: %.2fV < %.2fV\n", battery_voltage, CRITICAL_BATTERY);
+        printf("Skipping ALL initialization to prevent brownout\n");
+        printf("Sleeping for 12 hours - battery may recover or charge device\n");
+        const uint64_t CRITICAL_SLEEP = 12ULL * 60 * 60 * 1000000;  // 12 hours
+        esp_deep_sleep(CRITICAL_SLEEP);
+        // Never returns
+    }
+
+    // Battery is sufficient for basic init - proceed with hardware setup
+    printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
     setGpioLevel(LOAD_SW, GPIO_HIGH);
     epdHardwareReset();
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -1034,17 +1064,6 @@ void app_main(void)
     // Get device ID
     get_device_id();
 
-    // Battery monitoring - GPIO 2 confirmed via toggle test
-    float battery_voltage = read_battery_voltage();
-
-    // Handle invalid sensor readings (treat as "no battery monitoring")
-    if (battery_voltage == BATTERY_SENSOR_INVALID) {
-        printf("Battery sensor not connected - continuing without protection\n");
-        battery_voltage = 4.0f;  // Assume good battery
-    } else {
-        printf("Battery: %.2fV\n", battery_voltage);
-    }
-
 #if BATTERY_TEST_MODE
     // Run battery test instead of normal operation
     // This handles its own WiFi init to measure voltage during connection
@@ -1052,11 +1071,11 @@ void app_main(void)
     // run_battery_test() never returns - it loops through test cycles
 #endif
 
-    // CRITICAL BATTERY CHECK - Must happen BEFORE WiFi init
+    // SECOND BATTERY CHECK - WiFi requires slightly more power than basic init
     // WiFi connection draws ~460mA which can cause brownouts on weak battery
-    // This creates boot loop that brownout recovery can't escape (recovery also needs WiFi)
-    const float WIFI_MIN_BATTERY = 3.4f;  // Minimum for WiFi connection (lower than display threshold)
-    bool is_charging = is_battery_charging(battery_voltage);
+    // First check was 3.2V minimum for ANY operation (including EPD init)
+    // This check is 3.4V minimum for WiFi specifically
+    const float WIFI_MIN_BATTERY = 3.4f;  // Minimum for WiFi connection (higher than critical threshold)
 
     if (!is_charging && battery_voltage < WIFI_MIN_BATTERY) {
         printf("🚨 CRITICAL: Battery too low for WiFi (%.2fV < %.2fV)\n",
