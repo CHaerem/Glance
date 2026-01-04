@@ -506,6 +506,10 @@
             color: #f59e0b;
         }
 
+        .stat-warning {
+            color: #f59e0b;
+        }
+
         /* Mobile */
         @media (max-width: 480px) {
             body { padding: 16px; }
@@ -605,6 +609,10 @@
         <div class="stat-item">
             <span class="stat-value" id="statUpdates">--</span>
             <span class="stat-label">Display updates</span>
+        </div>
+        <div class="stat-item" id="statBrownoutItem" style="display: none;">
+            <span class="stat-value stat-warning" id="statBrownout">--</span>
+            <span class="stat-label">Brownouts</span>
         </div>
         <div class="stat-item">
             <span class="stat-value" id="statImage">--</span>
@@ -887,6 +895,17 @@
             if (stats) {
                 document.getElementById('statWakes').textContent = stats.totalWakes || 0;
                 document.getElementById('statUpdates').textContent = stats.totalDisplayUpdates || 0;
+            }
+
+            // Brownout count (only show if > 0)
+            const brownoutItem = document.getElementById('statBrownoutItem');
+            const brownoutEl = document.getElementById('statBrownout');
+            const brownoutCount = status.brownoutCount || 0;
+            if (brownoutCount > 0) {
+                brownoutItem.style.display = 'block';
+                brownoutEl.textContent = brownoutCount;
+            } else {
+                brownoutItem.style.display = 'none';
             }
 
             // Current image
