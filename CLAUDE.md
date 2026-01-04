@@ -29,9 +29,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Glance/
 ├── esp32-client/                 # ESP32 firmware (PlatformIO/ESP-IDF)
 │   ├── gooddisplay-clean/        # Main production firmware
-│   │   └── src/main.c            # Core firmware with battery monitoring
+│   │   ├── src/
+│   │   │   ├── main.c            # Core firmware with battery monitoring
+│   │   │   ├── ota.c             # OTA firmware update system
+│   │   │   ├── server_config.h   # Shared server URLs and config
+│   │   │   └── GDEP133C02.c      # E-ink display driver
+│   │   └── platformio.ini        # Build config with firmware version
 │   ├── lib/epd/                  # E-ink display drivers
-│   ├── platformio.ini            # Build environments
 │   └── build.sh                  # Build automation
 ├── server/                       # Node.js Express server
 │   ├── server.js                 # Main entry (~500 lines)
@@ -142,8 +146,10 @@ docker compose up -d
 |----------|---------|
 | `/api/current.json` | Current display image metadata |
 | `/api/image.bin` | Binary image data for ESP32 |
-| `/api/device-status` | ESP32 status reporting (battery, signal) |
-| `/api/esp32-status` | Get device status for admin UI |
+| `/api/device-status` | ESP32 status reporting (battery, signal, firmware) |
+| `/api/esp32-status` | Get device status for admin UI (includes OTA history) |
+| `/api/firmware/version` | Get available firmware version for OTA |
+| `/api/firmware/download` | Download firmware binary for OTA update |
 | `/api/upload` | Upload custom images |
 | `/api/generate-art` | AI art generation (OpenAI GPT-4o) |
 | `/api/art/search` | Keyword search (8 museum sources) |
@@ -224,6 +230,7 @@ Test suites in `server/__tests__/`:
 - `WIFI_SSID` - WiFi network name
 - `WIFI_PASSWORD` - WiFi password
 - `DEVICE_ID` - Device identifier (optional)
+- `FIRMWARE_VERSION` - Firmware version (auto-set by CI/CD to git SHA)
 
 ## Docker
 
@@ -260,11 +267,42 @@ docker build -t glance-server .
 - Verify volumes exist
 - Check port 3000 isn't in use
 
+## OTA Firmware Updates
+
+The system supports Over-The-Air (OTA) firmware updates for the ESP32:
+
+### ESP32 Side
+- Dual OTA partitions (ota_0 and ota_1) for automatic rollback on failure
+- Firmware version injected at build time (git SHA or semantic version)
+- Version checking against server `/api/firmware/version`
+- Safe update requirements: Battery >= 3.6V or charging
+- Automatic rollback protection via `ota_mark_valid()`
+- Size validation (100KB - 8MB) before download
+
+### Server Side
+- Tracks firmware version from ESP32 device status reports
+- Detects successful OTA (version changes)
+- Detects failed OTA (status = "ota_failed")
+- Stores OTA history (last 10 events) per device
+- Admin UI displays current firmware version and OTA status
+
+### Charging Mode OTA
+- When charging: ESP32 wakes every 30 seconds for fast OTA checks
+- Enables near-instant firmware deployment during development
+- No battery safety restrictions when on external power
+
 ## Recent Changes
 
+- **ESP32 client refactored**: Named constants, removed globals, comprehensive documentation
+  - 30+ magic numbers converted to #define constants
+  - Created server_config.h for shared server URLs
+  - Removed global variables, added NULL checks and validation
+  - Input validation prevents device brick scenarios
+- **OTA monitoring**: Firmware version tracking, OTA history, admin UI display
+  - ESP32 reports firmware version in device status
+  - Server tracks OTA success/failure events
+  - Admin page shows current firmware and last OTA status
 - **Server refactored**: Modular architecture with routes/, services/, utils/
-- Server.js reduced from 5,225 lines to 523 lines (90% reduction)
+  - Server.js reduced from 5,225 lines to 523 lines (90% reduction)
+- **Battery monitoring**: Calibrated voltage divider (4.7 ratio), GPIO 2 confirmed
 - 188 tests all passing
-- Battery monitoring calibrated (4.7 ratio)
-- Admin page simplified (collapsible sections)
-- Good Display GPIO 2 confirmed for battery

@@ -8,6 +8,7 @@
 
 🔋 **Ultra-Low Power** - Months of battery life with deep sleep cycles
 🎨 **6-Color Display** - Beautiful Spectra 6 e-paper technology
+📡 **OTA Updates** - Wireless firmware updates with automatic rollback protection
 🤖 **AI Art Generation** - GPT-4o powered artwork optimized for e-ink displays
 🔍 **Semantic Visual Search** - CLIP-powered search by vibe, not keywords
 ✨ **Visual Similarity** - "More like this" finds artworks with 0.73-0.84 similarity
@@ -145,18 +146,22 @@ graph LR
 The ESP32 communicates with these server endpoints:
 
 - **`GET /api/current.json`** - Fetch current image and sleep duration
-- **`POST /api/device-status`** - Report device health (battery, WiFi signal)
+- **`POST /api/device-status`** - Report device health (battery, signal, firmware version)
+- **`GET /api/firmware/version`** - Check for available firmware updates
+- **`GET /api/firmware/download`** - Download firmware binary for OTA update
 - **`POST /api/logs`** - Send device logs to server
 - **`GET /api/commands/:deviceId`** - Check for pending remote commands
 
-## 🎛️ Remote Control Features
+## 🎛️ Remote Control & Monitoring
 
 Send commands to sleeping devices via web dashboard:
 
 - **📱 Stay Awake** - Keep device active for 5 minutes for debugging
 - **🔄 Force Update** - Trigger immediate display refresh
 - **📊 View Logs** - Real-time ESP32 serial output
-- **🔋 Battery Monitor** - Track voltage and charging status
+- **🔋 Battery Monitor** - Track voltage, charging status, and battery history
+- **📡 OTA Updates** - Deploy firmware updates wirelessly with automatic rollback
+- **📈 Device Stats** - Monitor wake cycles, display updates, brownouts, and firmware version
 
 ## 📁 Project Structure
 
@@ -175,10 +180,15 @@ Glance/
 │   └── PROJECT_GOALS.md   # Project goals & roadmap
 │
 ├── esp32-client/          # 🔧 ESP32 Firmware
-│   ├── src/main.cpp       # Main application
+│   ├── gooddisplay-clean/ # Production firmware (Good Display board)
+│   │   ├── src/
+│   │   │   ├── main.c         # Main application with battery monitoring
+│   │   │   ├── ota.c/h        # OTA firmware update system
+│   │   │   ├── server_config.h # Shared server configuration
+│   │   │   └── GDEP133C02.c/h # E-ink display driver
+│   │   └── platformio.ini     # Build config with firmware version
 │   ├── lib/epd/           # E-ink display drivers
-│   ├── build.sh           # Build & upload script
-│   └── platformio.ini     # PlatformIO configuration
+│   └── build.sh           # Build & upload script
 │
 ├── server/                # 🖥️ Node.js Server
 │   ├── server.js          # Express.js entry point
@@ -247,12 +257,17 @@ node scripts/populate-from-museums.js 500   # Scale to 1000 artworks (500/museum
 | **Wake-up Time** | 2-3 seconds | WiFi connection ready |
 | **Battery Life** | 3-6 months | 3000mAh LiPo, 6-hour cycle |
 
-### 🔋 Battery Optimization
+### 🔋 Battery Optimization & Monitoring
 
-The firmware includes intelligent power management:
+The firmware includes intelligent power management and monitoring:
 - **WiFi Auto-Shutdown**: Automatically disables WiFi during display refresh to save ~160-210mA
 - **Row-by-Row Updates**: 1ms delays between display rows for stable power draw
 - **Progressive Delays**: Strategic pauses between driver ICs to prevent voltage sag
+- **Battery Monitoring**: Real-time voltage tracking via GPIO 2 (calibrated 4.7:1 voltage divider)
+- **Charging Detection**: Automatic detection when battery voltage >= 4.0V
+- **Brownout Protection**: Recovery mode after 3 brownouts to prevent boot loops
+- **Smart OTA**: Only performs firmware updates when battery >= 3.6V or charging
+- **Median Filtering**: 20-sample ADC readings reject electrical noise outliers
 - **Verified with KCX-017**: Tested at 460mA peak with WiFi on, 250-300mA with WiFi off
 - **Works on Battery**: Successfully operates on PowerBoost 1000C + LiPo battery
 

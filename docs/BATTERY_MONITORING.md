@@ -1,82 +1,184 @@
 # Battery Monitoring Setup Guide
 
-Complete guide to add real battery voltage monitoring to your ESP32 e-ink display.
+Complete guide for battery voltage monitoring on ESP32 Good Display e-ink board.
 
 ---
 
 ## Quick Start
 
-**Need just the wiring steps? Start here. For detailed explanations, see sections below.**
+**Current Status:** Fully implemented and working on Good Display ESP32-133C02 board.
 
-### Components Needed
-- 2× 100kΩ resistors
-- 3 jumper wires (10-15cm)
-- Multimeter (for safety)
+### Hardware Setup
+- **Board:** Good Display ESP32-133C02 (ESP32-S3)
+- **Battery Pin:** GPIO 2 (ADC1_CH1)
+- **Voltage Divider Ratio:** 4.7 (calibrated)
+- **Calibration:** Measures within ±0.1V of actual battery voltage
 
-### Wiring Steps
-
+### Measured Values
 ```
-LiPo Amigo Pro VBAT pin → [100kΩ] → Junction → [100kΩ] → GND
-                                        ↓
-                                  ESP32 GPIO 4
-```
-
-**Safety:** Measure voltage at junction before connecting to GPIO 4. Must be ≤2.5V (should be ~2.1V).
-
-### Firmware Update
-
-Edit `esp32-client/src/main.cpp` lines 765-768, replace:
-```cpp
-return 4.2f; // Simulate full battery voltage
+Battery Voltage → ADC Reading → Reported Voltage
+4.2V (full)    → ~0.89V       → 4.2V ✓
+4.0V (good)    → ~0.85V       → 4.0V ✓
+3.7V (mid)     → ~0.79V       → 3.7V ✓
+3.3V (low)     → ~0.70V       → 3.3V ✓
 ```
 
-With:
-```cpp
-analogSetAttenuation(ADC_11db);
-int adcReading = analogRead(4);
-float voltage = (adcReading / 4095.0f) * 3.3f * 2.0f;
-if (voltage < 2.5f) voltage = 3.0f;
-if (voltage > 4.3f) voltage = 4.2f;
-return voltage;
+### Voltage Divider Circuit
+
+```
+Battery+ → [R1] → Junction → [R2] → GND
+                     ↓
+               ESP32 GPIO 2
 ```
 
-### Flash and Test
+The actual resistor values create a 4.7:1 divider ratio (calibrated from measurements).
+
+### Code Location
+
+Battery monitoring is implemented in:
+- **File:** `esp32-client/gooddisplay-clean/src/main.c`
+- **Function:** `read_battery_voltage()` (lines 158-227)
+- **Features:**
+  - Median filtering (20 samples over 100ms)
+  - Sensor validation (variance check)
+  - Automatic invalid sensor detection
+  - Calibrated 4.7 voltage divider ratio
+
+### Build and Monitor
 ```bash
-cd esp32-client/
-./build.sh
-./build.sh monitor
+cd esp32-client/gooddisplay-clean
+export WIFI_SSID="YourNetwork"
+export WIFI_PASSWORD="YourPassword"
+pio run --target upload --environment esp32s3
+pio device monitor --baud 115200
 ```
 
 ---
 
 ## Overview
 
-**Current Status:** Software is fully implemented. You just need hardware wiring.
+**Current Status:** Fully implemented and tested on Good Display ESP32-133C02.
 
-**What you'll get:**
-- Real-time battery percentage (0-100%) in admin UI
+**Features:**
+- Real-time battery voltage and percentage in admin UI
 - Charging detection with ⚡ indicator
-- "Last Charged" timestamp tracking
-- Low battery warnings
+- Battery history graphs (voltage over time)
+- Signal strength history
+- Smart battery estimation (hours remaining)
+- Brownout detection and recovery
+- Low battery warnings with webhook notifications
 
-### Your Setup
+### Hardware Setup
 
 ```
-PiJuice 12Ah LiPo → LiPo Amigo Pro → MiniBoost 5V → USB-C (5V) → ESP32-S3 → E-ink Display
-                          ↓
-                      VBAT pin
-                    (3.0-4.2V)
+LiPo Battery → Good Display ESP32-133C02 → Waveshare 13.3" E-ink
+                      ↓
+               Voltage Divider
+              (GPIO 2 = ADC input)
 ```
 
-**The Problem:**
-- ESP32 receives constant 5V via USB-C regardless of battery level
-- MiniBoost 5V regulates output, hiding actual battery voltage
-- Cannot measure battery without additional wiring
+**The Implementation:**
+- Good Display board has built-in voltage divider to GPIO 2
+- Calibrated ratio: 4.7 (ADC reads ~0.85V when battery is 4.0V)
+- ESP32 measures via ADC1_CH1 (GPIO 2)
+- Median filtering rejects outliers (20 samples)
+- Sensor validation detects disconnected/floating sensors
 
-**The Solution:**
-- Connect **LiPo Amigo Pro VBAT pin** to ESP32 **GPIO 4** via voltage divider
-- VBAT pin outputs actual battery voltage (3.0V-4.2V)
-- Voltage divider makes it safe for ESP32 (converts to 1.5V-2.1V)
+## Code Implementation
+
+### Battery Reading Function
+
+The `read_battery_voltage()` function in [main.c:158-227](../esp32-client/gooddisplay-clean/src/main.c#L158-L227) implements:
+
+**Median Filtering:**
+```c
+#define ADC_SAMPLE_COUNT 20  // 20 samples for robust median
+#define ADC_SAMPLE_DELAY_MS 5  // 5ms between samples
+```
+Takes 20 ADC readings over 100ms, sorts them, and returns the median value to reject outliers from electrical noise.
+
+**Sensor Validation:**
+```c
+#define ADC_MAX_VARIANCE_RAW 200  // Max variance for valid sensor
+#define BATTERY_MAX_VALID 4.5f     // Max valid voltage
+#define BATTERY_MIN_VALID 2.5f     // Min valid voltage
+```
+Checks that:
+- Variance is low (sensor not floating)
+- Voltage is in valid range (2.5V - 4.5V)
+- Returns `BATTERY_SENSOR_INVALID` (-1.0) if checks fail
+
+**Voltage Conversion:**
+```c
+#define VOLTAGE_DIVIDER_RATIO 4.7f  // Calibrated from measurements
+float adc_voltage = (avg_raw / 4095.0f) * 3.3f;
+float battery_voltage = adc_voltage * VOLTAGE_DIVIDER_RATIO;
+```
+
+### Battery Thresholds
+
+Defined in [main.c:82-85](../esp32-client/gooddisplay-clean/src/main.c#L82-L85):
+```c
+#define BATTERY_CRITICAL 3.3f  // Critical battery level
+#define BATTERY_LOW      3.5f  // Low battery warning
+#define BATTERY_MIN_VALID 2.5f // Minimum valid reading
+#define BATTERY_MAX_VALID 4.5f // Maximum valid reading
+```
+
+### Charging Detection
+
+Smart charging detection in [main.c:339-342](../esp32-client/gooddisplay-clean/src/main.c#L339-L342):
+```c
+bool is_battery_charging(float voltage) {
+    const float CHARGING_THRESHOLD = 4.0f;
+    return voltage >= CHARGING_THRESHOLD;
+}
+```
+
+Server also detects charging by voltage rise (see [devices.js:98-101](../server/routes/devices.js#L98-L101)).
+
+### Brownout Protection
+
+ESP32 tracks brownout resets in NVS and enters recovery mode after 3 brownouts:
+- Skips display refresh (saves ~1A peak current)
+- Skips OTA checks
+- Sleeps for extended period (1 hour)
+- Allows battery to recover
+
+See [main.c:869-882](../esp32-client/gooddisplay-clean/src/main.c#L869-L882).
+
+---
+
+## Server Features
+
+### Battery Tracking
+
+[devices.js](../server/routes/devices.js) tracks:
+- Battery voltage history (last 100 readings)
+- Signal strength history (last 100 readings)
+- Usage statistics (total wakes, display updates)
+- Voltage drop per wake cycle
+- Time since last charge
+
+### Smart Battery Estimation
+
+Calculates remaining battery life based on:
+```javascript
+const avgDropPerWake = stats.totalVoltageDrop / stats.totalWakes;
+const voltageRemaining = deviceStatus.batteryVoltage - 3.3;
+const remainingCycles = Math.floor(voltageRemaining / avgDropPerWake);
+const estimatedHours = remainingCycles * sleepHours;
+```
+
+Requires at least 3 wake cycles for estimation. Confidence increases with more data points.
+
+### Low Battery Notifications
+
+Webhook notifications sent at two levels:
+- **30% battery:** "Low battery - consider charging"
+- **15% battery:** "CRITICAL - device may shut down soon"
+
+Configure webhook URL in admin settings.
 
 ---
 
@@ -470,6 +572,63 @@ If voltage increases >50mV since last wake, charging detected.
 
 ---
 
-**Last Updated:** 2025-11-15
-**Hardware:** LiPo Amigo Pro + Adafruit MiniBoost 5V + ESP32 GoodDisplay
-**Status:** Implemented and ready for testing
+## Admin UI Features
+
+The admin page displays comprehensive battery information:
+
+### Status Bar
+- **Battery:** Voltage and percentage (e.g., "4.0V 80%")
+- **Charging Indicator:** ⚡ icon when charging
+- **Firmware Version:** Current firmware (git SHA or semantic version)
+
+### Battery Graph
+- Voltage over time (last 100 readings)
+- Color-coded: green (good), yellow (low), red (critical)
+- Shows charging events
+- Hover for exact voltage and time
+
+### Device Stats
+- **Wakes:** Total wake cycles
+- **Display Updates:** Count of successful display refreshes
+- **Brownouts:** Warning if brownouts detected
+- **Last OTA:** Shows last firmware update status (✅ success, ❌ failed)
+- **Current Image:** Title of displayed artwork
+
+### Battery Estimation
+Shows estimated battery life based on usage patterns:
+```
+~24 hours (48 cycles) remaining
+Confidence: 85% (17 data points)
+Avg voltage drop: 0.015V per wake
+```
+
+---
+
+## Recent Improvements (2026-01)
+
+### ESP32 Client Refactoring
+- **Named constants:** Converted 30+ magic numbers to #define constants
+  - Network timeouts, ADC config, battery thresholds, brownout recovery
+- **Code organization:** Created `server_config.h` for shared server URLs
+- **Safety:** Added NULL checks, input validation, buffer overflow protection
+- **Documentation:** Comprehensive Doxygen-style comments
+- **Validation:** Sleep duration bounds checking (10s - 24h) prevents device brick
+
+### OTA Firmware Updates
+- ESP32 reports firmware version in device status
+- Server tracks OTA success/failure events
+- Admin UI displays current firmware and OTA history
+- Dual OTA partitions with automatic rollback protection
+- Safe update requirements: Battery >= 3.6V or charging
+
+### Server-Side Enhancements
+- Firmware version tracking and OTA event logging
+- Battery estimation algorithm (hours remaining)
+- Webhook notifications for low battery (30%, 15%)
+- Automatic charging detection via voltage rise
+
+---
+
+**Last Updated:** 2026-01-04
+**Hardware:** Good Display ESP32-133C02 (ESP32-S3) + Waveshare 13.3" Spectra 6
+**Status:** Production-ready, fully tested
