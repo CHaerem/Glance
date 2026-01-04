@@ -1052,6 +1052,28 @@ void app_main(void)
     // run_battery_test() never returns - it loops through test cycles
 #endif
 
+    // CRITICAL BATTERY CHECK - Must happen BEFORE WiFi init
+    // WiFi connection draws ~460mA which can cause brownouts on weak battery
+    // This creates boot loop that brownout recovery can't escape (recovery also needs WiFi)
+    const float WIFI_MIN_BATTERY = 3.4f;  // Minimum for WiFi connection (lower than display threshold)
+    bool is_charging = is_battery_charging(battery_voltage);
+
+    if (!is_charging && battery_voltage < WIFI_MIN_BATTERY) {
+        printf("🚨 CRITICAL: Battery too low for WiFi (%.2fV < %.2fV)\n",
+               battery_voltage, WIFI_MIN_BATTERY);
+        printf("Skipping ALL operations to prevent brownout boot loop\n");
+        printf("Device will sleep for 6 hours to allow battery recovery\n");
+        printf("Plug in USB to charge or perform emergency OTA update\n");
+
+        // Sleep for extended period (6 hours) - battery might recover or user will charge
+        const uint64_t CRITICAL_BATTERY_SLEEP = 6ULL * 60 * 60 * 1000000;  // 6 hours
+        esp_deep_sleep(CRITICAL_BATTERY_SLEEP);
+        // Never returns
+    }
+
+    // Battery sufficient for WiFi - proceed normally
+    printf("Battery sufficient for WiFi (%.2fV), proceeding...\n", battery_voltage);
+
     // Initialize WiFi (NVS already initialized above)
     wifi_init();
 
@@ -1087,8 +1109,8 @@ void app_main(void)
 
     printf("WiFi connected!\n");
 
-    // Detect if device is charging - changes wake/OTA behavior
-    bool is_charging = is_battery_charging(battery_voltage);
+    // Re-check charging status after WiFi connection (voltage may have changed)
+    is_charging = is_battery_charging(battery_voltage);
 
     // CRITICAL: Wait after WiFi before doing anything else
     // WiFi draws significant current - let battery voltage recover before next operation
