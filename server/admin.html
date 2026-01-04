@@ -93,6 +93,42 @@
             color: rgba(255,255,255,0.7);
         }
 
+        /* OTA Update Banner */
+        .ota-banner {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: #fff;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ota-banner.hidden {
+            display: none;
+        }
+
+        .ota-banner-content {
+            flex: 1;
+        }
+
+        .ota-banner-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .ota-banner-message {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .ota-banner-icon {
+            font-size: 1.5rem;
+            margin-right: 12px;
+        }
+
         /* Device Status Bar */
         .status-bar {
             display: flex;
@@ -533,6 +569,15 @@
         <div class="next-wake-countdown" id="nextWakeCountdown">--</div>
     </div>
 
+    <!-- OTA Update Banner -->
+    <div class="ota-banner hidden" id="otaBanner">
+        <span class="ota-banner-icon">📡</span>
+        <div class="ota-banner-content">
+            <div class="ota-banner-title" id="otaBannerTitle">OTA Update Available</div>
+            <div class="ota-banner-message" id="otaBannerMessage">--</div>
+        </div>
+    </div>
+
     <!-- Device Status Bar -->
     <div class="status-bar">
         <div class="status-item">
@@ -811,6 +856,50 @@
             return `${Math.floor(seconds / 86400)}d ago`;
         }
 
+        // Check for OTA updates
+        async function checkOTAUpdate(currentVersion) {
+            const banner = document.getElementById('otaBanner');
+            const title = document.getElementById('otaBannerTitle');
+            const message = document.getElementById('otaBannerMessage');
+
+            // If no current version, can't compare
+            if (!currentVersion) {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            try {
+                // Fetch available firmware version from server
+                const res = await fetch('/api/firmware/version');
+
+                // If no firmware available on server (404), hide banner
+                if (!res.ok) {
+                    banner.classList.add('hidden');
+                    return;
+                }
+
+                const firmware = await res.json();
+                const availableVersion = firmware.version;
+
+                // Compare versions - if different, show OTA banner
+                if (availableVersion && availableVersion !== currentVersion) {
+                    // Format versions for display (shorten git SHAs)
+                    const currentShort = currentVersion.match(/^\d+\.\d+\.\d+/) ? currentVersion : currentVersion.substring(0, 7);
+                    const availableShort = availableVersion.match(/^\d+\.\d+\.\d+/) ? availableVersion : availableVersion.substring(0, 7);
+
+                    title.textContent = 'OTA Update Pending';
+                    message.textContent = `${currentShort} → ${availableShort} (${(firmware.size / 1024).toFixed(0)}KB) - Will install on next wake`;
+                    banner.classList.remove('hidden');
+                } else {
+                    // Versions match - firmware is up to date
+                    banner.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Failed to check OTA version:', error);
+                banner.classList.add('hidden');
+            }
+        }
+
         // Load device status
         async function loadDeviceStatus() {
             try {
@@ -860,6 +949,9 @@
                 } else {
                     firmwareEl.textContent = '--';
                 }
+
+                // Check for OTA updates
+                await checkOTAUpdate(s.firmwareVersion);
 
                 // Next wake
                 const card = document.getElementById('nextWakeCard');
