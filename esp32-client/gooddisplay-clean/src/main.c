@@ -958,53 +958,15 @@ void app_main(void)
     initialGpio();
     initialSpi();
 
-    // CRITICAL: Check battery voltage BEFORE any power-hungry operations
-    // EPD init, WiFi, etc. can cause brownouts on weak battery
-    printf("Checking battery voltage...\n");
-    float battery_voltage = read_battery_voltage();
-
-    // Handle invalid sensor readings (treat as "no battery monitoring")
-    if (battery_voltage == BATTERY_SENSOR_INVALID) {
-        printf("Battery sensor not connected - continuing without protection\n");
-        battery_voltage = 4.0f;  // Assume good battery
-    } else {
-        printf("Battery: %.2fV\n", battery_voltage);
-    }
-
-    // CRITICAL: If battery is dangerously low, skip ALL initialization and sleep
-    // Even EPD init can cause brownouts - we must check battery FIRST
-    // NOTE: Voltage sag under load! Battery may read 3.5V but drop to <2.8V at 1A load
-    // Weak batteries with high internal resistance need MUCH higher threshold
-    const float CRITICAL_BATTERY = 3.6f;  // Raised to account for voltage sag under load
-    bool is_charging = is_battery_charging(battery_voltage);
-
-    if (!is_charging && battery_voltage < CRITICAL_BATTERY) {
-        printf("🚨 CRITICAL BATTERY: %.2fV < %.2fV\n", battery_voltage, CRITICAL_BATTERY);
-        printf("Skipping ALL initialization to prevent brownout\n");
-        printf("Sleeping for 12 hours - battery may recover or charge device\n");
-        const uint64_t CRITICAL_SLEEP = 12ULL * 60 * 60 * 1000000;  // 12 hours
-        esp_deep_sleep(CRITICAL_SLEEP);
-        // Never returns
-    }
-
-    // Battery is sufficient for basic init - proceed with hardware setup
-    printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
-    setGpioLevel(LOAD_SW, GPIO_HIGH);
-    epdHardwareReset();
-    vTaskDelay(pdMS_TO_TICKS(500));
-    setPinCsAll(GPIO_HIGH);
-    initEPD();
-
-    // Don't clear display on boot - preserve existing image!
-    printf("Hardware initialized, display preserved\n");
-
-    // Initialize NVS first (required before any NVS operations)
+    // CRITICAL: Initialize NVS FIRST to track brownout count
+    // Must happen before battery check so we can detect brownout loops
     esp_err_t nvs_init_err = nvs_flash_init();
     if (nvs_init_err != ESP_OK) {
         printf("ERROR: NVS flash init failed: %s\n", esp_err_to_name(nvs_init_err));
     }
 
-    // Check boot reason and track brownouts
+    // Check boot reason and track brownouts BEFORE battery check
+    // This allows brownout recovery mode to prevent repeated attempts
     esp_reset_reason_t reset_reason = esp_reset_reason();
 
     // Load brownout tracking from NVS
@@ -1070,6 +1032,20 @@ void app_main(void)
     // Get device ID
     get_device_id();
 
+    // CRITICAL: Check battery voltage BEFORE any power-hungry operations
+    printf("Checking battery voltage...\n");
+    float battery_voltage = read_battery_voltage();
+
+    // Handle invalid sensor readings (treat as "no battery monitoring")
+    if (battery_voltage == BATTERY_SENSOR_INVALID) {
+        printf("Battery sensor not connected - continuing without protection\n");
+        battery_voltage = 4.0f;  // Assume good battery
+    } else {
+        printf("Battery: %.2fV\n", battery_voltage);
+    }
+
+    bool is_charging = is_battery_charging(battery_voltage);
+
 #if BATTERY_TEST_MODE
     // Run battery test instead of normal operation
     // This handles its own WiFi init to measure voltage during connection
@@ -1077,7 +1053,40 @@ void app_main(void)
     // run_battery_test() never returns - it loops through test cycles
 #endif
 
-    // SECOND BATTERY CHECK - WiFi requires slightly more power than basic init
+    // If in brownout recovery mode, skip even battery checks and just sleep
+    if (in_brownout_recovery) {
+        printf("⚠️  BROWNOUT RECOVERY MODE ACTIVE\n");
+        printf("Skipping ALL operations, sleeping for extended period\n");
+        const uint64_t BROWNOUT_RECOVERY_SLEEP = 6ULL * 60 * 60 * 1000000;  // 6 hours
+        esp_deep_sleep(BROWNOUT_RECOVERY_SLEEP);
+        // Never returns
+    }
+
+    // CRITICAL: If battery is dangerously low, skip initialization
+    // Even EPD init can cause brownouts on weak battery with voltage sag
+    const float CRITICAL_BATTERY = 3.6f;  // Account for voltage sag
+
+    if (!is_charging && battery_voltage < CRITICAL_BATTERY) {
+        printf("🚨 CRITICAL BATTERY: %.2fV < %.2fV\n", battery_voltage, CRITICAL_BATTERY);
+        printf("Skipping ALL initialization to prevent brownout\n");
+        printf("Sleeping for 12 hours - battery may recover or charge device\n");
+        const uint64_t CRITICAL_SLEEP = 12ULL * 60 * 60 * 1000000;  // 12 hours
+        esp_deep_sleep(CRITICAL_SLEEP);
+        // Never returns
+    }
+
+    // Battery is sufficient for basic init - proceed with hardware setup
+    printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
+    setGpioLevel(LOAD_SW, GPIO_HIGH);
+    epdHardwareReset();
+    vTaskDelay(pdMS_TO_TICKS(500));
+    setPinCsAll(GPIO_HIGH);
+    initEPD();
+
+    // Don't clear display on boot - preserve existing image!
+    printf("Hardware initialized, display preserved\n");
+
+    // WIFI BATTERY CHECK - WiFi requires slightly more power than basic init
     // WiFi connection draws ~460mA which can cause brownouts on weak battery
     // Account for voltage sag: weak battery may drop 0.4-0.6V under WiFi load
     const float WIFI_MIN_BATTERY = 3.7f;  // Raised to account for voltage sag (was 3.4V)
