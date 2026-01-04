@@ -1,4 +1,5 @@
 #include "ota.h"
+#include "server_config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,16 +7,6 @@
 #include "esp_ota_ops.h"
 #include "esp_app_format.h"
 #include "cJSON.h"
-
-// Server URL - must match main.c
-#ifndef SERVER_URL
-#define SERVER_BASE    "http://serverpi.local:3000"
-#else
-#define SERVER_BASE    SERVER_URL
-#endif
-
-#define OTA_VERSION_URL  SERVER_BASE "/api/firmware/version"
-#define OTA_DOWNLOAD_URL SERVER_BASE "/api/firmware/download"
 
 // Firmware version - injected at build time
 #ifndef FIRMWARE_VERSION
@@ -157,11 +148,31 @@ ota_result_t ota_perform_update(const ota_version_info_t* info) {
     printf("[%s] Starting OTA update to version %s (%lu bytes)\n",
            TAG, info->version, (unsigned long)info->size);
 
+    // Validate firmware size before starting
+    if (info->size < OTA_MIN_FIRMWARE_SIZE) {
+        printf("[%s] Firmware size %lu is too small (min %d bytes)\n",
+               TAG, (unsigned long)info->size, OTA_MIN_FIRMWARE_SIZE);
+        return OTA_RESULT_DOWNLOAD_FAILED;
+    }
+
+    if (info->size > OTA_MAX_FIRMWARE_SIZE) {
+        printf("[%s] Firmware size %lu exceeds maximum %d bytes\n",
+               TAG, (unsigned long)info->size, OTA_MAX_FIRMWARE_SIZE);
+        return OTA_RESULT_DOWNLOAD_FAILED;
+    }
+
     // Get the next OTA partition
     const esp_partition_t* update_partition = esp_ota_get_next_update_partition(NULL);
     if (!update_partition) {
         printf("[%s] No OTA partition available\n", TAG);
         return OTA_RESULT_WRITE_FAILED;
+    }
+
+    // Validate against actual partition size
+    if (info->size > update_partition->size) {
+        printf("[%s] Firmware size %lu exceeds partition size %lu\n",
+               TAG, (unsigned long)info->size, (unsigned long)update_partition->size);
+        return OTA_RESULT_DOWNLOAD_FAILED;
     }
 
     printf("[%s] Writing to partition: %s at offset 0x%lx\n",
@@ -274,8 +285,12 @@ ota_result_t ota_perform_update(const ota_version_info_t* info) {
 
 void ota_mark_valid(void) {
     const esp_partition_t* running = esp_ota_get_running_partition();
-    esp_ota_img_states_t state;
+    if (!running) {
+        printf("[%s] ERROR: Failed to get running partition\n", TAG);
+        return;
+    }
 
+    esp_ota_img_states_t state;
     if (esp_ota_get_state_partition(running, &state) == ESP_OK) {
         if (state == ESP_OTA_IMG_PENDING_VERIFY) {
             printf("[%s] Marking firmware as valid (canceling rollback)\n", TAG);

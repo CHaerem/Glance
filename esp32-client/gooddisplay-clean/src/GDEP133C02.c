@@ -130,7 +130,6 @@ void initEPD(void)
 {
 	epdHardwareReset();
 	checkBusyHigh();
-	//checkBusyLow();
 
 	setPinCs(0,GPIO_LOW);
 	writeEpd(AN_TM, AN_TM_V, sizeof(AN_TM_V));

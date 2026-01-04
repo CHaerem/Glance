@@ -24,6 +24,7 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "ota.h"
+#include "server_config.h"
 
 // WiFi credentials - set via environment variables during build
 // Example: export WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword"
@@ -34,16 +35,6 @@
 #define WIFI_PASSWORD  "Yellowfinch924"
 #endif
 
-// Server URL - production: serverpi.local, dev override with env var
-#ifndef SERVER_URL
-#define SERVER_BASE    "http://serverpi.local:3000"
-#else
-#define SERVER_BASE    SERVER_URL
-#endif
-#define SERVER_METADATA_URL  SERVER_BASE "/api/current.json"
-#define SERVER_IMAGE_URL     SERVER_BASE "/api/image.bin"
-#define SERVER_STATUS_URL    SERVER_BASE "/api/device-status"
-
 #define DISPLAY_WIDTH  1200
 #define DISPLAY_HEIGHT 1600
 #define EINK_SIZE      (DISPLAY_WIDTH * DISPLAY_HEIGHT / 2)  // 2 pixels per byte (4 bits each)
@@ -51,6 +42,35 @@
 
 #define WIFI_CONNECTED_BIT BIT0
 #define DEFAULT_SLEEP_DURATION (60ULL * 60 * 1000000)  // 1 hour in microseconds
+#define MIN_SLEEP_DURATION (10ULL * 1000000)           // 10 seconds minimum
+#define MAX_SLEEP_DURATION (24ULL * 60 * 60 * 1000000) // 24 hours maximum
+#define CHARGING_SLEEP_DURATION (30ULL * 1000000)      // 30 seconds when charging
+
+// Network timeouts and delays
+#define WIFI_CONNECT_TIMEOUT_MS    30000  // 30 second WiFi connection timeout
+#define HTTP_METADATA_TIMEOUT_MS   10000  // 10 second metadata fetch timeout
+#define HTTP_IMAGE_TIMEOUT_MS      60000  // 60 second image download timeout
+#define BATTERY_RECOVERY_DELAY_MS  2000   // 2 second delay between operations
+
+// ADC configuration
+#define ADC_SAMPLE_COUNT           20     // Number of ADC samples for median
+#define ADC_SAMPLE_DELAY_MS        5      // Delay between ADC samples
+#define ADC_MAX_VARIANCE_RAW       200    // Max variance for valid sensor
+#define ADC_STABILIZE_DELAY_MS     50     // Initial ADC stabilization delay
+
+// HTTP limits
+#define METADATA_MAX_SIZE_BYTES    100000 // Maximum metadata JSON size
+#define STATUS_POST_BUFFER_SIZE    512    // Device status POST buffer size
+#define TEST_POST_BUFFER_SIZE      256    // Battery test POST buffer size
+
+// Display timing
+#define DISPLAY_ROW_DELAY_MS       1      // Delay between display rows
+#define DISPLAY_IC_DELAY_MS        50     // Delay between display ICs
+#define WIFI_SHUTDOWN_DELAY_MS     100    // WiFi shutdown stabilization
+
+// Brownout recovery
+#define BROWNOUT_THRESHOLD_COUNT   3      // Brownouts before recovery mode
+#define BROWNOUT_RECOVERY_SLEEP_S  3600   // 1 hour sleep in recovery mode
 
 static EventGroupHandle_t s_wifi_event_group;
 static char device_id[32] = {0};
@@ -140,12 +160,24 @@ void save_last_image_id(const char* image_id) {
     nvs_close(nvs_handle);
 }
 
-// Read battery voltage from GPIO 2 (ADC1_CH1) via voltage divider
-// Voltage divider ratio calibrated to 4.7 from actual ADC readings
-// Returns BATTERY_SENSOR_INVALID (-1.0) if sensor is disconnected or faulty
+/**
+ * @brief Read battery voltage from ADC with median filtering
+ *
+ * Reads battery voltage from GPIO 2 (ADC1_CH1) via voltage divider.
+ * Takes 20 samples over 100ms and returns median to reject outliers.
+ *
+ * Voltage divider ratio: 4.7 (calibrated from actual ADC readings)
+ *
+ * Performs sanity checks:
+ * - Variance < 200 raw units (sensor not floating)
+ * - Voltage < 4.5V (sensor not floating high)
+ * - Voltage > 2.5V (sensor connected)
+ *
+ * @return Battery voltage in volts, or BATTERY_SENSOR_INVALID (-1.0) if sensor is disconnected/faulty
+ */
 float read_battery_voltage(void) {
     // Small delay to let ADC stabilize after boot
-    vTaskDelay(pdMS_TO_TICKS(50));
+    vTaskDelay(pdMS_TO_TICKS(ADC_STABILIZE_DELAY_MS));
 
     adc_oneshot_unit_handle_t adc_handle;
     adc_oneshot_unit_init_cfg_t init_config = {
@@ -161,8 +193,8 @@ float read_battery_voltage(void) {
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, BATTERY_ADC_CHANNEL, &config));
 
     // Take multiple readings for stability - use median to reject outliers
-    const int num_samples = 20;
-    int samples[20];
+    const int num_samples = ADC_SAMPLE_COUNT;
+    int samples[ADC_SAMPLE_COUNT];
     int min_raw = 4095;
     int max_raw = 0;
 
@@ -172,7 +204,7 @@ float read_battery_voltage(void) {
         samples[i] = raw;
         if (raw < min_raw) min_raw = raw;
         if (raw > max_raw) max_raw = raw;
-        vTaskDelay(pdMS_TO_TICKS(5));  // 5ms between samples, 100ms total
+        vTaskDelay(pdMS_TO_TICKS(ADC_SAMPLE_DELAY_MS));
     }
 
     // Simple bubble sort for median
@@ -200,9 +232,8 @@ float read_battery_voltage(void) {
     ESP_ERROR_CHECK(adc_oneshot_del_unit(adc_handle));
 
     // Sanity check 1: High variance means floating/disconnected sensor
-    // A properly connected voltage divider should have stable readings (range < 100)
-    // 100 raw units = ~0.08V variance, which is acceptable noise
-    if (range > 200) {
+    // A properly connected voltage divider should have stable readings
+    if (range > ADC_MAX_VARIANCE_RAW) {
         printf("⚠️  Battery readings unstable (range=%d) - sensor floating or disconnected\n", range);
         return BATTERY_SENSOR_INVALID;
     }
@@ -231,6 +262,10 @@ void get_device_id(void) {
              mac[3], mac[4], mac[5]);
     printf("Device ID: %s\n", device_id);
 }
+
+#ifdef ENABLE_HARDWARE_DEBUG
+// Hardware debugging functions - only compiled when ENABLE_HARDWARE_DEBUG is defined
+// These are useful for hardware bring-up and troubleshooting
 
 // Scan ALL ADC1 channels to find where the battery voltage appears
 void scan_all_adc_channels(void) {
@@ -325,19 +360,37 @@ float read_battery_raw(void) {
            BATTERY_ADC_CHANNEL, BATTERY_GPIO, raw, adc_voltage, battery_voltage);
     return battery_voltage;
 }
+#endif // ENABLE_HARDWARE_DEBUG
 
-// Detect if battery is charging based on voltage
-// When plugged into USB, voltage typically rises to ~4.0V or higher
-// LiPo fully charged: 4.2V, discharged: ~3.3-3.7V
+/**
+ * @brief Detect if battery is charging based on voltage
+ *
+ * When plugged into USB, voltage typically rises to ~4.0V or higher.
+ * LiPo fully charged: 4.2V, discharged: ~3.3-3.7V
+ *
+ * @param voltage Battery voltage in volts
+ * @return true if charging (voltage >= 4.0V), false otherwise
+ */
 bool is_battery_charging(float voltage) {
     const float CHARGING_THRESHOLD = 4.0f;  // Above this voltage = likely charging
     return voltage >= CHARGING_THRESHOLD;
 }
 
-// Global brownout tracking (set in app_main, read in report_device_status)
-static int32_t g_brownout_count = 0;
-
-void report_device_status(const char* status_msg) {
+/**
+ * @brief Report device status to server via HTTP POST
+ *
+ * Sends device telemetry to server including:
+ * - Battery voltage
+ * - WiFi signal strength (RSSI)
+ * - Free heap memory
+ * - Boot count
+ * - Brownout count
+ * - Status message
+ *
+ * @param status_msg Status string (e.g., "connected", "battery_low", "ota_updating")
+ * @param brownout_count Number of brownout resets since power-on
+ */
+void report_device_status(const char* status_msg, int32_t brownout_count) {
     wifi_ap_record_t ap_info;
     esp_wifi_sta_get_ap_info(&ap_info);
 
@@ -348,8 +401,8 @@ void report_device_status(const char* status_msg) {
         battery_voltage = 0.0f;  // Report 0 if sensor invalid
     }
 
-    char post_data[512];
-    snprintf(post_data, sizeof(post_data),
+    char post_data[STATUS_POST_BUFFER_SIZE];
+    int written = snprintf(post_data, sizeof(post_data),
         "{\"deviceId\":\"%s\",\"status\":{"
         "\"batteryVoltage\":%.2f,"
         "\"signalStrength\":%d,"
@@ -362,9 +415,16 @@ void report_device_status(const char* status_msg) {
         ap_info.rssi,
         (unsigned long)esp_get_free_heap_size(),
         (unsigned long)boot_count,
-        (long)g_brownout_count,
+        (long)brownout_count,
         status_msg
     );
+
+    // Check for truncation
+    if (written >= (int)sizeof(post_data)) {
+        printf("ERROR: Status message truncated (%d >= %zu), skipping report\n",
+               written, sizeof(post_data));
+        return;
+    }
 
     esp_http_client_config_t config = {
         .url = SERVER_STATUS_URL,
@@ -392,10 +452,15 @@ void wifi_init(void);
 #if BATTERY_TEST_MODE
 // Battery test mode - measures voltage at different states and reports to server
 void send_battery_test_result(const char* test_name, float voltage, int duration_ms) {
-    char post_data[256];
-    snprintf(post_data, sizeof(post_data),
+    char post_data[TEST_POST_BUFFER_SIZE];
+    int written = snprintf(post_data, sizeof(post_data),
         "{\"deviceId\":\"%s\",\"test\":\"%s\",\"voltage\":%.3f,\"duration_ms\":%d,\"heap\":%lu}",
         device_id, test_name, voltage, duration_ms, (unsigned long)esp_get_free_heap_size());
+
+    if (written >= (int)sizeof(post_data)) {
+        printf("ERROR: Test result truncated, skipping\n");
+        return;
+    }
 
     esp_http_client_config_t config = {
         .url = SERVER_STATUS_URL,
@@ -433,7 +498,7 @@ void run_battery_test(void) {
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
                                            WIFI_CONNECTED_BIT,
                                            pdFALSE, pdTRUE,
-                                           pdMS_TO_TICKS(30000));
+                                           pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
     elapsed = (esp_timer_get_time() - start_time) / 1000;
 
     if (!(bits & WIFI_CONNECTED_BIT)) {
@@ -487,7 +552,7 @@ void run_battery_test(void) {
     printf("╚════════════════════════════════════════════╝\n");
 
     // Report final status
-    report_device_status("battery_test_complete");
+    report_device_status("battery_test_complete", 0);
 
     // Prepare for next cycle or normal operation
     if (boot_count + 1 < BATTERY_TEST_CYCLES) {
@@ -507,12 +572,25 @@ typedef struct {
     bool has_new_image;
 } metadata_t;
 
+/**
+ * @brief Fetch image metadata from server
+ *
+ * Downloads current.json from server, which contains:
+ * - imageId: Unique identifier for current image
+ * - sleepDuration: Time to sleep before next wake (microseconds)
+ *
+ * Validates sleep duration is within safe bounds (10 sec - 24 hours).
+ * Compares imageId with last stored ID to detect new images.
+ *
+ * @param metadata Pointer to metadata struct to fill
+ * @return true if metadata fetched successfully, false on error
+ */
 bool fetch_metadata(metadata_t* metadata) {
     printf("Fetching metadata from %s...\n", SERVER_METADATA_URL);
 
     esp_http_client_config_t config = {
         .url = SERVER_METADATA_URL,
-        .timeout_ms = 10000,
+        .timeout_ms = HTTP_METADATA_TIMEOUT_MS,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -527,7 +605,7 @@ bool fetch_metadata(metadata_t* metadata) {
     int content_length = esp_http_client_fetch_headers(client);
     printf("Metadata content length: %d\n", content_length);
 
-    if (content_length <= 0 || content_length > 100000) {
+    if (content_length <= 0 || content_length > METADATA_MAX_SIZE_BYTES) {
         printf("ERROR: Invalid content length\n");
         esp_http_client_cleanup(client);
         return false;
@@ -574,8 +652,21 @@ bool fetch_metadata(metadata_t* metadata) {
     // Extract sleepDuration (in microseconds)
     cJSON* sleepDuration = cJSON_GetObjectItem(json, "sleepDuration");
     if (sleepDuration && cJSON_IsNumber(sleepDuration)) {
-        metadata->sleep_duration = (uint64_t)sleepDuration->valuedouble;
-        printf("Found sleepDuration: %llu us\n", metadata->sleep_duration);
+        uint64_t server_sleep = (uint64_t)sleepDuration->valuedouble;
+
+        // Validate sleep duration to prevent device brick scenarios
+        if (server_sleep < MIN_SLEEP_DURATION) {
+            printf("⚠️  Sleep duration %llu us is too short, using minimum %llu us\n",
+                   server_sleep, MIN_SLEEP_DURATION);
+            metadata->sleep_duration = MIN_SLEEP_DURATION;
+        } else if (server_sleep > MAX_SLEEP_DURATION) {
+            printf("⚠️  Sleep duration %llu us is too long, using maximum %llu us\n",
+                   server_sleep, MAX_SLEEP_DURATION);
+            metadata->sleep_duration = MAX_SLEEP_DURATION;
+        } else {
+            metadata->sleep_duration = server_sleep;
+            printf("Found sleepDuration: %llu us\n", metadata->sleep_duration);
+        }
     }
 
     // Load last image ID from NVS and check if we have a new image
@@ -614,6 +705,14 @@ uint8_t rgb_to_eink(uint8_t r, uint8_t g, uint8_t b) {
     return (brightness > 127) ? 0x1 : 0x0;              // WHITE or BLACK
 }
 
+/**
+ * @brief WiFi event handler
+ *
+ * Handles WiFi connection events:
+ * - STA_START: Initiate connection
+ * - STA_DISCONNECTED: Retry connection
+ * - GOT_IP: Set WIFI_CONNECTED_BIT flag
+ */
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
 {
@@ -658,6 +757,22 @@ void wifi_init(void)
     printf("WiFi TX power reduced to 15dBm for battery operation\n");
 }
 
+/**
+ * @brief Download image from server and display on e-ink
+ *
+ * Downloads RGB24 image data from server (/api/image.bin), converts
+ * to 6-color e-ink format, and displays on Waveshare 13.3" Spectra 6.
+ *
+ * Process:
+ * 1. Allocate 960KB buffer for 1200x1600 4-bit image
+ * 2. Download RGB24 data in 32KB chunks
+ * 3. Convert RGB to 6-color palette (Black, White, Red, Yellow, Blue, Green)
+ * 4. Disable WiFi before display refresh (saves ~100-200mA)
+ * 5. Send data to two driver ICs (left/right halves)
+ * 6. Trigger display refresh
+ *
+ * @return true if download and display successful, false on error
+ */
 bool download_and_display_image(void)
 {
     printf("Allocating %d bytes for e-ink buffer...\n", EINK_SIZE);
@@ -671,7 +786,7 @@ bool download_and_display_image(void)
     printf("Connecting to %s...\n", SERVER_IMAGE_URL);
     esp_http_client_config_t config = {
         .url = SERVER_IMAGE_URL,
-        .timeout_ms = 60000,
+        .timeout_ms = HTTP_IMAGE_TIMEOUT_MS,
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -753,8 +868,8 @@ bool download_and_display_image(void)
 
     if (pixels_written > 0) {
         // Report success BEFORE disabling WiFi
-        extern void report_device_status(const char* status_msg);
-        report_device_status("display_updating");
+        extern void report_device_status(const char* status_msg, int32_t brownout_count);
+        report_device_status("display_updating", 0);
 
         printf("Displaying image...\n");
 
@@ -762,7 +877,7 @@ bool download_and_display_image(void)
         printf("Disabling WiFi to conserve power during display refresh...\n");
         esp_wifi_disconnect();
         esp_wifi_stop();
-        vTaskDelay(pdMS_TO_TICKS(100));  // Let WiFi fully shut down
+        vTaskDelay(pdMS_TO_TICKS(WIFI_SHUTDOWN_DELAY_MS));
 
         initEPD();
 
@@ -779,7 +894,7 @@ bool download_and_display_image(void)
         writeEpdCommand(DTM);
         for (int row = 0; row < DISPLAY_HEIGHT; row++) {
             writeEpdData(eink_buffer + row * bytes_per_row, bytes_per_ic_row);
-            vTaskDelay(pdMS_TO_TICKS(1));  // 1ms delay for stability
+            vTaskDelay(pdMS_TO_TICKS(DISPLAY_ROW_DELAY_MS));
 
             if (row % 200 == 0) {
                 printf("  Left IC: row %d/%d\n", row, DISPLAY_HEIGHT);
@@ -789,14 +904,14 @@ bool download_and_display_image(void)
         printf("Left IC complete\n");
 
         // Small delay between ICs
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(DISPLAY_IC_DELAY_MS));
 
         // Send to second IC (right half) - with 1ms delay between rows
         setPinCs(1, 0);
         writeEpdCommand(DTM);
         for (int row = 0; row < DISPLAY_HEIGHT; row++) {
             writeEpdData(eink_buffer + row * bytes_per_row + bytes_per_ic_row, bytes_per_ic_row);
-            vTaskDelay(pdMS_TO_TICKS(1));  // 1ms delay for stability
+            vTaskDelay(pdMS_TO_TICKS(DISPLAY_ROW_DELAY_MS));
 
             if (row % 200 == 0) {
                 printf("  Right IC: row %d/%d\n", row, DISPLAY_HEIGHT);
@@ -873,14 +988,12 @@ void app_main(void)
         }
 
         // Enter recovery mode if multiple brownouts
-        if (brownout_count >= 3) {
+        if (brownout_count >= BROWNOUT_THRESHOLD_COUNT) {
             in_brownout_recovery = true;
             printf("🚨 BROWNOUT RECOVERY MODE - Skipping heavy operations\n");
             printf("   Battery likely too weak for display refresh\n");
             printf("   Will skip display and OTA, sleep for extended period\n");
         }
-
-        g_brownout_count = brownout_count;  // Set global for status reporting
     } else if (reset_reason == ESP_RST_POWERON) {
         printf("=== POWER ON RESET ===\n");
         boot_count = 0;
@@ -896,7 +1009,6 @@ void app_main(void)
             printf("⚠️  Failed to clear NVS: %s\n", esp_err_to_name(err));
         }
         brownout_count = 0;
-        g_brownout_count = 0;
     } else {
         boot_count++;
         printf("=== BOOT #%lu (from deep sleep) ===\n", boot_count);
@@ -911,7 +1023,6 @@ void app_main(void)
             }
             brownout_count = 0;
         }
-        g_brownout_count = brownout_count;
     }
 
     if (err == ESP_OK) {
@@ -946,11 +1057,11 @@ void app_main(void)
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
                                            WIFI_CONNECTED_BIT,
                                            pdFALSE, pdTRUE,
-                                           pdMS_TO_TICKS(30000));
+                                           pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
 
     if (!(bits & WIFI_CONNECTED_BIT)) {
         printf("WiFi FAILED - showing RED\n");
-        report_device_status("wifi_failed");
+        report_device_status("wifi_failed", brownout_count);
         initEPD();
         epdDisplayColor(RED);
         esp_deep_sleep(DEFAULT_SLEEP_DURATION);
@@ -963,8 +1074,8 @@ void app_main(void)
 
     // CRITICAL: Wait after WiFi before doing anything else
     // WiFi draws significant current - let battery voltage recover before next operation
-    printf("Waiting 2 seconds for battery to recover from WiFi...\n");
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    printf("Waiting %d ms for battery to recover from WiFi...\n", BATTERY_RECOVERY_DELAY_MS);
+    vTaskDelay(pdMS_TO_TICKS(BATTERY_RECOVERY_DELAY_MS));
 
     // Mark current firmware as valid on first boot after successful OTA (quick, no network)
     ota_mark_valid();
@@ -972,20 +1083,20 @@ void app_main(void)
     // BROWNOUT RECOVERY MODE - Skip heavy operations to prevent boot loop
     if (in_brownout_recovery) {
         printf("⚠️  In brownout recovery - skipping all operations\n");
-        report_device_status("brownout_recovery");
+        report_device_status("brownout_recovery", brownout_count);
 
-        // Sleep for 1 hour to give battery time to recover
-        uint64_t recovery_sleep = 3600ULL * 1000000;  // 1 hour
-        printf("Sleeping for 1 hour to allow battery recovery...\n");
+        // Sleep for extended period to give battery time to recover
+        uint64_t recovery_sleep = BROWNOUT_RECOVERY_SLEEP_S * 1000000ULL;
+        printf("Sleeping for %d seconds to allow battery recovery...\n", BROWNOUT_RECOVERY_SLEEP_S);
         esp_deep_sleep(recovery_sleep);
         return;  // Never reached, but makes intent clear
     }
 
     // Report status based on battery level
     if (battery_voltage < BATTERY_LOW) {
-        report_device_status("battery_low");
+        report_device_status("battery_low", brownout_count);
     } else {
-        report_device_status("connected");
+        report_device_status("connected", brownout_count);
     }
 
     // Fetch metadata from server
@@ -999,8 +1110,9 @@ void app_main(void)
         // When plugged in, wake every 30 seconds to check for OTA and report charge level
         // This gives near-instant OTA updates and live battery charge monitoring
         if (is_charging) {
-            sleep_duration = 30 * 1000000;  // 30 seconds
-            printf("🔌 Charging mode: fast wake (30 sec) for OTA and monitoring\n");
+            sleep_duration = CHARGING_SLEEP_DURATION;
+            printf("🔌 Charging mode: fast wake (%llu sec) for OTA and monitoring\n",
+                   CHARGING_SLEEP_DURATION / 1000000);
         }
         // If battery is low, double the sleep duration to conserve power
         else if (battery_voltage < BATTERY_LOW) {
@@ -1020,17 +1132,17 @@ void app_main(void)
                 // Note: report_device_status() is called BEFORE WiFi shutdown inside download_and_display_image()
             } else {
                 printf("Download failed - showing color bars\n");
-                report_device_status("download_failed");
+                report_device_status("download_failed", brownout_count);
                 initEPD();
                 epdDisplayColorBar();
             }
         } else {
             printf("Image unchanged, keeping current display\n");
-            report_device_status("no_update_needed");
+            report_device_status("no_update_needed", brownout_count);
         }
     } else {
         printf("Failed to fetch metadata\n");
-        report_device_status("metadata_failed");
+        report_device_status("metadata_failed", brownout_count);
     }
 
     // PRIMARY TASK (display refresh) is complete
@@ -1038,8 +1150,8 @@ void app_main(void)
 
     // CRITICAL: Wait after display operations before OTA check
     // Display refresh draws >1A - let battery voltage stabilize before OTA HTTP request
-    printf("Waiting 2 seconds for battery to recover...\n");
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    printf("Waiting %d ms for battery to recover...\n", BATTERY_RECOVERY_DELAY_MS);
+    vTaskDelay(pdMS_TO_TICKS(BATTERY_RECOVERY_DELAY_MS));
 
     // Check for OTA updates - but with smart battery protection
     // When CHARGING: Always check (have external power, no brownout risk, fast updates)
@@ -1056,7 +1168,7 @@ void app_main(void)
         ota_version_info_t ota_info = {0};
         if (ota_check_version(&ota_info)) {
             printf("📥 OTA update available, downloading...\n");
-            report_device_status("ota_updating");
+            report_device_status("ota_updating", brownout_count);
 
             ota_result_t result = ota_perform_update(&ota_info);
 
@@ -1065,7 +1177,7 @@ void app_main(void)
                 esp_restart();  // Reboot into new firmware
             } else {
                 printf("❌ OTA failed with code %d, continuing normally\n", result);
-                report_device_status("ota_failed");
+                report_device_status("ota_failed", brownout_count);
             }
         }
     } else {

@@ -8,6 +8,8 @@
 #define OTA_MIN_BATTERY_VOLTAGE  3.6f   // Don't start OTA below this voltage
 #define OTA_RECV_TIMEOUT_MS      30000  // 30 second receive timeout
 #define OTA_BUFFER_SIZE          4096   // Download chunk size
+#define OTA_MIN_FIRMWARE_SIZE    100000 // 100KB minimum (sanity check)
+#define OTA_MAX_FIRMWARE_SIZE    8388608 // 8MB maximum (partition size limit)
 
 // OTA result codes
 typedef enum {
