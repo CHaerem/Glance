@@ -96,6 +96,7 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define BATTERY_CRITICAL 3.3f  // Below this: emergency mode (LiPo cutoff)
 #define BATTERY_LOW      3.5f  // Below this: low battery warning
 #define BATTERY_CHARGED  3.6f  // Above this: normal operation
+#define DISPLAY_MIN_BATTERY 3.8f  // Minimum voltage for display refresh (prevents brownout during high current draw)
 #define EMERGENCY_SLEEP_DURATION (24ULL * 60 * 60 * 1000000)  // 24 hours
 
 // Battery sensor sanity checks (detect disconnected/faulty sensor)
@@ -1061,10 +1062,26 @@ void app_main(void)
                                            pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
 
     if (!(bits & WIFI_CONNECTED_BIT)) {
-        printf("WiFi FAILED - showing RED\n");
+        printf("WiFi FAILED\n");
         report_device_status("wifi_failed", brownout_count);
-        initEPD();
-        epdDisplayColor(RED);
+
+        // Detect if charging (WiFi failed, but we can still read battery voltage)
+        bool wifi_fail_is_charging = is_battery_charging(battery_voltage);
+
+        // Only show RED error screen if battery is sufficient (prevents brownout boot loop)
+        // Display refresh draws >1A peak current - dangerous on weak battery
+        // Exception: Always show when charging (external power is safe)
+        if (wifi_fail_is_charging || battery_voltage >= DISPLAY_MIN_BATTERY) {
+            printf("Showing RED error screen (charging=%d, voltage=%.2fV)\n",
+                   wifi_fail_is_charging, battery_voltage);
+            initEPD();
+            epdDisplayColor(RED);
+        } else {
+            printf("⚠️  Battery too low for error display (%.2fV < %.2fV) - skipping RED screen\n",
+                   battery_voltage, DISPLAY_MIN_BATTERY);
+            printf("This prevents brownout boot loop on WiFi failures\n");
+        }
+
         esp_deep_sleep(DEFAULT_SLEEP_DURATION);
     }
 
@@ -1154,16 +1171,31 @@ void app_main(void)
         if (metadata.has_new_image) {
             printf("New image detected (ID: %s), downloading...\n", metadata.image_id);
 
-            if (download_and_display_image()) {
-                printf("=== SUCCESS ===\n");
-                // Save to NVS so it persists across power cycles
-                save_last_image_id(metadata.image_id);
-                // Note: report_device_status() is called BEFORE WiFi shutdown inside download_and_display_image()
+            // Battery safety check: Display refresh draws >1A peak current
+            // Skip refresh if battery is too low (unless charging on external power)
+            if (!is_charging && battery_voltage < DISPLAY_MIN_BATTERY) {
+                printf("⚠️  Battery too low for display refresh (%.2fV < %.2fV threshold)\n",
+                       battery_voltage, DISPLAY_MIN_BATTERY);
+                printf("Skipping display update to prevent brownout - will retry when battery recovers\n");
+                report_device_status("battery_too_low", brownout_count);
             } else {
-                printf("Download failed - showing color bars\n");
-                report_device_status("download_failed", brownout_count);
-                initEPD();
-                epdDisplayColorBar();
+                if (download_and_display_image()) {
+                    printf("=== SUCCESS ===\n");
+                    // Save to NVS so it persists across power cycles
+                    save_last_image_id(metadata.image_id);
+                    // Note: report_device_status() is called BEFORE WiFi shutdown inside download_and_display_image()
+                } else {
+                    printf("Download failed\n");
+                    report_device_status("download_failed", brownout_count);
+                    // Only show error pattern if battery is sufficient
+                    if (!is_charging && battery_voltage < DISPLAY_MIN_BATTERY) {
+                        printf("Battery too low for error display - skipping\n");
+                    } else {
+                        printf("Showing color bars\n");
+                        initEPD();
+                        epdDisplayColorBar();
+                    }
+                }
             }
         } else {
             printf("Image unchanged, keeping current display\n");
