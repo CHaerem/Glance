@@ -96,11 +96,10 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define BATTERY_CRITICAL 3.3f  // Below this: emergency mode (LiPo cutoff)
 #define BATTERY_LOW      3.5f  // Below this: low battery warning
 #define BATTERY_CHARGED  3.6f  // Above this: normal operation
-// DISPLAY THRESHOLD RAISED FOR VOLTAGE SAG:
-// Display draws >1A peak current. Weak batteries with high internal resistance
-// can drop 1.0-1.5V under heavy load! Battery reading 3.8V may sag to 2.3V at 1A.
-// Safe threshold must account for worst-case sag to stay above 2.8V brownout threshold
-#define DISPLAY_MIN_BATTERY 4.1f  // Raised from 3.8V - allows ~1.3V sag under load
+// Display threshold: Conservative but not excessive
+// Healthy battery at 3.5V can handle display refresh (>1A peak)
+// Let brownout recovery handle weak batteries instead of blocking all displays
+#define DISPLAY_MIN_BATTERY 3.5f  // Minimum for display refresh (healthy battery should work)
 #define EMERGENCY_SLEEP_DURATION (24ULL * 60 * 60 * 1000000)  // 24 hours
 
 // Battery sensor sanity checks (detect disconnected/faulty sensor)
@@ -883,10 +882,6 @@ bool download_and_display_image(void)
            total_read, pixels_written, max_pixels);
 
     if (pixels_written > 0) {
-        // Report success BEFORE disabling WiFi
-        extern void report_device_status(const char* status_msg, int32_t brownout_count);
-        report_device_status("display_updating", 0);
-
         printf("Displaying image...\n");
 
         // POWER OPTIMIZATION: Disable WiFi before display refresh to save ~100-200mA
@@ -1063,8 +1058,8 @@ void app_main(void)
     }
 
     // CRITICAL: If battery is dangerously low, skip initialization
-    // Even EPD init can cause brownouts on weak battery with voltage sag
-    const float CRITICAL_BATTERY = 3.6f;  // Account for voltage sag
+    // Only skip if battery is at LiPo cutoff voltage
+    const float CRITICAL_BATTERY = 3.3f;  // LiPo cutoff - below this is emergency only
 
     if (!is_charging && battery_voltage < CRITICAL_BATTERY) {
         printf("🚨 CRITICAL BATTERY: %.2fV < %.2fV\n", battery_voltage, CRITICAL_BATTERY);
