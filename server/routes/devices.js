@@ -182,6 +182,16 @@ function createDeviceRoutes() {
                 batteryPercent = Math.round(batteryPercent);
             }
 
+            // Track brownout count
+            const brownoutCount = parseInt(status.brownoutCount) || 0;
+            const previousBrownoutCount = previousDevice.brownoutCount || 0;
+
+            // Alert on new brownouts
+            if (brownoutCount > previousBrownoutCount) {
+                console.log(`⚠️  BROWNOUT DETECTED: Device ${deviceId} count increased to ${brownoutCount}`);
+                addDeviceLog(`Brownout detected (count: ${brownoutCount}) - battery voltage may be too low`);
+            }
+
             // Update device status
             devices[deviceId] = {
                 batteryVoltage: batteryVoltage,
@@ -194,6 +204,7 @@ function createDeviceRoutes() {
                 signalHistory: signalHistory,
                 freeHeap: parseInt(status.freeHeap) || 0,
                 bootCount: parseInt(status.bootCount) || 0,
+                brownoutCount: brownoutCount,
                 status: sanitizeInput(status.status) || 'unknown',
                 lastSeen: Date.now(),
                 deviceId: sanitizeInput(deviceId),
@@ -316,6 +327,7 @@ function createDeviceRoutes() {
                 lastSeen: deviceStatus.lastSeen,
                 sleepDuration: sleepDuration,
                 freeHeap: deviceStatus.freeHeap,
+                brownoutCount: deviceStatus.brownoutCount || 0,
                 status: deviceStatus.status,
                 currentImage: current.title || null
             });

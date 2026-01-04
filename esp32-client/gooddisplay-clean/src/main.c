@@ -326,6 +326,17 @@ float read_battery_raw(void) {
     return battery_voltage;
 }
 
+// Detect if battery is charging based on voltage
+// When plugged into USB, voltage typically rises to ~4.0V or higher
+// LiPo fully charged: 4.2V, discharged: ~3.3-3.7V
+bool is_battery_charging(float voltage) {
+    const float CHARGING_THRESHOLD = 4.0f;  // Above this voltage = likely charging
+    return voltage >= CHARGING_THRESHOLD;
+}
+
+// Global brownout tracking (set in app_main, read in report_device_status)
+static int32_t g_brownout_count = 0;
+
 void report_device_status(const char* status_msg) {
     wifi_ap_record_t ap_info;
     esp_wifi_sta_get_ap_info(&ap_info);
@@ -344,12 +355,14 @@ void report_device_status(const char* status_msg) {
         "\"signalStrength\":%d,"
         "\"freeHeap\":%lu,"
         "\"bootCount\":%lu,"
+        "\"brownoutCount\":%ld,"
         "\"status\":\"%s\"}}",
         device_id,
         battery_voltage,
         ap_info.rssi,
         (unsigned long)esp_get_free_heap_size(),
         (unsigned long)boot_count,
+        (long)g_brownout_count,
         status_msg
     );
 
@@ -637,6 +650,12 @@ void wifi_init(void)
     esp_wifi_set_mode(WIFI_MODE_STA);
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
     esp_wifi_start();
+
+    // Reduce WiFi transmission power to conserve battery and reduce current spikes
+    // Default is WIFI_POWER_19_5dBm (78mA), we reduce to WIFI_POWER_15dBm (~60mA)
+    // This is enough for local network communication and significantly reduces brownout risk
+    esp_wifi_set_max_tx_power(60);  // 60 = 15dBm (quarter steps: 60/4 = 15)
+    printf("WiFi TX power reduced to 15dBm for battery operation\n");
 }
 
 bool download_and_display_image(void)
@@ -822,27 +841,81 @@ void app_main(void)
         printf("ERROR: NVS flash init failed: %s\n", esp_err_to_name(nvs_init_err));
     }
 
-    // Check boot reason
+    // Check boot reason and track brownouts
     esp_reset_reason_t reset_reason = esp_reset_reason();
 
-    if (reset_reason == ESP_RST_POWERON) {
+    // Load brownout tracking from NVS
+    static const char* BROWNOUT_COUNT_KEY = "brownout_cnt";
+    static const char* BROWNOUT_TIME_KEY = "brownout_time";
+    int32_t brownout_count = 0;
+    int64_t last_brownout_time = 0;
+    bool in_brownout_recovery = false;
+
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err == ESP_OK) {
+        nvs_get_i32(nvs_handle, BROWNOUT_COUNT_KEY, &brownout_count);
+        nvs_get_i64(nvs_handle, BROWNOUT_TIME_KEY, &last_brownout_time);
+    }
+
+    if (reset_reason == ESP_RST_BROWNOUT) {
+        printf("⚠️  BROWNOUT RESET DETECTED! ⚠️\n");
+        printf("Brownout count: %ld\n", (long)(brownout_count + 1));
+
+        brownout_count++;
+        last_brownout_time = esp_timer_get_time() / 1000000;  // seconds since boot
+
+        // Save brownout tracking
+        if (err == ESP_OK) {
+            nvs_set_i32(nvs_handle, BROWNOUT_COUNT_KEY, brownout_count);
+            nvs_set_i64(nvs_handle, BROWNOUT_TIME_KEY, last_brownout_time);
+            nvs_commit(nvs_handle);
+        }
+
+        // Enter recovery mode if multiple brownouts
+        if (brownout_count >= 3) {
+            in_brownout_recovery = true;
+            printf("🚨 BROWNOUT RECOVERY MODE - Skipping heavy operations\n");
+            printf("   Battery likely too weak for display refresh\n");
+            printf("   Will skip display and OTA, sleep for extended period\n");
+        }
+
+        g_brownout_count = brownout_count;  // Set global for status reporting
+    } else if (reset_reason == ESP_RST_POWERON) {
         printf("=== POWER ON RESET ===\n");
         boot_count = 0;
 
-        // Power cycle should force display refresh - clear last image ID
-        nvs_handle_t nvs_handle;
-        esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+        // Power cycle - clear brownout counter and last image ID
         if (err == ESP_OK) {
             nvs_erase_key(nvs_handle, NVS_KEY_IMAGE_ID);
+            nvs_erase_key(nvs_handle, BROWNOUT_COUNT_KEY);
+            nvs_erase_key(nvs_handle, BROWNOUT_TIME_KEY);
             nvs_commit(nvs_handle);
-            nvs_close(nvs_handle);
-            printf("✅ Cleared last image ID - will force refresh\n");
+            printf("✅ Cleared last image ID and brownout counter\n");
         } else {
             printf("⚠️  Failed to clear NVS: %s\n", esp_err_to_name(err));
         }
+        brownout_count = 0;
+        g_brownout_count = 0;
     } else {
         boot_count++;
         printf("=== BOOT #%lu (from deep sleep) ===\n", boot_count);
+
+        // Reset brownout counter on successful wake from sleep
+        if (brownout_count > 0 && reset_reason == ESP_RST_DEEPSLEEP) {
+            printf("✅ Successful wake - clearing brownout counter (%ld)\n", (long)brownout_count);
+            if (err == ESP_OK) {
+                nvs_erase_key(nvs_handle, BROWNOUT_COUNT_KEY);
+                nvs_erase_key(nvs_handle, BROWNOUT_TIME_KEY);
+                nvs_commit(nvs_handle);
+            }
+            brownout_count = 0;
+        }
+        g_brownout_count = brownout_count;
+    }
+
+    if (err == ESP_OK) {
+        nvs_close(nvs_handle);
     }
 
     // Get device ID
@@ -885,35 +958,27 @@ void app_main(void)
 
     printf("WiFi connected!\n");
 
-    // Mark current firmware as valid (prevents rollback if we got this far)
+    // Detect if device is charging - changes wake/OTA behavior
+    bool is_charging = is_battery_charging(battery_voltage);
+
+    // CRITICAL: Wait after WiFi before doing anything else
+    // WiFi draws significant current - let battery voltage recover before next operation
+    printf("Waiting 2 seconds for battery to recover from WiFi...\n");
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // Mark current firmware as valid on first boot after successful OTA (quick, no network)
     ota_mark_valid();
 
-    // Check for OTA update (only if battery is sufficient)
-    if (battery_voltage >= OTA_MIN_BATTERY_VOLTAGE) {
-        ota_version_info_t ota_info = {0};
+    // BROWNOUT RECOVERY MODE - Skip heavy operations to prevent boot loop
+    if (in_brownout_recovery) {
+        printf("⚠️  In brownout recovery - skipping all operations\n");
+        report_device_status("brownout_recovery");
 
-        if (ota_check_version(&ota_info)) {
-            // Double-check battery against server's minimum requirement
-            if (battery_voltage >= ota_info.min_battery) {
-                printf("Starting OTA update...\n");
-                report_device_status("ota_updating");
-
-                ota_result_t result = ota_perform_update(&ota_info);
-
-                if (result == OTA_RESULT_SUCCESS) {
-                    printf("OTA complete, rebooting...\n");
-                    esp_restart();  // Reboot into new firmware
-                } else {
-                    printf("OTA failed with code %d, continuing normally\n", result);
-                    report_device_status("ota_failed");
-                }
-            } else {
-                printf("Battery too low for OTA (%.2fV < %.2fV)\n",
-                       battery_voltage, ota_info.min_battery);
-            }
-        }
-    } else {
-        printf("Skipping OTA check - battery low (%.2fV)\n", battery_voltage);
+        // Sleep for 1 hour to give battery time to recover
+        uint64_t recovery_sleep = 3600ULL * 1000000;  // 1 hour
+        printf("Sleeping for 1 hour to allow battery recovery...\n");
+        esp_deep_sleep(recovery_sleep);
+        return;  // Never reached, but makes intent clear
     }
 
     // Report status based on battery level
@@ -930,8 +995,15 @@ void app_main(void)
     if (fetch_metadata(&metadata)) {
         sleep_duration = metadata.sleep_duration;
 
+        // CHARGING MODE: Wake frequently for fast OTA and battery monitoring
+        // When plugged in, wake every 30 seconds to check for OTA and report charge level
+        // This gives near-instant OTA updates and live battery charge monitoring
+        if (is_charging) {
+            sleep_duration = 30 * 1000000;  // 30 seconds
+            printf("🔌 Charging mode: fast wake (30 sec) for OTA and monitoring\n");
+        }
         // If battery is low, double the sleep duration to conserve power
-        if (battery_voltage < BATTERY_LOW) {
+        else if (battery_voltage < BATTERY_LOW) {
             sleep_duration *= 2;
             printf("⚠️  Low battery: doubling sleep duration to %llu seconds\n",
                    sleep_duration / 1000000);
@@ -959,6 +1031,46 @@ void app_main(void)
     } else {
         printf("Failed to fetch metadata\n");
         report_device_status("metadata_failed");
+    }
+
+    // PRIMARY TASK (display refresh) is complete
+    // Now do SECONDARY TASK (OTA maintenance) if battery allows
+
+    // CRITICAL: Wait after display operations before OTA check
+    // Display refresh draws >1A - let battery voltage stabilize before OTA HTTP request
+    printf("Waiting 2 seconds for battery to recover...\n");
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // Check for OTA updates - but with smart battery protection
+    // When CHARGING: Always check (have external power, no brownout risk, fast updates)
+    // When ON BATTERY: Only check if voltage >= 3.6V (enough margin above 3.33V brownout)
+    bool should_check_ota = is_charging || (battery_voltage >= OTA_MIN_BATTERY_VOLTAGE);
+
+    if (should_check_ota) {
+        if (is_charging) {
+            printf("🔌 Charging - checking for OTA\n");
+        } else {
+            printf("🔋 Battery OK (%.2fV) - checking for OTA\n", battery_voltage);
+        }
+
+        ota_version_info_t ota_info = {0};
+        if (ota_check_version(&ota_info)) {
+            printf("📥 OTA update available, downloading...\n");
+            report_device_status("ota_updating");
+
+            ota_result_t result = ota_perform_update(&ota_info);
+
+            if (result == OTA_RESULT_SUCCESS) {
+                printf("✅ OTA complete, rebooting...\n");
+                esp_restart();  // Reboot into new firmware
+            } else {
+                printf("❌ OTA failed with code %d, continuing normally\n", result);
+                report_device_status("ota_failed");
+            }
+        }
+    } else {
+        printf("⏭️  Skipping OTA - battery too low (%.2fV < %.2fV)\n",
+               battery_voltage, OTA_MIN_BATTERY_VOLTAGE);
     }
 
     printf("Entering deep sleep for %llu seconds...\n", sleep_duration / 1000000);
