@@ -8,7 +8,8 @@
 #include "esp_app_format.h"
 #include "cJSON.h"
 
-// Firmware version - injected at build time
+// Firmware version - injected at build time via FIRMWARE_VERSION env var
+// CI/CD uses git SHA, local builds can use semantic versions like "1.0.0"
 #ifndef FIRMWARE_VERSION
 #define FIRMWARE_VERSION "0.0.0-dev"
 #endif
