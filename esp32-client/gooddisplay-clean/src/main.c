@@ -66,7 +66,7 @@
 // Display timing
 #define DISPLAY_ROW_DELAY_MS       1      // Delay between display rows
 #define DISPLAY_IC_DELAY_MS        50     // Delay between display ICs
-#define WIFI_SHUTDOWN_DELAY_MS     2000   // WiFi shutdown stabilization (allow full power-down before display)
+#define WIFI_SHUTDOWN_DELAY_MS     100    // WiFi shutdown stabilization (working version used 100ms)
 
 // Brownout recovery
 #define BROWNOUT_THRESHOLD_COUNT   3      // Brownouts before recovery mode
@@ -338,7 +338,10 @@ void gpio_discovery_test(void) {
     }
 }
 
-// Simple battery read without filtering - for debugging
+#endif // ENABLE_HARDWARE_DEBUG
+
+// Fast battery read without filtering - single ADC sample for quick status reports
+// This avoids the 100ms+ delay of read_battery_voltage() which causes brownouts
 float read_battery_raw(void) {
     adc_oneshot_unit_handle_t adc_handle;
     adc_oneshot_unit_init_cfg_t init_config = {
@@ -360,11 +363,8 @@ float read_battery_raw(void) {
     float adc_voltage = (raw / 4095.0f) * 3.3f;
     float battery_voltage = adc_voltage * VOLTAGE_DIVIDER_RATIO;
 
-    printf("RAW Battery (CH%d/GPIO%d): raw=%d, adc=%.2fV, bat=%.2fV\n",
-           BATTERY_ADC_CHANNEL, BATTERY_GPIO, raw, adc_voltage, battery_voltage);
     return battery_voltage;
 }
-#endif // ENABLE_HARDWARE_DEBUG
 
 /**
  * @brief Detect if battery is charging based on voltage
@@ -394,16 +394,17 @@ bool is_battery_charging(float voltage) {
  * @param status_msg Status string (e.g., "connected", "battery_low", "ota_updating")
  * @param brownout_count Number of brownout resets since power-on
  */
+// Forward declaration for fast battery read (defined below)
+float read_battery_raw(void);
+
 void report_device_status(const char* status_msg, int32_t brownout_count) {
     wifi_ap_record_t ap_info;
     esp_wifi_sta_get_ap_info(&ap_info);
 
-    // Read filtered battery voltage (10 samples, 100ms total)
-    float battery_voltage = read_battery_voltage();
-    // Handle invalid sensor readings
-    if (battery_voltage < 0) {
-        battery_voltage = 0.0f;  // Report 0 if sensor invalid
-    }
+    // Use FAST battery read (single ADC sample) to avoid delaying WiFi shutdown
+    // The slow read_battery_voltage() with 20 samples causes brownouts when called
+    // before display refresh because it delays WiFi shutdown by 100ms+
+    float battery_voltage = read_battery_raw();
 
     // Get firmware version from OTA module
     extern const char* ota_get_version(void);
@@ -885,8 +886,6 @@ bool download_and_display_image(void)
         printf("Displaying image...\n");
 
         // POWER OPTIMIZATION: Disable WiFi before display refresh to save ~100-200mA
-        // Note: Using disconnect+stop only (like working Oct 2025 version)
-        // deinit() may cause issues, testing without it
         printf("Disabling WiFi to conserve power during display refresh...\n");
         esp_wifi_disconnect();
         esp_wifi_stop();
