@@ -1142,8 +1142,11 @@ void app_main(void)
 
     printf("WiFi connected!\n");
 
-    // Re-check charging status after WiFi connection (voltage may have changed)
+    // Re-read battery voltage after WiFi - voltage stabilizes after connection
+    // and gives more accurate reading for charging detection
+    battery_voltage = read_battery_raw();
     is_charging = is_battery_charging(battery_voltage);
+    printf("Post-WiFi battery: %.2fV (charging=%s)\n", battery_voltage, is_charging ? "yes" : "no");
 
     // CRITICAL: Wait after WiFi before doing anything else
     // WiFi draws significant current - let battery voltage recover before next operation
