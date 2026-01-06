@@ -153,6 +153,7 @@ bool ota_check_version(ota_version_info_t* info) {
     cJSON* size = cJSON_GetObjectItem(json, "size");
     cJSON* sha256 = cJSON_GetObjectItem(json, "sha256");
     cJSON* min_battery = cJSON_GetObjectItem(json, "minBattery");
+    cJSON* force_update = cJSON_GetObjectItem(json, "forceUpdate");
 
     if (version && cJSON_IsString(version)) {
         strncpy(info->version, version->valuestring, sizeof(info->version) - 1);
@@ -171,8 +172,20 @@ bool ota_check_version(ota_version_info_t* info) {
     } else {
         info->min_battery = OTA_MIN_BATTERY_VOLTAGE;
     }
+    // Parse force update flag from server
+    info->force_update = force_update && cJSON_IsTrue(force_update);
 
     cJSON_Delete(json);
+
+    // Check if server is forcing an update (bypasses version comparison)
+    // This is used to recover from broken firmware or version comparison failures
+    if (info->force_update) {
+        printf("[%s] ⚠️  FORCE UPDATE enabled by server - bypassing version check\n", TAG);
+        printf("[%s] Forcing update: %s -> %s (%lu bytes)\n",
+               TAG, FIRMWARE_VERSION, info->version, (unsigned long)info->size);
+        info->update_available = true;
+        return true;
+    }
 
     // Get current firmware's build timestamp from ESP32 app description
     // This is set by esp-idf during compilation

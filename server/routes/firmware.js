@@ -12,6 +12,28 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
 
     const firmwarePath = path.join(dataDir, 'firmware.bin');
     const firmwareInfoPath = path.join(dataDir, 'firmware-info.json');
+    const forceOtaPath = path.join(dataDir, 'force-ota.json');
+
+    // Helper to read force OTA state
+    function getForceOtaState() {
+        try {
+            if (fs.existsSync(forceOtaPath)) {
+                const data = JSON.parse(fs.readFileSync(forceOtaPath, 'utf8'));
+                return data.forceUpdate === true;
+            }
+        } catch (e) {
+            console.warn('Failed to read force-ota.json:', e.message);
+        }
+        return false;
+    }
+
+    // Helper to set force OTA state
+    function setForceOtaState(enabled) {
+        fs.writeFileSync(forceOtaPath, JSON.stringify({
+            forceUpdate: enabled,
+            updatedAt: new Date().toISOString()
+        }, null, 2));
+    }
 
     /**
      * Get firmware version info
@@ -72,12 +94,14 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
             }
 
             // Return info (without internal mtime field)
+            // Include forceUpdate flag - when true, ESP32 should bypass version comparison
             res.json({
                 version: firmwareInfo.version,
                 buildDate: firmwareInfo.buildDate,
                 size: firmwareInfo.size,
                 sha256: firmwareInfo.sha256,
-                minBattery: firmwareInfo.minBattery
+                minBattery: firmwareInfo.minBattery,
+                forceUpdate: getForceOtaState()
             });
 
         } catch (error) {
@@ -127,6 +151,47 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
         } catch (error) {
             console.error('Error serving firmware:', error);
             res.status(500).json({ error: 'Failed to serve firmware' });
+        }
+    });
+
+    /**
+     * Enable or disable force OTA update
+     * POST /firmware/force
+     *
+     * Body: { enabled: boolean }
+     * Response: { forceUpdate: boolean, message: string }
+     *
+     * When forceUpdate is enabled, ESP32 devices will bypass version comparison
+     * and always download the firmware. Use this to recover from broken firmware
+     * or when version comparison fails.
+     */
+    router.post('/force', express.json(), (req, res) => {
+        try {
+            const { enabled } = req.body;
+
+            if (typeof enabled !== 'boolean') {
+                return res.status(400).json({
+                    error: 'Invalid request',
+                    message: 'Body must contain { enabled: true/false }'
+                });
+            }
+
+            setForceOtaState(enabled);
+
+            const message = enabled
+                ? 'Force OTA enabled - all devices will update on next check'
+                : 'Force OTA disabled - normal version comparison resumed';
+
+            console.log(`[Firmware] ${message}`);
+
+            res.json({
+                forceUpdate: enabled,
+                message
+            });
+
+        } catch (error) {
+            console.error('Error setting force OTA:', error);
+            res.status(500).json({ error: 'Failed to set force OTA state' });
         }
     });
 

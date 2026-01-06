@@ -29,6 +29,7 @@ typedef struct {
     char sha256[65];
     float min_battery;
     bool update_available;
+    bool force_update;      // When true, bypass version comparison (server override)
 } ota_version_info_t;
 
 /**
