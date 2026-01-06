@@ -373,10 +373,14 @@ float read_battery_raw(void) {
  * LiPo fully charged: 4.2V, discharged: ~3.3-3.7V
  *
  * @param voltage Battery voltage in volts
- * @return true if charging (voltage >= 4.0V), false otherwise
+ * @return true if charging (voltage >= 4.18V), false otherwise
  */
 bool is_battery_charging(float voltage) {
-    const float CHARGING_THRESHOLD = 4.0f;  // Above this voltage = likely charging
+    // A fully charged LiPo naturally settles at ~4.1V when not plugged in.
+    // Only voltages very close to max (4.2V) reliably indicate active charging.
+    // Using 4.18V as threshold to avoid false positives from full battery.
+    // Note: This is imperfect - proper detection requires hardware (charger status pin).
+    const float CHARGING_THRESHOLD = 4.18f;
     return voltage >= CHARGING_THRESHOLD;
 }
 
