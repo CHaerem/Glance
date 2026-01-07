@@ -927,6 +927,12 @@ bool download_and_display_image(void)
     if (pixels_written > 0) {
         printf("Displaying image...\n");
 
+        // Report display update status BEFORE shutting down WiFi
+        // This allows server to track display updates and correlate with battery usage
+        // Note: brownout_count passed as 0 since it's a local variable in app_main
+        // The server will use this status to detect when display updates occur
+        report_device_status("display_updating", 0);
+
         // Set dirty flag for pseudo-brownout detection
         // If device resets during display refresh, this flag tells us it was a brownout
         set_in_operation_flag(true);
