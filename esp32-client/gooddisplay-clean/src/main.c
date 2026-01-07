@@ -81,6 +81,7 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 // NVS keys for persistent storage (survives power cycle)
 #define NVS_NAMESPACE "glance"
 #define NVS_KEY_IMAGE_ID "image_id"
+#define NVS_KEY_IN_OPERATION "in_op"  // Dirty flag for pseudo-brownout detection
 
 // Battery monitoring configuration
 // GPIO 2 = ADC1_CH1 - connected to unlabeled solder pad on Good Display ESP32-133C02
@@ -162,6 +163,43 @@ void save_last_image_id(const char* image_id) {
     }
 
     nvs_close(nvs_handle);
+}
+
+/**
+ * @brief Set the "in operation" dirty flag for pseudo-brownout detection
+ *
+ * Call this BEFORE starting high-power operations (display refresh).
+ * If the device resets while this flag is set, it indicates a brownout
+ * even if the reset reason shows as POWERON.
+ */
+void set_in_operation_flag(bool in_operation) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) return;
+
+    if (in_operation) {
+        nvs_set_u8(nvs_handle, NVS_KEY_IN_OPERATION, 1);
+    } else {
+        nvs_erase_key(nvs_handle, NVS_KEY_IN_OPERATION);
+    }
+    nvs_commit(nvs_handle);
+    nvs_close(nvs_handle);
+}
+
+/**
+ * @brief Check if the "in operation" flag was set when device reset
+ *
+ * @return true if device was in a high-power operation when it reset
+ */
+bool was_in_operation(void) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) return false;
+
+    uint8_t flag = 0;
+    nvs_get_u8(nvs_handle, NVS_KEY_IN_OPERATION, &flag);
+    nvs_close(nvs_handle);
+    return flag == 1;
 }
 
 /**
@@ -889,6 +927,10 @@ bool download_and_display_image(void)
     if (pixels_written > 0) {
         printf("Displaying image...\n");
 
+        // Set dirty flag for pseudo-brownout detection
+        // If device resets during display refresh, this flag tells us it was a brownout
+        set_in_operation_flag(true);
+
         // POWER OPTIMIZATION: Disable WiFi before display refresh to save ~100-200mA
         printf("Disabling WiFi to conserve power during display refresh...\n");
         esp_wifi_disconnect();
@@ -940,6 +982,10 @@ bool download_and_display_image(void)
         epdDisplay();
 
         printf("=== Image displayed! ===\n");
+
+        // Clear dirty flag - display completed successfully (no brownout)
+        set_in_operation_flag(false);
+
         free(eink_buffer);
         return true;
     }
@@ -1008,17 +1054,40 @@ void app_main(void)
         printf("=== POWER ON RESET ===\n");
         boot_count = 0;
 
-        // Power cycle - clear brownout counter and last image ID
-        if (err == ESP_OK) {
-            nvs_erase_key(nvs_handle, NVS_KEY_IMAGE_ID);
-            nvs_erase_key(nvs_handle, BROWNOUT_COUNT_KEY);
-            nvs_erase_key(nvs_handle, BROWNOUT_TIME_KEY);
-            nvs_commit(nvs_handle);
-            printf("✅ Cleared last image ID and brownout counter\n");
+        // Check for pseudo-brownout: if we were in a high-power operation
+        // when the power reset occurred, treat it as a brownout
+        if (was_in_operation()) {
+            printf("⚡ PSEUDO-BROWNOUT DETECTED (reset during display operation)\n");
+            brownout_count++;
+            printf("Brownout count: %ld\n", (long)brownout_count);
+
+            // Save updated count and clear the in_operation flag
+            if (err == ESP_OK) {
+                nvs_set_i32(nvs_handle, BROWNOUT_COUNT_KEY, brownout_count);
+                nvs_erase_key(nvs_handle, NVS_KEY_IN_OPERATION);
+                nvs_commit(nvs_handle);
+            }
+
+            // Enter recovery mode if multiple brownouts
+            if (brownout_count >= BROWNOUT_THRESHOLD_COUNT) {
+                in_brownout_recovery = true;
+                printf("🚨 BROWNOUT RECOVERY MODE - Skipping heavy operations\n");
+                printf("   Battery likely too weak for display refresh\n");
+                printf("   Will skip display and OTA, sleep for extended period\n");
+            }
         } else {
-            printf("⚠️  Failed to clear NVS: %s\n", esp_err_to_name(err));
+            // Genuine power cycle - clear brownout counter
+            // Keep last_image_id to prevent infinite download loops
+            if (err == ESP_OK) {
+                nvs_erase_key(nvs_handle, BROWNOUT_COUNT_KEY);
+                nvs_erase_key(nvs_handle, BROWNOUT_TIME_KEY);
+                nvs_commit(nvs_handle);
+                printf("✅ Cleared brownout counter (kept last_image_id)\n");
+            } else {
+                printf("⚠️  Failed to clear NVS: %s\n", esp_err_to_name(err));
+            }
+            brownout_count = 0;
         }
-        brownout_count = 0;
     } else {
         boot_count++;
         printf("=== BOOT #%lu (from deep sleep) ===\n", boot_count);
@@ -1237,11 +1306,14 @@ void app_main(void)
                 printf("Skipping display update to prevent brownout - will retry when battery recovers\n");
                 report_device_status("battery_too_low", brownout_count);
             } else {
+                // CRITICAL: Save image ID BEFORE download/display to prevent infinite loops
+                // If device brownouts during display refresh, next boot will see "same image"
+                // and skip the 5.76MB download, breaking the brownout cycle
+                save_last_image_id(metadata.image_id);
+
                 if (download_and_display_image()) {
                     printf("=== SUCCESS ===\n");
-                    // Save to NVS so it persists across power cycles
-                    save_last_image_id(metadata.image_id);
-                    // Note: report_device_status() is called BEFORE WiFi shutdown inside download_and_display_image()
+                    // Image ID already saved above
                 } else {
                     printf("Download failed\n");
                     report_device_status("download_failed", brownout_count);
