@@ -115,8 +115,9 @@ jobs:
       env:
         SHORT_SHA: ${{ github.sha }}
         OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+        BUILD_DATE: ${{ github.event.head_commit.timestamp }}
       run: |
         SHORT_SHA=${SHORT_SHA:0:7}
         # Copy docker-compose.yml and deploy in one SSH session
         scp -o StrictHostKeyChecking=no docker-compose.yml chris@100.108.19.115:~/glance/docker-compose.yml
-        tailscale ssh chris@100.108.19.115 "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${OPENAI_KEY}' docker compose pull --quiet && IMAGE_VERSION=sha-${SHORT_SHA} OPENAI_API_KEY='${OPENAI_KEY}' docker compose up -d && docker image prune -af --filter 'until=1h' && sudo systemctl restart kiosk.service"
+        tailscale ssh chris@100.108.19.115 "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}' docker compose pull --quiet && IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}' docker compose up -d && docker image prune -af --filter 'until=1h' && sudo systemctl restart kiosk.service"
