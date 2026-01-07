@@ -82,6 +82,61 @@ Simply charging the battery to 100% resolves the issue.
 - **Decoupling capacitor:** 1000-4700μF near display helps with peak current
 - **Display refresh:** Draws >1A peak current
 
+### Hardware Fix: Supercapacitor + Boost Converter
+
+For persistent brownout issues at lower battery levels, adding a supercapacitor provides instant peak current delivery that batteries can't match due to internal resistance.
+
+#### Why Supercapacitors Help
+
+| Component | Internal Resistance | Peak Current | Role |
+|-----------|---------------------|--------------|------|
+| LiPo Battery | 50-150mΩ | Limited by chemistry | Average power |
+| Supercapacitor | 10-50mΩ | Very high (10A+) | Peak bursts |
+
+The supercap handles >1A display refresh peaks while the battery provides average current (~200mA).
+
+#### Recommended Setup
+
+```
+                    ┌─────────────┐
+Battery+ ──────────►│  MiniBoost  │──┬── Supercap+ ──┬── ESP32/Display VIN
+                    │  (3.7→5V)   │  │               │
+Battery- ──────────►│             │──┴── Supercap- ──┴── GND
+                    └─────────────┘
+```
+
+**Place supercapacitor AFTER the boost converter** (on 5V output side):
+- Supercap delivers 5V peaks directly to load
+- Boost converter only handles average current
+- No voltage conversion delay during peaks
+
+#### Component Recommendations
+
+| Component | Spec | Notes |
+|-----------|------|-------|
+| **Supercapacitor** | 4.7-10F, 5.5V, low ESR (<100mΩ) | Handles ~1s of 1A draw |
+| **Boost converter** | Adafruit PowerBoost 1000 or similar | 3.7V→5V, 1A continuous |
+| **Electrolytic cap** | 100-1000μF | At display power pins for high-freq noise |
+
+#### Specific Part Options
+
+**Budget ($2-5):**
+- Generic 4.7F 5.5V supercap (AliExpress/Amazon)
+- Look for "low ESR" versions
+
+**Better quality ($5-15):**
+- Eaton/Bussmann KR series (1-10F, very low ESR)
+- Panasonic Gold Cap (1-5.5F)
+- Maxwell/KEMET (excellent ESR)
+
+#### Benefits
+
+With supercapacitor installed:
+- Can use more of battery capacity (down to 50-60% instead of 70%)
+- Display refresh succeeds even at lower voltages
+- Eliminates brownout boot loops
+- Reduces stress on battery (longer lifespan)
+
 ## Timeline of Changes
 
 | Commit | Date | Change | Impact |
