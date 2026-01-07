@@ -5,7 +5,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - glance-data:/app/data
+      # Bind mount for data allows direct firmware updates without Docker rebuild
+      - ./data:/app/data
       - glance-uploads:/app/uploads
       - huggingface-cache:/home/glance/.cache/huggingface
     environment:
@@ -60,8 +61,6 @@ services:
       start_period: 10s
 
 volumes:
-  glance-data:
-    driver: local
   glance-uploads:
     driver: local
   qdrant-storage:

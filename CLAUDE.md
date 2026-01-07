@@ -82,14 +82,36 @@ Glance/
 
 ## Deployment (Automatic)
 
-Pushing to `main` triggers automatic deployment via GitHub Actions:
+Pushing to `main` triggers automatic deployment via GitHub Actions with optimized parallel builds:
 
-1. **Test**: Runs `npm run test:ci`
-2. **Build**: Multi-arch Docker image (linux/arm64)
-3. **Push**: To Docker Hub (`chaerem/glance-server:sha-<commit>`)
-4. **Deploy**: SSH via Tailscale to serverpi, pulls and restarts container
+### Parallel CI/CD Architecture
 
-No manual deployment needed for server changes.
+```
+┌─────────────────┐     ┌─────────────────┐
+│ detect-changes  │────►│ build-firmware  │──┐
+└─────────────────┘     └─────────────────┘  │
+        │                                     ├──► deploy
+        │               ┌─────────────────┐  │
+        └──────────────►│  build-server   │──┘
+                        └─────────────────┘
+```
+
+### Build Scenarios
+
+| Changes | Jobs Run | Time |
+|---------|----------|------|
+| ESP32 only | build-firmware → deploy-firmware-only | **~2-3 min** |
+| Server only | build-server → deploy | ~5-7 min |
+| Both | build-firmware + build-server (parallel) → deploy | ~5-7 min |
+
+### Key Optimizations
+
+- **Decoupled firmware**: Firmware uploaded directly to serverpi via SCP, no Docker rebuild
+- **Parallel builds**: Firmware and Docker image build simultaneously
+- **PlatformIO caching**: Cached dependencies reduce firmware build time
+- **Fast firmware path**: ESP32-only changes skip Docker entirely (saves ~5 min)
+
+No manual deployment needed for server or firmware changes.
 
 ## Common Commands
 
