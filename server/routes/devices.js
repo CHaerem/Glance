@@ -153,7 +153,12 @@ function createDeviceRoutes() {
                 lastFullCharge: null,
                 wakesThisCycle: 0,
                 displayUpdatesThisCycle: 0,
-                voltageAtFullCharge: null
+                voltageAtFullCharge: null,
+                // Per-operation battery consumption tracking
+                displayUpdateVoltageDrop: 0,  // Voltage drop during display updates
+                nonDisplayVoltageDrop: 0,     // Voltage drop during non-display wakes
+                otaUpdateVoltageDrop: 0,      // Voltage drop during OTA updates
+                otaUpdateCount: 0             // Number of OTA updates
             };
 
             if (isCharging && !previousDevice.isCharging) {
@@ -163,15 +168,34 @@ function createDeviceRoutes() {
                 usageStats.displayUpdatesThisCycle = 0;
             }
 
+            // Track OTA updates
+            const isOtaUpdate = status.status === 'ota_updating' || status.status === 'ota_complete';
+
             if (!isCharging && previousVoltage > 0) {
                 usageStats.totalWakes++;
                 usageStats.wakesThisCycle++;
+
                 if (isDisplayUpdate) {
                     usageStats.totalDisplayUpdates++;
                     usageStats.displayUpdatesThisCycle++;
                 }
+
+                if (isOtaUpdate) {
+                    usageStats.otaUpdateCount = (usageStats.otaUpdateCount || 0) + 1;
+                }
+
+                // Track voltage drop by operation type
                 if (voltageDelta < 0) {
-                    usageStats.totalVoltageDrop += Math.abs(voltageDelta);
+                    const drop = Math.abs(voltageDelta);
+                    usageStats.totalVoltageDrop += drop;
+
+                    if (isDisplayUpdate) {
+                        usageStats.displayUpdateVoltageDrop = (usageStats.displayUpdateVoltageDrop || 0) + drop;
+                    } else if (isOtaUpdate) {
+                        usageStats.otaUpdateVoltageDrop = (usageStats.otaUpdateVoltageDrop || 0) + drop;
+                    } else {
+                        usageStats.nonDisplayVoltageDrop = (usageStats.nonDisplayVoltageDrop || 0) + drop;
+                    }
                 }
             }
 
