@@ -548,6 +548,70 @@
             color: #f59e0b;
         }
 
+        /* Brownout History */
+        .brownout-summary {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .brownout-stat {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            background: #fef3c7;
+            border-radius: 8px;
+        }
+
+        .brownout-stat-value {
+            display: block;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #d97706;
+        }
+
+        .brownout-stat-label {
+            display: block;
+            font-size: 0.7rem;
+            color: #92400e;
+            margin-top: 2px;
+        }
+
+        .brownout-table-container {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .brownout-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .brownout-table th {
+            text-align: left;
+            padding: 6px 8px;
+            background: #f3f4f6;
+            border-bottom: 1px solid #e5e7eb;
+            position: sticky;
+            top: 0;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .brownout-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .brownout-table tr:hover td {
+            background: #fef3c7;
+        }
+
+        .voltage-critical { color: #dc2626; font-weight: 600; }
+        .voltage-low { color: #f59e0b; font-weight: 600; }
+        .voltage-ok { color: #10b981; }
+
         /* Mobile */
         @media (max-width: 480px) {
             body { padding: 16px; }
@@ -652,6 +716,38 @@
         <div class="graph-labels">
             <span id="signalTimeStart">--</span>
             <span id="signalTimeEnd">Now</span>
+        </div>
+    </div>
+
+    <!-- Brownout History -->
+    <div class="battery-graph" id="brownoutSection" style="display: none;">
+        <div class="battery-graph-header">
+            <span class="battery-graph-title">⚡ Brownout History</span>
+            <span class="battery-graph-value stat-warning" id="brownoutHeaderCount">0</span>
+        </div>
+        <div class="brownout-summary" id="brownoutSummary">
+            <div class="brownout-stat">
+                <span class="brownout-stat-value" id="brownoutAvgVoltage">--</span>
+                <span class="brownout-stat-label">Avg voltage at brownout</span>
+            </div>
+            <div class="brownout-stat">
+                <span class="brownout-stat-value" id="brownoutLastTime">--</span>
+                <span class="brownout-stat-label">Last brownout</span>
+            </div>
+        </div>
+        <div class="brownout-table-container">
+            <table class="brownout-table" id="brownoutTable">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Voltage</th>
+                        <th>Battery %</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="brownoutTableBody">
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -1057,6 +1153,9 @@
                 // Update signal graph
                 updateSignalGraph(s);
 
+                // Update brownout history
+                updateBrownoutHistory(s);
+
                 // Update device stats
                 updateDeviceStats(s);
             } catch (e) {
@@ -1294,6 +1393,58 @@
                 const firstTime = new Date(history[0].timestamp);
                 document.getElementById('signalTimeStart').textContent =
                     firstTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        // Update brownout history section
+        function updateBrownoutHistory(status) {
+            const section = document.getElementById('brownoutSection');
+            const brownoutHistory = status.brownoutHistory || [];
+            const brownoutCount = status.brownoutCount || 0;
+
+            // Hide section if no brownouts
+            if (brownoutCount === 0 && brownoutHistory.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            document.getElementById('brownoutHeaderCount').textContent = brownoutCount;
+
+            // Calculate summary stats
+            if (brownoutHistory.length > 0) {
+                // Average voltage at brownout
+                const avgVoltage = brownoutHistory.reduce((sum, b) => sum + (b.batteryVoltage || 0), 0) / brownoutHistory.length;
+                document.getElementById('brownoutAvgVoltage').textContent = avgVoltage.toFixed(2) + 'V';
+
+                // Last brownout time
+                const lastBrownout = brownoutHistory[brownoutHistory.length - 1];
+                document.getElementById('brownoutLastTime').textContent = timeAgo(lastBrownout.timestamp);
+
+                // Populate table (newest first)
+                const tbody = document.getElementById('brownoutTableBody');
+                tbody.innerHTML = brownoutHistory.slice().reverse().map(b => {
+                    const time = new Date(b.timestamp).toLocaleString('en-GB', {
+                        month: 'short', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                    const voltage = b.batteryVoltage ? b.batteryVoltage.toFixed(2) + 'V' : '--';
+                    const percent = b.batteryPercent !== undefined ? b.batteryPercent + '%' : '--';
+                    const voltageClass = b.batteryVoltage < 3.5 ? 'voltage-critical' :
+                                        b.batteryVoltage < 3.7 ? 'voltage-low' : 'voltage-ok';
+                    const statusText = (b.status || 'unknown').replace(/_/g, ' ');
+                    return `<tr>
+                        <td>${time}</td>
+                        <td class="${voltageClass}">${voltage}</td>
+                        <td>${percent}</td>
+                        <td>${statusText}</td>
+                    </tr>`;
+                }).join('');
+            } else {
+                document.getElementById('brownoutAvgVoltage').textContent = '--';
+                document.getElementById('brownoutLastTime').textContent = '--';
+                document.getElementById('brownoutTableBody').innerHTML =
+                    '<tr><td colspan="4" style="text-align:center;color:#999">No history recorded yet</td></tr>';
             }
         }
 
