@@ -189,14 +189,32 @@ function createDeviceRoutes() {
                 batteryPercent = Math.round(batteryPercent);
             }
 
-            // Track brownout count
+            // Track brownout count and history
             const brownoutCount = parseInt(status.brownoutCount) || 0;
             const previousBrownoutCount = previousDevice.brownoutCount || 0;
+            const brownoutHistory = previousDevice.brownoutHistory || [];
 
-            // Alert on new brownouts
+            // Alert on new brownouts and record in history
             if (brownoutCount > previousBrownoutCount) {
+                const newBrownouts = brownoutCount - previousBrownoutCount;
                 console.log(`⚠️  BROWNOUT DETECTED: Device ${deviceId} count increased to ${brownoutCount}`);
-                addDeviceLog(`Brownout detected (count: ${brownoutCount}) - battery voltage may be too low`);
+                addDeviceLog(`Brownout detected (count: ${brownoutCount}) at ${batteryVoltage}V (${batteryPercent}%)`);
+
+                // Record brownout event for analysis
+                brownoutHistory.push({
+                    timestamp: Date.now(),
+                    brownoutNumber: brownoutCount,
+                    batteryVoltage: batteryVoltage,
+                    batteryPercent: batteryPercent,
+                    status: sanitizeInput(status.status) || 'unknown',
+                    displayUpdatesThisCycle: usageStats.displayUpdatesThisCycle || 0,
+                    wakesThisCycle: usageStats.wakesThisCycle || 0
+                });
+
+                // Keep last 50 brownout events
+                if (brownoutHistory.length > 50) {
+                    brownoutHistory.shift();
+                }
             }
 
             // Track firmware version and OTA updates
@@ -254,6 +272,7 @@ function createDeviceRoutes() {
                 freeHeap: parseInt(status.freeHeap) || 0,
                 bootCount: parseInt(status.bootCount) || 0,
                 brownoutCount: brownoutCount,
+                brownoutHistory: brownoutHistory,
                 firmwareVersion: firmwareVersion,
                 otaHistory: otaHistory,
                 status: deviceStatus,
@@ -379,6 +398,7 @@ function createDeviceRoutes() {
                 sleepDuration: sleepDuration,
                 freeHeap: deviceStatus.freeHeap,
                 brownoutCount: deviceStatus.brownoutCount || 0,
+                brownoutHistory: deviceStatus.brownoutHistory || [],
                 firmwareVersion: deviceStatus.firmwareVersion || null,
                 otaHistory: deviceStatus.otaHistory || [],
                 status: deviceStatus.status,
