@@ -23,7 +23,7 @@ typedef enum {
 
 // OTA version info from server
 typedef struct {
-    char version[32];
+    char version[64];  // Increased from 32 to fit full git SHA (40 chars)
     uint32_t build_date;
     uint32_t size;
     char sha256[65];
