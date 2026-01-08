@@ -104,26 +104,58 @@ function createDeviceRoutes() {
                 batteryPercent = Math.round(batteryPercent);
             }
 
-            // Detect charging - trust ESP32's explicit isCharging state first
+            // Detect charging using voltage trend analysis
             const previousVoltage = previousDevice.batteryVoltage || 0;
             const voltageDelta = batteryVoltage - previousVoltage;
+            const batteryHistory = previousDevice.batteryHistory || [];
 
             let isCharging = false;
+            let chargingSource = 'none';
 
-            // Priority 1: Trust ESP32's charging detection (firmware v1.0.0+)
+            // Priority 1: ESP32's charging detection (firmware v1.0.0+)
             if (typeof status.isCharging === 'boolean') {
                 isCharging = status.isCharging;
+                chargingSource = 'esp32';
             }
             // Priority 2: Fallback voltage rise detection for old firmware
-            // Raised threshold from 0.05V to 0.15V to reduce false positives from battery recovery
             else if (previousVoltage > 0 && voltageDelta > 0.15) {
                 isCharging = true;
+                chargingSource = 'voltage_rise';
                 loggers.battery.info('Charging detected via voltage rise', {
                     deviceId,
                     previousVoltage,
                     currentVoltage: batteryVoltage,
                     delta: parseFloat(voltageDelta.toFixed(3))
                 });
+            }
+
+            // Priority 3: Override ESP32's isCharging=true using voltage trend analysis
+            // ESP32 uses voltage >= 4.18V threshold which gives false positives when
+            // battery is fully charged but unplugged. Check if voltage is stable/falling.
+            if (isCharging && chargingSource === 'esp32' && batteryHistory.length >= 3) {
+                // Get last 3-5 readings for trend analysis
+                const recentReadings = batteryHistory.slice(-5);
+
+                // Calculate voltage trend (positive = rising, negative = falling)
+                let voltageTrend = 0;
+                for (let i = 1; i < recentReadings.length; i++) {
+                    voltageTrend += recentReadings[i].voltage - recentReadings[i-1].voltage;
+                }
+                voltageTrend = voltageTrend / (recentReadings.length - 1);
+
+                // If voltage is stable or falling (trend <= 0.01V per reading), not actually charging
+                // Allow small positive trend (0.01V) for measurement noise
+                if (voltageTrend <= 0.01) {
+                    isCharging = false;
+                    chargingSource = 'trend_override';
+                    loggers.battery.info('Charging status overridden by voltage trend', {
+                        deviceId,
+                        esp32Said: true,
+                        trend: parseFloat(voltageTrend.toFixed(4)),
+                        recentVoltages: recentReadings.map(r => r.voltage),
+                        reason: 'Voltage stable/falling indicates not charging'
+                    });
+                }
             }
 
             let lastChargeTimestamp = previousDevice.lastChargeTimestamp || null;
@@ -134,8 +166,7 @@ function createDeviceRoutes() {
                 addDeviceLog(`Device ${deviceId} started charging`);
             }
 
-            // Track battery history
-            const batteryHistory = previousDevice.batteryHistory || [];
+            // Track battery history (batteryHistory already fetched above for trend analysis)
             const isDisplayUpdate = status.status === 'display_updating' || status.status === 'display_complete';
 
             if (batteryVoltage > 0) {
@@ -403,6 +434,7 @@ function createDeviceRoutes() {
                 batteryVoltage: batteryVoltage,
                 batteryPercent: batteryPercent || 0,
                 isCharging: isCharging,
+                chargingSource: chargingSource,  // For debugging: 'esp32', 'voltage_rise', 'trend_override', or 'none'
                 lastChargeTimestamp: lastChargeTimestamp,
                 batteryHistory: batteryHistory,
                 usageStats: usageStats,
@@ -602,6 +634,7 @@ function createDeviceRoutes() {
                 batteryVoltage: deviceStatus.batteryVoltage,
                 batteryPercent: deviceStatus.batteryPercent,
                 isCharging: deviceStatus.isCharging,
+                chargingSource: deviceStatus.chargingSource || 'unknown',
                 lastChargeTimestamp: deviceStatus.lastChargeTimestamp,
                 batteryHistory: deviceStatus.batteryHistory || [],
                 batteryEstimate: batteryEstimate,
