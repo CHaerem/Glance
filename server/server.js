@@ -99,6 +99,27 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.static("public"));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
+// HTTP request logging for Grafana/Loki
+app.use((req, res, next) => {
+	const start = Date.now();
+	res.on('finish', () => {
+		const duration = Date.now() - start;
+		// Skip health checks and metrics to reduce noise
+		if (req.path !== '/health' && req.path !== '/api/health' && req.path !== '/api/metrics') {
+			console.log(JSON.stringify({
+				level: 'info',
+				component: 'http',
+				method: req.method,
+				path: req.path,
+				status: res.statusCode,
+				duration_ms: duration,
+				timestamp: new Date().toISOString()
+			}));
+		}
+	});
+	next();
+});
+
 // Load statistics on startup
 statistics.loadStats().catch(err => console.error('Failed to load stats on startup:', err));
 
