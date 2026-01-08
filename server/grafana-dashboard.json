@@ -19,6 +19,18 @@
           "options": [],
           "refresh": 1,
           "regex": ""
+        },
+        {
+          "name": "loki_datasource",
+          "type": "datasource",
+          "query": "loki",
+          "current": {},
+          "hide": 0,
+          "includeAll": false,
+          "multi": false,
+          "options": [],
+          "refresh": 1,
+          "regex": ""
         }
       ]
     },
@@ -395,6 +407,29 @@
           "reduceOptions": { "calcs": ["lastNotNull"] },
           "colorMode": "value",
           "graphMode": "area"
+        }
+      },
+      {
+        "id": 12,
+        "title": "Application Logs",
+        "type": "logs",
+        "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
+        "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+        "targets": [
+          {
+            "expr": "{container=\"glance-server\"} | json",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "sortOrder": "Descending",
+          "dedupStrategy": "none"
         }
       }
     ]
