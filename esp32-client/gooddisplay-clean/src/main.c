@@ -994,10 +994,10 @@ bool download_and_display_image(void)
         esp_wifi_stop();
         vTaskDelay(pdMS_TO_TICKS(WIFI_SHUTDOWN_DELAY_MS));
 
-        // NOTE: initEPD() was called right before this function, and the image download
-        // (5.76MB, takes several seconds) provides time for the display controller's
-        // charge pump capacitors to stabilize. This timing prevents brownout during
-        // the high-current epdDisplay() call.
+        // NOTE: initEPD() was called early in app_main() to give the display
+        // controller's charge pump capacitors time to stabilize. By the time we get
+        // here (after WiFi connect + image download), ~15-20 seconds have passed.
+        // This timing prevents brownout during the high-current epdDisplay() call.
 
         // Display has 2 driver ICs - split data horizontally
         int width_per_ic = DISPLAY_WIDTH / 2;  // 600 pixels per IC
@@ -1213,11 +1213,22 @@ void app_main(void)
         // Never returns
     }
 
-    // Battery is sufficient - proceed with WiFi
-    // NOTE: Display initialization is deferred until we know we need to refresh.
-    // This saves significant power on wakes where the image hasn't changed.
-    // Previously we initialized the display on every wake, wasting power on ~80% of wakes.
-    printf("Battery sufficient (%.2fV), proceeding to WiFi...\n", battery_voltage);
+    // Battery is sufficient for basic init - proceed with hardware setup
+    // IMPORTANT: Call initEPD() early to give display controller time to stabilize
+    // before the high-current epdDisplay() call. Moving initEPD() closer to display
+    // refresh caused brownouts - the internal capacitors need ~15-20s to fully charge.
+    printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
+    setGpioLevel(LOAD_SW, GPIO_HIGH);
+    epdHardwareReset();
+    vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
+    setPinCsAll(GPIO_HIGH);
+
+    // Initialize display controller early - this doesn't affect the displayed image,
+    // it just configures the controller. The actual image won't change until we
+    // send new data AND call epdDisplay(). Calling initEPD() early gives the
+    // internal charge pump capacitors time to stabilize (during WiFi & download).
+    initEPD();
+    printf("Hardware and display controller initialized\n");
 
     // WIFI BATTERY CHECK - WiFi requires slightly more power than basic init
     // WiFi connection draws ~460mA which can cause brownouts on weak battery
@@ -1406,16 +1417,8 @@ void app_main(void)
                 printf("Skipping display update to prevent brownout - will retry when battery recovers\n");
                 report_device_status("battery_too_low", brownout_count);
             } else {
-                // POWER OPTIMIZATION: Initialize display only when we need to refresh
-                // This saves ~100mA for 2+ seconds on wakes where image hasn't changed.
-                // Previously display was initialized on every wake, wasting ~80% of that power.
-                printf("Initializing display for refresh...\n");
-                setGpioLevel(LOAD_SW, GPIO_HIGH);
-                epdHardwareReset();
-                vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
-                setPinCsAll(GPIO_HIGH);
-                initEPD();
-                printf("Display initialized, capacitors charging during download...\n");
+                // Display was already initialized early in the wake cycle to give
+                // capacitors time to charge. By now (~15-20s later) they're ready.
 
                 // CRITICAL: Save image ID BEFORE download/display to prevent infinite loops
                 // If device brownouts during display refresh, next boot will see "same image"
