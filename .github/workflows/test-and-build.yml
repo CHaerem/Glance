@@ -22,6 +22,7 @@ on:
 jobs:
   # Detect what changed to enable conditional builds
   detect-changes:
+    name: "Detect Code Changes"
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     outputs:
@@ -69,8 +70,9 @@ jobs:
             echo "server=false" >> $GITHUB_OUTPUT
           fi
 
-  # Build ESP32 firmware (runs in parallel with server build)
-  build-firmware:
+  # Build ESP32 client firmware (runs in parallel with server build)
+  build-esp32-client:
+    name: "Build ESP32 Client Firmware"
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.esp32_changed == 'true'
@@ -126,8 +128,9 @@ jobs:
           path: esp32-client/gooddisplay-clean/.pio/build/esp32s3/firmware.bin
           retention-days: 7
 
-  # Build Docker image (runs in parallel with firmware build)
-  build-server:
+  # Build Node.js server Docker image (runs in parallel with ESP32 build)
+  build-server-docker:
+    name: "Build Server Docker Image"
     runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.server_changed == 'true'
@@ -177,12 +180,13 @@ jobs:
 
   # Deploy - handles both firmware and server updates
   deploy:
+    name: "Deploy to Raspberry Pi"
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-firmware, build-server]
+    needs: [detect-changes, build-esp32-client, build-server-docker]
     # Run if either build succeeded (use always() to check even if job was skipped)
     if: |
       always() &&
-      (needs.build-firmware.result == 'success' || needs.build-server.result == 'success')
+      (needs.build-esp32-client.result == 'success' || needs.build-server-docker.result == 'success')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -197,7 +201,7 @@ jobs:
 
       # Download firmware if it was built
       - name: Download firmware artifact
-        if: needs.build-firmware.result == 'success'
+        if: needs.build-esp32-client.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: firmware
@@ -205,9 +209,9 @@ jobs:
 
       # Upload firmware directly to serverpi (fast! ~5 seconds)
       - name: Deploy firmware to serverpi
-        if: needs.build-firmware.result == 'success'
+        if: needs.build-esp32-client.result == 'success'
         env:
-          FIRMWARE_VERSION: ${{ needs.build-firmware.outputs.firmware_version }}
+          FIRMWARE_VERSION: ${{ needs.build-esp32-client.outputs.firmware_version }}
           BUILD_DATE: ${{ github.event.head_commit.timestamp }}
         run: |
           echo "Deploying firmware v${FIRMWARE_VERSION} directly to serverpi..."
@@ -234,7 +238,7 @@ jobs:
 
       # Deploy server if Docker image was built
       - name: Deploy server to serverpi
-        if: needs.build-server.result == 'success'
+        if: needs.build-server-docker.result == 'success'
         env:
           SHORT_SHA: ${{ github.sha }}
           OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -259,13 +263,13 @@ jobs:
           echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ needs.build-firmware.result }}" == "success" ]; then
-            echo "✅ **Firmware**: v${{ needs.build-firmware.outputs.firmware_version }} (${{ needs.build-firmware.outputs.firmware_size }} bytes)" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.build-esp32-client.result }}" == "success" ]; then
+            echo "✅ **Firmware**: v${{ needs.build-esp32-client.outputs.firmware_version }} (${{ needs.build-esp32-client.outputs.firmware_size }} bytes)" >> $GITHUB_STEP_SUMMARY
           else
             echo "⏭️ **Firmware**: No changes" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ needs.build-server.result }}" == "success" ]; then
+          if [ "${{ needs.build-server-docker.result }}" == "success" ]; then
             echo "✅ **Server**: Deployed sha-${GITHUB_SHA:0:7}" >> $GITHUB_STEP_SUMMARY
           else
             echo "⏭️ **Server**: No changes" >> $GITHUB_STEP_SUMMARY
@@ -274,12 +278,13 @@ jobs:
   # Firmware-only fast path (when only ESP32 code changed)
   # This runs instead of full deploy when server hasn't changed
   deploy-firmware-only:
+    name: "Deploy ESP32 Firmware Only (Fast Path)"
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-firmware]
+    needs: [detect-changes, build-esp32-client]
     if: |
       needs.detect-changes.outputs.esp32_changed == 'true' &&
       needs.detect-changes.outputs.server_changed == 'false' &&
-      needs.build-firmware.result == 'success'
+      needs.build-esp32-client.result == 'success'
     steps:
       - name: Join tailnet
         uses: tailscale/github-action@v3
@@ -297,7 +302,7 @@ jobs:
 
       - name: Deploy firmware only (fast path)
         env:
-          FIRMWARE_VERSION: ${{ needs.build-firmware.outputs.firmware_version }}
+          FIRMWARE_VERSION: ${{ needs.build-esp32-client.outputs.firmware_version }}
           BUILD_DATE: ${{ github.event.head_commit.timestamp }}
         run: |
           echo "🚀 Fast firmware-only deployment (no Docker rebuild!)"
