@@ -1,0 +1,49 @@
+name: Deploy Grafana Dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/grafana-dashboard.json'
+      - '.github/workflows/deploy-grafana.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy dashboard to Grafana Cloud
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN }}
+        run: |
+          # Check if secrets are configured
+          if [ -z "$GRAFANA_URL" ] || [ -z "$GRAFANA_SA_TOKEN" ]; then
+            echo "::warning::Grafana secrets not configured. Skipping dashboard deployment."
+            echo "To enable: Add GRAFANA_URL and GRAFANA_SA_TOKEN to repository secrets."
+            exit 0
+          fi
+
+          echo "Deploying dashboard to Grafana Cloud..."
+
+          # Deploy dashboard using Grafana API
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${GRAFANA_URL}/api/dashboards/db" \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d @server/grafana-dashboard.json)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "Dashboard deployed successfully!"
+            echo "$BODY" | jq -r '.url // "Dashboard URL not returned"'
+          else
+            echo "::error::Failed to deploy dashboard (HTTP $HTTP_CODE)"
+            echo "$BODY"
+            exit 1
+          fi
