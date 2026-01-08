@@ -1082,13 +1082,16 @@ void app_main(void)
                 printf("   Will skip display and OTA, sleep for extended period\n");
             }
         } else {
-            // Genuine power cycle - clear brownout counter
-            // Keep last_image_id to prevent infinite download loops
+            // Genuine power cycle - clear brownout counter AND last_image_id
+            // This ensures display always refreshes after user power cycles the device
+            // Deep sleep wakes keep last_image_id (only refresh when image changes)
             if (err == ESP_OK) {
                 nvs_erase_key(nvs_handle, BROWNOUT_COUNT_KEY);
                 nvs_erase_key(nvs_handle, BROWNOUT_TIME_KEY);
+                nvs_erase_key(nvs_handle, NVS_KEY_IMAGE_ID);
                 nvs_commit(nvs_handle);
-                printf("✅ Cleared brownout counter (kept last_image_id)\n");
+                printf("✅ Power cycle: cleared brownout counter and last_image_id\n");
+                printf("   Display will refresh on this boot\n");
             } else {
                 printf("⚠️  Failed to clear NVS: %s\n", esp_err_to_name(err));
             }
