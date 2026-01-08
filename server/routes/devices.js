@@ -91,6 +91,19 @@ function createDeviceRoutes() {
             // Calculate battery percentage from voltage first
             const batteryVoltage = parseFloat(status.batteryVoltage) || 0;
 
+            // Calculate battery percentage - must be before any code that uses it
+            let batteryPercent = parseInt(status.batteryPercent);
+            if (!batteryPercent && batteryVoltage > 0) {
+                if (batteryVoltage >= 4.2) batteryPercent = 100;
+                else if (batteryVoltage >= 4.0) batteryPercent = 80 + ((batteryVoltage - 4.0) / 0.2) * 20;
+                else if (batteryVoltage >= 3.7) batteryPercent = 50 + ((batteryVoltage - 3.7) / 0.3) * 30;
+                else if (batteryVoltage >= 3.5) batteryPercent = 30 + ((batteryVoltage - 3.5) / 0.2) * 20;
+                else if (batteryVoltage >= 3.3) batteryPercent = 10 + ((batteryVoltage - 3.3) / 0.2) * 20;
+                else if (batteryVoltage >= 3.0) batteryPercent = ((batteryVoltage - 3.0) / 0.3) * 10;
+                else batteryPercent = 0;
+                batteryPercent = Math.round(batteryPercent);
+            }
+
             // Detect charging - trust ESP32's explicit isCharging state first
             const previousVoltage = previousDevice.batteryVoltage || 0;
             const voltageDelta = batteryVoltage - previousVoltage;
@@ -300,20 +313,6 @@ function createDeviceRoutes() {
                         operationSamples.shift();
                     }
                 }
-            }
-
-            // Calculate battery percentage from voltage
-            let batteryPercent = parseInt(status.batteryPercent);
-
-            if (!batteryPercent && batteryVoltage > 0) {
-                if (batteryVoltage >= 4.2) batteryPercent = 100;
-                else if (batteryVoltage >= 4.0) batteryPercent = 80 + ((batteryVoltage - 4.0) / 0.2) * 20;
-                else if (batteryVoltage >= 3.7) batteryPercent = 50 + ((batteryVoltage - 3.7) / 0.3) * 30;
-                else if (batteryVoltage >= 3.5) batteryPercent = 30 + ((batteryVoltage - 3.5) / 0.2) * 20;
-                else if (batteryVoltage >= 3.3) batteryPercent = 10 + ((batteryVoltage - 3.3) / 0.2) * 20;
-                else if (batteryVoltage >= 3.0) batteryPercent = ((batteryVoltage - 3.0) / 0.3) * 10;
-                else batteryPercent = 0;
-                batteryPercent = Math.round(batteryPercent);
             }
 
             // Track brownout count and history
