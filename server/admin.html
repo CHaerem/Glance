@@ -5,6 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glance - Admin</title>
     <style>
+        /* Theme CSS Variables */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #fafafa;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666;
+            --text-muted: #999;
+            --border-color: #e5e5e5;
+            --border-light: #f0f0f0;
+            --card-bg: #f5f5f5;
+            --input-bg: #fff;
+            --btn-bg: #fff;
+            --status-online: #10b981;
+            --status-warning: #f59e0b;
+            --status-error: #ef4444;
+            --status-offline: #9ca3af;
+            --log-bg: #1a1a1a;
+            --log-text: #e5e5e5;
+            --log-border: #2a2a2a;
+            --graph-line: #1a1a1a;
+            --graph-area: rgba(26, 26, 26, 0.1);
+            --brownout-bg: #fef3c7;
+            --brownout-value: #d97706;
+            --brownout-label: #92400e;
+            --consumption-highlight-bg: #eff6ff;
+            --consumption-highlight-border: #3b82f6;
+            --firmware-current-bg: #dcfce7;
+            --session-current-border: #10b981;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --bg-tertiary: #252525;
+            --text-primary: #e5e5e5;
+            --text-secondary: #a0a0a0;
+            --text-muted: #707070;
+            --border-color: #333;
+            --border-light: #2a2a2a;
+            --card-bg: #1e1e1e;
+            --input-bg: #252525;
+            --btn-bg: #252525;
+            --log-bg: #0a0a0a;
+            --log-text: #d0d0d0;
+            --log-border: #333;
+            --graph-line: #e5e5e5;
+            --graph-area: rgba(229, 229, 229, 0.1);
+            --brownout-bg: #422006;
+            --brownout-value: #fbbf24;
+            --brownout-label: #fcd34d;
+            --consumption-highlight-bg: #1e3a5f;
+            --consumption-highlight-border: #60a5fa;
+            --firmware-current-bg: #14532d;
+            --session-current-border: #34d399;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,16 +70,17 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            background: #ffffff;
-            color: #1a1a1a;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             line-height: 1.6;
             padding: 20px;
             max-width: 600px;
             margin: 0 auto;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        a { color: #666; text-decoration: none; }
-        a:hover { color: #1a1a1a; }
+        a { color: var(--text-secondary); text-decoration: none; }
+        a:hover { color: var(--text-primary); }
 
         /* Header */
         .header {
@@ -134,7 +192,7 @@
             display: flex;
             gap: 16px;
             padding: 16px;
-            background: #f5f5f5;
+            background: var(--card-bg);
             border-radius: 12px;
             margin-bottom: 20px;
             flex-wrap: wrap;
@@ -153,7 +211,7 @@
 
         .status-label {
             font-size: 0.7rem;
-            color: #666;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -166,12 +224,12 @@
             margin-right: 4px;
         }
 
-        .status-dot.online { background: #10b981; }
-        .status-dot.offline { background: #9ca3af; }
+        .status-dot.online { background: var(--status-online); }
+        .status-dot.offline { background: var(--status-offline); }
 
         .stale-warning {
             font-size: 0.7rem;
-            color: #f59e0b;
+            color: var(--status-warning);
             margin-top: 2px;
         }
 
@@ -183,7 +241,7 @@
         .section-header {
             font-size: 0.75rem;
             font-weight: 600;
-            color: #666;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 12px;
@@ -191,7 +249,7 @@
 
         /* Card */
         .card {
-            background: #f5f5f5;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 16px;
@@ -215,20 +273,21 @@
         .form-input {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid #e5e5e5;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             font-size: 0.9rem;
-            background: #fff;
+            background: var(--input-bg);
+            color: var(--text-primary);
         }
 
         .form-input:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
         }
 
         .form-hint {
             font-size: 0.7rem;
-            color: #999;
+            color: var(--text-muted);
             margin-top: 4px;
         }
 
@@ -240,16 +299,17 @@
         }
 
         .preset-btn {
-            background: #fff;
-            border: 1px solid #e5e5e5;
+            background: var(--btn-bg);
+            border: 1px solid var(--border-color);
             padding: 6px 10px;
             border-radius: 4px;
             font-size: 0.75rem;
             cursor: pointer;
+            color: var(--text-primary);
         }
 
         .preset-btn:hover {
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
         }
 
         .checkbox-label {
@@ -266,8 +326,8 @@
         }
 
         .btn-primary {
-            background: #1a1a1a;
-            color: white;
+            background: var(--text-primary);
+            color: var(--bg-primary);
             border: none;
             padding: 10px 20px;
             border-radius: 6px;
@@ -278,11 +338,11 @@
         }
 
         .btn-primary:hover {
-            background: #333;
+            opacity: 0.85;
         }
 
         .success-msg {
-            color: #10b981;
+            color: var(--status-online);
             font-size: 0.85rem;
             text-align: center;
             margin-top: 12px;
@@ -304,9 +364,15 @@
         .time-range select {
             flex: 1;
             padding: 8px;
-            border: 1px solid #e5e5e5;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 0.85rem;
+            background: var(--input-bg);
+            color: var(--text-primary);
+        }
+
+        .time-range span {
+            color: var(--text-secondary);
         }
 
         /* Orientation buttons */
@@ -318,23 +384,48 @@
         .orientation-btn {
             flex: 1;
             padding: 10px;
-            border: 1px solid #e5e5e5;
+            border: 1px solid var(--border-color);
             border-radius: 6px;
-            background: #fff;
+            background: var(--btn-bg);
             font-size: 0.8rem;
             cursor: pointer;
             text-align: center;
+            color: var(--text-primary);
         }
 
         .orientation-btn.active {
-            background: #1a1a1a;
-            color: #fff;
-            border-color: #1a1a1a;
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        /* Theme selector */
+        .theme-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .theme-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--btn-bg);
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        .theme-btn.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
         }
 
         /* Logs */
         .log-container {
-            background: #1a1a1a;
+            background: var(--log-bg);
             border-radius: 8px;
             padding: 12px;
             max-height: 250px;
@@ -344,9 +435,9 @@
         .log-entry {
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 0.7rem;
-            color: #e5e5e5;
+            color: var(--log-text);
             padding: 4px 0;
-            border-bottom: 1px solid #2a2a2a;
+            border-bottom: 1px solid var(--log-border);
         }
 
         .log-entry:last-child {
@@ -354,12 +445,12 @@
         }
 
         .log-time {
-            color: #666;
+            color: var(--text-muted);
             margin-right: 8px;
         }
 
         .log-error {
-            color: #ef4444;
+            color: var(--status-error);
         }
 
         .card-header {
@@ -375,31 +466,32 @@
         }
 
         .btn-small {
-            background: #fff;
-            border: 1px solid #e5e5e5;
+            background: var(--btn-bg);
+            border: 1px solid var(--border-color);
             padding: 6px 12px;
             border-radius: 4px;
             font-size: 0.75rem;
             cursor: pointer;
+            color: var(--text-primary);
         }
 
         .btn-small:hover {
-            border-color: #1a1a1a;
+            border-color: var(--text-primary);
         }
 
         /* Footer */
         .footer {
             text-align: center;
             font-size: 0.7rem;
-            color: #999;
+            color: var(--text-muted);
             padding: 20px 0;
-            border-top: 1px solid #f0f0f0;
+            border-top: 1px solid var(--border-light);
             margin-top: 24px;
         }
 
         /* Battery Graph */
         .battery-graph {
-            background: #f5f5f5;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
@@ -423,15 +515,15 @@
         }
 
         .battery-graph-value.charging {
-            color: #10b981;
+            color: var(--status-online);
         }
 
         .battery-graph-value.low {
-            color: #f59e0b;
+            color: var(--status-warning);
         }
 
         .battery-graph-value.critical {
-            color: #ef4444;
+            color: var(--status-error);
         }
 
         .graph-container {
@@ -446,7 +538,7 @@
             flex-direction: column;
             justify-content: space-between;
             font-size: 0.6rem;
-            color: #999;
+            color: var(--text-muted);
             min-width: 28px;
             text-align: right;
             padding: 2px 0;
@@ -464,18 +556,18 @@
 
         .graph-line {
             fill: none;
-            stroke: #1a1a1a;
+            stroke: var(--graph-line);
             stroke-width: 2;
             stroke-linecap: round;
             stroke-linejoin: round;
         }
 
         .graph-area {
-            fill: rgba(26, 26, 26, 0.1);
+            fill: var(--graph-area);
         }
 
         .graph-charging {
-            stroke: #10b981;
+            stroke: var(--status-online);
         }
 
         .signal-line {
@@ -487,22 +579,22 @@
         }
 
         .signal-good {
-            color: #10b981;
+            color: var(--status-online);
         }
 
         .signal-fair {
-            color: #f59e0b;
+            color: var(--status-warning);
         }
 
         .signal-weak {
-            color: #ef4444;
+            color: var(--status-error);
         }
 
         .graph-labels {
             display: flex;
             justify-content: space-between;
             font-size: 0.65rem;
-            color: #999;
+            color: var(--text-muted);
             margin-top: 4px;
             margin-left: 34px; /* Align with graph (y-axis width + gap) */
         }
@@ -516,7 +608,7 @@
         }
 
         .stat-item {
-            background: #f5f5f5;
+            background: var(--card-bg);
             border-radius: 8px;
             padding: 12px 16px;
             flex: 1;
@@ -535,17 +627,17 @@
 
         .stat-label {
             font-size: 0.7rem;
-            color: #999;
+            color: var(--text-muted);
             display: block;
             margin-top: 4px;
         }
 
         .stat-error {
-            color: #f59e0b;
+            color: var(--status-warning);
         }
 
         .stat-warning {
-            color: #f59e0b;
+            color: var(--status-warning);
         }
 
         /* Brownout History */
@@ -559,7 +651,7 @@
             flex: 1;
             text-align: center;
             padding: 8px;
-            background: #fef3c7;
+            background: var(--brownout-bg);
             border-radius: 8px;
         }
 
@@ -567,13 +659,13 @@
             display: block;
             font-size: 1.1rem;
             font-weight: 600;
-            color: #d97706;
+            color: var(--brownout-value);
         }
 
         .brownout-stat-label {
             display: block;
             font-size: 0.7rem;
-            color: #92400e;
+            color: var(--brownout-label);
             margin-top: 2px;
         }
 
@@ -591,26 +683,26 @@
         .brownout-table th {
             text-align: left;
             padding: 6px 8px;
-            background: #f3f4f6;
-            border-bottom: 1px solid #e5e7eb;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             font-weight: 500;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
 
         .brownout-table td {
             padding: 6px 8px;
-            border-bottom: 1px solid #f3f4f6;
+            border-bottom: 1px solid var(--border-light);
         }
 
         .brownout-table tr:hover td {
-            background: #fef3c7;
+            background: var(--brownout-bg);
         }
 
-        .voltage-critical { color: #dc2626; font-weight: 600; }
-        .voltage-low { color: #f59e0b; font-weight: 600; }
-        .voltage-ok { color: #10b981; }
+        .voltage-critical { color: var(--status-error); font-weight: 600; }
+        .voltage-low { color: var(--status-warning); font-weight: 600; }
+        .voltage-ok { color: var(--status-online); }
 
         /* Battery Consumption */
         .consumption-grid {
@@ -620,46 +712,46 @@
         }
 
         .consumption-card {
-            background: #fff;
+            background: var(--input-bg);
             border-radius: 8px;
             padding: 12px;
             text-align: center;
-            border: 1px solid #e5e5e5;
+            border: 1px solid var(--border-color);
         }
 
         .consumption-card.highlight {
-            border-color: #3b82f6;
-            background: #eff6ff;
+            border-color: var(--consumption-highlight-border);
+            background: var(--consumption-highlight-bg);
         }
 
         .consumption-value {
             font-size: 1.3rem;
             font-weight: 600;
-            color: #1a1a1a;
+            color: var(--text-primary);
             margin-bottom: 2px;
         }
 
         .consumption-value.high {
-            color: #dc2626;
+            color: var(--status-error);
         }
 
         .consumption-value.medium {
-            color: #f59e0b;
+            color: var(--status-warning);
         }
 
         .consumption-value.low {
-            color: #10b981;
+            color: var(--status-online);
         }
 
         .consumption-label {
             font-size: 0.7rem;
-            color: #6b7280;
+            color: var(--text-secondary);
             line-height: 1.3;
         }
 
         .consumption-count {
             font-size: 0.65rem;
-            color: #9ca3af;
+            color: var(--text-muted);
             margin-top: 4px;
         }
 
@@ -673,19 +765,19 @@
         .firmware-table th {
             text-align: left;
             padding: 8px;
-            background: #f3f4f6;
-            border-bottom: 1px solid #e5e7eb;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
             font-weight: 500;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
 
         .firmware-table td {
             padding: 8px;
-            border-bottom: 1px solid #f3f4f6;
+            border-bottom: 1px solid var(--border-light);
         }
 
         .firmware-table tr:hover td {
-            background: #f9fafb;
+            background: var(--bg-tertiary);
         }
 
         .firmware-version {
@@ -694,22 +786,22 @@
         }
 
         .firmware-current {
-            background: #dcfce7;
+            background: var(--firmware-current-bg);
         }
 
         .efficiency-better {
-            color: #10b981;
+            color: var(--status-online);
             font-weight: 600;
         }
 
         .efficiency-worse {
-            color: #dc2626;
+            color: var(--status-error);
             font-weight: 600;
         }
 
         .session-card {
-            background: #fff;
-            border: 1px solid #e5e5e5;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 12px;
             margin-bottom: 8px;
@@ -728,7 +820,7 @@
 
         .session-duration {
             font-size: 0.75rem;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
 
         .session-stats {
@@ -748,7 +840,7 @@
         .session-firmware {
             font-family: 'SF Mono', Monaco, monospace;
             font-size: 0.65rem;
-            color: #6b7280;
+            color: var(--text-secondary);
             margin-top: 4px;
         }
 
@@ -1003,6 +1095,15 @@
             </div>
 
             <div class="form-row">
+                <label class="form-label">Theme</label>
+                <div class="theme-btns">
+                    <button class="theme-btn" id="btnThemeLight" onclick="setTheme('light')">Light</button>
+                    <button class="theme-btn" id="btnThemeDark" onclick="setTheme('dark')">Dark</button>
+                    <button class="theme-btn" id="btnThemeSystem" onclick="setTheme('system')">System</button>
+                </div>
+            </div>
+
+            <div class="form-row">
                 <label class="checkbox-label">
                     <input type="checkbox" id="nightSleepEnabled" onchange="toggleNightSleep()">
                     Night Sleep
@@ -1067,6 +1168,58 @@
 
     <script>
         let selectedOrientation = 'portrait';
+        let selectedTheme = 'system';
+
+        // Theme management
+        function getSystemTheme() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+
+        function applyTheme(theme) {
+            const effectiveTheme = theme === 'system' ? getSystemTheme() : theme;
+            document.documentElement.setAttribute('data-theme', effectiveTheme === 'dark' ? 'dark' : '');
+            if (effectiveTheme !== 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+            }
+        }
+
+        function setTheme(theme) {
+            selectedTheme = theme;
+            localStorage.setItem('glance_theme', theme);
+            applyTheme(theme);
+            updateThemeButtons();
+        }
+
+        function updateThemeButtons() {
+            document.getElementById('btnThemeLight').classList.toggle('active', selectedTheme === 'light');
+            document.getElementById('btnThemeDark').classList.toggle('active', selectedTheme === 'dark');
+            document.getElementById('btnThemeSystem').classList.toggle('active', selectedTheme === 'system');
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('glance_theme') || 'system';
+            selectedTheme = savedTheme;
+            applyTheme(savedTheme);
+            updateThemeButtons();
+
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (selectedTheme === 'system') {
+                    applyTheme('system');
+                }
+            });
+        }
+
+        // Initialize theme immediately to prevent flash
+        (function() {
+            const savedTheme = localStorage.getItem('glance_theme') || 'system';
+            const effectiveTheme = savedTheme === 'system'
+                ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                : savedTheme;
+            if (effectiveTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
 
         // Load settings
         async function loadSettings() {
@@ -1939,6 +2092,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
             loadSettings();
             loadDeviceStatus();
             loadSystemInfo();
