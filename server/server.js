@@ -34,6 +34,7 @@ const createUploadRoutes = require("./routes/upload");
 const createDeviceRoutes = require("./routes/devices");
 const createLogRoutes = require("./routes/logs");
 const createFirmwareRoutes = require("./routes/firmware");
+const metricsRoutes = require("./routes/metrics");
 
 
 const app = express();
@@ -145,6 +146,9 @@ app.use('/api/firmware', firmwareRoutes);
 // Semantic search routes (SigLIP 2 embeddings)
 const semanticSearchRoutes = require('./routes/semantic-search');
 app.use('/api/semantic', semanticSearchRoutes);
+
+// Prometheus metrics endpoint for Grafana
+app.use('/api/metrics', metricsRoutes);
 
 // Health check moved to routes/system.js
 

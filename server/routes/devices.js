@@ -9,6 +9,7 @@ const { isInNightSleep, calculateNightSleepDuration } = require('../utils/time')
 const { validateDeviceId, sanitizeInput } = require('../utils/validation');
 const { readJSONFile, writeJSONFile } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
+const { loggers } = require('../services/logger');
 
 /**
  * Send low battery notification via webhook
@@ -104,14 +105,19 @@ function createDeviceRoutes() {
             // Raised threshold from 0.05V to 0.15V to reduce false positives from battery recovery
             else if (previousVoltage > 0 && voltageDelta > 0.15) {
                 isCharging = true;
-                console.log(`[Battery] Charging detected via voltage rise: ${previousVoltage}V -> ${batteryVoltage}V (+${voltageDelta.toFixed(2)}V)`);
+                loggers.battery.info('Charging detected via voltage rise', {
+                    deviceId,
+                    previousVoltage,
+                    currentVoltage: batteryVoltage,
+                    delta: parseFloat(voltageDelta.toFixed(3))
+                });
             }
 
             let lastChargeTimestamp = previousDevice.lastChargeTimestamp || null;
 
             if (isCharging && !previousDevice.isCharging) {
                 lastChargeTimestamp = Date.now();
-                console.log(`[Battery] Device ${deviceId} started charging`);
+                loggers.battery.info('Device started charging', { deviceId, voltage: batteryVoltage });
                 addDeviceLog(`Device ${deviceId} started charging`);
             }
 
@@ -187,7 +193,14 @@ function createDeviceRoutes() {
                     if (batterySessions.length > 20) {
                         batterySessions.shift();
                     }
-                    console.log(`[Battery] Session completed: ${completedSession.wakes} wakes, ${completedSession.displayUpdates} displays, ${(completedSession.totalVoltageDrop * 1000).toFixed(0)}mV drop`);
+                    loggers.battery.info('Battery session completed', {
+                        deviceId,
+                        wakes: completedSession.wakes,
+                        displayUpdates: completedSession.displayUpdates,
+                        totalVoltageDropMv: Math.round(completedSession.totalVoltageDrop * 1000),
+                        durationMs: completedSession.duration,
+                        firmwareVersions: completedSession.firmwareVersions
+                    });
                 }
 
                 usageStats.lastFullCharge = Date.now();
@@ -216,7 +229,12 @@ function createDeviceRoutes() {
                     wakeVoltageDrop: 0,
                     otaVoltageDrop: 0
                 };
-                console.log(`[Battery] New session started at ${batteryVoltage}V (${batteryPercent}%)`);
+                loggers.battery.info('New battery session started', {
+                    deviceId,
+                    voltage: batteryVoltage,
+                    percent: batteryPercent,
+                    firmwareVersion
+                });
             } else if (!isCharging && currentSession) {
                 newCurrentSession = { ...currentSession };
                 // Track firmware version changes within session
@@ -306,7 +324,14 @@ function createDeviceRoutes() {
             // Alert on new brownouts and record in history
             if (brownoutCount > previousBrownoutCount) {
                 const newBrownouts = brownoutCount - previousBrownoutCount;
-                console.log(`⚠️  BROWNOUT DETECTED: Device ${deviceId} count increased to ${brownoutCount}`);
+                loggers.device.warn('Brownout detected', {
+                    deviceId,
+                    brownoutCount,
+                    newBrownouts,
+                    voltage: batteryVoltage,
+                    percent: batteryPercent,
+                    status: sanitizeInput(status.status)
+                });
                 addDeviceLog(`Brownout detected (count: ${brownoutCount}) at ${batteryVoltage}V (${batteryPercent}%)`);
 
                 // Record brownout event for analysis
@@ -342,7 +367,11 @@ function createDeviceRoutes() {
                 if (otaHistory.length > 10) {
                     otaHistory.shift(); // Keep last 10 OTA events
                 }
-                console.log(`✅ OTA Update successful: ${previousVersion} -> ${firmwareVersion}`);
+                loggers.ota.info('OTA update successful', {
+                    deviceId,
+                    fromVersion: previousVersion,
+                    toVersion: firmwareVersion
+                });
                 addDeviceLog(`OTA Update successful: ${previousVersion} -> ${firmwareVersion}`);
             }
 
@@ -363,7 +392,10 @@ function createDeviceRoutes() {
                 if (otaHistory.length > 10) {
                     otaHistory.shift();
                 }
-                console.log(`❌ OTA Update failed for ${deviceId}`);
+                loggers.ota.error('OTA update failed', {
+                    deviceId,
+                    firmwareVersion: firmwareVersion || previousVersion
+                });
                 addDeviceLog(`OTA Update failed`);
             }
 
@@ -398,20 +430,35 @@ function createDeviceRoutes() {
             const previousPercent = previousDevice.batteryPercent || 100;
             if (!isCharging && batteryPercent > 0) {
                 if (batteryPercent < 15 && previousPercent >= 15) {
-                    console.log(`[Battery] CRITICAL: Device ${deviceId} at ${batteryPercent}%`);
+                    loggers.battery.error('Critical battery level', {
+                        deviceId,
+                        percent: batteryPercent,
+                        voltage: batteryVoltage
+                    });
                     addDeviceLog(`CRITICAL: Battery at ${batteryPercent}% - device may shut down soon`);
                     sendBatteryNotification(deviceId, batteryPercent, batteryVoltage, 'critical');
                 } else if (batteryPercent < 30 && previousPercent >= 30) {
-                    console.log(`[Battery] LOW: Device ${deviceId} at ${batteryPercent}%`);
+                    loggers.battery.warn('Low battery level', {
+                        deviceId,
+                        percent: batteryPercent,
+                        voltage: batteryVoltage
+                    });
                     addDeviceLog(`Low battery: ${batteryPercent}% - consider charging`);
                     sendBatteryNotification(deviceId, batteryPercent, batteryVoltage, 'low');
                 }
             }
 
-            const batteryInfo = `${batteryVoltage}V (${batteryPercent}%)${isCharging ? ' [Charging]' : ''}`;
-            const logMessage = `Device ${deviceId} reported: Battery ${batteryInfo}, Signal ${status.signalStrength}dBm, Status: ${status.status}`;
-            console.log(logMessage);
-            addDeviceLog(logMessage);
+            // Structured device status log
+            loggers.device.info('Device status received', {
+                deviceId,
+                voltage: batteryVoltage,
+                percent: batteryPercent,
+                isCharging,
+                signalStrength: parseInt(status.signalStrength) || 0,
+                status: status.status,
+                firmwareVersion
+            });
+            addDeviceLog(`Device ${deviceId} reported: Battery ${batteryVoltage}V (${batteryPercent}%)${isCharging ? ' [Charging]' : ''}, Signal ${status.signalStrength}dBm, Status: ${status.status}`);
 
             res.json({ success: true });
         } catch (error) {
