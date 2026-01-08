@@ -66,7 +66,8 @@
 // Display timing
 #define DISPLAY_ROW_DELAY_MS       1      // Delay between display rows
 #define DISPLAY_IC_DELAY_MS        50     // Delay between display ICs
-#define WIFI_SHUTDOWN_DELAY_MS     100    // WiFi shutdown stabilization (working version used 100ms)
+#define WIFI_SHUTDOWN_DELAY_MS     500    // WiFi shutdown stabilization - increased from 100ms to allow power rails to settle
+#define PRE_REFRESH_DELAY_MS       200    // Delay before display refresh to let battery recover from data transfer
 
 // Brownout recovery
 #define BROWNOUT_THRESHOLD_COUNT   3      // Brownouts before recovery mode
@@ -984,6 +985,12 @@ bool download_and_display_image(void)
         setPinCsAll(GPIO_HIGH);
         printf("Right IC complete\n");
 
+        // CRITICAL: Let battery voltage stabilize before high-current display refresh
+        // epdDisplay() activates the charge pump (PON command) which draws >1A peak current
+        // This delay allows voltage to recover after data transmission
+        printf("Waiting %d ms before display refresh (battery stabilization)...\n", PRE_REFRESH_DELAY_MS);
+        vTaskDelay(pdMS_TO_TICKS(PRE_REFRESH_DELAY_MS));
+
         printf("Triggering display refresh...\n");
         epdDisplay();
 
@@ -1154,14 +1161,17 @@ void app_main(void)
     }
 
     // Battery is sufficient for basic init - proceed with hardware setup
+    // NOTE: We do NOT call initEPD() here - it draws current and will be called
+    // later right before display operations when actually needed. This reduces
+    // current draw during the critical WiFi connection phase.
     printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
     setGpioLevel(LOAD_SW, GPIO_HIGH);
     epdHardwareReset();
     vTaskDelay(pdMS_TO_TICKS(500));
     setPinCsAll(GPIO_HIGH);
-    initEPD();
 
-    // Don't clear display on boot - preserve existing image!
+    // Don't call initEPD() or clear display here - preserve existing image!
+    // initEPD() will be called right before display operations in download_and_display_image()
     printf("Hardware initialized, display preserved\n");
 
     // WIFI BATTERY CHECK - WiFi requires slightly more power than basic init
