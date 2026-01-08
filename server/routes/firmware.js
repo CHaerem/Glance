@@ -71,21 +71,34 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
             const stats = fs.statSync(firmwarePath);
             const currentMtime = stats.mtime.getTime();
 
-            // Regenerate info if missing or file has changed
-            if (!firmwareInfo || firmwareInfo.mtime !== currentMtime) {
-                console.log('Generating firmware info...');
+            // Check if we need to regenerate/update info
+            // - Missing info file
+            // - Firmware file changed (mtime differs)
+            // - Missing SHA256 (externally created info file from CI)
+            const needsUpdate = !firmwareInfo ||
+                                firmwareInfo.mtime !== currentMtime ||
+                                !firmwareInfo.sha256;
+
+            if (needsUpdate) {
+                console.log('Generating/updating firmware info...');
 
                 // Calculate SHA256
                 const fileBuffer = fs.readFileSync(firmwarePath);
                 const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
+                // Use externally provided version/buildDate from CI if available
+                const version = (firmwareInfo && firmwareInfo.version) || firmwareVersion || 'unknown';
+                const buildDateMs = (firmwareInfo && firmwareInfo.buildDate) ||
+                                   (buildDate ? new Date(buildDate).getTime() : Date.now());
+
                 firmwareInfo = {
-                    version: firmwareVersion || 'unknown',
-                    buildDate: buildDate ? new Date(buildDate).getTime() : Date.now(),
+                    version: version,
+                    buildDate: buildDateMs,
                     size: stats.size,
                     sha256: sha256,
                     minBattery: 3.8,  // Raised from 3.6V to prevent brownouts during OTA
-                    mtime: currentMtime
+                    mtime: currentMtime,
+                    deployedAt: (firmwareInfo && firmwareInfo.deployedAt) || new Date().toISOString()
                 };
 
                 // Cache the info
@@ -101,7 +114,8 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
                 size: firmwareInfo.size,
                 sha256: firmwareInfo.sha256,
                 minBattery: firmwareInfo.minBattery,
-                forceUpdate: getForceOtaState()
+                forceUpdate: getForceOtaState(),
+                deployedAt: firmwareInfo.deployedAt
             });
 
         } catch (error) {

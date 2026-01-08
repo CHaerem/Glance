@@ -10,114 +10,291 @@ on:
       - '.github/workflows/test-and-build.yml'
 
 jobs:
-  build-and-deploy:
+  # Detect what changed to enable conditional builds
+  detect-changes:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
+    outputs:
+      esp32_changed: ${{ steps.changes.outputs.esp32 }}
+      server_changed: ${{ steps.changes.outputs.server }}
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2  # Need previous commit to detect changes
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
-    - name: Check for ESP32 changes
-      id: esp32_changes
-      run: |
-        # Check if ESP32 client files changed in this push
-        if git diff --name-only HEAD~1 HEAD | grep -q "^esp32-client/"; then
-          echo "changed=true" >> $GITHUB_OUTPUT
-          echo "ESP32 firmware files changed - will build"
-        else
-          echo "changed=false" >> $GITHUB_OUTPUT
-          echo "No ESP32 firmware changes - skipping build"
-        fi
+      - name: Detect changes
+        id: changes
+        run: |
+          # Check ESP32 changes
+          if git diff --name-only HEAD~1 HEAD | grep -q "^esp32-client/"; then
+            echo "esp32=true" >> $GITHUB_OUTPUT
+            echo "ESP32 firmware files changed"
+          else
+            echo "esp32=false" >> $GITHUB_OUTPUT
+          fi
 
-    # Build ESP32 firmware for OTA (only if ESP32 files changed)
-    - name: Set up Python
-      if: steps.esp32_changes.outputs.changed == 'true'
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+          # Check server changes
+          if git diff --name-only HEAD~1 HEAD | grep -qE "^(server/|docker-compose.yml)"; then
+            echo "server=true" >> $GITHUB_OUTPUT
+            echo "Server files changed"
+          else
+            echo "server=false" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Install PlatformIO
-      if: steps.esp32_changes.outputs.changed == 'true'
-      run: pip install platformio
+  # Build ESP32 firmware (runs in parallel with server build)
+  build-firmware:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.esp32_changed == 'true'
+    outputs:
+      firmware_version: ${{ steps.build.outputs.version }}
+      firmware_size: ${{ steps.build.outputs.size }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Build ESP32 firmware
-      if: steps.esp32_changes.outputs.changed == 'true'
-      working-directory: esp32-client/gooddisplay-clean
-      env:
-        FIRMWARE_VERSION: ${{ github.sha }}
-        WIFI_SSID: ${{ secrets.WIFI_SSID }}
-        WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
-        DEVICE_ID: "esp32-ota"
-      run: |
-        # Build the firmware
-        pio run --environment esp32s3
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-        # Copy firmware to server data directory for Docker build
-        mkdir -p ../../server/data
-        cp .pio/build/esp32s3/firmware.bin ../../server/data/firmware.bin
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ hashFiles('esp32-client/gooddisplay-clean/platformio.ini') }}
+          restore-keys: |
+            pio-
 
-        # Show firmware info
-        ls -la ../../server/data/firmware.bin
-        echo "Firmware version: $FIRMWARE_VERSION"
+      - name: Install PlatformIO
+        run: pip install platformio
 
-    # Start Tailscale early (runs in parallel with build)
-    - name: Join tailnet
-      uses: tailscale/github-action@v3
-      with:
-        oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
-        oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
-        tags: tag:ci
-        args: --ssh
+      - name: Build ESP32 firmware
+        id: build
+        working-directory: esp32-client/gooddisplay-clean
+        env:
+          FIRMWARE_VERSION: ${{ github.sha }}
+          WIFI_SSID: ${{ secrets.WIFI_SSID }}
+          WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
+          DEVICE_ID: "esp32-ota"
+        run: |
+          pio run --environment esp32s3
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      with:
-        platforms: arm64
+          # Get firmware info
+          FIRMWARE_PATH=".pio/build/esp32s3/firmware.bin"
+          FIRMWARE_SIZE=$(stat -c%s "$FIRMWARE_PATH")
+          SHORT_SHA=${FIRMWARE_VERSION:0:7}
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+          echo "version=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "size=$FIRMWARE_SIZE" >> $GITHUB_OUTPUT
+          echo "Firmware built: v$SHORT_SHA ($FIRMWARE_SIZE bytes)"
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: esp32-client/gooddisplay-clean/.pio/build/esp32s3/firmware.bin
+          retention-days: 7
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKER_USERNAME }}/glance-server
-        tags: |
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=sha,prefix=sha-
+  # Build Docker image (runs in parallel with firmware build)
+  build-server:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.server_changed == 'true'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./server
-        file: ./server/Dockerfile
-        platforms: linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        # Use registry cache (faster for arm64 cross-builds)
-        cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/glance-server:buildcache
-        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/glance-server:buildcache,mode=max
-        build-args: |
-          IMAGE_VERSION=${{ github.sha }}
-          BUILD_DATE=${{ github.event.head_commit.timestamp }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
-    - name: Deploy to serverpi
-      env:
-        SHORT_SHA: ${{ github.sha }}
-        OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
-        BUILD_DATE: ${{ github.event.head_commit.timestamp }}
-      run: |
-        SHORT_SHA=${SHORT_SHA:0:7}
-        # Copy docker-compose.yml and deploy in one SSH session
-        scp -o StrictHostKeyChecking=no docker-compose.yml chris@100.108.19.115:~/glance/docker-compose.yml
-        tailscale ssh chris@100.108.19.115 "cd ~/glance && IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}' docker compose pull --quiet && IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}' docker compose up -d && docker image prune -af --filter 'until=1h' && sudo systemctl restart kiosk.service"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/glance-server
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/glance-server:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/glance-server:buildcache,mode=max
+          build-args: |
+            IMAGE_VERSION=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+  # Deploy - handles both firmware and server updates
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-firmware, build-server]
+    # Run if either build succeeded (use always() to check even if job was skipped)
+    if: |
+      always() &&
+      (needs.build-firmware.result == 'success' || needs.build-server.result == 'success')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Join tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+          args: --ssh
+
+      # Download firmware if it was built
+      - name: Download firmware artifact
+        if: needs.build-firmware.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: ./firmware
+
+      # Upload firmware directly to serverpi (fast! ~5 seconds)
+      - name: Deploy firmware to serverpi
+        if: needs.build-firmware.result == 'success'
+        env:
+          FIRMWARE_VERSION: ${{ needs.build-firmware.outputs.firmware_version }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp }}
+        run: |
+          echo "Deploying firmware v${FIRMWARE_VERSION} directly to serverpi..."
+
+          # Ensure data directory exists
+          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "mkdir -p ~/glance/data"
+
+          # Upload firmware binary
+          scp -o StrictHostKeyChecking=no ./firmware/firmware.bin chris@100.108.19.115:~/glance/data/firmware.bin
+
+          # Update firmware metadata
+          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "
+            cat > ~/glance/data/firmware-info.json << EOF
+          {
+            \"version\": \"${FIRMWARE_VERSION}\",
+            \"buildDate\": $(date -d '${BUILD_DATE}' +%s)000,
+            \"deployedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+          }
+          EOF
+            echo 'Firmware metadata updated'
+          "
+
+          echo "✅ Firmware deployed in ~5 seconds (no Docker rebuild!)"
+
+      # Deploy server if Docker image was built
+      - name: Deploy server to serverpi
+        if: needs.build-server.result == 'success'
+        env:
+          SHORT_SHA: ${{ github.sha }}
+          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp }}
+        run: |
+          SHORT_SHA=${SHORT_SHA:0:7}
+
+          # Copy docker-compose.yml and deploy
+          scp -o StrictHostKeyChecking=no docker-compose.yml chris@100.108.19.115:~/glance/docker-compose.yml
+          tailscale ssh chris@100.108.19.115 "
+            cd ~/glance &&
+            IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}' docker compose pull --quiet &&
+            IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}' docker compose up -d &&
+            docker image prune -af --filter 'until=1h' &&
+            sudo systemctl restart kiosk.service
+          "
+
+          echo "✅ Server deployed"
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.build-firmware.result }}" == "success" ]; then
+            echo "✅ **Firmware**: v${{ needs.build-firmware.outputs.firmware_version }} (${{ needs.build-firmware.outputs.firmware_size }} bytes)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏭️ **Firmware**: No changes" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.build-server.result }}" == "success" ]; then
+            echo "✅ **Server**: Deployed sha-${GITHUB_SHA:0:7}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏭️ **Server**: No changes" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Firmware-only fast path (when only ESP32 code changed)
+  # This runs instead of full deploy when server hasn't changed
+  deploy-firmware-only:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-firmware]
+    if: |
+      needs.detect-changes.outputs.esp32_changed == 'true' &&
+      needs.detect-changes.outputs.server_changed == 'false' &&
+      needs.build-firmware.result == 'success'
+    steps:
+      - name: Join tailnet
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+          args: --ssh
+
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: ./firmware
+
+      - name: Deploy firmware only (fast path)
+        env:
+          FIRMWARE_VERSION: ${{ needs.build-firmware.outputs.firmware_version }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp }}
+        run: |
+          echo "🚀 Fast firmware-only deployment (no Docker rebuild!)"
+
+          # Ensure data directory exists
+          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "mkdir -p ~/glance/data"
+
+          # Upload firmware binary directly
+          scp -o StrictHostKeyChecking=no ./firmware/firmware.bin chris@100.108.19.115:~/glance/data/firmware.bin
+
+          # Update firmware metadata
+          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "
+            cat > ~/glance/data/firmware-info.json << EOF
+          {
+            \"version\": \"${FIRMWARE_VERSION}\",
+            \"buildDate\": $(date -d '${BUILD_DATE}' +%s)000,
+            \"deployedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+          }
+          EOF
+          "
+
+          echo "✅ Firmware v${FIRMWARE_VERSION} deployed in ~30 seconds!"
+          echo ""
+          echo "## 🚀 Fast Firmware Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "Firmware v${FIRMWARE_VERSION} deployed directly to serverpi" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Time saved**: ~5 minutes (skipped Docker rebuild)" >> $GITHUB_STEP_SUMMARY
