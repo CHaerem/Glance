@@ -38,6 +38,18 @@ static int compare_versions(const char* v1, const char* v2, uint32_t build_date1
         return 0;  // Same version
     }
 
+    // Check for git SHA prefix match (short SHA vs full SHA)
+    // Server might have short SHA "7092634" while device has full SHA "70926347f158..."
+    size_t len1 = strlen(v1);
+    size_t len2 = strlen(v2);
+    size_t min_len = len1 < len2 ? len1 : len2;
+
+    // If both look like hex strings (git SHAs) and one is prefix of other
+    if (min_len >= 7 && strncmp(v1, v2, min_len) == 0) {
+        printf("[%s] Git SHA prefix match: %s ~ %s\n", TAG, v1, v2);
+        return 0;  // Same version (short vs full SHA)
+    }
+
     int major1 = 0, minor1 = 0, patch1 = 0;
     int major2 = 0, minor2 = 0, patch2 = 0;
 
