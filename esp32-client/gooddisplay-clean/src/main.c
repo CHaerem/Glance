@@ -1250,6 +1250,33 @@ void app_main(void)
     // Mark current firmware as valid on first boot after successful OTA (quick, no network)
     ota_mark_valid();
 
+    // PRIORITY 1: Check for OTA FIRST - before any display operations
+    // This ensures firmware updates can be applied even if display refresh causes brownout
+    // Without this, a brownout-causing bug would prevent the fix from ever being deployed
+    bool should_check_ota_early = is_charging || (battery_voltage >= OTA_MIN_BATTERY_VOLTAGE);
+
+    if (should_check_ota_early) {
+        printf("🔄 Checking for OTA update (before display operations)...\n");
+
+        ota_version_info_t ota_info = {0};
+        if (ota_check_version(&ota_info)) {
+            printf("📥 OTA update available! Downloading FIRST (before display)...\n");
+            report_device_status("ota_updating", brownout_count);
+
+            ota_result_t result = ota_perform_update(&ota_info);
+
+            if (result == OTA_RESULT_SUCCESS) {
+                printf("✅ OTA complete, rebooting into new firmware...\n");
+                esp_restart();  // Reboot into new firmware - display will work there
+            } else {
+                printf("❌ OTA failed with code %d, continuing with display...\n", result);
+                report_device_status("ota_failed", brownout_count);
+            }
+        } else {
+            printf("✅ Firmware is up to date, proceeding with display...\n");
+        }
+    }
+
     // BROWNOUT RECOVERY MODE - Skip heavy operations to prevent boot loop
     // EXCEPTION: Allow OTA when charging (provides escape hatch - plug in USB to update firmware)
     if (in_brownout_recovery) {
@@ -1361,45 +1388,8 @@ void app_main(void)
         report_device_status("metadata_failed", brownout_count);
     }
 
-    // PRIMARY TASK (display refresh) is complete
-    // Now do SECONDARY TASK (OTA maintenance) if battery allows
-
-    // CRITICAL: Wait after display operations before OTA check
-    // Display refresh draws >1A - let battery voltage stabilize before OTA HTTP request
-    printf("Waiting %d ms for battery to recover...\n", BATTERY_RECOVERY_DELAY_MS);
-    vTaskDelay(pdMS_TO_TICKS(BATTERY_RECOVERY_DELAY_MS));
-
-    // Check for OTA updates - but with smart battery protection
-    // When CHARGING: Always check (have external power, no brownout risk, fast updates)
-    // When ON BATTERY: Only check if voltage >= 3.8V (safer margin above 3.0-3.3V brownout threshold)
-    bool should_check_ota = is_charging || (battery_voltage >= OTA_MIN_BATTERY_VOLTAGE);
-
-    if (should_check_ota) {
-        if (is_charging) {
-            printf("🔌 Charging - checking for OTA\n");
-        } else {
-            printf("🔋 Battery OK (%.2fV) - checking for OTA\n", battery_voltage);
-        }
-
-        ota_version_info_t ota_info = {0};
-        if (ota_check_version(&ota_info)) {
-            printf("📥 OTA update available, downloading...\n");
-            report_device_status("ota_updating", brownout_count);
-
-            ota_result_t result = ota_perform_update(&ota_info);
-
-            if (result == OTA_RESULT_SUCCESS) {
-                printf("✅ OTA complete, rebooting...\n");
-                esp_restart();  // Reboot into new firmware
-            } else {
-                printf("❌ OTA failed with code %d, continuing normally\n", result);
-                report_device_status("ota_failed", brownout_count);
-            }
-        }
-    } else {
-        printf("⏭️  Skipping OTA - battery too low (%.2fV < %.2fV)\n",
-               battery_voltage, OTA_MIN_BATTERY_VOLTAGE);
-    }
+    // Display refresh complete (or skipped)
+    // OTA was already checked at the beginning of the wake cycle
 
     // Successful wake cycle completed - clear brownout counter
     // (Only gets here if we didn't brownout during display/OTA operations)
