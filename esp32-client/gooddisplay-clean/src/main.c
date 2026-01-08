@@ -945,12 +945,10 @@ bool download_and_display_image(void)
         esp_wifi_stop();
         vTaskDelay(pdMS_TO_TICKS(WIFI_SHUTDOWN_DELAY_MS));
 
-        initEPD();
-
-        // Wait after display initialization before data transfer
-        // initEPD sends many SPI commands - let things settle
-        printf("Waiting %d ms after display init...\n", POST_INIT_DELAY_MS);
-        vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
+        // NOTE: initEPD() was already called early in app_main() to give the display
+        // controller's charge pump capacitors time to stabilize. By the time we get
+        // here (after WiFi connect + image download), several seconds have passed.
+        // This timing prevents brownout during the high-current epdDisplay() call.
 
         // Display has 2 driver ICs - split data horizontally
         int width_per_ic = DISPLAY_WIDTH / 2;  // 600 pixels per IC
@@ -1167,18 +1165,21 @@ void app_main(void)
     }
 
     // Battery is sufficient for basic init - proceed with hardware setup
-    // NOTE: We do NOT call initEPD() here - it draws current and will be called
-    // later right before display operations when actually needed. This reduces
-    // current draw during the critical WiFi connection phase.
+    // IMPORTANT: Call initEPD() early to give display controller time to stabilize
+    // before the high-current epdDisplay() call. Moving initEPD() to right before
+    // display refresh caused brownouts - the internal capacitors need time to charge.
     printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
     setGpioLevel(LOAD_SW, GPIO_HIGH);
     epdHardwareReset();
     vTaskDelay(pdMS_TO_TICKS(500));
     setPinCsAll(GPIO_HIGH);
 
-    // Don't call initEPD() or clear display here - preserve existing image!
-    // initEPD() will be called right before display operations in download_and_display_image()
-    printf("Hardware initialized, display preserved\n");
+    // Initialize display controller early - this doesn't affect the displayed image,
+    // it just configures the controller. The actual image won't change until we
+    // send new data AND call epdDisplay(). Calling initEPD() early gives the
+    // internal charge pump capacitors time to stabilize (during WiFi & download).
+    initEPD();
+    printf("Hardware and display controller initialized\n");
 
     // WIFI BATTERY CHECK - WiFi requires slightly more power than basic init
     // WiFi connection draws ~460mA which can cause brownouts on weak battery
