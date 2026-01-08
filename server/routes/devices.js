@@ -161,7 +161,35 @@ function createDeviceRoutes() {
                 otaUpdateCount: 0             // Number of OTA updates
             };
 
+            // Track battery sessions (charge cycles) for long-term analysis
+            const batterySessions = previousDevice.batterySessions || [];
+            const currentSession = previousDevice.currentSession || null;
+
+            // Track individual operation samples with firmware version
+            const operationSamples = previousDevice.operationSamples || [];
+
+            // Get firmware version for tracking
+            const firmwareVersion = sanitizeInput(status.firmwareVersion) || previousDevice.firmwareVersion || 'unknown';
+
+            // Handle charge cycle transitions
             if (isCharging && !previousDevice.isCharging) {
+                // Starting to charge - close current session if exists
+                if (currentSession && currentSession.startTime) {
+                    const completedSession = {
+                        ...currentSession,
+                        endTime: Date.now(),
+                        endVoltage: previousVoltage,
+                        endPercent: previousDevice.batteryPercent || 0,
+                        duration: Date.now() - currentSession.startTime
+                    };
+                    batterySessions.push(completedSession);
+                    // Keep last 20 sessions
+                    if (batterySessions.length > 20) {
+                        batterySessions.shift();
+                    }
+                    console.log(`[Battery] Session completed: ${completedSession.wakes} wakes, ${completedSession.displayUpdates} displays, ${(completedSession.totalVoltageDrop * 1000).toFixed(0)}mV drop`);
+                }
+
                 usageStats.lastFullCharge = Date.now();
                 usageStats.voltageAtFullCharge = batteryVoltage;
                 usageStats.wakesThisCycle = 0;
@@ -170,6 +198,32 @@ function createDeviceRoutes() {
 
             // Track OTA updates
             const isOtaUpdate = status.status === 'ota_updating' || status.status === 'ota_complete';
+
+            // Initialize or update current session when on battery
+            let newCurrentSession = currentSession;
+            if (!isCharging && previousDevice.isCharging) {
+                // Just unplugged - start new session
+                newCurrentSession = {
+                    startTime: Date.now(),
+                    startVoltage: batteryVoltage,
+                    startPercent: batteryPercent,
+                    firmwareVersions: [firmwareVersion],
+                    wakes: 0,
+                    displayUpdates: 0,
+                    otaUpdates: 0,
+                    totalVoltageDrop: 0,
+                    displayVoltageDrop: 0,
+                    wakeVoltageDrop: 0,
+                    otaVoltageDrop: 0
+                };
+                console.log(`[Battery] New session started at ${batteryVoltage}V (${batteryPercent}%)`);
+            } else if (!isCharging && currentSession) {
+                newCurrentSession = { ...currentSession };
+                // Track firmware version changes within session
+                if (!newCurrentSession.firmwareVersions.includes(firmwareVersion)) {
+                    newCurrentSession.firmwareVersions.push(firmwareVersion);
+                }
+            }
 
             if (!isCharging && previousVoltage > 0) {
                 usageStats.totalWakes++;
@@ -185,8 +239,8 @@ function createDeviceRoutes() {
                 }
 
                 // Track voltage drop by operation type
-                if (voltageDelta < 0) {
-                    const drop = Math.abs(voltageDelta);
+                const drop = voltageDelta < 0 ? Math.abs(voltageDelta) : 0;
+                if (drop > 0) {
                     usageStats.totalVoltageDrop += drop;
 
                     if (isDisplayUpdate) {
@@ -195,6 +249,37 @@ function createDeviceRoutes() {
                         usageStats.otaUpdateVoltageDrop = (usageStats.otaUpdateVoltageDrop || 0) + drop;
                     } else {
                         usageStats.nonDisplayVoltageDrop = (usageStats.nonDisplayVoltageDrop || 0) + drop;
+                    }
+
+                    // Update current session stats
+                    if (newCurrentSession) {
+                        newCurrentSession.wakes++;
+                        newCurrentSession.totalVoltageDrop += drop;
+                        if (isDisplayUpdate) {
+                            newCurrentSession.displayUpdates++;
+                            newCurrentSession.displayVoltageDrop += drop;
+                        } else if (isOtaUpdate) {
+                            newCurrentSession.otaUpdates++;
+                            newCurrentSession.otaVoltageDrop += drop;
+                        } else {
+                            newCurrentSession.wakeVoltageDrop += drop;
+                        }
+                    }
+
+                    // Record individual operation sample for granular analysis
+                    const operationType = isDisplayUpdate ? 'display' : (isOtaUpdate ? 'ota' : 'wake');
+                    operationSamples.push({
+                        timestamp: Date.now(),
+                        type: operationType,
+                        voltageBefore: previousVoltage,
+                        voltageAfter: batteryVoltage,
+                        voltageDrop: drop,
+                        firmwareVersion: firmwareVersion,
+                        signalStrength: signalStrength
+                    });
+                    // Keep last 200 samples
+                    if (operationSamples.length > 200) {
+                        operationSamples.shift();
                     }
                 }
             }
@@ -241,8 +326,7 @@ function createDeviceRoutes() {
                 }
             }
 
-            // Track firmware version and OTA updates
-            const firmwareVersion = sanitizeInput(status.firmwareVersion) || null;
+            // Track firmware version and OTA updates (firmwareVersion already set above for session tracking)
             const previousVersion = previousDevice.firmwareVersion || null;
             const otaHistory = previousDevice.otaHistory || [];
 
@@ -291,13 +375,17 @@ function createDeviceRoutes() {
                 lastChargeTimestamp: lastChargeTimestamp,
                 batteryHistory: batteryHistory,
                 usageStats: usageStats,
+                // Long-term tracking for analysis
+                batterySessions: batterySessions,
+                currentSession: isCharging ? null : newCurrentSession,
+                operationSamples: operationSamples,
                 signalStrength: signalStrength,
                 signalHistory: signalHistory,
                 freeHeap: parseInt(status.freeHeap) || 0,
                 bootCount: parseInt(status.bootCount) || 0,
                 brownoutCount: brownoutCount,
                 brownoutHistory: brownoutHistory,
-                firmwareVersion: firmwareVersion,
+                firmwareVersion: firmwareVersion !== 'unknown' ? firmwareVersion : (previousDevice.firmwareVersion || null),
                 otaHistory: otaHistory,
                 status: deviceStatus,
                 lastSeen: Date.now(),
@@ -406,6 +494,62 @@ function createDeviceRoutes() {
                 }
             }
 
+            // Compute per-firmware version statistics from operation samples
+            const firmwareStats = {};
+            const samples = deviceStatus.operationSamples || [];
+            for (const sample of samples) {
+                const ver = sample.firmwareVersion || 'unknown';
+                if (!firmwareStats[ver]) {
+                    firmwareStats[ver] = {
+                        version: ver,
+                        displayDrops: [],
+                        wakeDrops: [],
+                        otaDrops: [],
+                        totalSamples: 0,
+                        firstSeen: sample.timestamp,
+                        lastSeen: sample.timestamp
+                    };
+                }
+                const fs = firmwareStats[ver];
+                fs.totalSamples++;
+                fs.lastSeen = Math.max(fs.lastSeen, sample.timestamp);
+                fs.firstSeen = Math.min(fs.firstSeen, sample.timestamp);
+
+                if (sample.type === 'display') {
+                    fs.displayDrops.push(sample.voltageDrop);
+                } else if (sample.type === 'ota') {
+                    fs.otaDrops.push(sample.voltageDrop);
+                } else {
+                    fs.wakeDrops.push(sample.voltageDrop);
+                }
+            }
+
+            // Calculate averages for each firmware version
+            const firmwareAnalysis = Object.values(firmwareStats).map(fs => {
+                const avgDisplay = fs.displayDrops.length > 0
+                    ? fs.displayDrops.reduce((a, b) => a + b, 0) / fs.displayDrops.length
+                    : null;
+                const avgWake = fs.wakeDrops.length > 0
+                    ? fs.wakeDrops.reduce((a, b) => a + b, 0) / fs.wakeDrops.length
+                    : null;
+                const avgOta = fs.otaDrops.length > 0
+                    ? fs.otaDrops.reduce((a, b) => a + b, 0) / fs.otaDrops.length
+                    : null;
+
+                return {
+                    version: fs.version,
+                    displayCount: fs.displayDrops.length,
+                    wakeCount: fs.wakeDrops.length,
+                    otaCount: fs.otaDrops.length,
+                    totalSamples: fs.totalSamples,
+                    avgDisplayDropMv: avgDisplay ? Math.round(avgDisplay * 1000) : null,
+                    avgWakeDropMv: avgWake ? Math.round(avgWake * 1000) : null,
+                    avgOtaDropMv: avgOta ? Math.round(avgOta * 1000) : null,
+                    firstSeen: fs.firstSeen,
+                    lastSeen: fs.lastSeen
+                };
+            }).sort((a, b) => b.lastSeen - a.lastSeen);
+
             res.json({
                 state: isOnline ? 'online' : 'offline',
                 deviceId: deviceId,
@@ -416,6 +560,11 @@ function createDeviceRoutes() {
                 batteryHistory: deviceStatus.batteryHistory || [],
                 batteryEstimate: batteryEstimate,
                 usageStats: stats || null,
+                // Long-term analytics
+                batterySessions: deviceStatus.batterySessions || [],
+                currentSession: deviceStatus.currentSession || null,
+                operationSamples: samples,
+                firmwareAnalysis: firmwareAnalysis,
                 signalStrength: deviceStatus.signalStrength,
                 signalHistory: deviceStatus.signalHistory || [],
                 lastSeen: deviceStatus.lastSeen,
