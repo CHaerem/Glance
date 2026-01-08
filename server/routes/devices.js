@@ -92,6 +92,8 @@ function createDeviceRoutes() {
             const batteryVoltage = parseFloat(status.batteryVoltage) || 0;
 
             // Calculate battery percentage - must be before any code that uses it
+            // Note: Percentage is calculated from voltage, which is unreliable when charging
+            // (charger elevates voltage artificially). We'll set to null when charging later.
             let batteryPercent = parseInt(status.batteryPercent);
             if (!batteryPercent && batteryVoltage > 0) {
                 if (batteryVoltage >= 4.2) batteryPercent = 100;
@@ -430,9 +432,11 @@ function createDeviceRoutes() {
             }
 
             // Update device status
+            // When charging, battery percentage is unreliable (voltage elevated by charger)
+            // Set to null so UI can show "Charging" instead of misleading percentage
             devices[deviceId] = {
                 batteryVoltage: batteryVoltage,
-                batteryPercent: batteryPercent || 0,
+                batteryPercent: isCharging ? null : (batteryPercent || 0),
                 isCharging: isCharging,
                 chargingSource: chargingSource,  // For debugging: 'esp32', 'voltage_rise', 'trend_override', or 'none'
                 lastChargeTimestamp: lastChargeTimestamp,

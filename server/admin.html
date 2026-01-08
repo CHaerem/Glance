@@ -1636,7 +1636,7 @@
                         hour: '2-digit', minute: '2-digit'
                     });
                     const voltage = b.batteryVoltage ? b.batteryVoltage.toFixed(2) + 'V' : '--';
-                    const percent = b.batteryPercent !== undefined ? b.batteryPercent + '%' : '--';
+                    const percent = b.batteryPercent != null ? b.batteryPercent + '%' : (b.isCharging ? '⚡' : '--');
                     const voltageClass = b.batteryVoltage < 3.5 ? 'voltage-critical' :
                                         b.batteryVoltage < 3.7 ? 'voltage-low' : 'voltage-ok';
                     const statusText = (b.status || 'unknown').replace(/_/g, ' ');
