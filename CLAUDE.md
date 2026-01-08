@@ -289,6 +289,20 @@ docker build -t glance-server .
 - Verify volumes exist
 - Check port 3000 isn't in use
 
+## Connecting to Serverpi
+
+When on the same local network (WiFi), use mDNS hostname:
+```bash
+ssh chris@serverpi.local
+```
+
+When remote or mDNS not working, use Tailscale IP:
+```bash
+ssh chris@100.108.19.115
+```
+
+**Note**: GitHub Actions CI/CD uses Tailscale (100.108.19.115) since it runs from cloud infrastructure.
+
 ## OTA Firmware Updates
 
 The system supports Over-The-Air (OTA) firmware updates for the ESP32:
