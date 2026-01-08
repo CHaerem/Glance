@@ -63,11 +63,12 @@
 #define STATUS_POST_BUFFER_SIZE    512    // Device status POST buffer size
 #define TEST_POST_BUFFER_SIZE      256    // Battery test POST buffer size
 
-// Display timing
+// Display timing - increased delays to prevent brownout at high-current operations
 #define DISPLAY_ROW_DELAY_MS       1      // Delay between display rows
-#define DISPLAY_IC_DELAY_MS        50     // Delay between display ICs
-#define WIFI_SHUTDOWN_DELAY_MS     500    // WiFi shutdown stabilization - increased from 100ms to allow power rails to settle
-#define PRE_REFRESH_DELAY_MS       200    // Delay before display refresh to let battery recover from data transfer
+#define DISPLAY_IC_DELAY_MS        100    // Delay between display ICs (increased from 50ms)
+#define WIFI_SHUTDOWN_DELAY_MS     1000   // WiFi shutdown stabilization (increased from 500ms)
+#define POST_INIT_DELAY_MS         500    // Delay after initEPD() before data transfer
+#define PRE_REFRESH_DELAY_MS       500    // Delay before display refresh (increased from 200ms)
 
 // Brownout recovery
 #define BROWNOUT_THRESHOLD_COUNT   3      // Brownouts before recovery mode
@@ -945,6 +946,11 @@ bool download_and_display_image(void)
         vTaskDelay(pdMS_TO_TICKS(WIFI_SHUTDOWN_DELAY_MS));
 
         initEPD();
+
+        // Wait after display initialization before data transfer
+        // initEPD sends many SPI commands - let things settle
+        printf("Waiting %d ms after display init...\n", POST_INIT_DELAY_MS);
+        vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
 
         // Display has 2 driver ICs - split data horizontally
         int width_per_ic = DISPLAY_WIDTH / 2;  // 600 pixels per IC
