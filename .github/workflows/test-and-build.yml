@@ -222,17 +222,12 @@ jobs:
           # Upload firmware binary
           scp -o StrictHostKeyChecking=no ./firmware/firmware.bin chris@100.108.19.115:~/glance/data/firmware.bin
 
-          # Update firmware metadata
-          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "
-            cat > ~/glance/data/firmware-info.json << EOF
-          {
-            \"version\": \"${FIRMWARE_VERSION}\",
-            \"buildDate\": $(date -d '${BUILD_DATE}' +%s)000,
-            \"deployedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-          }
-          EOF
-            echo 'Firmware metadata updated'
-          "
+          # Calculate build timestamp locally (where BUILD_DATE env var exists)
+          BUILD_TIMESTAMP=$(date -d "${BUILD_DATE}" +%s 2>/dev/null || date +%s)000
+          DEPLOY_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Update firmware metadata - use echo to avoid heredoc variable expansion issues
+          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "echo '{\"version\": \"${FIRMWARE_VERSION}\", \"buildDate\": ${BUILD_TIMESTAMP}, \"deployedAt\": \"${DEPLOY_TIME}\"}' > ~/glance/data/firmware-info.json"
 
           echo "✅ Firmware deployed in ~5 seconds (no Docker rebuild!)"
 
@@ -313,16 +308,12 @@ jobs:
           # Upload firmware binary directly
           scp -o StrictHostKeyChecking=no ./firmware/firmware.bin chris@100.108.19.115:~/glance/data/firmware.bin
 
-          # Update firmware metadata
-          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "
-            cat > ~/glance/data/firmware-info.json << EOF
-          {
-            \"version\": \"${FIRMWARE_VERSION}\",
-            \"buildDate\": $(date -d '${BUILD_DATE}' +%s)000,
-            \"deployedAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-          }
-          EOF
-          "
+          # Calculate build timestamp locally (where BUILD_DATE env var exists)
+          BUILD_TIMESTAMP=$(date -d "${BUILD_DATE}" +%s 2>/dev/null || date +%s)000
+          DEPLOY_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Update firmware metadata - use echo to avoid heredoc variable expansion issues
+          ssh -o StrictHostKeyChecking=no chris@100.108.19.115 "echo '{\"version\": \"${FIRMWARE_VERSION}\", \"buildDate\": ${BUILD_TIMESTAMP}, \"deployedAt\": \"${DEPLOY_TIME}\"}' > ~/glance/data/firmware-info.json"
 
           echo "✅ Firmware v${FIRMWARE_VERSION} deployed in ~30 seconds!"
           echo ""
