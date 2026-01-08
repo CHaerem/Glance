@@ -25,6 +25,7 @@
 #include "esp_timer.h"
 #include "ota.h"
 #include "server_config.h"
+#include "glance_logic.h"  // Pure logic functions (unit tested)
 
 // WiFi credentials - set via environment variables during build
 // Example: export WIFI_SSID="YourNetwork" WIFI_PASSWORD="YourPassword"
@@ -84,6 +85,12 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define NVS_NAMESPACE "glance"
 #define NVS_KEY_IMAGE_ID "image_id"
 #define NVS_KEY_IN_OPERATION "in_op"  // Dirty flag for pseudo-brownout detection
+#define NVS_KEY_OTA_REFRESH_COUNT "ota_refr"  // Successful refreshes since OTA
+
+// OTA stability validation
+// After OTA, require this many successful display refreshes before marking firmware stable
+// This ensures the new firmware can actually refresh the display without issues
+#define OTA_REQUIRED_REFRESHES 2
 
 // Battery monitoring configuration
 // GPIO 2 = ADC1_CH1 - connected to unlabeled solder pad on Good Display ESP32-133C02
@@ -202,6 +209,75 @@ bool was_in_operation(void) {
     nvs_get_u8(nvs_handle, NVS_KEY_IN_OPERATION, &flag);
     nvs_close(nvs_handle);
     return flag == 1;
+}
+
+/**
+ * @brief Prepare for OTA by resetting refresh counter and forcing next refresh
+ *
+ * Called right before OTA restarts the device. This ensures:
+ * 1. The new firmware will force a display refresh (validates display works)
+ * 2. The refresh counter is reset so we track refreshes under new firmware
+ */
+void prepare_for_ota_restart(void) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        printf("WARNING: Failed to prepare NVS for OTA restart\n");
+        return;
+    }
+
+    // Clear last image ID to force a display refresh after OTA
+    // This validates the new firmware can successfully refresh the display
+    nvs_erase_key(nvs_handle, NVS_KEY_IMAGE_ID);
+
+    // Reset OTA refresh counter - we need N successful refreshes to mark stable
+    nvs_set_u8(nvs_handle, NVS_KEY_OTA_REFRESH_COUNT, 0);
+
+    nvs_commit(nvs_handle);
+    nvs_close(nvs_handle);
+
+    printf("✅ Prepared for OTA restart: cleared image ID, reset refresh counter\n");
+}
+
+/**
+ * @brief Record a successful display refresh and check if firmware should be marked stable
+ *
+ * Increments the OTA refresh counter and marks firmware as valid once we've had
+ * enough successful refreshes. This ensures the new firmware is stable before
+ * committing to it.
+ *
+ * @return true if firmware was just marked stable, false otherwise
+ */
+bool record_successful_refresh(void) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) return false;
+
+    uint8_t refresh_count = 0;
+    nvs_get_u8(nvs_handle, NVS_KEY_OTA_REFRESH_COUNT, &refresh_count);
+
+    // If we've already marked valid (count >= required), nothing to do
+    if (refresh_count >= OTA_REQUIRED_REFRESHES) {
+        nvs_close(nvs_handle);
+        return false;
+    }
+
+    // Increment counter
+    refresh_count++;
+    nvs_set_u8(nvs_handle, NVS_KEY_OTA_REFRESH_COUNT, refresh_count);
+    nvs_commit(nvs_handle);
+    nvs_close(nvs_handle);
+
+    printf("OTA validation: %d/%d successful refreshes\n", refresh_count, OTA_REQUIRED_REFRESHES);
+
+    // If we've reached the required count, mark firmware as valid
+    if (refresh_count >= OTA_REQUIRED_REFRESHES) {
+        printf("✅ OTA validation complete - marking firmware as stable\n");
+        ota_mark_valid();
+        return true;
+    }
+
+    return false;
 }
 
 /**
@@ -406,23 +482,7 @@ float read_battery_raw(void) {
     return battery_voltage;
 }
 
-/**
- * @brief Detect if battery is charging based on voltage
- *
- * When plugged into USB, voltage typically rises to ~4.0V or higher.
- * LiPo fully charged: 4.2V, discharged: ~3.3-3.7V
- *
- * @param voltage Battery voltage in volts
- * @return true if charging (voltage >= 4.18V), false otherwise
- */
-bool is_battery_charging(float voltage) {
-    // A fully charged LiPo naturally settles at ~4.1V when not plugged in.
-    // Only voltages very close to max (4.2V) reliably indicate active charging.
-    // Using 4.18V as threshold to avoid false positives from full battery.
-    // Note: This is imperfect - proper detection requires hardware (charger status pin).
-    const float CHARGING_THRESHOLD = 4.18f;
-    return voltage >= CHARGING_THRESHOLD;
-}
+// is_battery_charging() is now in lib/glance_logic/ - unit tested on host machine
 
 /**
  * @brief Report device status to server via HTTP POST
@@ -752,18 +812,7 @@ bool fetch_metadata(metadata_t* metadata) {
     return true;
 }
 
-uint8_t rgb_to_eink(uint8_t r, uint8_t g, uint8_t b) {
-    // Return 4-bit color value (will be packed 2 per byte)
-    if (r < 32 && g < 32 && b < 32) return 0x0;         // BLACK
-    if (r > 224 && g > 224 && b > 224) return 0x1;      // WHITE
-    if (r > 200 && g > 200 && b < 100) return 0x2;      // YELLOW
-    if (r > 200 && g < 100 && b < 100) return 0x3;      // RED
-    if (r < 100 && g < 100 && b > 200) return 0x5;      // BLUE
-    if (r < 100 && g > 200 && b < 100) return 0x6;      // GREEN
-
-    int brightness = (r + g + b) / 3;
-    return (brightness > 127) ? 0x1 : 0x0;              // WHITE or BLACK
-}
+// rgb_to_eink() is now in lib/glance_logic/ - unit tested on host machine
 
 /**
  * @brief WiFi event handler
@@ -945,10 +994,10 @@ bool download_and_display_image(void)
         esp_wifi_stop();
         vTaskDelay(pdMS_TO_TICKS(WIFI_SHUTDOWN_DELAY_MS));
 
-        // NOTE: initEPD() was already called early in app_main() to give the display
-        // controller's charge pump capacitors time to stabilize. By the time we get
-        // here (after WiFi connect + image download), several seconds have passed.
-        // This timing prevents brownout during the high-current epdDisplay() call.
+        // NOTE: initEPD() was called right before this function, and the image download
+        // (5.76MB, takes several seconds) provides time for the display controller's
+        // charge pump capacitors to stabilize. This timing prevents brownout during
+        // the high-current epdDisplay() call.
 
         // Display has 2 driver ICs - split data horizontally
         int width_per_ic = DISPLAY_WIDTH / 2;  // 600 pixels per IC
@@ -1164,22 +1213,11 @@ void app_main(void)
         // Never returns
     }
 
-    // Battery is sufficient for basic init - proceed with hardware setup
-    // IMPORTANT: Call initEPD() early to give display controller time to stabilize
-    // before the high-current epdDisplay() call. Moving initEPD() to right before
-    // display refresh caused brownouts - the internal capacitors need time to charge.
-    printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
-    setGpioLevel(LOAD_SW, GPIO_HIGH);
-    epdHardwareReset();
-    vTaskDelay(pdMS_TO_TICKS(500));
-    setPinCsAll(GPIO_HIGH);
-
-    // Initialize display controller early - this doesn't affect the displayed image,
-    // it just configures the controller. The actual image won't change until we
-    // send new data AND call epdDisplay(). Calling initEPD() early gives the
-    // internal charge pump capacitors time to stabilize (during WiFi & download).
-    initEPD();
-    printf("Hardware and display controller initialized\n");
+    // Battery is sufficient - proceed with WiFi
+    // NOTE: Display initialization is deferred until we know we need to refresh.
+    // This saves significant power on wakes where the image hasn't changed.
+    // Previously we initialized the display on every wake, wasting power on ~80% of wakes.
+    printf("Battery sufficient (%.2fV), proceeding to WiFi...\n", battery_voltage);
 
     // WIFI BATTERY CHECK - WiFi requires slightly more power than basic init
     // WiFi connection draws ~460mA which can cause brownouts on weak battery
@@ -1224,6 +1262,11 @@ void app_main(void)
         if (wifi_fail_is_charging || battery_voltage >= DISPLAY_MIN_BATTERY) {
             printf("Showing RED error screen (charging=%d, voltage=%.2fV)\n",
                    wifi_fail_is_charging, battery_voltage);
+            // Initialize display hardware for error screen
+            setGpioLevel(LOAD_SW, GPIO_HIGH);
+            epdHardwareReset();
+            vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
+            setPinCsAll(GPIO_HIGH);
             initEPD();
             epdDisplayColor(RED);
         } else {
@@ -1248,8 +1291,10 @@ void app_main(void)
     printf("Waiting %d ms for battery to recover from WiFi...\n", BATTERY_RECOVERY_DELAY_MS);
     vTaskDelay(pdMS_TO_TICKS(BATTERY_RECOVERY_DELAY_MS));
 
-    // Mark current firmware as valid on first boot after successful OTA (quick, no network)
-    ota_mark_valid();
+    // NOTE: ota_mark_valid() is NOT called here anymore!
+    // Firmware is only marked valid after OTA_REQUIRED_REFRESHES successful display refreshes.
+    // This ensures new firmware can actually refresh the display before we commit to it.
+    // See record_successful_refresh() for the validation logic.
 
     // PRIORITY 1: Check for OTA FIRST - before any display operations
     // This ensures firmware updates can be applied even if display refresh causes brownout
@@ -1268,6 +1313,7 @@ void app_main(void)
 
             if (result == OTA_RESULT_SUCCESS) {
                 printf("✅ OTA complete, rebooting into new firmware...\n");
+                prepare_for_ota_restart();  // Force refresh and reset validation counter
                 esp_restart();  // Reboot into new firmware - display will work there
             } else {
                 printf("❌ OTA failed with code %d, continuing with display...\n", result);
@@ -1298,6 +1344,7 @@ void app_main(void)
 
                 if (result == OTA_RESULT_SUCCESS) {
                     printf("✅ OTA complete, rebooting...\n");
+                    prepare_for_ota_restart();  // Force refresh and reset validation counter
                     esp_restart();  // Reboot into new firmware with fixes
                 } else {
                     printf("❌ OTA failed with code %d\n", result);
@@ -1359,6 +1406,17 @@ void app_main(void)
                 printf("Skipping display update to prevent brownout - will retry when battery recovers\n");
                 report_device_status("battery_too_low", brownout_count);
             } else {
+                // POWER OPTIMIZATION: Initialize display only when we need to refresh
+                // This saves ~100mA for 2+ seconds on wakes where image hasn't changed.
+                // Previously display was initialized on every wake, wasting ~80% of that power.
+                printf("Initializing display for refresh...\n");
+                setGpioLevel(LOAD_SW, GPIO_HIGH);
+                epdHardwareReset();
+                vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
+                setPinCsAll(GPIO_HIGH);
+                initEPD();
+                printf("Display initialized, capacitors charging during download...\n");
+
                 // CRITICAL: Save image ID BEFORE download/display to prevent infinite loops
                 // If device brownouts during display refresh, next boot will see "same image"
                 // and skip the 5.76MB download, breaking the brownout cycle
@@ -1367,6 +1425,10 @@ void app_main(void)
                 if (download_and_display_image()) {
                     printf("=== SUCCESS ===\n");
                     // Image ID already saved above
+
+                    // Track successful refresh for OTA validation
+                    // After OTA, we require N successful refreshes before marking firmware stable
+                    record_successful_refresh();
                 } else {
                     printf("Download failed\n");
                     report_device_status("download_failed", brownout_count);
