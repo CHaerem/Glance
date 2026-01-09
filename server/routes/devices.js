@@ -66,7 +66,7 @@ function createDeviceRoutes() {
      */
     router.post('/device-status', async (req, res) => {
         try {
-            const { deviceId, status } = req.body;
+            const { deviceId, status, profiling } = req.body;
 
             if (!validateDeviceId(deviceId) || !status || typeof status !== 'object') {
                 return res.status(400).json({ error: 'Valid deviceId and status object required' });
@@ -431,6 +431,30 @@ function createDeviceRoutes() {
                 addDeviceLog(`OTA Update failed`);
             }
 
+            // Process profiling telemetry data (if present)
+            let profilingHistory = previousDevice.profilingHistory || [];
+            if (profiling && typeof profiling === 'object') {
+                // Add new profiling sample with context
+                profilingHistory.push({
+                    timestamp: new Date().toISOString(),
+                    displayInitMs: parseInt(profiling.displayInitMs) || 0,
+                    wifiConnectMs: parseInt(profiling.wifiConnectMs) || 0,
+                    otaCheckMs: parseInt(profiling.otaCheckMs) || 0,
+                    metadataFetchMs: parseInt(profiling.metadataFetchMs) || 0,
+                    imageDownloadMs: parseInt(profiling.imageDownloadMs) || 0,
+                    displayRefreshMs: parseInt(profiling.displayRefreshMs) || 0,
+                    totalWakeMs: parseInt(profiling.totalWakeMs) || 0,
+                    hasDisplayUpdate: profiling.hasDisplayUpdate === true,
+                    batteryVoltage: batteryVoltage,
+                    firmwareVersion: firmwareVersion,
+                    signalStrength: signalStrength
+                });
+                // Keep last 100 samples
+                if (profilingHistory.length > 100) {
+                    profilingHistory.shift();
+                }
+            }
+
             // Update device status
             // When charging, battery percentage is unreliable (voltage elevated by charger)
             // Set to null so UI can show "Charging" instead of misleading percentage
@@ -454,6 +478,7 @@ function createDeviceRoutes() {
                 brownoutHistory: brownoutHistory,
                 firmwareVersion: firmwareVersion !== 'unknown' ? firmwareVersion : (previousDevice.firmwareVersion || null),
                 otaHistory: otaHistory,
+                profilingHistory: profilingHistory,
                 status: deviceStatus,
                 lastSeen: Date.now(),
                 deviceId: sanitizeInput(deviceId),
@@ -657,6 +682,7 @@ function createDeviceRoutes() {
                 brownoutHistory: deviceStatus.brownoutHistory || [],
                 firmwareVersion: deviceStatus.firmwareVersion || null,
                 otaHistory: deviceStatus.otaHistory || [],
+                profilingHistory: deviceStatus.profilingHistory || [],
                 status: deviceStatus.status,
                 currentImage: current.title || null
             });

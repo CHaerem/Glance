@@ -61,7 +61,7 @@
 
 // HTTP limits
 #define METADATA_MAX_SIZE_BYTES    100000 // Maximum metadata JSON size
-#define STATUS_POST_BUFFER_SIZE    512    // Device status POST buffer size
+#define STATUS_POST_BUFFER_SIZE    768    // Device status POST buffer size (increased for telemetry)
 #define TEST_POST_BUFFER_SIZE      256    // Battery test POST buffer size
 
 // Display timing - increased delays to prevent brownout at high-current operations
@@ -74,6 +74,73 @@
 // Brownout recovery
 #define BROWNOUT_THRESHOLD_COUNT   3      // Brownouts before recovery mode
 #define BROWNOUT_RECOVERY_SLEEP_S  3600   // 1 hour sleep in recovery mode
+
+// ============================================================================
+// PROFILING MODE - Enable detailed timing logs for power optimization testing
+// Build with: pio run -e esp32s3 -t upload -- -DPROFILING_MODE=1
+// ============================================================================
+#ifndef PROFILING_MODE
+#define PROFILING_MODE 0
+#endif
+
+#ifndef SKIP_OTA
+#define SKIP_OTA 0
+#endif
+
+// Configurable delay after display init for power optimization testing
+#ifndef DISPLAY_INIT_CHARGE_DELAY_MS
+#define DISPLAY_INIT_CHARGE_DELAY_MS 0  // Extra delay after initEPD() for capacitor charging
+#endif
+
+#if PROFILING_MODE
+static int64_t profile_start_time = 0;
+static int64_t boot_start_time = 0;
+
+#define PROFILE_START() do { profile_start_time = esp_timer_get_time(); } while(0)
+#define PROFILE_END(name) do { \
+    int64_t elapsed = (esp_timer_get_time() - profile_start_time) / 1000; \
+    int64_t since_boot = (esp_timer_get_time() - boot_start_time) / 1000; \
+    printf("[PROFILE] %s: %lld ms (T+%lld ms)\n", name, elapsed, since_boot); \
+} while(0)
+#define PROFILE_MARK(name) do { \
+    int64_t since_boot = (esp_timer_get_time() - boot_start_time) / 1000; \
+    printf("[PROFILE] === %s === (T+%lld ms)\n", name, since_boot); \
+} while(0)
+#else
+#define PROFILE_START() do {} while(0)
+#define PROFILE_END(name) do {} while(0)
+#define PROFILE_MARK(name) do {} while(0)
+#endif
+
+// ============================================================================
+// HTTP PROFILING TELEMETRY - Always enabled, sends timing data to server
+// ============================================================================
+typedef struct {
+    int64_t boot_timestamp;      // Boot start time (for calculating elapsed)
+    int64_t display_init_ms;     // Time for display init (LOAD_SW + reset + initEPD)
+    int64_t wifi_connect_ms;     // Time to connect to WiFi
+    int64_t ota_check_ms;        // Time for OTA version check
+    int64_t metadata_fetch_ms;   // Time to fetch metadata from server
+    int64_t image_download_ms;   // Time to download image
+    int64_t display_refresh_ms;  // Time for display refresh (data transfer + epdDisplay)
+    int64_t total_wake_ms;       // Total wake cycle time
+    bool has_display_update;     // Whether this cycle included a display update
+} profiling_telemetry_t;
+
+static profiling_telemetry_t telemetry = {0};
+
+// Helper to record timing - call after each operation
+static inline void telemetry_record(int64_t *field) {
+    if (telemetry.boot_timestamp > 0) {
+        *field = (esp_timer_get_time() - telemetry.boot_timestamp) / 1000;
+    }
+}
+
+// Helper to start timing
+static inline void telemetry_start(void) {
+    telemetry.boot_timestamp = esp_timer_get_time();
+    telemetry.has_display_update = false;
+}
 
 static EventGroupHandle_t s_wifi_event_group;
 static char device_id[32] = {0};
@@ -527,7 +594,16 @@ void report_device_status(const char* status_msg, int32_t brownout_count) {
         "\"bootCount\":%lu,"
         "\"brownoutCount\":%ld,"
         "\"firmwareVersion\":\"%s\","
-        "\"status\":\"%s\"}}",
+        "\"status\":\"%s\"},"
+        "\"profiling\":{"
+        "\"displayInitMs\":%lld,"
+        "\"wifiConnectMs\":%lld,"
+        "\"otaCheckMs\":%lld,"
+        "\"metadataFetchMs\":%lld,"
+        "\"imageDownloadMs\":%lld,"
+        "\"displayRefreshMs\":%lld,"
+        "\"totalWakeMs\":%lld,"
+        "\"hasDisplayUpdate\":%s}}",
         device_id,
         battery_voltage,
         is_charging ? "true" : "false",
@@ -536,7 +612,15 @@ void report_device_status(const char* status_msg, int32_t brownout_count) {
         (unsigned long)boot_count,
         (long)brownout_count,
         firmware_version,
-        status_msg
+        status_msg,
+        (long long)telemetry.display_init_ms,
+        (long long)telemetry.wifi_connect_ms,
+        (long long)telemetry.ota_check_ms,
+        (long long)telemetry.metadata_fetch_ms,
+        (long long)telemetry.image_download_ms,
+        (long long)telemetry.display_refresh_ms,
+        (long long)telemetry.total_wake_ms,
+        telemetry.has_display_update ? "true" : "false"
     );
 
     // Check for truncation
@@ -884,6 +968,7 @@ void wifi_init(void)
  */
 bool download_and_display_image(void)
 {
+    PROFILE_START();
     printf("Allocating %d bytes for e-ink buffer...\n", EINK_SIZE);
     uint8_t *eink_buffer = malloc(EINK_SIZE);
     if (!eink_buffer) {
@@ -971,11 +1056,14 @@ bool download_and_display_image(void)
     free(chunk);
     esp_http_client_close(client);
     esp_http_client_cleanup(client);
-    
+    PROFILE_END("  -> Image download");
+    telemetry_record(&telemetry.image_download_ms);
+
     printf("Complete! Downloaded %d bytes, wrote %d/%d pixels\n",
            total_read, pixels_written, max_pixels);
 
     if (pixels_written > 0) {
+        PROFILE_START();
         printf("Displaying image...\n");
 
         // Report display update status BEFORE shutting down WiFi
@@ -1048,6 +1136,9 @@ bool download_and_display_image(void)
         epdDisplay();
 
         printf("=== Image displayed! ===\n");
+        PROFILE_END("  -> Display refresh");
+        telemetry_record(&telemetry.display_refresh_ms);
+        telemetry.has_display_update = true;
 
         // Clear dirty flag - display completed successfully (no brownout)
         set_in_operation_flag(false);
@@ -1064,7 +1155,17 @@ void app_main(void)
 {
     esp_task_wdt_deinit();
 
+    // Start HTTP telemetry timing (always enabled)
+    telemetry_start();
+
+#if PROFILING_MODE
+    boot_start_time = esp_timer_get_time();
+    printf("\n=== GLANCE: PROFILING MODE ENABLED ===\n");
+    printf("=== OTA Skip: %d, Init Charge Delay: %d ms ===\n", SKIP_OTA, DISPLAY_INIT_CHARGE_DELAY_MS);
+    PROFILE_MARK("BOOT START");
+#else
     printf("\n=== GLANCE: WiFi E-ink Art Gallery ===\n");
+#endif
 
     // CRITICAL: Initialize GPIO and SPI first (needed for battery monitoring)
     initialGpio();
@@ -1217,6 +1318,8 @@ void app_main(void)
     // IMPORTANT: Call initEPD() early to give display controller time to stabilize
     // before the high-current epdDisplay() call. Moving initEPD() closer to display
     // refresh caused brownouts - the internal capacitors need ~15-20s to fully charge.
+    PROFILE_MARK("DISPLAY INIT START");
+    PROFILE_START();
     printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
     setGpioLevel(LOAD_SW, GPIO_HIGH);
     epdHardwareReset();
@@ -1228,6 +1331,15 @@ void app_main(void)
     // send new data AND call epdDisplay(). Calling initEPD() early gives the
     // internal charge pump capacitors time to stabilize (during WiFi & download).
     initEPD();
+    PROFILE_END("Display init (LOAD_SW + reset + initEPD)");
+    telemetry_record(&telemetry.display_init_ms);
+
+#if DISPLAY_INIT_CHARGE_DELAY_MS > 0
+    printf("Extra capacitor charge delay: %d ms\n", DISPLAY_INIT_CHARGE_DELAY_MS);
+    vTaskDelay(pdMS_TO_TICKS(DISPLAY_INIT_CHARGE_DELAY_MS));
+    PROFILE_END("Extra charge delay");
+#endif
+
     printf("Hardware and display controller initialized\n");
 
     // WIFI BATTERY CHECK - WiFi requires slightly more power than basic init
@@ -1252,6 +1364,8 @@ void app_main(void)
     printf("Battery sufficient for WiFi (%.2fV), proceeding...\n", battery_voltage);
 
     // Initialize WiFi (NVS already initialized above)
+    PROFILE_MARK("WIFI CONNECT START");
+    PROFILE_START();
     wifi_init();
 
     printf("Waiting for WiFi...\n");
@@ -1259,6 +1373,8 @@ void app_main(void)
                                            WIFI_CONNECTED_BIT,
                                            pdFALSE, pdTRUE,
                                            pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
+    PROFILE_END("WiFi connect");
+    telemetry_record(&telemetry.wifi_connect_ms);
 
     if (!(bits & WIFI_CONNECTED_BIT)) {
         printf("WiFi FAILED\n");
@@ -1310,17 +1426,26 @@ void app_main(void)
     // PRIORITY 1: Check for OTA FIRST - before any display operations
     // This ensures firmware updates can be applied even if display refresh causes brownout
     // Without this, a brownout-causing bug would prevent the fix from ever being deployed
+#if SKIP_OTA
+    printf("⚠️  OTA CHECK SKIPPED (PROFILING MODE)\n");
+    telemetry_record(&telemetry.ota_check_ms);  // Record even when skipped
+#else
     bool should_check_ota_early = is_charging || (battery_voltage >= OTA_MIN_BATTERY_VOLTAGE);
 
     if (should_check_ota_early) {
+        PROFILE_MARK("OTA CHECK START");
+        PROFILE_START();
         printf("🔄 Checking for OTA update (before display operations)...\n");
 
         ota_version_info_t ota_info = {0};
         if (ota_check_version(&ota_info)) {
+            PROFILE_END("OTA version check");
             printf("📥 OTA update available! Downloading FIRST (before display)...\n");
             report_device_status("ota_updating", brownout_count);
 
+            PROFILE_START();
             ota_result_t result = ota_perform_update(&ota_info);
+            PROFILE_END("OTA download");
 
             if (result == OTA_RESULT_SUCCESS) {
                 printf("✅ OTA complete, rebooting into new firmware...\n");
@@ -1331,9 +1456,12 @@ void app_main(void)
                 report_device_status("ota_failed", brownout_count);
             }
         } else {
+            PROFILE_END("OTA version check (no update)");
+            telemetry_record(&telemetry.ota_check_ms);
             printf("✅ Firmware is up to date, proceeding with display...\n");
         }
     }
+#endif
 
     // BROWNOUT RECOVERY MODE - Skip heavy operations to prevent boot loop
     // EXCEPTION: Allow OTA when charging (provides escape hatch - plug in USB to update firmware)
@@ -1384,10 +1512,14 @@ void app_main(void)
     }
 
     // Fetch metadata from server
+    PROFILE_MARK("METADATA FETCH START");
+    PROFILE_START();
     metadata_t metadata = {0};
     uint64_t sleep_duration = DEFAULT_SLEEP_DURATION;
 
     if (fetch_metadata(&metadata)) {
+        PROFILE_END("Metadata fetch");
+        telemetry_record(&telemetry.metadata_fetch_ms);
         sleep_duration = metadata.sleep_duration;
 
         // CHARGING MODE: Wake frequently for fast OTA and battery monitoring
@@ -1425,7 +1557,10 @@ void app_main(void)
                 // and skip the 5.76MB download, breaking the brownout cycle
                 save_last_image_id(metadata.image_id);
 
+                PROFILE_MARK("IMAGE DOWNLOAD + DISPLAY START");
+                PROFILE_START();
                 if (download_and_display_image()) {
+                    PROFILE_END("Image download + display refresh");
                     printf("=== SUCCESS ===\n");
                     // Image ID already saved above
 
@@ -1446,13 +1581,18 @@ void app_main(void)
                 }
             }
         } else {
+            PROFILE_MARK("NO IMAGE UPDATE NEEDED");
             printf("Image unchanged, keeping current display\n");
             report_device_status("no_update_needed", brownout_count);
         }
     } else {
+        PROFILE_END("Metadata fetch (FAILED)");
+        telemetry_record(&telemetry.metadata_fetch_ms);
         printf("Failed to fetch metadata\n");
         report_device_status("metadata_failed", brownout_count);
     }
+
+    PROFILE_MARK("WAKE CYCLE COMPLETE");
 
     // Display refresh complete (or skipped)
     // OTA was already checked at the beginning of the wake cycle
@@ -1469,6 +1609,10 @@ void app_main(void)
             nvs_close(nvs_handle_clear);
         }
     }
+
+    // Record total wake time and send final status with profiling data
+    telemetry_record(&telemetry.total_wake_ms);
+    report_device_status("sleep", brownout_count);
 
     printf("Entering deep sleep for %llu seconds...\n", sleep_duration / 1000000);
     esp_deep_sleep(sleep_duration);
