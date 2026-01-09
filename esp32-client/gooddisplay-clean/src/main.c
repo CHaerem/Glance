@@ -49,6 +49,7 @@
 
 // Network timeouts and delays
 #define WIFI_CONNECT_TIMEOUT_MS    30000  // 30 second WiFi connection timeout
+#define WIFI_TELEMETRY_TIMEOUT_MS  10000  // 10 second timeout for WiFi reconnect (telemetry only)
 #define HTTP_METADATA_TIMEOUT_MS   10000  // 10 second metadata fetch timeout
 #define HTTP_IMAGE_TIMEOUT_MS      60000  // 60 second image download timeout
 #define BATTERY_RECOVERY_DELAY_MS  2000   // 2 second delay between operations
@@ -1076,16 +1077,14 @@ bool download_and_display_image(void)
         // If device resets during display refresh, this flag tells us it was a brownout
         set_in_operation_flag(true);
 
-        // POWER OPTIMIZATION: Disable WiFi before display refresh to save ~100-200mA
-        printf("Disabling WiFi to conserve power during display refresh...\n");
-        esp_wifi_disconnect();
-        esp_wifi_stop();
-        vTaskDelay(pdMS_TO_TICKS(WIFI_SHUTDOWN_DELAY_MS));
+        // NOTE: Keep WiFi connected during display refresh for telemetry
+        // This uses ~100-200mA more but ensures complete timing data is captured
+        // TODO: Re-enable WiFi disable after profiling is complete
+        printf("Keeping WiFi connected for telemetry...\n");
 
-        // NOTE: initEPD() was called early in app_main() to give the display
-        // controller's charge pump capacitors time to stabilize. By the time we get
-        // here (after WiFi connect + image download), ~15-20 seconds have passed.
-        // This timing prevents brownout during the high-current epdDisplay() call.
+        // NOTE: initEPD() was called when image update was detected (before download).
+        // Image download takes ~20s, giving capacitors time to charge before the
+        // high-current epdDisplay() call. This deferred init saves power on non-update wakes.
 
         // Display has 2 driver ICs - split data horizontally
         int width_per_ic = DISPLAY_WIDTH / 2;  // 600 pixels per IC
@@ -1142,6 +1141,10 @@ bool download_and_display_image(void)
 
         // Clear dirty flag - display completed successfully (no brownout)
         set_in_operation_flag(false);
+
+        // WiFi stayed connected, so final telemetry will be sent in app_main
+        printf("Display refresh complete (displayRefreshMs=%lld)\n",
+               (long long)telemetry.display_refresh_ms);
 
         free(eink_buffer);
         return true;
@@ -1326,12 +1329,12 @@ void app_main(void)
     vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
     setPinCsAll(GPIO_HIGH);
 
-    // Initialize display controller early - this doesn't affect the displayed image,
-    // it just configures the controller. The actual image won't change until we
-    // send new data AND call epdDisplay(). Calling initEPD() early gives the
-    // internal charge pump capacitors time to stabilize (during WiFi & download).
-    initEPD();
-    PROFILE_END("Display init (LOAD_SW + reset + initEPD)");
+    // POWER OPTIMIZATION: Defer initEPD() until we know an image update is needed
+    // This saves ~713ms + power on non-update wakes (77% of wakes don't update display)
+    // Hardware is powered (LOAD_SW) and reset, but display controller init is deferred.
+    // When update is needed, initEPD() is called before image download starts,
+    // giving ~20s of parallel charging time before epdDisplay().
+    PROFILE_END("Display hardware init (LOAD_SW + reset, initEPD deferred)");
     telemetry_record(&telemetry.display_init_ms);
 
 #if DISPLAY_INIT_CHARGE_DELAY_MS > 0
@@ -1549,8 +1552,11 @@ void app_main(void)
                 printf("Skipping display update to prevent brownout - will retry when battery recovers\n");
                 report_device_status("battery_too_low", brownout_count);
             } else {
-                // Display was already initialized early in the wake cycle to give
-                // capacitors time to charge. By now (~15-20s later) they're ready.
+                // DEFERRED DISPLAY INIT: Initialize display controller now that we know
+                // we need to update. Image download takes ~20s, giving capacitors time
+                // to charge before epdDisplay(). This saves power on non-update wakes.
+                printf("Initializing display controller for update...\n");
+                initEPD();
 
                 // CRITICAL: Save image ID BEFORE download/display to prevent infinite loops
                 // If device brownouts during display refresh, next boot will see "same image"
