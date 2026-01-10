@@ -959,6 +959,14 @@
     position: relative;
 }
 
+.playlist-selectable img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+    background: #f5f5f5;
+}
+
 .playlist-selectable::after {
     content: '';
     position: absolute;
@@ -1023,4 +1031,25 @@
 
 .playlist-option:hover {
     color: #666;
+}
+
+/* Mobile playlist adjustments */
+@media (max-width: 600px) {
+    .playlist-footer {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .playlist-status {
+        font-size: 0.75rem;
+    }
+
+    .playlist-check-overlay {
+        width: 24px;
+        height: 24px;
+    }
+
+    .playlist-check-overlay::after {
+        font-size: 14px;
+    }
 }

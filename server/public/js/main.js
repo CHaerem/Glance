@@ -1206,7 +1206,13 @@ async function loadHistoryForPlaylist() {
         }
 
         container.innerHTML = history.map(item => {
-            const thumbnail = item.thumbnail || item.previewUrl || '/placeholder.png';
+            // Handle base64 thumbnails vs URLs
+            let thumbnail = '/placeholder.png';
+            if (item.previewUrl) {
+                thumbnail = item.previewUrl;
+            } else if (item.thumbnail) {
+                thumbnail = `data:image/png;base64,${item.thumbnail}`;
+            }
             const title = item.title || 'Untitled';
             const isSelected = selectedPlaylistImages.has(item.imageId);
 
