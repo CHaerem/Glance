@@ -69,6 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('createLink').addEventListener('click', () => switchMode('create'));
     document.getElementById('exploreLink').addEventListener('click', () => switchMode('explore'));
     document.getElementById('myCollectionLink').addEventListener('click', () => switchMode('my-collection'));
+    document.getElementById('playlistLink').addEventListener('click', () => switchMode('playlist'));
+
+    // Playlist controls
+    document.getElementById('togglePlaylistBtn').addEventListener('click', togglePlaylist);
+    document.getElementById('createPlaylistBtn').addEventListener('click', createPlaylist);
+    document.getElementById('clearPlaylistBtn').addEventListener('click', clearPlaylist);
 
     document.getElementById('generateBtn').addEventListener('click', generateArt);
     document.getElementById('luckyBtn').addEventListener('click', feelingLucky);
@@ -128,6 +134,7 @@ function switchMode(mode) {
     document.getElementById('createMode').style.display = 'none';
     document.getElementById('exploreMode').classList.remove('show');
     document.getElementById('myCollectionMode').classList.remove('show');
+    document.getElementById('playlistMode').classList.remove('show');
 
     // Show selected mode
     if (mode === 'create') {
@@ -145,12 +152,16 @@ function switchMode(mode) {
         document.getElementById('myCollectionMode').classList.add('show');
         collectionDisplayCount = getInitialDisplayCount();
         displayMyCollection();
+    } else if (mode === 'playlist') {
+        document.getElementById('playlistMode').classList.add('show');
+        loadPlaylistData();
     }
 
     // Update tab colors
     document.getElementById('createLink').style.color = mode === 'create' ? '#1a1a1a' : '#999';
     document.getElementById('exploreLink').style.color = mode === 'explore' ? '#1a1a1a' : '#999';
     document.getElementById('myCollectionLink').style.color = mode === 'my-collection' ? '#1a1a1a' : '#999';
+    document.getElementById('playlistLink').style.color = mode === 'playlist' ? '#1a1a1a' : '#999';
 }
 
 // Suggestion click
@@ -1111,6 +1122,256 @@ async function deleteModalImage() {
     } catch (error) {
         console.error('Delete failed:', error);
         alert('Failed to delete image');
+    }
+}
+
+// ============================================
+// PLAYLIST FUNCTIONS
+// ============================================
+
+let selectedPlaylistImages = new Set();
+
+// Load playlist data and history for selection
+async function loadPlaylistData() {
+    await Promise.all([
+        loadCurrentPlaylist(),
+        loadHistoryForPlaylist()
+    ]);
+}
+
+// Load and display current playlist status
+async function loadCurrentPlaylist() {
+    try {
+        const response = await fetch('/api/playlist');
+        const playlist = await response.json();
+
+        const statusText = document.getElementById('playlistStatusText');
+        const statusIcon = document.getElementById('playlistStatusIcon');
+        const toggleBtn = document.getElementById('togglePlaylistBtn');
+        const statusBanner = document.getElementById('playlistStatusBanner');
+
+        if (playlist.active && playlist.images?.length > 0) {
+            const modeText = playlist.mode === 'random' ? 'shuffle' : 'sequential';
+            const intervalMin = Math.round(playlist.interval / 60000000);
+            statusText.textContent = `Playing ${playlist.images.length} images (${modeText}, ${intervalMin} min)`;
+            statusIcon.textContent = '▶';
+            statusBanner.classList.add('active');
+            toggleBtn.textContent = 'Stop';
+            toggleBtn.disabled = false;
+        } else if (playlist.images?.length > 0) {
+            statusText.textContent = `Paused - ${playlist.images.length} images`;
+            statusIcon.textContent = '⏸';
+            statusBanner.classList.remove('active');
+            toggleBtn.textContent = 'Start';
+            toggleBtn.disabled = false;
+        } else {
+            statusText.textContent = 'No playlist configured';
+            statusIcon.textContent = '○';
+            statusBanner.classList.remove('active');
+            toggleBtn.textContent = 'Start';
+            toggleBtn.disabled = true;
+        }
+
+        // Update count
+        document.getElementById('playlistCount').textContent = `(${playlist.images?.length || 0} images)`;
+
+        // Set dropdown values to match current playlist
+        if (playlist.mode) {
+            document.getElementById('playlistModeSelect').value = playlist.mode;
+        }
+        if (playlist.interval) {
+            const intervalSelect = document.getElementById('playlistIntervalSelect');
+            // Try to match exact value, otherwise default
+            const options = Array.from(intervalSelect.options);
+            const match = options.find(opt => opt.value === String(playlist.interval));
+            if (match) intervalSelect.value = playlist.interval;
+        }
+
+        // Display playlist images
+        await renderPlaylistImages(playlist.images || []);
+
+    } catch (error) {
+        console.error('Error loading playlist:', error);
+    }
+}
+
+// Render current playlist images
+async function renderPlaylistImages(imageIds) {
+    const container = document.getElementById('playlistImages');
+
+    if (!imageIds || imageIds.length === 0) {
+        container.innerHTML = '<div class="playlist-empty">No images in playlist. Select images from history below.</div>';
+        return;
+    }
+
+    // Fetch image data for each ID
+    const history = await fetch('/api/history').then(r => r.json());
+    const imagesArchive = {};
+    for (const item of history) {
+        imagesArchive[item.imageId] = item;
+    }
+
+    container.innerHTML = imageIds.map(imageId => {
+        const item = imagesArchive[imageId];
+        if (!item) return '';
+
+        const thumbnail = item.thumbnail || item.previewUrl || '/placeholder.png';
+        const title = item.title || 'Untitled';
+
+        return `
+            <div class="playlist-image-item" data-image-id="${imageId}">
+                <img src="${thumbnail}" alt="${title}" loading="lazy">
+                <div class="playlist-image-title">${title}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Load history images for selection
+async function loadHistoryForPlaylist() {
+    try {
+        const response = await fetch('/api/history');
+        const history = await response.json();
+
+        const container = document.getElementById('historyForPlaylist');
+
+        if (!history || history.length === 0) {
+            container.innerHTML = '<div class="playlist-empty">No images in history yet.</div>';
+            return;
+        }
+
+        // Clear selection when loading
+        selectedPlaylistImages.clear();
+
+        container.innerHTML = history.map(item => {
+            const thumbnail = item.thumbnail || item.previewUrl || '/placeholder.png';
+            const title = item.title || 'Untitled';
+
+            return `
+                <div class="playlist-select-item" data-image-id="${item.imageId}">
+                    <img src="${thumbnail}" alt="${title}" loading="lazy">
+                    <div class="playlist-image-title">${title}</div>
+                    <div class="playlist-check">✓</div>
+                </div>
+            `;
+        }).join('');
+
+        // Add click handlers for selection
+        container.querySelectorAll('.playlist-select-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const imageId = item.dataset.imageId;
+                if (selectedPlaylistImages.has(imageId)) {
+                    selectedPlaylistImages.delete(imageId);
+                    item.classList.remove('selected');
+                } else {
+                    selectedPlaylistImages.add(imageId);
+                    item.classList.add('selected');
+                }
+                updateCreateButtonState();
+            });
+        });
+
+    } catch (error) {
+        console.error('Error loading history for playlist:', error);
+    }
+}
+
+// Update create button state based on selection
+function updateCreateButtonState() {
+    const btn = document.getElementById('createPlaylistBtn');
+    const count = selectedPlaylistImages.size;
+    if (count < 2) {
+        btn.textContent = 'Create Playlist';
+        btn.disabled = true;
+    } else {
+        btn.textContent = `Create Playlist (${count} selected)`;
+        btn.disabled = false;
+    }
+}
+
+// Toggle playlist active state
+async function togglePlaylist() {
+    try {
+        const response = await fetch('/api/playlist');
+        const playlist = await response.json();
+
+        if (!playlist.images || playlist.images.length === 0) {
+            alert('No playlist to toggle. Create one first.');
+            return;
+        }
+
+        await fetch('/api/playlist', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: !playlist.active })
+        });
+
+        await loadCurrentPlaylist();
+    } catch (error) {
+        console.error('Error toggling playlist:', error);
+        alert('Failed to toggle playlist');
+    }
+}
+
+// Create new playlist from selected images
+async function createPlaylist() {
+    if (selectedPlaylistImages.size < 2) {
+        alert('Select at least 2 images for a playlist');
+        return;
+    }
+
+    const mode = document.getElementById('playlistModeSelect').value;
+    const interval = parseInt(document.getElementById('playlistIntervalSelect').value);
+
+    try {
+        const response = await fetch('/api/playlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                images: Array.from(selectedPlaylistImages),
+                mode,
+                interval
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Clear selection
+            selectedPlaylistImages.clear();
+            document.querySelectorAll('.playlist-select-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+            updateCreateButtonState();
+
+            // Reload playlist display
+            await loadCurrentPlaylist();
+
+            // Show success message
+            if (data.message) {
+                console.log(data.message);
+            }
+        } else {
+            alert('Failed to create playlist: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error creating playlist:', error);
+        alert('Failed to create playlist');
+    }
+}
+
+// Clear/delete playlist
+async function clearPlaylist() {
+    if (!confirm('Are you sure you want to clear the playlist?')) {
+        return;
+    }
+
+    try {
+        await fetch('/api/playlist', { method: 'DELETE' });
+        await loadCurrentPlaylist();
+    } catch (error) {
+        console.error('Error clearing playlist:', error);
+        alert('Failed to clear playlist');
     }
 }
 

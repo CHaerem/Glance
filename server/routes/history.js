@@ -301,8 +301,36 @@ function createHistoryRoutes({ uploadDir }) {
                 return res.status(400).json({ error: "No valid images found in history" });
             }
 
+            // Deduplicate images by source URL or title+artist to prevent same artwork appearing multiple times
+            const imagesArchive = (await readJSONFile("images.json")) || {};
+            const seenImages = new Map();
+            const dedupedImages = [];
+
+            for (const imageId of validImages) {
+                const imageData = imagesArchive[imageId];
+                if (!imageData) continue;
+
+                // Create unique key based on source URL or title+artist combo
+                const key = imageData.sourceUrl || imageData.originalUrl ||
+                    `${imageData.title || 'untitled'}|${imageData.artist || 'unknown'}`;
+
+                if (!seenImages.has(key)) {
+                    seenImages.set(key, imageId);
+                    dedupedImages.push(imageId);
+                }
+            }
+
+            if (dedupedImages.length === 0) {
+                return res.status(400).json({ error: "No valid unique images found" });
+            }
+
+            const duplicatesRemoved = validImages.length - dedupedImages.length;
+            if (duplicatesRemoved > 0) {
+                console.log(`Playlist: removed ${duplicatesRemoved} duplicate image(s)`);
+            }
+
             const playlistConfig = {
-                images: validImages,
+                images: dedupedImages,
                 mode,
                 interval,
                 currentIndex: 0,
@@ -314,10 +342,10 @@ function createHistoryRoutes({ uploadDir }) {
             await writeJSONFile("playlist.json", playlistConfig);
 
             const firstImageId = mode === "random"
-                ? validImages[Math.floor(Math.random() * validImages.length)]
-                : validImages[0];
+                ? dedupedImages[Math.floor(Math.random() * dedupedImages.length)]
+                : dedupedImages[0];
 
-            const imagesArchive = (await readJSONFile("images.json")) || {};
+            // imagesArchive already loaded above for deduplication
             const imageData = imagesArchive[firstImageId];
 
             if (imageData) {
@@ -328,16 +356,78 @@ function createHistoryRoutes({ uploadDir }) {
                 };
 
                 await writeJSONFile("current.json", currentData);
-                console.log(`Started playlist with ${validImages.length} images, first image: ${firstImageId}`);
+                console.log(`Started playlist with ${dedupedImages.length} images, first image: ${firstImageId}`);
             }
 
             res.json({
                 success: true,
-                message: `Playlist started with ${validImages.length} images`,
+                message: `Playlist created with ${dedupedImages.length} images${duplicatesRemoved > 0 ? ` (${duplicatesRemoved} duplicate(s) removed)` : ''}`,
                 config: playlistConfig
             });
         } catch (error) {
             console.error("Error creating playlist:", error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    });
+
+    /**
+     * Get current playlist configuration
+     * GET /api/playlist
+     */
+    router.get('/playlist', async (_req, res) => {
+        try {
+            const playlist = await readJSONFile("playlist.json");
+            res.json(playlist || { active: false, images: [], mode: 'sequential', interval: 3600000000 });
+        } catch (error) {
+            console.error("Error getting playlist:", error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    });
+
+    /**
+     * Update playlist settings (toggle active, change mode/interval)
+     * PATCH /api/playlist
+     */
+    router.patch('/playlist', async (req, res) => {
+        try {
+            let playlist = await readJSONFile("playlist.json");
+
+            if (!playlist) {
+                return res.status(404).json({ error: "No playlist exists" });
+            }
+
+            // Update only provided fields
+            if (req.body.active !== undefined) {
+                playlist.active = req.body.active;
+            }
+            if (req.body.mode && ['sequential', 'random'].includes(req.body.mode)) {
+                playlist.mode = req.body.mode;
+            }
+            if (req.body.interval && req.body.interval >= 300000000) {
+                playlist.interval = req.body.interval;
+            }
+
+            await writeJSONFile("playlist.json", playlist);
+            console.log(`Playlist updated: active=${playlist.active}, mode=${playlist.mode}`);
+
+            res.json(playlist);
+        } catch (error) {
+            console.error("Error updating playlist:", error);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    });
+
+    /**
+     * Delete/clear playlist
+     * DELETE /api/playlist
+     */
+    router.delete('/playlist', async (_req, res) => {
+        try {
+            await writeJSONFile("playlist.json", { active: false, images: [], mode: 'sequential', interval: 3600000000 });
+            console.log("Playlist cleared");
+            res.json({ success: true, message: "Playlist cleared" });
+        } catch (error) {
+            console.error("Error deleting playlist:", error);
             res.status(500).json({ error: "Internal server error" });
         }
     });
