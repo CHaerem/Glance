@@ -188,15 +188,18 @@ docker compose up -d
 - **Battery Pin**: GPIO 2 (ADC1_CH1) via voltage divider
 
 ### Battery Monitoring
-- **Voltage Divider**: Connected to GPIO 2
-- **Calibrated Ratio**: 4.7 (ADC reads ~0.85V at 4.0V battery)
+- **Voltage Divider**: 100kΩ + 27kΩ connected to GPIO 2
+- **Calibrated Ratio**: 8.3 (empirically calibrated for PowerBoost 1000C)
 - **Thresholds**: Critical 3.3V, Low 3.5V, Normal 3.6V+
 - **Deep Sleep**: ~10μA current consumption
 
-### Power Requirements
-- LiPo battery: 2000mAh+ recommended (≥10C discharge rate)
-- Decoupling capacitor: 1000-4700μF near display
-- Display refresh draws >1A peak current
+### Power System (PowerBoost 1000C)
+- **Charger/Boost**: Adafruit PowerBoost 1000C (replaces LiPo Amigo Pro + MiniBoost)
+- **Battery**: PiJuice 12000mAh LiPo via JST connector
+- **Output**: 5V USB-A to ESP32 USB-C
+- **Battery Monitoring**: PowerBoost BAT pin → voltage divider → GPIO 2
+- **LED removed**: Blue power LED desoldered to save ~2mA standby current
+- Display refresh draws >1A peak current (PowerBoost handles this without brownout)
 
 ## Image Processing
 
@@ -275,9 +278,10 @@ docker build -t glance-server .
 - Check serial monitor for connection errors
 
 ### Battery readings wrong
-- Verify voltage divider ratio (currently 4.7)
-- Check soldering on GPIO 2 pad
-- Readings should match multimeter ±0.1V
+- Verify voltage divider ratio (currently 8.3 for PowerBoost 1000C)
+- Check soldering on GPIO 2 pad and PowerBoost BAT pin
+- Readings should match multimeter ±3%
+- Recalibrate ratio: `correct_ratio = current_ratio × (multimeter / reported)`
 
 ### Display shows red screen
 - WiFi connection failed
@@ -329,6 +333,11 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 
 ## Recent Changes
 
+- **Power system upgrade**: Replaced LiPo Amigo Pro + MiniBoost with PowerBoost 1000C
+  - Solved brownout issues during display refresh on battery
+  - Voltage divider ratio recalibrated to 8.3 for new setup
+  - Blue LED removed to save ~2mA standby current
+  - See `docs/POWER_INVESTIGATION_REPORT.md` for full analysis
 - **ESP32 client refactored**: Named constants, removed globals, comprehensive documentation
   - 30+ magic numbers converted to #define constants
   - Created server_config.h for shared server URLs
@@ -340,5 +349,4 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
   - Admin page shows current firmware and last OTA status
 - **Server refactored**: Modular architecture with routes/, services/, utils/
   - Server.js reduced from 5,225 lines to 523 lines (90% reduction)
-- **Battery monitoring**: Calibrated voltage divider (4.7 ratio), GPIO 2 confirmed
 - 188 tests all passing
