@@ -72,18 +72,22 @@ const storage = multer.diskStorage({
 
 const upload = multer({
 	storage: storage,
-	limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit (handles iPhone photos)
+	limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit (handles iPhone photos including HEIC)
 	fileFilter: (req, file, cb) => {
-		const allowedTypes = /jpeg|jpg|png|gif|bmp|webp/;
-		const extname = allowedTypes.test(
+		// Support common image formats including iPhone HEIC/HEIF
+		const allowedExtensions = /jpeg|jpg|png|gif|bmp|webp|heic|heif/i;
+		const allowedMimeTypes = /image\/(jpeg|jpg|png|gif|bmp|webp|heic|heif)/i;
+
+		const extname = allowedExtensions.test(
 			path.extname(file.originalname).toLowerCase()
 		);
-		const mimetype = allowedTypes.test(file.mimetype);
+		const mimetype = allowedMimeTypes.test(file.mimetype);
 
-		if (mimetype && extname) {
+		if (mimetype || extname) {
 			return cb(null, true);
 		} else {
-			cb(new Error("Only image files are allowed!"));
+			console.error(`Upload rejected: unsupported file type - name: ${file.originalname}, mime: ${file.mimetype}`);
+			cb(new Error(`Unsupported image format: ${file.mimetype || path.extname(file.originalname)}. Supported formats: JPEG, PNG, GIF, BMP, WebP, HEIC`));
 		}
 	},
 });
@@ -174,6 +178,46 @@ app.use('/api/metrics', metricsRoutes);
 // Health check moved to routes/system.js
 
 // Build info moved to routes/system.js
+
+// Error handling middleware for multer and other errors
+app.use((err, req, res, _next) => {
+	// Log the error for debugging
+	console.error(`Request error: ${req.method} ${req.path}`, {
+		error: err.message,
+		code: err.code,
+		field: err.field,
+		stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+	});
+
+	// Handle multer-specific errors
+	if (err.code === 'LIMIT_FILE_SIZE') {
+		return res.status(413).json({
+			error: 'File too large. Maximum size is 20MB.',
+			code: 'FILE_TOO_LARGE'
+		});
+	}
+
+	if (err.message && err.message.includes('Unsupported image format')) {
+		return res.status(415).json({
+			error: err.message,
+			code: 'UNSUPPORTED_FORMAT',
+			hint: 'On iPhone, go to Settings > Camera > Formats and select "Most Compatible" for JPEG photos.'
+		});
+	}
+
+	if (err.message && err.message.includes('image')) {
+		return res.status(400).json({
+			error: err.message,
+			code: 'IMAGE_ERROR'
+		});
+	}
+
+	// Generic error response
+	res.status(err.status || 500).json({
+		error: err.message || 'Internal server error',
+		code: err.code || 'INTERNAL_ERROR'
+	});
+});
 
 // Simple, focused web interface for single display management
 app.get("/", async (_req, res) => {

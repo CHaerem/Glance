@@ -965,6 +965,13 @@ async function handleFileUpload(file) {
     const promptText = document.getElementById('generationPromptText');
     const filenameText = document.getElementById('generationFilenameText');
 
+    // Check file size before upload (20MB limit)
+    const maxSize = 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+        alert(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 20MB.`);
+        return;
+    }
+
     statusText.textContent = 'Uploading image...';
     promptText.textContent = '';
     filenameText.textContent = file.name;
@@ -979,29 +986,44 @@ async function handleFileUpload(file) {
             body: formData
         });
 
+        const data = await response.json();
+
         if (response.ok) {
-            const data = await response.json();
             document.getElementById('fileInput').value = '';
             await loadCurrentDisplay();
             overlay.classList.remove('show');
             statusText.textContent = 'Generating image...';
             filenameText.textContent = '';
 
+            // Show duplicate message if applicable
+            if (data.duplicate) {
+                alert('This image already exists in your collection. Opening it now.');
+            }
+
+            // Open preview modal so user can adjust and apply
             await openGeneratedImagePreview(data.imageId || 'current');
             setTimeout(loadMyCollection, 1000);
         } else {
             overlay.classList.remove('show');
             statusText.textContent = 'Generating image...';
             filenameText.textContent = '';
-            const errorData = await response.json();
-            alert('Upload failed: ' + (errorData.error || 'Unknown error'));
+
+            // Show helpful error message
+            let errorMsg = data.error || 'Unknown error';
+            if (data.hint) {
+                errorMsg += '\n\n' + data.hint;
+            }
+            if (data.code === 'UNSUPPORTED_FORMAT') {
+                errorMsg += '\n\nTip: Most phones can be set to save photos as JPEG instead of HEIC.';
+            }
+            alert('Upload failed: ' + errorMsg);
         }
     } catch (error) {
         console.error('Upload failed:', error);
         overlay.classList.remove('show');
         statusText.textContent = 'Generating image...';
         filenameText.textContent = '';
-        alert('Upload failed: ' + error.message);
+        alert('Upload failed: Network error. Please check your connection and try again.');
     }
 }
 

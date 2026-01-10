@@ -6,6 +6,7 @@
 const express = require('express');
 const fs = require('fs').promises;
 const path = require('path');
+const crypto = require('crypto');
 const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 
@@ -34,10 +35,41 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
     router.post('/upload', upload.single('image'), async (req, res) => {
         try {
             if (!req.file) {
+                console.error('Upload failed: No file in request');
                 return res.status(400).json({ error: 'No file uploaded' });
             }
 
-            console.log(`Uploading image for preview: ${req.file.originalname}`);
+            console.log(`Uploading image for preview: ${req.file.originalname}`, {
+                size: `${(req.file.size / 1024 / 1024).toFixed(2)}MB`,
+                mimetype: req.file.mimetype,
+                originalname: req.file.originalname
+            });
+
+            // Read file and compute hash for duplicate detection
+            const fileBuffer = await fs.readFile(req.file.path);
+            const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex').substring(0, 16);
+
+            // Check for duplicate by hash
+            const imagesArchive = (await readJSONFile('images.json')) || {};
+            const existingEntry = Object.entries(imagesArchive).find(([_, img]) => img.contentHash === fileHash);
+
+            if (existingEntry) {
+                const [existingId, existingImage] = existingEntry;
+                console.log(`Duplicate image detected (hash: ${fileHash}), returning existing: ${existingId}`);
+
+                // Clean up uploaded file
+                await fs.unlink(req.file.path);
+
+                addDeviceLog(`Duplicate upload detected: "${req.file.originalname}" matches existing image`);
+
+                return res.json({
+                    success: true,
+                    imageId: existingId,
+                    title: existingImage.title,
+                    message: 'This image already exists in your collection.',
+                    duplicate: true
+                });
+            }
 
             const imageId = uuidv4();
             const timestamp = Date.now();
@@ -68,7 +100,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
             const title = `Uploaded: ${req.file.originalname}`;
 
             // Store in images archive for history (original only, dithered image created on apply)
-            const imagesArchive = (await readJSONFile('images.json')) || {};
+            // Note: imagesArchive was already loaded above for duplicate detection
             imagesArchive[imageId] = {
                 title: title,
                 imageId: imageId,
@@ -78,7 +110,8 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
                 originalImageMime: 'image/jpeg', // Optimized as JPEG
                 thumbnail: thumbnailBase64,
                 aiGenerated: false,
-                uploadedFilename: req.file.originalname
+                uploadedFilename: req.file.originalname,
+                contentHash: fileHash // For duplicate detection
             };
             await writeJSONFile('images.json', imagesArchive);
 
