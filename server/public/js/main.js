@@ -74,7 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Playlist controls
     document.getElementById('togglePlaylistBtn').addEventListener('click', togglePlaylist);
     document.getElementById('createPlaylistBtn').addEventListener('click', createPlaylist);
-    document.getElementById('clearPlaylistBtn').addEventListener('click', clearPlaylist);
+    document.getElementById('playlistModeToggle').addEventListener('click', cyclePlaylistMode);
+    document.getElementById('playlistIntervalToggle').addEventListener('click', cyclePlaylistInterval);
 
     document.getElementById('generateBtn').addEventListener('click', generateArt);
     document.getElementById('luckyBtn').addEventListener('click', feelingLucky);
@@ -1130,13 +1131,20 @@ async function deleteModalImage() {
 // ============================================
 
 let selectedPlaylistImages = new Set();
+let playlistMode = 'random';
+let playlistInterval = 300000000; // 5 min default
 
-// Load playlist data and history for selection
+const intervalOptions = [
+    { value: 300000000, label: '5 min' },
+    { value: 900000000, label: '15 min' },
+    { value: 1800000000, label: '30 min' },
+    { value: 3600000000, label: '1 hour' }
+];
+
+// Load playlist data
 async function loadPlaylistData() {
-    await Promise.all([
-        loadCurrentPlaylist(),
-        loadHistoryForPlaylist()
-    ]);
+    await loadCurrentPlaylist();
+    await loadHistoryForPlaylist();
 }
 
 // Load and display current playlist status
@@ -1146,118 +1154,72 @@ async function loadCurrentPlaylist() {
         const playlist = await response.json();
 
         const statusText = document.getElementById('playlistStatusText');
-        const statusIcon = document.getElementById('playlistStatusIcon');
         const toggleBtn = document.getElementById('togglePlaylistBtn');
-        const statusBanner = document.getElementById('playlistStatusBanner');
 
         if (playlist.active && playlist.images?.length > 0) {
-            const modeText = playlist.mode === 'random' ? 'shuffle' : 'sequential';
+            const modeText = playlist.mode === 'random' ? 'shuffle' : 'in order';
             const intervalMin = Math.round(playlist.interval / 60000000);
-            statusText.textContent = `Playing ${playlist.images.length} images (${modeText}, ${intervalMin} min)`;
-            statusIcon.textContent = '▶';
-            statusBanner.classList.add('active');
-            toggleBtn.textContent = 'Stop';
-            toggleBtn.disabled = false;
+            statusText.textContent = `${playlist.images.length} images · ${modeText} · ${intervalMin} min`;
+            toggleBtn.textContent = 'pause';
+            toggleBtn.style.display = 'inline';
         } else if (playlist.images?.length > 0) {
-            statusText.textContent = `Paused - ${playlist.images.length} images`;
-            statusIcon.textContent = '⏸';
-            statusBanner.classList.remove('active');
-            toggleBtn.textContent = 'Start';
-            toggleBtn.disabled = false;
+            statusText.textContent = `paused · ${playlist.images.length} images`;
+            toggleBtn.textContent = 'resume';
+            toggleBtn.style.display = 'inline';
         } else {
-            statusText.textContent = 'No playlist configured';
-            statusIcon.textContent = '○';
-            statusBanner.classList.remove('active');
-            toggleBtn.textContent = 'Start';
-            toggleBtn.disabled = true;
+            statusText.textContent = 'select images to create a playlist';
+            toggleBtn.style.display = 'none';
         }
 
-        // Update count
-        document.getElementById('playlistCount').textContent = `(${playlist.images?.length || 0} images)`;
-
-        // Set dropdown values to match current playlist
-        if (playlist.mode) {
-            document.getElementById('playlistModeSelect').value = playlist.mode;
-        }
-        if (playlist.interval) {
-            const intervalSelect = document.getElementById('playlistIntervalSelect');
-            // Try to match exact value, otherwise default
-            const options = Array.from(intervalSelect.options);
-            const match = options.find(opt => opt.value === String(playlist.interval));
-            if (match) intervalSelect.value = playlist.interval;
-        }
-
-        // Display playlist images
-        await renderPlaylistImages(playlist.images || []);
+        // Sync local state with server
+        if (playlist.mode) playlistMode = playlist.mode;
+        if (playlist.interval) playlistInterval = playlist.interval;
+        updateModeToggle();
+        updateIntervalToggle();
 
     } catch (error) {
         console.error('Error loading playlist:', error);
     }
 }
 
-// Render current playlist images
-async function renderPlaylistImages(imageIds) {
-    const container = document.getElementById('playlistImages');
-
-    if (!imageIds || imageIds.length === 0) {
-        container.innerHTML = '<div class="playlist-empty">No images in playlist. Select images from history below.</div>';
-        return;
-    }
-
-    // Fetch image data for each ID
-    const history = await fetch('/api/history').then(r => r.json());
-    const imagesArchive = {};
-    for (const item of history) {
-        imagesArchive[item.imageId] = item;
-    }
-
-    container.innerHTML = imageIds.map(imageId => {
-        const item = imagesArchive[imageId];
-        if (!item) return '';
-
-        const thumbnail = item.thumbnail || item.previewUrl || '/placeholder.png';
-        const title = item.title || 'Untitled';
-
-        return `
-            <div class="playlist-image-item" data-image-id="${imageId}">
-                <img src="${thumbnail}" alt="${title}" loading="lazy">
-                <div class="playlist-image-title">${title}</div>
-            </div>
-        `;
-    }).join('');
-}
-
 // Load history images for selection
 async function loadHistoryForPlaylist() {
     try {
-        const response = await fetch('/api/history');
-        const history = await response.json();
+        const [historyRes, playlistRes] = await Promise.all([
+            fetch('/api/history'),
+            fetch('/api/playlist')
+        ]);
+        const history = await historyRes.json();
+        const playlist = await playlistRes.json();
 
         const container = document.getElementById('historyForPlaylist');
 
         if (!history || history.length === 0) {
-            container.innerHTML = '<div class="playlist-empty">No images in history yet.</div>';
+            container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">no images yet</div>';
             return;
         }
 
-        // Clear selection when loading
+        // Pre-select images that are in the current playlist
         selectedPlaylistImages.clear();
+        if (playlist.images) {
+            playlist.images.forEach(id => selectedPlaylistImages.add(id));
+        }
 
         container.innerHTML = history.map(item => {
             const thumbnail = item.thumbnail || item.previewUrl || '/placeholder.png';
             const title = item.title || 'Untitled';
+            const isSelected = selectedPlaylistImages.has(item.imageId);
 
             return `
-                <div class="playlist-select-item" data-image-id="${item.imageId}">
+                <div class="collection-item playlist-selectable ${isSelected ? 'selected' : ''}" data-image-id="${item.imageId}">
                     <img src="${thumbnail}" alt="${title}" loading="lazy">
-                    <div class="playlist-image-title">${title}</div>
-                    <div class="playlist-check">✓</div>
+                    <div class="playlist-check-overlay"></div>
                 </div>
             `;
         }).join('');
 
-        // Add click handlers for selection
-        container.querySelectorAll('.playlist-select-item').forEach(item => {
+        // Add click handlers
+        container.querySelectorAll('.playlist-selectable').forEach(item => {
             item.addEventListener('click', () => {
                 const imageId = item.dataset.imageId;
                 if (selectedPlaylistImages.has(imageId)) {
@@ -1267,26 +1229,53 @@ async function loadHistoryForPlaylist() {
                     selectedPlaylistImages.add(imageId);
                     item.classList.add('selected');
                 }
-                updateCreateButtonState();
+                updatePlaylistUI();
             });
         });
 
+        updatePlaylistUI();
+
     } catch (error) {
-        console.error('Error loading history for playlist:', error);
+        console.error('Error loading history:', error);
     }
 }
 
-// Update create button state based on selection
-function updateCreateButtonState() {
-    const btn = document.getElementById('createPlaylistBtn');
+// Update UI based on selection
+function updatePlaylistUI() {
+    const footer = document.getElementById('playlistFooter');
     const count = selectedPlaylistImages.size;
-    if (count < 2) {
-        btn.textContent = 'Create Playlist';
-        btn.disabled = true;
+
+    if (count >= 2) {
+        footer.style.display = 'flex';
+        document.getElementById('createPlaylistBtn').textContent =
+            count === 2 ? 'start playlist' : `start playlist (${count})`;
     } else {
-        btn.textContent = `Create Playlist (${count} selected)`;
-        btn.disabled = false;
+        footer.style.display = 'none';
     }
+}
+
+// Cycle through modes
+function cyclePlaylistMode() {
+    playlistMode = playlistMode === 'random' ? 'sequential' : 'random';
+    updateModeToggle();
+}
+
+function updateModeToggle() {
+    document.getElementById('playlistModeToggle').textContent =
+        playlistMode === 'random' ? 'shuffle' : 'in order';
+}
+
+// Cycle through intervals
+function cyclePlaylistInterval() {
+    const currentIndex = intervalOptions.findIndex(opt => opt.value === playlistInterval);
+    const nextIndex = (currentIndex + 1) % intervalOptions.length;
+    playlistInterval = intervalOptions[nextIndex].value;
+    updateIntervalToggle();
+}
+
+function updateIntervalToggle() {
+    const option = intervalOptions.find(opt => opt.value === playlistInterval);
+    document.getElementById('playlistIntervalToggle').textContent = option ? option.label : '5 min';
 }
 
 // Toggle playlist active state
@@ -1294,11 +1283,6 @@ async function togglePlaylist() {
     try {
         const response = await fetch('/api/playlist');
         const playlist = await response.json();
-
-        if (!playlist.images || playlist.images.length === 0) {
-            alert('No playlist to toggle. Create one first.');
-            return;
-        }
 
         await fetch('/api/playlist', {
             method: 'PATCH',
@@ -1309,19 +1293,12 @@ async function togglePlaylist() {
         await loadCurrentPlaylist();
     } catch (error) {
         console.error('Error toggling playlist:', error);
-        alert('Failed to toggle playlist');
     }
 }
 
-// Create new playlist from selected images
+// Create playlist from selected images
 async function createPlaylist() {
-    if (selectedPlaylistImages.size < 2) {
-        alert('Select at least 2 images for a playlist');
-        return;
-    }
-
-    const mode = document.getElementById('playlistModeSelect').value;
-    const interval = parseInt(document.getElementById('playlistIntervalSelect').value);
+    if (selectedPlaylistImages.size < 2) return;
 
     try {
         const response = await fetch('/api/playlist', {
@@ -1329,49 +1306,16 @@ async function createPlaylist() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 images: Array.from(selectedPlaylistImages),
-                mode,
-                interval
+                mode: playlistMode,
+                interval: playlistInterval
             })
         });
 
-        const data = await response.json();
-
         if (response.ok) {
-            // Clear selection
-            selectedPlaylistImages.clear();
-            document.querySelectorAll('.playlist-select-item.selected').forEach(item => {
-                item.classList.remove('selected');
-            });
-            updateCreateButtonState();
-
-            // Reload playlist display
-            await loadCurrentPlaylist();
-
-            // Show success message
-            if (data.message) {
-                console.log(data.message);
-            }
-        } else {
-            alert('Failed to create playlist: ' + (data.error || 'Unknown error'));
+            await loadPlaylistData();
         }
     } catch (error) {
         console.error('Error creating playlist:', error);
-        alert('Failed to create playlist');
-    }
-}
-
-// Clear/delete playlist
-async function clearPlaylist() {
-    if (!confirm('Are you sure you want to clear the playlist?')) {
-        return;
-    }
-
-    try {
-        await fetch('/api/playlist', { method: 'DELETE' });
-        await loadCurrentPlaylist();
-    } catch (error) {
-        console.error('Error clearing playlist:', error);
-        alert('Failed to clear playlist');
     }
 }
 

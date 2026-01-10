@@ -117,60 +117,23 @@
 
         <!-- Playlist Mode -->
         <div class="browse-section" id="playlistMode">
-            <!-- Playlist Status Banner -->
-            <div class="playlist-status-banner" id="playlistStatusBanner">
-                <div class="playlist-status-info">
-                    <span class="playlist-status-icon" id="playlistStatusIcon">▶</span>
-                    <span id="playlistStatusText">No playlist active</span>
-                </div>
-                <button class="btn btn-secondary" id="togglePlaylistBtn">Start</button>
+            <!-- Simple status line -->
+            <div class="playlist-status">
+                <span id="playlistStatusText">select images to create a playlist</span>
+                <button class="mode-link" id="togglePlaylistBtn" style="display: none;">pause</button>
             </div>
 
-            <!-- Current Playlist Images -->
-            <div class="playlist-section-group">
-                <div class="playlist-section-header">
-                    <h3>Current Playlist</h3>
-                    <span class="playlist-count" id="playlistCount">(0 images)</span>
-                </div>
-                <div class="playlist-grid" id="playlistImages">
-                    <div class="playlist-empty">No images in playlist. Select images from history below.</div>
-                </div>
-            </div>
+            <!-- Image grid - click to select -->
+            <div class="collection-grid" id="historyForPlaylist"></div>
 
-            <!-- Add from History -->
-            <div class="playlist-section-group">
-                <div class="playlist-section-header">
-                    <h3>Add from History</h3>
-                    <span class="playlist-hint">Click images to select</span>
-                </div>
-                <div class="playlist-grid selectable" id="historyForPlaylist"></div>
-            </div>
-
-            <!-- Playlist Controls -->
-            <div class="playlist-controls">
+            <!-- Minimal controls at bottom -->
+            <div class="playlist-footer" id="playlistFooter" style="display: none;">
                 <div class="playlist-options">
-                    <label>
-                        Mode:
-                        <select id="playlistModeSelect">
-                            <option value="sequential">Sequential</option>
-                            <option value="random">Random</option>
-                        </select>
-                    </label>
-                    <label>
-                        Interval:
-                        <select id="playlistIntervalSelect">
-                            <option value="300000000">5 min</option>
-                            <option value="900000000">15 min</option>
-                            <option value="1800000000">30 min</option>
-                            <option value="3600000000">1 hour</option>
-                            <option value="7200000000">2 hours</option>
-                        </select>
-                    </label>
+                    <button class="mode-link playlist-option" id="playlistModeToggle">shuffle</button>
+                    <span style="color: #e5e5e5;">·</span>
+                    <button class="mode-link playlist-option" id="playlistIntervalToggle">5 min</button>
                 </div>
-                <div class="playlist-actions">
-                    <button class="btn btn-primary" id="createPlaylistBtn">Create Playlist</button>
-                    <button class="btn btn-secondary" id="clearPlaylistBtn">Clear</button>
-                </div>
+                <button class="mode-link" id="createPlaylistBtn">start playlist</button>
             </div>
         </div>
     </div>
