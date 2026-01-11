@@ -1,12 +1,14 @@
 /**
  * Smart Categories API Routes
  * Browse art by subject, mood, and color using semantic search
+ * Falls back to keyword search when Qdrant is unavailable
  */
 
 const express = require('express');
 const router = express.Router();
 const path = require('path');
 const vectorSearch = require('../services/vector-search');
+const { performArtSearch } = require('../services/museum-api');
 const { loggers } = require('../services/logger');
 const log = loggers.api;
 
@@ -57,8 +59,22 @@ router.get('/:type/:id', async (req, res) => {
 
         log.debug('Browsing by category', { type, id, query: category.query });
 
-        // Use semantic search with category query
-        const results = await vectorSearch.searchByText(category.query, parseInt(limit));
+        let results = [];
+        let searchType = 'category-browse';
+
+        // Try semantic search first, fall back to keyword search
+        try {
+            results = await vectorSearch.searchByText(category.query, parseInt(limit));
+            searchType = 'semantic';
+        } catch (vectorError) {
+            log.warn('Vector search unavailable, falling back to keyword search', { error: vectorError.message });
+
+            // Fall back to keyword search using first word of query
+            const searchTerm = category.query.split(' ')[0];
+            const keywordResults = await performArtSearch(searchTerm, parseInt(limit));
+            results = keywordResults.results || [];
+            searchType = 'keyword-fallback';
+        }
 
         res.json({
             category: {
@@ -79,21 +95,12 @@ router.get('/:type/:id', async (req, res) => {
             })),
             metadata: {
                 resultsCount: results.length,
-                searchType: 'category-browse',
-                model: 'CLIP ViT-B/32'
+                searchType
             }
         });
 
     } catch (error) {
         log.error('Category browse error', { error: error.message });
-
-        if (error.message.includes('Qdrant')) {
-            return res.status(503).json({
-                error: 'Vector search unavailable',
-                hint: 'Semantic search requires Qdrant to be running'
-            });
-        }
-
         res.status(500).json({ error: error.message });
     }
 });
