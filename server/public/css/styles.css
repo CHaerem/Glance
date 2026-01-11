@@ -263,6 +263,87 @@
             border-color: #1a1a1a;
         }
 
+        /* Search hint text */
+        .search-hint {
+            text-align: center;
+            margin: 8px 0 20px;
+            font-size: 0.75rem;
+            color: #999;
+        }
+
+        /* Categorized suggestion chips */
+        .suggestion-categories {
+            margin-bottom: 24px;
+        }
+
+        .suggestion-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .suggestion-label {
+            font-size: 0.7rem;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 60px;
+            flex-shrink: 0;
+        }
+
+        .suggestion-chip {
+            padding: 6px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 16px;
+            background: #ffffff;
+            color: #666;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-chip:hover {
+            border-color: #999;
+            color: #333;
+        }
+
+        .suggestion-chip:active {
+            background: #f5f5f5;
+        }
+
+        /* Search status feedback */
+        .search-status {
+            text-align: center;
+            margin: 16px 0;
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+
+        .search-status-text {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        /* Mobile adjustments for suggestions */
+        @media (max-width: 600px) {
+            .suggestion-row {
+                justify-content: flex-start;
+            }
+
+            .suggestion-label {
+                min-width: 100%;
+                margin-bottom: 4px;
+            }
+
+            .suggestion-chip {
+                padding: 8px 14px;
+                font-size: 0.8rem;
+            }
+        }
+
         .filter-bar {
             display: flex;
             gap: 8px;
