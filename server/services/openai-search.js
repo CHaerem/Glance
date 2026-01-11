@@ -1,6 +1,6 @@
 /**
  * OpenAI Agentic Art Search Service
- * Uses gpt-4o-mini with function tools to intelligently search museum APIs
+ * Uses gpt-5-mini with function tools to intelligently search museum APIs
  *
  * The AI decides which museums to search, what terms to use,
  * and curates the best results based on the user's intent.
@@ -146,7 +146,7 @@ const museumSearchers = {
     }
 };
 
-// Tool definitions for gpt-4o-mini
+// Tool definitions for gpt-5-mini
 const searchTools = [
     {
         type: 'function',
@@ -229,7 +229,7 @@ class OpenAIAgentSearch {
     constructor() {
         this.client = null;
         this.initialized = false;
-        this.model = 'gpt-4o-mini'; // Fast and cost-effective for tool orchestration
+        this.model = 'gpt-5-mini'; // Fast, smart, and cost-effective for tool orchestration
     }
 
     async initialize() {
