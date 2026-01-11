@@ -78,7 +78,7 @@ async function smartSearch(query, useCache = true) {
     }
 
     try {
-        // Use semantic search (CLIP-based visual similarity)
+        // Use AI-powered search (GPT-5 orchestrates museum API searches)
         const response = await fetch('/api/semantic/search', {
             method: 'POST',
             headers: {
@@ -86,7 +86,7 @@ async function smartSearch(query, useCache = true) {
             },
             body: JSON.stringify({
                 query: query,
-                limit: 50 // Get more results for semantic search
+                limit: 50 // Get diverse results from multiple museums
             })
         });
 
@@ -94,7 +94,7 @@ async function smartSearch(query, useCache = true) {
             if (response.status === 429) {
                 throw new Error('Too many requests. Please wait a moment and try again.');
             } else if (response.status === 503) {
-                throw new Error('Search service temporarily unavailable. Is Qdrant running?');
+                throw new Error('Search service temporarily unavailable. Please try again.');
             } else if (response.status >= 500) {
                 throw new Error('Server error. Please try again in a moment.');
             } else {
@@ -104,11 +104,11 @@ async function smartSearch(query, useCache = true) {
 
         const data = await response.json();
 
-        // Transform semantic search response to match expected format
+        // Transform search response to match expected format
         const transformedData = {
             results: data.results || [],
             metadata: data.metadata || {},
-            searchType: 'semantic'
+            searchType: 'agentic'
         };
 
         // Cache the results

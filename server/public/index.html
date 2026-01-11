@@ -66,17 +66,49 @@
                     type="text"
                     class="search-input"
                     id="searchInput"
-                    placeholder="Search for art...">
+                    placeholder="Describe what you're looking for...">
             </div>
 
-            <!-- Suggestions -->
-            <div style="text-align: center; margin: 16px 0; font-size: 0.8rem; color: #666;">
-                <span style="color: #999;">Try:</span>
-                <button class="mode-link suggestion-link" data-query="Monet">Monet</button>
-                <span style="color: #e5e5e5;">·</span>
-                <button class="mode-link suggestion-link" data-query="Japanese art">Japanese art</button>
-                <span style="color: #e5e5e5;">·</span>
-                <button class="mode-link suggestion-link" data-query="Bold colors">Bold colors</button>
+            <!-- Search hint -->
+            <div class="search-hint">
+                Search by mood, style, artist, subject, or describe the feeling you want
+            </div>
+
+            <!-- Categorized Suggestions -->
+            <div class="suggestion-categories" id="suggestionCategories">
+                <div class="suggestion-row">
+                    <span class="suggestion-label">Moods</span>
+                    <button class="suggestion-chip" data-query="peaceful calming serene art">peaceful</button>
+                    <button class="suggestion-chip" data-query="dramatic powerful intense paintings">dramatic</button>
+                    <button class="suggestion-chip" data-query="melancholic contemplative thoughtful art">melancholic</button>
+                    <button class="suggestion-chip" data-query="joyful vibrant cheerful paintings">joyful</button>
+                </div>
+                <div class="suggestion-row">
+                    <span class="suggestion-label">Styles</span>
+                    <button class="suggestion-chip" data-query="impressionist paintings light and color">impressionist</button>
+                    <button class="suggestion-chip" data-query="renaissance classical paintings">renaissance</button>
+                    <button class="suggestion-chip" data-query="abstract modern contemporary art">abstract</button>
+                    <button class="suggestion-chip" data-query="Japanese ukiyo-e woodblock prints">japanese</button>
+                </div>
+                <div class="suggestion-row">
+                    <span class="suggestion-label">Artists</span>
+                    <button class="suggestion-chip" data-query="Claude Monet impressionism">Monet</button>
+                    <button class="suggestion-chip" data-query="Vincent van Gogh">Van Gogh</button>
+                    <button class="suggestion-chip" data-query="Johannes Vermeer Dutch">Vermeer</button>
+                    <button class="suggestion-chip" data-query="Katsushika Hokusai Japanese">Hokusai</button>
+                </div>
+                <div class="suggestion-row">
+                    <span class="suggestion-label">Subjects</span>
+                    <button class="suggestion-chip" data-query="landscape nature scenery mountains">landscapes</button>
+                    <button class="suggestion-chip" data-query="portrait face person">portraits</button>
+                    <button class="suggestion-chip" data-query="still life flowers vase fruit">still life</button>
+                    <button class="suggestion-chip" data-query="seascape ocean marine ships">seascapes</button>
+                </div>
+            </div>
+
+            <!-- Search status feedback -->
+            <div class="search-status" id="searchStatus" style="display: none;">
+                <span class="search-status-text" id="searchStatusText"></span>
             </div>
 
             <div class="art-grid" id="artGrid"></div>

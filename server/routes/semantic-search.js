@@ -1,17 +1,17 @@
 /**
  * Semantic Search API Routes
- * Visual similarity search using CLIP embeddings + Qdrant
- * Architecture based on: artwork-similarity-search by Otman404
+ * Art discovery using OpenAI Vector Stores + file_search
+ * With intelligent fallback to museum API keyword search
  */
 
 const express = require('express');
 const router = express.Router();
-const vectorSearch = require('../services/vector-search');
+const openaiSearch = require('../services/openai-search');
 const { loggers } = require('../services/logger');
 const log = loggers.api;
 
 /**
- * Search artworks by natural language query (text-to-image search)
+ * Search artworks by natural language query (semantic search)
  * POST /api/semantic/search
  * Body: { query: "peaceful blue impressionist landscape", limit: 20 }
  */
@@ -25,8 +25,8 @@ router.post('/search', async (req, res) => {
 
         log.debug('Semantic search', { query });
 
-        // Search using vector similarity
-        const results = await vectorSearch.searchByText(query, parseInt(limit));
+        // Search using OpenAI (with automatic fallback)
+        const results = await openaiSearch.searchByText(query, parseInt(limit));
 
         res.json({
             results: results.map(r => ({
@@ -41,27 +41,19 @@ router.post('/search', async (req, res) => {
             metadata: {
                 query,
                 resultsCount: results.length,
-                searchType: 'text-to-image',
-                model: 'CLIP ViT-B/32'
+                searchType: 'semantic',
+                model: 'OpenAI'
             }
         });
 
     } catch (error) {
         log.error('Semantic search error', { error: error.message });
-
-        if (error.message.includes('Qdrant')) {
-            return res.status(503).json({
-                error: 'Vector search unavailable. Is Qdrant running?',
-                hint: 'Run: docker run -p 6333:6333 qdrant/qdrant'
-            });
-        }
-
         res.status(500).json({ error: error.message });
     }
 });
 
 /**
- * Find visually similar artworks (image-to-image search)
+ * Find visually similar artworks
  * POST /api/semantic/similar
  * Body: { artworkId: "abc123", limit: 20 }
  */
@@ -75,8 +67,8 @@ router.post('/similar', async (req, res) => {
 
         log.debug('Finding similar artwork', { artworkId });
 
-        // Find visually similar artworks
-        const results = await vectorSearch.searchSimilar(artworkId, parseInt(limit));
+        // Find similar artworks
+        const results = await openaiSearch.searchSimilar(artworkId, parseInt(limit));
 
         res.json({
             results: results.map(r => ({
@@ -91,8 +83,8 @@ router.post('/similar', async (req, res) => {
             metadata: {
                 sourceArtworkId: artworkId,
                 resultsCount: results.length,
-                searchType: 'image-to-image',
-                model: 'CLIP ViT-B/32'
+                searchType: 'similar',
+                model: 'OpenAI'
             }
         });
 
@@ -100,7 +92,7 @@ router.post('/similar', async (req, res) => {
         log.error('Similar artwork error', { error: error.message });
 
         if (error.message === 'Artwork not found') {
-            return res.status(404).json({ error: 'Artwork not found in vector database' });
+            return res.status(404).json({ error: 'Artwork not found' });
         }
 
         res.status(500).json({ error: error.message });
@@ -108,12 +100,12 @@ router.post('/similar', async (req, res) => {
 });
 
 /**
- * Get vector search statistics
+ * Get search service statistics
  * GET /api/semantic/stats
  */
 router.get('/stats', async (req, res) => {
     try {
-        const stats = await vectorSearch.getStats();
+        const stats = await openaiSearch.getStats();
         res.json(stats);
     } catch (error) {
         log.error('Stats error', { error: error.message });
@@ -128,13 +120,13 @@ router.get('/stats', async (req, res) => {
  * Taste profile is built from:
  * - Artworks user displayed on device
  * - Artworks user explicitly liked
- * - Averaged into a single taste vector
+ * - Extracted into keywords for semantic search
  */
 router.get('/recommendations', async (req, res) => {
     try {
         const { limit = 20 } = req.query;
 
-        // Get user's interaction history (from main server data)
+        // Get user's interaction history
         const interactions = await getUserInteractionHistory();
 
         if (interactions.length === 0) {
@@ -149,33 +141,35 @@ router.get('/recommendations', async (req, res) => {
 
         log.debug('Building taste profile', { interactionCount: interactions.length });
 
-        // Build taste profile by averaging embeddings
-        const tasteVector = await buildTasteProfile(interactions);
+        // Build taste query from interaction patterns
+        const tasteQuery = await buildTasteQuery(interactions);
 
-        // Search for artworks similar to taste profile
-        const results = await vectorSearch.client.search(vectorSearch.collectionName, {
-            vector: tasteVector,
-            limit: parseInt(limit),
-            with_payload: true
-        });
+        log.debug('Taste query', { query: tasteQuery });
 
-        log.debug('Found personalized recommendations', { count: results.length });
+        // Search for artworks matching taste profile
+        const results = await openaiSearch.searchByText(tasteQuery, parseInt(limit));
+
+        // Filter out artworks the user has already interacted with
+        const interactedIds = new Set(interactions.map(i => i.artworkId));
+        const filtered = results.filter(r => !interactedIds.has(r.id));
+
+        log.debug('Found personalized recommendations', { count: filtered.length });
 
         res.json({
-            results: results.map(r => ({
-                id: r.payload.artworkId || r.id,
-                title: r.payload.title,
-                artist: r.payload.artist,
-                date: r.payload.date,
-                imageUrl: r.payload.imageUrl,
-                thumbnailUrl: r.payload.thumbnailUrl,
+            results: filtered.map(r => ({
+                id: r.id,
+                title: r.title,
+                artist: r.artist,
+                date: r.date,
+                imageUrl: r.imageUrl,
+                thumbnailUrl: r.thumbnailUrl,
                 matchScore: r.score
             })),
             metadata: {
                 interactionCount: interactions.length,
-                resultsCount: results.length,
+                resultsCount: filtered.length,
                 searchType: 'personalized',
-                model: 'CLIP ViT-B/32'
+                tasteQuery
             }
         });
 
@@ -188,11 +182,11 @@ router.get('/recommendations', async (req, res) => {
 /**
  * Record user interaction (like, display, skip)
  * POST /api/semantic/interaction
- * Body: { artworkId, action: "like" | "display" | "skip" }
+ * Body: { artworkId, action: "like" | "display" | "skip", metadata: { title, artist } }
  */
 router.post('/interaction', async (req, res) => {
     try {
-        const { artworkId, action } = req.body;
+        const { artworkId, action, metadata = {} } = req.body;
 
         if (!artworkId || !action) {
             return res.status(400).json({ error: 'artworkId and action are required' });
@@ -202,8 +196,8 @@ router.post('/interaction', async (req, res) => {
             return res.status(400).json({ error: 'Invalid action type' });
         }
 
-        // Store interaction (we'll use simple JSON file for now)
-        await recordInteraction(artworkId, action);
+        // Store interaction with metadata for taste profile building
+        await recordInteraction(artworkId, action, metadata);
 
         res.json({ success: true });
 
@@ -226,7 +220,7 @@ router.post('/index', async (req, res) => {
             return res.status(400).json({ error: 'id and imageUrl are required' });
         }
 
-        await vectorSearch.indexArtwork(artwork);
+        await openaiSearch.indexArtwork(artwork);
 
         res.json({
             success: true,
@@ -245,7 +239,7 @@ const path = require('path');
 
 const INTERACTIONS_FILE = path.join(__dirname, '../data/user-interactions.json');
 
-async function recordInteraction(artworkId, action) {
+async function recordInteraction(artworkId, action, metadata = {}) {
     try {
         let interactions = [];
         try {
@@ -258,6 +252,12 @@ async function recordInteraction(artworkId, action) {
         interactions.push({
             artworkId,
             action,
+            metadata: {
+                title: metadata.title || '',
+                artist: metadata.artist || '',
+                style: metadata.style || '',
+                ...metadata
+            },
             timestamp: Date.now()
         });
 
@@ -296,52 +296,60 @@ async function getUserInteractionHistory() {
     }
 }
 
-async function buildTasteProfile(interactions) {
-    // Get vectors for all interacted artworks
-    const artworkIds = [...new Set(interactions.map(i => i.artworkId))];
+/**
+ * Build a natural language taste query from user interactions
+ * Instead of averaging vectors, we extract patterns from metadata
+ */
+async function buildTasteQuery(interactions) {
+    // Extract unique artists, styles, and keywords from interactions
+    const artists = new Map();
+    const styles = new Map();
+    const titles = [];
 
-    log.debug('Fetching vectors for artworks', { count: artworkIds.length });
+    for (const interaction of interactions) {
+        const meta = interaction.metadata || {};
 
-    const vectors = [];
-    for (const artworkId of artworkIds) {
-        try {
-            // Convert artwork ID to Qdrant point ID (UUID)
-            const pointId = vectorSearch.generatePointId(artworkId);
+        if (meta.artist) {
+            artists.set(meta.artist, (artists.get(meta.artist) || 0) + 1);
+        }
 
-            const result = await vectorSearch.client.retrieve(vectorSearch.collectionName, {
-                ids: [pointId],
-                with_vector: true
-            });
+        if (meta.style) {
+            styles.set(meta.style, (styles.get(meta.style) || 0) + 1);
+        }
 
-            if (result && result.length > 0) {
-                vectors.push(result[0].vector);
-            }
-        } catch (err) {
-            log.warn('Could not find vector for artwork', { artworkId });
+        if (meta.title) {
+            titles.push(meta.title);
         }
     }
 
-    if (vectors.length === 0) {
-        throw new Error('No vectors found for user interactions');
+    // Sort by frequency and take top items
+    const topArtists = [...artists.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name]) => name);
+
+    const topStyles = [...styles.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([style]) => style);
+
+    // Build natural language query
+    const queryParts = [];
+
+    if (topArtists.length > 0) {
+        queryParts.push(`artworks by or similar to ${topArtists.join(', ')}`);
     }
 
-    log.debug('Averaging vectors for taste profile', { vectorCount: vectors.length });
-
-    // Average all vectors to create taste profile
-    const dimensions = vectors[0].length;
-    const tasteVector = new Array(dimensions).fill(0);
-
-    for (const vector of vectors) {
-        for (let i = 0; i < dimensions; i++) {
-            tasteVector[i] += vector[i];
-        }
+    if (topStyles.length > 0) {
+        queryParts.push(`in ${topStyles.join(' or ')} style`);
     }
 
-    for (let i = 0; i < dimensions; i++) {
-        tasteVector[i] /= vectors.length;
+    if (queryParts.length === 0) {
+        // Fallback to a generic discovery query if no patterns found
+        return 'beautiful classical art masterpieces';
     }
 
-    return tasteVector;
+    return queryParts.join(' ');
 }
 
 module.exports = router;
