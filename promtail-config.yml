@@ -1,0 +1,45 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Only collect logs from glance containers
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(glance-.*)'
+        action: keep
+      # Use container name as label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+      # Add job label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/glance-server'
+        target_label: job
+        replacement: glance
+    pipeline_stages:
+      # Try to parse as JSON (for structured logs)
+      - json:
+          expressions:
+            level: level
+            message: message
+            timestamp: timestamp
+            context: context
+      # If JSON parsing worked, use extracted level
+      - labels:
+          level:
+      # Extract log level from common patterns if not JSON
+      - regex:
+          expression: '(?P<level>error|warn|info|debug)'
+      - labels:
+          level:

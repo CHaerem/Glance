@@ -10,13 +10,28 @@ This guide covers setting up Prometheus, Grafana, and Loki for monitoring the Gl
 │   :3000/metrics │     │      :9090      │     │      :3002      │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
          │                                               │
-         └──────────────────┬──────────────────────────┘
-                            │
-                     ┌─────────────────┐
-                     │      Loki       │
-                     │      :3100      │
-                     └─────────────────┘
+         │              ┌─────────────────┐              │
+         └─────────────▶│    Promtail     │──────────────┘
+                        └────────┬────────┘
+                                 │
+                        ┌────────▼────────┐
+                        │      Loki       │
+                        │      :3100      │
+                        └─────────────────┘
 ```
+
+## Included Services (via docker-compose)
+
+The main `docker-compose.yml` already includes:
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| glance-server | 3000 | Main application + `/metrics` endpoint |
+| glance-qdrant | 6333 | Vector database for semantic search |
+| glance-loki | 3100 | Log aggregation |
+| glance-promtail | - | Collects Docker container logs |
+
+Logs from all `glance-*` containers are automatically shipped to Loki.
 
 ## Prerequisites
 
@@ -293,27 +308,29 @@ docker exec grafana cat /etc/grafana/provisioning/alerting/alert-rules.yaml
 
 ### Loki Not Receiving Logs
 
-Configure Docker to send logs to Loki:
+The docker-compose setup uses Promtail to collect logs automatically. If logs aren't appearing:
 
 ```bash
-# Install Loki Docker driver
-docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+# Check Promtail is running
+docker logs glance-promtail
 
-# Update docker daemon.json
-sudo nano /etc/docker/daemon.json
+# Verify Loki is healthy
+curl http://localhost:3100/ready
+
+# Check Promtail can see containers
+docker exec glance-promtail cat /tmp/positions.yaml
 ```
 
-```json
-{
-  "log-driver": "loki",
-  "log-opts": {
-    "loki-url": "http://localhost:3100/loki/api/v1/push"
-  }
-}
-```
+### Using Grafana Cloud Loki (Alternative)
 
-```bash
-sudo systemctl restart docker
+If you're using Grafana Cloud instead of local Loki, update `promtail-config.yml`:
+
+```yaml
+clients:
+  - url: https://logs-prod-us-central1.grafana.net/loki/api/v1/push
+    basic_auth:
+      username: <YOUR_GRAFANA_CLOUD_USER_ID>
+      password: <YOUR_GRAFANA_CLOUD_API_KEY>
 ```
 
 ## Updating Alert Rules
@@ -336,6 +353,8 @@ Or import manually via Grafana UI:
 ## Dashboard Customization
 
 The main dashboard (`grafana-dashboard.json`) includes:
+
+### Metrics Panels
 - Battery voltage and percentage over time
 - Device online status
 - Charging status
@@ -343,7 +362,11 @@ The main dashboard (`grafana-dashboard.json`) includes:
 - WiFi signal strength
 - Server memory usage
 - Server uptime
-- Application logs (via Loki)
+
+### Log Panels (via Loki)
+- **Application Logs**: All logs from glance-server container
+- **Errors & Warnings**: Filtered view showing only errors, warnings, failures
+- **Log Rate**: Graph showing log volume and error rate over time
 
 To customize:
 1. Edit panels in Grafana UI

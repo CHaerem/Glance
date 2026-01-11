@@ -431,6 +431,71 @@
           "sortOrder": "Descending",
           "dedupStrategy": "none"
         }
+      },
+      {
+        "id": 13,
+        "title": "Errors & Warnings",
+        "type": "logs",
+        "gridPos": { "x": 0, "y": 32, "w": 16, "h": 8 },
+        "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+        "targets": [
+          {
+            "expr": "{container=\"glance-server\"} |~ \"(?i)(error|warn|fail|exception)\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": true,
+          "enableLogDetails": true,
+          "sortOrder": "Descending",
+          "dedupStrategy": "none"
+        }
+      },
+      {
+        "id": 14,
+        "title": "Log Rate (lines/min)",
+        "type": "timeseries",
+        "gridPos": { "x": 16, "y": 32, "w": 8, "h": 8 },
+        "datasource": { "type": "loki", "uid": "${loki_datasource}" },
+        "targets": [
+          {
+            "expr": "sum(rate({container=\"glance-server\"}[1m])) * 60",
+            "legendFormat": "All Logs",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate({container=\"glance-server\"} |~ \"(?i)(error|fail)\"[1m])) * 60",
+            "legendFormat": "Errors",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "spanNulls": true
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "Errors" },
+              "properties": [
+                { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "legend": { "displayMode": "list", "placement": "bottom" },
+          "tooltip": { "mode": "multi" }
+        }
       }
     ]
   },
