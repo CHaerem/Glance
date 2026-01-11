@@ -1,7 +1,9 @@
 /**
- * OpenAI Search Service
- * Uses OpenAI Vector Stores + file_search for semantic art search
- * Replaces Qdrant/CLIP with managed OpenAI infrastructure
+ * OpenAI Agentic Art Search Service
+ * Uses GPT-5 with function tools to intelligently search museum APIs
+ *
+ * The AI decides which museums to search, what terms to use,
+ * and curates the best results based on the user's intent.
  */
 
 const OpenAI = require('openai');
@@ -9,380 +11,453 @@ const { loggers } = require('./logger');
 const { performArtSearch } = require('./museum-api');
 const log = loggers.api;
 
-class OpenAISearchService {
+// Individual museum search functions for tool use
+const museumSearchers = {
+    async searchMetMuseum(query, limit = 10) {
+        const url = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(query)}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return [];
+            const data = await response.json();
+            if (!data.objectIDs?.length) return [];
+
+            const results = [];
+            for (const id of data.objectIDs.slice(0, limit * 2)) {
+                if (results.length >= limit) break;
+                try {
+                    const objRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`);
+                    const obj = await objRes.json();
+                    if (obj.primaryImage && obj.isPublicDomain) {
+                        results.push({
+                            id: `met-${obj.objectID}`,
+                            title: obj.title || 'Untitled',
+                            artist: obj.artistDisplayName || 'Unknown',
+                            date: obj.objectDate || '',
+                            imageUrl: obj.primaryImage,
+                            thumbnailUrl: obj.primaryImageSmall || obj.primaryImage,
+                            source: 'The Met Museum',
+                            department: obj.department || ''
+                        });
+                    }
+                } catch (e) { /* skip */ }
+            }
+            return results;
+        } catch (e) {
+            log.warn('Met search failed', { error: e.message });
+            return [];
+        }
+    },
+
+    async searchArtInstituteChicago(query, limit = 10) {
+        const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=${limit}&fields=id,title,artist_display,date_display,image_id,is_public_domain`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return [];
+            const data = await response.json();
+            return (data.data || [])
+                .filter(a => a.image_id && a.is_public_domain)
+                .map(a => ({
+                    id: `artic-${a.id}`,
+                    title: a.title || 'Untitled',
+                    artist: a.artist_display || 'Unknown',
+                    date: a.date_display || '',
+                    imageUrl: `https://www.artic.edu/iiif/2/${a.image_id}/full/1200,/0/default.jpg`,
+                    thumbnailUrl: `https://www.artic.edu/iiif/2/${a.image_id}/full/400,/0/default.jpg`,
+                    source: 'Art Institute of Chicago'
+                }));
+        } catch (e) {
+            log.warn('ARTIC search failed', { error: e.message });
+            return [];
+        }
+    },
+
+    async searchRijksmuseum(query, limit = 10) {
+        const url = `https://www.rijksmuseum.nl/api/en/collection?key=0fiuZFh4&imgonly=true&ps=${limit}&q=${encodeURIComponent(query)}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return [];
+            const data = await response.json();
+            return (data.artObjects || [])
+                .filter(a => a.webImage?.url)
+                .map(a => ({
+                    id: `rijks-${a.objectNumber}`,
+                    title: a.title || 'Untitled',
+                    artist: a.principalOrFirstMaker || 'Unknown',
+                    date: '',
+                    imageUrl: a.webImage.url,
+                    thumbnailUrl: a.webImage.url,
+                    source: 'Rijksmuseum'
+                }));
+        } catch (e) {
+            log.warn('Rijksmuseum search failed', { error: e.message });
+            return [];
+        }
+    },
+
+    async searchClevelandMuseum(query, limit = 10) {
+        const url = `https://openaccess-api.clevelandart.org/api/artworks/?q=${encodeURIComponent(query)}&has_image=1&limit=${limit}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return [];
+            const data = await response.json();
+            return (data.data || [])
+                .filter(a => a.images?.web?.url)
+                .map(a => ({
+                    id: `cma-${a.id}`,
+                    title: a.title || 'Untitled',
+                    artist: a.creators?.[0]?.description || 'Unknown',
+                    date: a.creation_date || '',
+                    imageUrl: a.images.web.url,
+                    thumbnailUrl: a.images.web.url,
+                    source: 'Cleveland Museum of Art'
+                }));
+        } catch (e) {
+            log.warn('Cleveland search failed', { error: e.message });
+            return [];
+        }
+    },
+
+    async searchHarvardArtMuseums(query, limit = 10) {
+        const apiKey = process.env.HARVARD_API_KEY || '3ae93cb0-e tried-11e9-8a5f-c9e6a8b73a1d';
+        const url = `https://api.harvardartmuseums.org/object?apikey=${apiKey}&q=${encodeURIComponent(query)}&hasimage=1&size=${limit}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return [];
+            const data = await response.json();
+            return (data.records || [])
+                .filter(a => a.primaryimageurl)
+                .map(a => ({
+                    id: `harvard-${a.id}`,
+                    title: a.title || 'Untitled',
+                    artist: a.people?.[0]?.name || 'Unknown',
+                    date: a.dated || '',
+                    imageUrl: a.primaryimageurl,
+                    thumbnailUrl: a.primaryimageurl,
+                    source: 'Harvard Art Museums'
+                }));
+        } catch (e) {
+            log.warn('Harvard search failed', { error: e.message });
+            return [];
+        }
+    }
+};
+
+// Tool definitions for GPT-5
+const searchTools = [
+    {
+        type: 'function',
+        function: {
+            name: 'search_met_museum',
+            description: 'Search The Metropolitan Museum of Art. Best for: diverse collection spanning 5000 years, European paintings, American art, Asian art, Egyptian art, medieval art.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Search terms (artist name, artwork title, style, subject, period)' },
+                    limit: { type: 'number', description: 'Max results (default 10)' }
+                },
+                required: ['query']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'search_art_institute_chicago',
+            description: 'Search Art Institute of Chicago. Best for: Impressionism, Post-Impressionism, American art, modern art. Famous for Seurat, Monet, Hopper, Wood.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Search terms' },
+                    limit: { type: 'number', description: 'Max results (default 10)' }
+                },
+                required: ['query']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'search_rijksmuseum',
+            description: 'Search Rijksmuseum Amsterdam. Best for: Dutch Golden Age, Rembrandt, Vermeer, Dutch Masters, 17th century Dutch painting.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Search terms' },
+                    limit: { type: 'number', description: 'Max results (default 10)' }
+                },
+                required: ['query']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'search_cleveland_museum',
+            description: 'Search Cleveland Museum of Art. Best for: Asian art, European paintings, medieval art, African art. Strong encyclopedic collection.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Search terms' },
+                    limit: { type: 'number', description: 'Max results (default 10)' }
+                },
+                required: ['query']
+            }
+        }
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'search_harvard_art_museums',
+            description: 'Search Harvard Art Museums. Best for: academic collections, prints, drawings, photographs, Asian art, European art.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: 'Search terms' },
+                    limit: { type: 'number', description: 'Max results (default 10)' }
+                },
+                required: ['query']
+            }
+        }
+    }
+];
+
+class OpenAIAgentSearch {
     constructor() {
         this.client = null;
-        this.vectorStoreId = null;
         this.initialized = false;
-        this.fallbackOnly = false;
+        this.model = 'gpt-5'; // Latest model
     }
 
-    /**
-     * Initialize OpenAI client and verify Vector Store exists
-     */
     async initialize() {
         if (this.initialized) return;
 
         const apiKey = process.env.OPENAI_API_KEY;
-        this.vectorStoreId = process.env.OPENAI_VECTOR_STORE_ID;
-
         if (!apiKey) {
-            log.warn('OPENAI_API_KEY not set, falling back to keyword search only');
-            this.fallbackOnly = true;
+            log.warn('OPENAI_API_KEY not set, using basic keyword search');
             this.initialized = true;
             return;
         }
 
-        try {
-            this.client = new OpenAI({ apiKey });
-
-            if (this.vectorStoreId) {
-                // Verify Vector Store exists
-                const vectorStore = await this.client.vectorStores.retrieve(this.vectorStoreId);
-                log.info('Connected to OpenAI Vector Store', {
-                    id: vectorStore.id,
-                    name: vectorStore.name,
-                    fileCount: vectorStore.file_counts?.completed || 0
-                });
-            } else {
-                log.warn('OPENAI_VECTOR_STORE_ID not set, semantic search will use query enhancement only');
-            }
-
-            this.initialized = true;
-            log.info('OpenAI search service ready');
-
-        } catch (error) {
-            log.error('Failed to initialize OpenAI search', { error: error.message });
-            this.fallbackOnly = true;
-            this.initialized = true;
-        }
+        this.client = new OpenAI({ apiKey });
+        this.initialized = true;
+        log.info('OpenAI agent search initialized', { model: this.model });
     }
 
     /**
-     * Search for artworks using natural language query
-     * Uses file_search if Vector Store available, falls back to keyword search
-     * @param {string} query - Natural language search query
-     * @param {number} limit - Number of results to return
-     * @returns {Promise<Array>} Array of artworks with scores
+     * Agentic art search - GPT-5 orchestrates museum API searches
      */
     async searchByText(query, limit = 20) {
         await this.initialize();
 
-        log.debug('OpenAI search', { query, hasVectorStore: !!this.vectorStoreId });
+        log.info('Agentic art search', { query, limit });
 
-        // If no Vector Store, use enhanced keyword search
-        if (this.fallbackOnly || !this.vectorStoreId) {
-            return this._keywordSearchWithEnhancement(query, limit);
+        // Fallback to basic search if no OpenAI
+        if (!this.client) {
+            return this._fallbackSearch(query, limit);
         }
 
         try {
-            // Use Responses API with file_search tool
-            const response = await this.client.responses.create({
-                model: 'gpt-4o-mini',
-                input: `Search for artworks matching: "${query}". Return the most relevant results.`,
-                tools: [{
-                    type: 'file_search',
-                    vector_store_ids: [this.vectorStoreId]
-                }],
-                tool_choice: 'auto'
+            // Let GPT-5 orchestrate the search
+            const response = await this.client.chat.completions.create({
+                model: this.model,
+                messages: [
+                    {
+                        role: 'system',
+                        content: `You are an expert art curator helping users discover artwork for their e-ink display.
+
+Your task:
+1. Understand what the user is looking for (mood, style, artist, period, subject)
+2. Search the most relevant museums using the provided tools
+3. Search 2-3 museums with appropriate queries to find diverse results
+4. Return results that best match the user's intent
+
+Consider:
+- For Dutch masters → prioritize Rijksmuseum
+- For Impressionism → prioritize Art Institute of Chicago
+- For diverse/general queries → use Met Museum
+- For Asian art → Cleveland or Harvard
+- Vary your search terms to get diverse results`
+                    },
+                    {
+                        role: 'user',
+                        content: `Find artwork matching: "${query}". Return up to ${limit} results.`
+                    }
+                ],
+                tools: searchTools,
+                tool_choice: 'auto',
+                max_tokens: 1000
             });
 
-            // Parse results from file_search
-            const results = this._parseFileSearchResults(response, limit);
+            // Execute tool calls
+            const allResults = [];
+            const toolCalls = response.choices[0]?.message?.tool_calls || [];
 
-            if (results.length > 0) {
-                log.debug('OpenAI search results', { count: results.length });
-                return results;
+            for (const toolCall of toolCalls) {
+                const args = JSON.parse(toolCall.function.arguments);
+                const searchLimit = args.limit || 10;
+                let results = [];
+
+                switch (toolCall.function.name) {
+                    case 'search_met_museum':
+                        results = await museumSearchers.searchMetMuseum(args.query, searchLimit);
+                        break;
+                    case 'search_art_institute_chicago':
+                        results = await museumSearchers.searchArtInstituteChicago(args.query, searchLimit);
+                        break;
+                    case 'search_rijksmuseum':
+                        results = await museumSearchers.searchRijksmuseum(args.query, searchLimit);
+                        break;
+                    case 'search_cleveland_museum':
+                        results = await museumSearchers.searchClevelandMuseum(args.query, searchLimit);
+                        break;
+                    case 'search_harvard_art_museums':
+                        results = await museumSearchers.searchHarvardArtMuseums(args.query, searchLimit);
+                        break;
+                }
+
+                log.debug('Tool call executed', {
+                    tool: toolCall.function.name,
+                    query: args.query,
+                    results: results.length
+                });
+
+                allResults.push(...results);
             }
 
-            // Fall back to keyword search if no results
-            log.debug('No file_search results, falling back to keyword search');
-            return this._keywordSearchWithEnhancement(query, limit);
+            // If no tool calls, fallback
+            if (allResults.length === 0) {
+                log.debug('No tool calls made, using fallback');
+                return this._fallbackSearch(query, limit);
+            }
+
+            // Deduplicate and limit
+            const seen = new Set();
+            const unique = allResults.filter(art => {
+                const key = `${art.title}-${art.artist}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            log.info('Agentic search complete', {
+                toolCalls: toolCalls.length,
+                totalResults: unique.length
+            });
+
+            return unique.slice(0, limit).map(art => ({
+                ...art,
+                score: 0.9 // High confidence from agentic search
+            }));
 
         } catch (error) {
-            log.error('OpenAI search error, falling back', { error: error.message });
-            return this._keywordSearchWithEnhancement(query, limit);
+            log.error('Agentic search failed', { error: error.message });
+            return this._fallbackSearch(query, limit);
         }
     }
 
     /**
-     * Find visually similar artworks
-     * For OpenAI, we search by the artwork's metadata
-     * @param {string} artworkId - ID of source artwork
-     * @param {number} limit - Number of results to return
-     * @returns {Promise<Array>} Array of similar artworks
+     * Find similar artworks based on an artwork's characteristics
      */
     async searchSimilar(artworkId, limit = 20) {
         await this.initialize();
 
-        log.debug('Finding similar artworks', { artworkId });
+        // Extract info from artwork ID format (e.g., "met-12345", "artic-678")
+        const [source, id] = artworkId.split('-');
 
-        // For similar search, we need to find the artwork first
-        // Then search for artworks with similar characteristics
-        try {
-            // Try to find artwork metadata from our data
-            const artworkMeta = await this._getArtworkMetadata(artworkId);
+        // Build a query based on the artwork
+        const similarQuery = `artwork similar to ${artworkId}`;
 
-            if (artworkMeta) {
-                // Build a query from the artwork's characteristics
-                const similarQuery = `Artworks similar to "${artworkMeta.title}" by ${artworkMeta.artist}.
-                    Style: ${artworkMeta.style || 'classical'}.
-                    Looking for similar mood, colors, and subject matter.`;
+        if (this.client) {
+            try {
+                const response = await this.client.chat.completions.create({
+                    model: this.model,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: `You are an art expert. Given an artwork ID, determine what similar artworks to search for.
+Consider the likely artist, style, period, and subject matter based on the source museum and ID.
+Search for artworks with similar characteristics.`
+                        },
+                        {
+                            role: 'user',
+                            content: `Find artworks similar to: ${artworkId} (from ${source}). Return ${limit} similar pieces.`
+                        }
+                    ],
+                    tools: searchTools,
+                    tool_choice: 'auto',
+                    max_tokens: 500
+                });
 
-                const results = await this.searchByText(similarQuery, limit + 1);
+                // Execute searches (same as searchByText)
+                const allResults = [];
+                const toolCalls = response.choices[0]?.message?.tool_calls || [];
+
+                for (const toolCall of toolCalls) {
+                    const args = JSON.parse(toolCall.function.arguments);
+                    let results = [];
+
+                    switch (toolCall.function.name) {
+                        case 'search_met_museum':
+                            results = await museumSearchers.searchMetMuseum(args.query, args.limit || 10);
+                            break;
+                        case 'search_art_institute_chicago':
+                            results = await museumSearchers.searchArtInstituteChicago(args.query, args.limit || 10);
+                            break;
+                        case 'search_rijksmuseum':
+                            results = await museumSearchers.searchRijksmuseum(args.query, args.limit || 10);
+                            break;
+                        case 'search_cleveland_museum':
+                            results = await museumSearchers.searchClevelandMuseum(args.query, args.limit || 10);
+                            break;
+                        case 'search_harvard_art_museums':
+                            results = await museumSearchers.searchHarvardArtMuseums(args.query, args.limit || 10);
+                            break;
+                    }
+                    allResults.push(...results);
+                }
 
                 // Filter out the source artwork
-                return results.filter(r => r.id !== artworkId).slice(0, limit);
+                const filtered = allResults.filter(a => a.id !== artworkId);
+                return filtered.slice(0, limit).map(art => ({ ...art, score: 0.8 }));
+
+            } catch (error) {
+                log.error('Similar search failed', { error: error.message });
             }
-
-            // If we can't find metadata, do a basic search
-            return this.searchByText(`artwork similar to ${artworkId}`, limit);
-
-        } catch (error) {
-            log.error('Similar search error', { error: error.message });
-            throw error;
         }
+
+        return this._fallbackSearch(similarQuery, limit);
     }
 
     /**
-     * Get search service statistics
-     * @returns {Promise<Object>} Service stats
+     * Fallback to basic museum API search
+     */
+    async _fallbackSearch(query, limit) {
+        log.debug('Using fallback search', { query });
+        const result = await performArtSearch(query, limit);
+        return (result.results || []).map(art => ({
+            ...art,
+            score: 0.5
+        }));
+    }
+
+    /**
+     * Get service statistics
      */
     async getStats() {
-        await this.initialize();
-
-        if (this.fallbackOnly || !this.vectorStoreId) {
-            return {
-                totalArtworks: 0,
-                vectorSize: 'N/A',
-                model: 'OpenAI (keyword fallback)',
-                status: 'fallback_only'
-            };
-        }
-
-        try {
-            const vectorStore = await this.client.vectorStores.retrieve(this.vectorStoreId);
-            return {
-                totalArtworks: vectorStore.file_counts?.completed || 0,
-                vectorSize: 1536,
-                model: 'OpenAI text-embedding-3-small',
-                vectorStoreId: this.vectorStoreId,
-                status: 'active'
-            };
-        } catch (error) {
-            log.error('Stats error', { error: error.message });
-            return {
-                totalArtworks: 0,
-                vectorSize: 'N/A',
-                model: 'OpenAI',
-                error: error.message
-            };
-        }
+        return {
+            model: this.model,
+            type: 'agentic',
+            museums: ['Met', 'ARTIC', 'Rijksmuseum', 'Cleveland', 'Harvard'],
+            status: this.client ? 'active' : 'fallback_only'
+        };
     }
 
     /**
      * Check if service is available
-     * @returns {boolean}
      */
     isAvailable() {
         return this.initialized;
     }
-
-    /**
-     * Index an artwork (upload to Vector Store)
-     * @param {Object} artwork - Artwork metadata
-     */
-    async indexArtwork(artwork) {
-        await this.initialize();
-
-        if (!this.vectorStoreId) {
-            log.warn('Cannot index artwork: no Vector Store configured');
-            return;
-        }
-
-        try {
-            // Create a file with artwork metadata for Vector Store
-            const artworkContent = JSON.stringify({
-                id: artwork.id,
-                title: artwork.title,
-                artist: artwork.artist || 'Unknown',
-                date: artwork.date || '',
-                source: artwork.source || '',
-                imageUrl: artwork.imageUrl,
-                thumbnailUrl: artwork.thumbnailUrl || artwork.imageUrl,
-                // Add searchable text
-                searchText: `${artwork.title} by ${artwork.artist || 'Unknown'}. ${artwork.date || ''}`
-            }, null, 2);
-
-            // Upload file to Vector Store
-            const file = await this.client.files.create({
-                file: new Blob([artworkContent], { type: 'application/json' }),
-                purpose: 'assistants'
-            });
-
-            await this.client.vectorStores.files.create(this.vectorStoreId, {
-                file_id: file.id
-            });
-
-            log.debug('Artwork indexed', { title: artwork.title });
-
-        } catch (error) {
-            log.error('Failed to index artwork', { title: artwork.title, error: error.message });
-            throw error;
-        }
-    }
-
-    /**
-     * Enhanced keyword search using GPT to expand query
-     * @private
-     */
-    async _keywordSearchWithEnhancement(query, limit) {
-        try {
-            let searchTerms = [query];
-
-            // Use GPT to expand the query if available
-            if (this.client && !this.fallbackOnly) {
-                try {
-                    const expansion = await this.client.chat.completions.create({
-                        model: 'gpt-4o-mini',
-                        messages: [{
-                            role: 'system',
-                            content: 'You are a helpful art search assistant. Given a search query, expand it into 2-3 specific search terms that would help find relevant artworks. Return only the terms, comma-separated.'
-                        }, {
-                            role: 'user',
-                            content: `Expand this art search query: "${query}"`
-                        }],
-                        max_tokens: 100,
-                        temperature: 0.7
-                    });
-
-                    const expanded = expansion.choices[0]?.message?.content || '';
-                    searchTerms = expanded.split(',').map(t => t.trim()).filter(t => t.length > 0);
-
-                    if (searchTerms.length === 0) {
-                        searchTerms = [query];
-                    }
-
-                    log.debug('Query expanded', { original: query, expanded: searchTerms });
-                } catch (err) {
-                    log.warn('Query expansion failed', { error: err.message });
-                }
-            }
-
-            // Search museum APIs with expanded terms
-            const allResults = [];
-            for (const term of searchTerms.slice(0, 3)) {
-                try {
-                    const searchResult = await performArtSearch(term, Math.ceil(limit / searchTerms.length));
-                    if (searchResult.results) {
-                        allResults.push(...searchResult.results);
-                    }
-                } catch (err) {
-                    log.warn('Museum search failed for term', { term, error: err.message });
-                }
-            }
-
-            // Deduplicate by ID and return
-            const seen = new Set();
-            const unique = allResults.filter(art => {
-                if (seen.has(art.id)) return false;
-                seen.add(art.id);
-                return true;
-            });
-
-            return unique.slice(0, limit).map(art => ({
-                id: art.id,
-                title: art.title,
-                artist: art.artist,
-                date: art.date,
-                imageUrl: art.imageUrl,
-                thumbnailUrl: art.thumbnailUrl,
-                source: art.source,
-                score: 0.5 // No real similarity score for keyword search
-            }));
-
-        } catch (error) {
-            log.error('Keyword search failed', { error: error.message });
-            return [];
-        }
-    }
-
-    /**
-     * Parse results from file_search tool response
-     * @private
-     */
-    _parseFileSearchResults(response, limit) {
-        const results = [];
-
-        try {
-            // Extract content from response
-            if (response.output && Array.isArray(response.output)) {
-                for (const item of response.output) {
-                    if (item.type === 'file_search_call' && item.file_search_call?.results) {
-                        for (const result of item.file_search_call.results) {
-                            try {
-                                // Parse the JSON content from the file
-                                const content = JSON.parse(result.text || '{}');
-                                if (content.id) {
-                                    results.push({
-                                        id: content.id,
-                                        title: content.title || 'Unknown',
-                                        artist: content.artist || 'Unknown',
-                                        date: content.date || '',
-                                        imageUrl: content.imageUrl,
-                                        thumbnailUrl: content.thumbnailUrl || content.imageUrl,
-                                        source: content.source || 'curated',
-                                        score: result.score || 0.8
-                                    });
-                                }
-                            } catch (parseErr) {
-                                // Skip unparseable results
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            log.warn('Error parsing file_search results', { error: error.message });
-        }
-
-        return results.slice(0, limit);
-    }
-
-    /**
-     * Get artwork metadata from local data
-     * @private
-     */
-    async _getArtworkMetadata(artworkId) {
-        // Try to find in curated collections
-        const fs = require('fs').promises;
-        const path = require('path');
-
-        try {
-            const collectionsPath = path.join(__dirname, '../data/curated-collections.json');
-            const data = await fs.readFile(collectionsPath, 'utf8');
-            const collections = JSON.parse(data);
-
-            for (const [collectionId, collection] of Object.entries(collections)) {
-                for (const artwork of collection.artworks) {
-                    const id = `${collectionId}-${artwork.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-                    if (id === artworkId || artwork.title === artworkId) {
-                        return {
-                            id,
-                            title: artwork.title,
-                            artist: artwork.artist,
-                            date: artwork.year,
-                            collection: collection.name
-                        };
-                    }
-                }
-            }
-        } catch (err) {
-            // Ignore errors reading file
-        }
-
-        return null;
-    }
 }
 
-module.exports = new OpenAISearchService();
+module.exports = new OpenAIAgentSearch();

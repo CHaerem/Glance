@@ -12,7 +12,6 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_VECTOR_STORE_ID=${OPENAI_VECTOR_STORE_ID:-}
       - DOCKER_IMAGE_VERSION=${IMAGE_VERSION:-local}
       - BUILD_DATE=${BUILD_DATE:-unknown}
     deploy:
