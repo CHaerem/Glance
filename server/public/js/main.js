@@ -69,13 +69,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('createLink').addEventListener('click', () => switchMode('create'));
     document.getElementById('exploreLink').addEventListener('click', () => switchMode('explore'));
     document.getElementById('myCollectionLink').addEventListener('click', () => switchMode('my-collection'));
-    document.getElementById('playlistLink').addEventListener('click', () => switchMode('playlist'));
 
-    // Playlist controls
-    document.getElementById('togglePlaylistBtn').addEventListener('click', togglePlaylist);
-    document.getElementById('createPlaylistBtn').addEventListener('click', createPlaylist);
-    document.getElementById('playlistModeToggle').addEventListener('click', cyclePlaylistMode);
-    document.getElementById('playlistIntervalToggle').addEventListener('click', cyclePlaylistInterval);
+    // Rotation controls in collection
+    document.getElementById('rotationModeToggle').addEventListener('click', cycleRotationMode);
+    document.getElementById('rotationIntervalToggle').addEventListener('click', cycleRotationInterval);
+    document.getElementById('stopRotationBtn').addEventListener('click', stopRotation);
 
     document.getElementById('generateBtn').addEventListener('click', generateArt);
     document.getElementById('luckyBtn').addEventListener('click', feelingLucky);
@@ -135,7 +133,6 @@ function switchMode(mode) {
     document.getElementById('createMode').style.display = 'none';
     document.getElementById('exploreMode').classList.remove('show');
     document.getElementById('myCollectionMode').classList.remove('show');
-    document.getElementById('playlistMode').classList.remove('show');
 
     // Show selected mode
     if (mode === 'create') {
@@ -152,17 +149,14 @@ function switchMode(mode) {
     } else if (mode === 'my-collection') {
         document.getElementById('myCollectionMode').classList.add('show');
         collectionDisplayCount = getInitialDisplayCount();
+        loadRotationStatus(); // Load rotation status for collection view
         displayMyCollection();
-    } else if (mode === 'playlist') {
-        document.getElementById('playlistMode').classList.add('show');
-        loadPlaylistData();
     }
 
     // Update tab colors
     document.getElementById('createLink').style.color = mode === 'create' ? '#1a1a1a' : '#999';
     document.getElementById('exploreLink').style.color = mode === 'explore' ? '#1a1a1a' : '#999';
     document.getElementById('myCollectionLink').style.color = mode === 'my-collection' ? '#1a1a1a' : '#999';
-    document.getElementById('playlistLink').style.color = mode === 'playlist' ? '#1a1a1a' : '#999';
 }
 
 // Suggestion click
@@ -363,6 +357,9 @@ async function loadMyCollection() {
             myCollection = await response.json();
         }
 
+        // Load rotation status so we can show which items are in rotation
+        await loadRotationStatus();
+
         if (currentMode === 'my-collection') {
             displayMyCollection();
         }
@@ -439,12 +436,15 @@ function displayMyCollection() {
         const imageUrl = item.imageUrl || (item.thumbnail ? `data:image/png;base64,${item.thumbnail}` : '');
         const title = item.title || item.originalPrompt?.substring(0, 30) || 'Untitled';
         const artist = item.artist || (item.collectionType === 'generated' ? 'Generated' : 'Uploaded');
-        const itemId = item.id || item.filename;
+        const itemId = item.imageId || item.id || item.filename;
+        const inRotation = rotationImages.has(itemId);
 
         return `
-            <div class="collection-item">
+            <div class="collection-item ${inRotation ? 'in-rotation' : ''}" data-image-id="${itemId}">
                 <div class="collection-image-container" onclick='openCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
                     <img class="collection-image" src="${imageUrl}" alt="${title}">
+                    <div class="rotation-indicator"></div>
+                    <button class="rotation-toggle-btn ${inRotation ? 'in-rotation' : ''}" onclick='event.stopPropagation(); toggleImageRotation("${itemId}")' title="${inRotation ? 'Remove from rotation' : 'Add to rotation'}">↻</button>
                     <button class="delete-btn" onclick='event.stopPropagation(); deleteCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})' title="Delete">×</button>
                 </div>
                 <div class="art-title">${title} ${artist !== 'Generated' && artist !== 'Uploaded' ? `· ${artist}` : ''}</div>
@@ -1149,12 +1149,13 @@ async function deleteModalImage() {
 }
 
 // ============================================
-// PLAYLIST FUNCTIONS
+// ROTATION FUNCTIONS (for collection mode)
 // ============================================
 
-let selectedPlaylistImages = new Set();
-let playlistMode = 'random';
-let playlistInterval = 300000000; // 5 min default
+let rotationImages = new Set();
+let rotationMode = 'random';
+let rotationInterval = 300000000; // 5 min default
+let rotationActive = false;
 
 const intervalOptions = [
     { value: 300000000, label: '5 min' },
@@ -1163,187 +1164,143 @@ const intervalOptions = [
     { value: 3600000000, label: '1 hour' }
 ];
 
-// Load playlist data
-async function loadPlaylistData() {
-    await loadCurrentPlaylist();
-    await loadHistoryForPlaylist();
-}
-
-// Load and display current playlist status
-async function loadCurrentPlaylist() {
+// Load rotation status from server
+async function loadRotationStatus() {
     try {
         const response = await fetch('/api/playlist');
         const playlist = await response.json();
 
-        const statusText = document.getElementById('playlistStatusText');
-        const toggleBtn = document.getElementById('togglePlaylistBtn');
-
-        if (playlist.active && playlist.images?.length > 0) {
-            const modeText = playlist.mode === 'random' ? 'shuffle' : 'in order';
-            const intervalMin = Math.round(playlist.interval / 60000000);
-            statusText.textContent = `${playlist.images.length} images · ${modeText} · ${intervalMin} min`;
-            toggleBtn.textContent = 'pause';
-            toggleBtn.style.display = 'inline';
-        } else if (playlist.images?.length > 0) {
-            statusText.textContent = `paused · ${playlist.images.length} images`;
-            toggleBtn.textContent = 'resume';
-            toggleBtn.style.display = 'inline';
-        } else {
-            statusText.textContent = 'select images to create a playlist';
-            toggleBtn.style.display = 'none';
-        }
-
         // Sync local state with server
-        if (playlist.mode) playlistMode = playlist.mode;
-        if (playlist.interval) playlistInterval = playlist.interval;
-        updateModeToggle();
-        updateIntervalToggle();
-
-    } catch (error) {
-        console.error('Error loading playlist:', error);
-    }
-}
-
-// Load history images for selection
-async function loadHistoryForPlaylist() {
-    try {
-        const [historyRes, playlistRes] = await Promise.all([
-            fetch('/api/history'),
-            fetch('/api/playlist')
-        ]);
-        const history = await historyRes.json();
-        const playlist = await playlistRes.json();
-
-        const container = document.getElementById('historyForPlaylist');
-
-        if (!history || history.length === 0) {
-            container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">no images yet</div>';
-            return;
-        }
-
-        // Pre-select images that are in the current playlist
-        selectedPlaylistImages.clear();
+        rotationImages.clear();
         if (playlist.images) {
-            playlist.images.forEach(id => selectedPlaylistImages.add(id));
+            playlist.images.forEach(id => rotationImages.add(id));
         }
+        rotationActive = playlist.active || false;
+        if (playlist.mode) rotationMode = playlist.mode;
+        if (playlist.interval) rotationInterval = playlist.interval;
 
-        container.innerHTML = history.map(item => {
-            // Handle base64 thumbnails vs URLs
-            let thumbnail = '/placeholder.png';
-            if (item.previewUrl) {
-                thumbnail = item.previewUrl;
-            } else if (item.thumbnail) {
-                thumbnail = `data:image/png;base64,${item.thumbnail}`;
-            }
-            const title = item.title || 'Untitled';
-            const isSelected = selectedPlaylistImages.has(item.imageId);
-
-            return `
-                <div class="collection-item playlist-selectable ${isSelected ? 'selected' : ''}" data-image-id="${item.imageId}">
-                    <img src="${thumbnail}" alt="${title}" loading="lazy">
-                    <div class="playlist-check-overlay"></div>
-                </div>
-            `;
-        }).join('');
-
-        // Add click handlers
-        container.querySelectorAll('.playlist-selectable').forEach(item => {
-            item.addEventListener('click', () => {
-                const imageId = item.dataset.imageId;
-                if (selectedPlaylistImages.has(imageId)) {
-                    selectedPlaylistImages.delete(imageId);
-                    item.classList.remove('selected');
-                } else {
-                    selectedPlaylistImages.add(imageId);
-                    item.classList.add('selected');
-                }
-                updatePlaylistUI();
-            });
-        });
-
-        updatePlaylistUI();
-
+        updateRotationStatusBar();
     } catch (error) {
-        console.error('Error loading history:', error);
+        console.error('Error loading rotation status:', error);
     }
 }
 
-// Update UI based on selection
-function updatePlaylistUI() {
-    const footer = document.getElementById('playlistFooter');
-    const count = selectedPlaylistImages.size;
+// Update the rotation status bar in collection view
+function updateRotationStatusBar() {
+    const statusBar = document.getElementById('rotationStatus');
+    const statusText = document.getElementById('rotationStatusText');
 
-    if (count >= 2) {
-        footer.style.display = 'flex';
-        document.getElementById('createPlaylistBtn').textContent =
-            count === 2 ? 'start playlist' : `start playlist (${count})`;
+    if (rotationImages.size >= 2 && rotationActive) {
+        const modeText = rotationMode === 'random' ? 'shuffle' : 'in order';
+        const intervalLabel = intervalOptions.find(opt => opt.value === rotationInterval)?.label || '5 min';
+        statusText.textContent = `rotating ${rotationImages.size} images`;
+        document.getElementById('rotationModeToggle').textContent = modeText;
+        document.getElementById('rotationIntervalToggle').textContent = intervalLabel;
+        statusBar.style.display = 'flex';
+    } else if (rotationImages.size >= 2) {
+        statusText.textContent = `${rotationImages.size} images selected`;
+        statusBar.style.display = 'flex';
     } else {
-        footer.style.display = 'none';
+        statusBar.style.display = 'none';
+    }
+}
+
+// Toggle an image in/out of rotation
+async function toggleImageRotation(imageId) {
+    if (rotationImages.has(imageId)) {
+        rotationImages.delete(imageId);
+    } else {
+        rotationImages.add(imageId);
+    }
+
+    // Update UI immediately
+    const item = document.querySelector(`.collection-item[data-image-id="${imageId}"]`);
+    if (item) {
+        const btn = item.querySelector('.rotation-toggle-btn');
+        if (rotationImages.has(imageId)) {
+            item.classList.add('in-rotation');
+            btn?.classList.add('in-rotation');
+        } else {
+            item.classList.remove('in-rotation');
+            btn?.classList.remove('in-rotation');
+        }
+    }
+
+    // Auto-start rotation when 2+ images selected
+    if (rotationImages.size >= 2) {
+        await saveRotation(true);
+    } else if (rotationImages.size < 2) {
+        // Stop rotation if less than 2 images
+        await saveRotation(false);
+    }
+
+    updateRotationStatusBar();
+}
+
+// Save rotation to server
+async function saveRotation(active = true) {
+    if (rotationImages.size < 2 && active) {
+        return; // Need at least 2 images for rotation
+    }
+
+    try {
+        if (rotationImages.size >= 2) {
+            await fetch('/api/playlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    images: Array.from(rotationImages),
+                    mode: rotationMode,
+                    interval: rotationInterval
+                })
+            });
+            rotationActive = true;
+        } else {
+            // Clear rotation
+            await fetch('/api/playlist', { method: 'DELETE' });
+            rotationActive = false;
+        }
+    } catch (error) {
+        console.error('Error saving rotation:', error);
     }
 }
 
 // Cycle through modes
-function cyclePlaylistMode() {
-    playlistMode = playlistMode === 'random' ? 'sequential' : 'random';
-    updateModeToggle();
-}
+function cycleRotationMode() {
+    rotationMode = rotationMode === 'random' ? 'sequential' : 'random';
+    document.getElementById('rotationModeToggle').textContent =
+        rotationMode === 'random' ? 'shuffle' : 'in order';
 
-function updateModeToggle() {
-    document.getElementById('playlistModeToggle').textContent =
-        playlistMode === 'random' ? 'shuffle' : 'in order';
-}
-
-// Cycle through intervals
-function cyclePlaylistInterval() {
-    const currentIndex = intervalOptions.findIndex(opt => opt.value === playlistInterval);
-    const nextIndex = (currentIndex + 1) % intervalOptions.length;
-    playlistInterval = intervalOptions[nextIndex].value;
-    updateIntervalToggle();
-}
-
-function updateIntervalToggle() {
-    const option = intervalOptions.find(opt => opt.value === playlistInterval);
-    document.getElementById('playlistIntervalToggle').textContent = option ? option.label : '5 min';
-}
-
-// Toggle playlist active state
-async function togglePlaylist() {
-    try {
-        const response = await fetch('/api/playlist');
-        const playlist = await response.json();
-
-        await fetch('/api/playlist', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ active: !playlist.active })
-        });
-
-        await loadCurrentPlaylist();
-    } catch (error) {
-        console.error('Error toggling playlist:', error);
+    // Update server with new mode
+    if (rotationImages.size >= 2) {
+        saveRotation(true);
     }
 }
 
-// Create playlist from selected images
-async function createPlaylist() {
-    if (selectedPlaylistImages.size < 2) return;
+// Cycle through intervals
+function cycleRotationInterval() {
+    const currentIndex = intervalOptions.findIndex(opt => opt.value === rotationInterval);
+    const nextIndex = (currentIndex + 1) % intervalOptions.length;
+    rotationInterval = intervalOptions[nextIndex].value;
+    document.getElementById('rotationIntervalToggle').textContent =
+        intervalOptions[nextIndex].label;
 
+    // Update server with new interval
+    if (rotationImages.size >= 2) {
+        saveRotation(true);
+    }
+}
+
+// Stop rotation
+async function stopRotation() {
     try {
-        const response = await fetch('/api/playlist', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                images: Array.from(selectedPlaylistImages),
-                mode: playlistMode,
-                interval: playlistInterval
-            })
-        });
-
-        if (response.ok) {
-            await loadPlaylistData();
-        }
+        await fetch('/api/playlist', { method: 'DELETE' });
+        rotationImages.clear();
+        rotationActive = false;
+        updateRotationStatusBar();
+        displayMyCollection(); // Refresh to update toggle buttons
     } catch (error) {
-        console.error('Error creating playlist:', error);
+        console.error('Error stopping rotation:', error);
     }
 }
 

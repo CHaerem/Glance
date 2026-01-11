@@ -28,9 +28,7 @@
             <span style="color: #e5e5e5;">|</span>
             <button class="mode-link" id="exploreLink">explore</button>
             <span style="color: #e5e5e5;">|</span>
-            <button class="mode-link" id="myCollectionLink">my collection</button>
-            <span style="color: #e5e5e5;">|</span>
-            <button class="mode-link" id="playlistLink">playlist</button>
+            <button class="mode-link" id="myCollectionLink">collection</button>
         </div>
 
         <!-- Create Mode (default) -->
@@ -106,6 +104,18 @@
                 </div>
             </div>
 
+            <!-- Rotation Status Bar (only shown when rotation active) -->
+            <div class="rotation-status" id="rotationStatus" style="display: none;">
+                <span id="rotationStatusText">rotating 0 images</span>
+                <span class="rotation-controls">
+                    <button class="mode-link" id="rotationModeToggle">shuffle</button>
+                    <span style="color: #e5e5e5;">·</span>
+                    <button class="mode-link" id="rotationIntervalToggle">5 min</button>
+                    <span style="color: #e5e5e5;">·</span>
+                    <button class="mode-link" id="stopRotationBtn">stop</button>
+                </span>
+            </div>
+
             <!-- Collection Grid -->
             <div class="collection-grid" id="collectionGrid"></div>
 
@@ -115,27 +125,6 @@
             </div>
         </div>
 
-        <!-- Playlist Mode -->
-        <div class="browse-section" id="playlistMode">
-            <!-- Simple status line -->
-            <div class="playlist-status">
-                <span id="playlistStatusText">select images to create a playlist</span>
-                <button class="mode-link" id="togglePlaylistBtn" style="display: none;">pause</button>
-            </div>
-
-            <!-- Image grid - click to select -->
-            <div class="collection-grid" id="historyForPlaylist"></div>
-
-            <!-- Minimal controls at bottom -->
-            <div class="playlist-footer" id="playlistFooter" style="display: none;">
-                <div class="playlist-options">
-                    <button class="mode-link playlist-option" id="playlistModeToggle">shuffle</button>
-                    <span style="color: #e5e5e5;">·</span>
-                    <button class="mode-link playlist-option" id="playlistIntervalToggle">5 min</button>
-                </div>
-                <button class="mode-link" id="createPlaylistBtn">start playlist</button>
-            </div>
-        </div>
     </div>
 
     <!-- Admin Link -->
