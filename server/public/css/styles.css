@@ -850,6 +850,7 @@
             padding: 40px 20px;
             color: #999;
             font-size: 0.85rem;
+            grid-column: 1 / -1; /* Span full width in grid layouts */
         }
 
         /* Generation progress overlay */
