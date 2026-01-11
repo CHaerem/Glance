@@ -85,9 +85,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') searchArt();
     });
 
-    document.querySelectorAll('.suggestion-link').forEach(btn => {
-        btn.addEventListener('click', (e) => suggestSearch(e.target.dataset.query));
+    // Curated tabs click handlers
+    document.querySelectorAll('.curated-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            loadCuratedPicks(e.target.dataset.curated);
+        });
     });
+
+    // Clear results button
+    document.getElementById('clearResults').addEventListener('click', clearCategoryFilter);
 
     document.getElementById('showMoreBrowseBtn').addEventListener('click', showMoreBrowse);
     document.getElementById('showMoreCollectionBtn').addEventListener('click', showMoreCollection);
@@ -140,7 +146,7 @@ function switchMode(mode) {
     } else if (mode === 'explore') {
         document.getElementById('exploreMode').classList.add('show');
         browseDisplayCount = getInitialDisplayCount();
-        initializeSearchSuggestions(); // Load dynamic suggestions
+        initializeExploreMode(); // Initialize curated picks and categories
         if (currentArtResults.length === 0) {
             loadAllArt(); // Load initial art
         } else {
@@ -159,40 +165,116 @@ function switchMode(mode) {
     document.getElementById('myCollectionLink').style.color = mode === 'my-collection' ? '#1a1a1a' : '#999';
 }
 
+// Initialize explore mode with curated picks and categories
+let exploreInitialized = false;
+async function initializeExploreMode() {
+    if (!exploreInitialized) {
+        // Initialize categories
+        if (window.initializeCategoriesUI) {
+            await window.initializeCategoriesUI({
+                subjects: 'subjectItems',
+                moods: 'moodItems',
+                colors: 'colorItems'
+            });
+        }
+        exploreInitialized = true;
+    }
+
+    // Load curated picks for active tab
+    loadCuratedPicks('staff-picks');
+}
+
+// Load curated picks for a specific tab
+let currentCuratedTab = 'staff-picks';
+async function loadCuratedPicks(tabType) {
+    currentCuratedTab = tabType;
+    const scrollContainer = document.getElementById('curatedScroll');
+
+    // Update tab active state
+    document.querySelectorAll('.curated-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.curated === tabType);
+    });
+
+    // Show loading state
+    scrollContainer.innerHTML = '<div class="curated-empty">Loading...</div>';
+
+    try {
+        let data;
+        switch (tabType) {
+            case 'staff-picks':
+                data = await window.getStaffPicks(10);
+                break;
+            case 'trending':
+                data = await window.getTrending(10);
+                break;
+            case 'for-you':
+                data = await window.getForYou(10);
+                break;
+            case 'seasonal':
+                data = await window.getSeasonal(10);
+                break;
+            default:
+                data = await window.getStaffPicks(10);
+        }
+
+        if (data.artworks && data.artworks.length > 0) {
+            scrollContainer.innerHTML = window.renderCuratedScroll(data.artworks);
+        } else {
+            scrollContainer.innerHTML = '<div class="curated-empty">No artworks available</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load curated picks:', error);
+        scrollContainer.innerHTML = '<div class="curated-empty">Failed to load</div>';
+    }
+}
+
+// Handle category click - browse by category
+async function handleCategoryClick(type, id) {
+    // Update active state
+    if (window.updateCategoryActiveState) {
+        window.updateCategoryActiveState(type, id);
+    }
+
+    // Show results header
+    const categories = await window.loadCategories();
+    const categoryList = categories[type];
+    const category = categoryList?.find(c => c.id === id);
+
+    if (category) {
+        document.getElementById('resultsTitle').textContent = category.label;
+        document.getElementById('resultsHeader').style.display = 'flex';
+    }
+
+    // Browse by category
+    const result = await window.browseByCategory(type, id, 50);
+    if (result.results) {
+        currentArtResults = result.results;
+        browseDisplayCount = getInitialDisplayCount();
+        displayArtResults();
+    }
+}
+// Make it available globally for onclick handlers
+window.handleCategoryClick = handleCategoryClick;
+
+// Clear category filter
+function clearCategoryFilter() {
+    if (window.clearActiveCategory) {
+        window.clearActiveCategory();
+    }
+    if (window.updateCategoryActiveState) {
+        window.updateCategoryActiveState(null, null);
+    }
+    document.getElementById('resultsHeader').style.display = 'none';
+    loadAllArt();
+}
+
 // Suggestion click
 function suggestSearch(query) {
     document.getElementById('searchInput').value = query;
     searchArt();
 }
 
-// Initialize search suggestions
-function initializeSearchSuggestions() {
-    const suggestions = window.getSearchSuggestions();
-    const container = document.querySelector('#exploreMode .suggestion-link').parentElement;
-
-    // Clear existing suggestions (keep the "Try:" text)
-    const tryText = container.querySelector('span');
-    container.innerHTML = '';
-    container.appendChild(tryText);
-
-    // Add suggestion links
-    suggestions.forEach((suggestion, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'mode-link suggestion-link';
-        btn.dataset.query = suggestion;
-        btn.textContent = suggestion;
-        btn.addEventListener('click', (e) => suggestSearch(e.target.dataset.query));
-        container.appendChild(btn);
-
-        // Add separator dot between suggestions (not after last one)
-        if (index < suggestions.length - 1) {
-            const separator = document.createElement('span');
-            separator.style.color = '#e5e5e5';
-            separator.textContent = '·';
-            container.appendChild(separator);
-        }
-    });
-}
+// Search suggestions removed - now using curated picks and smart categories
 
 // Load current display
 async function loadCurrentDisplay() {
@@ -491,12 +573,7 @@ function displayArtResults() {
     }
 
     const displayedResults = currentArtResults.slice(0, browseDisplayCount);
-    grid.innerHTML = displayedResults.map(art => `
-        <div class="art-item" onclick='previewArt(${JSON.stringify(art).replace(/'/g, "&apos;")})'>
-            <img class="art-image" src="${art.thumbnail || art.imageUrl}" alt="${art.title}">
-            <div class="art-title">${art.title}</div>
-        </div>
-    `).join('');
+    grid.innerHTML = displayedResults.map(art => createArtCard(art)).join('');
 
     // Show "show more" button if there are more results
     if (browseDisplayCount < currentArtResults.length) {
@@ -505,6 +582,65 @@ function displayArtResults() {
         showMoreBtn.style.display = 'block';
     } else {
         showMoreBtn.style.display = 'none';
+    }
+}
+
+// Create a modern art card with metadata
+function createArtCard(art) {
+    const title = art.title || 'Untitled';
+    const artist = art.artist || '';
+    const date = art.date || art.year || '';
+    const source = art.source || '';
+    const imageUrl = art.thumbnail || art.thumbnailUrl || art.imageUrl;
+    const artJson = JSON.stringify(art).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+    return `
+        <div class="art-card" onclick='previewArt(${artJson.replace(/&quot;/g, "&#34;")})'>
+            <div class="card-image-container">
+                <img class="card-image" src="${imageUrl}" alt="${truncateText(title, 50)}" loading="lazy">
+                <div class="card-overlay">
+                    <button class="card-action" onclick='event.stopPropagation(); quickAddToCollection(${artJson.replace(/&quot;/g, "&#34;")})' title="Add to collection">+</button>
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="card-title">${truncateText(title, 28)}</div>
+                ${artist ? `<div class="card-artist">${truncateText(artist, 24)}</div>` : ''}
+                ${(date || source) ? `
+                <div class="card-details">
+                    ${date ? `<span class="card-date">${date}</span>` : ''}
+                    ${source && source !== 'curated' ? `<span class="card-source">${source}</span>` : ''}
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Truncate text with ellipsis
+function truncateText(str, maxLen) {
+    if (!str) return '';
+    return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+}
+
+// Quick add to collection from card button
+async function quickAddToCollection(art) {
+    try {
+        const response = await fetch('/api/my-collection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(art)
+        });
+
+        if (response.ok) {
+            // Brief visual feedback - could add a toast here
+            console.log('Added to collection:', art.title);
+            // Refresh collection if in collection mode
+            if (currentMode === 'my-collection') {
+                loadMyCollection();
+            }
+        }
+    } catch (error) {
+        console.error('Failed to add to collection:', error);
     }
 }
 

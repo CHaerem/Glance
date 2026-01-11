@@ -174,6 +174,14 @@ app.use('/api/firmware', firmwareRoutes);
 const semanticSearchRoutes = require('./routes/semantic-search');
 app.use('/api/semantic', semanticSearchRoutes);
 
+// Smart categories routes (browse by subject, mood, color)
+const categoriesRoutes = require('./routes/categories');
+app.use('/api/categories', categoriesRoutes);
+
+// Featured picks routes (staff picks, trending, for you, seasonal)
+const featuredRoutes = require('./routes/featured');
+app.use('/api/featured', featuredRoutes);
+
 // Prometheus metrics endpoint for Grafana
 app.use('/api/metrics', metricsRoutes);
 

@@ -61,6 +61,7 @@
 
         <!-- Explore Mode -->
         <div class="browse-section" id="exploreMode">
+            <!-- Search Bar -->
             <div class="search-bar">
                 <input
                     type="text"
@@ -69,17 +70,52 @@
                     placeholder="Search for art...">
             </div>
 
-            <!-- Suggestions -->
-            <div style="text-align: center; margin: 16px 0; font-size: 0.8rem; color: #666;">
-                <span style="color: #999;">Try:</span>
-                <button class="mode-link suggestion-link" data-query="Monet">Monet</button>
-                <span style="color: #e5e5e5;">·</span>
-                <button class="mode-link suggestion-link" data-query="Japanese art">Japanese art</button>
-                <span style="color: #e5e5e5;">·</span>
-                <button class="mode-link suggestion-link" data-query="Bold colors">Bold colors</button>
+            <!-- Curated Picks Section -->
+            <div class="curated-section" id="curatedSection">
+                <div class="curated-tabs">
+                    <button class="curated-tab active" data-curated="staff-picks">staff picks</button>
+                    <button class="curated-tab" data-curated="trending">trending</button>
+                    <button class="curated-tab" data-curated="for-you">for you</button>
+                    <button class="curated-tab" data-curated="seasonal">seasonal</button>
+                </div>
+                <div class="curated-scroll" id="curatedScroll">
+                    <!-- Populated dynamically -->
+                </div>
             </div>
 
-            <div class="art-grid" id="artGrid"></div>
+            <!-- Smart Categories Section -->
+            <div class="categories-section" id="categoriesSection">
+                <div class="section-label">browse by</div>
+                <div class="category-columns">
+                    <div class="category-column">
+                        <div class="category-header">subject</div>
+                        <div class="category-items" id="subjectItems">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="category-column">
+                        <div class="category-header">mood</div>
+                        <div class="category-items" id="moodItems">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="category-column">
+                        <div class="category-header">color</div>
+                        <div class="category-items" id="colorItems">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection">
+                <div class="results-header" id="resultsHeader" style="display: none;">
+                    <span class="results-title" id="resultsTitle"></span>
+                    <button class="clear-results" id="clearResults">clear</button>
+                </div>
+                <div class="art-grid" id="artGrid"></div>
+            </div>
 
             <!-- Show more button -->
             <div class="show-more" id="browseShowMore" style="display: none;">
@@ -177,6 +213,8 @@
     <input type="file" id="fileInput" accept="image/*">
 
     <script src="/js/features/search.js"></script>
+    <script src="/js/features/categories.js"></script>
+    <script src="/js/features/curated.js"></script>
     <script src="/js/main.js"></script>
 </body>
 </html>
