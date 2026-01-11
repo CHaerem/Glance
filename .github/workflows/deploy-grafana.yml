@@ -50,13 +50,17 @@ jobs:
           fi
 
       - name: Deploy alert rules to Grafana Cloud
+        continue-on-error: true  # Don't fail the whole workflow if alert rules fail
         env:
           GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
           GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN }}
         run: |
+          set -x  # Debug mode
+
           # Check if secrets are configured
           if [ -z "$GRAFANA_URL" ] || [ -z "$GRAFANA_SA_TOKEN" ]; then
-            exit 0  # Already warned in previous step
+            echo "Secrets not configured, skipping alert rules."
+            exit 0
           fi
 
           # Check if alert rules file exists
@@ -67,95 +71,94 @@ jobs:
 
           echo "Deploying alert rules to Grafana Cloud..."
 
-          # Convert YAML to JSON for API (requires yq)
-          # Install yq if not available
-          if ! command -v yq &> /dev/null; then
-            echo "Installing yq..."
-            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
+          # Install yq
+          echo "Installing yq..."
+          wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64
+          chmod +x /tmp/yq
+
+          # Test yq works
+          /tmp/yq --version
+
+          # Create Glance folder for alerts if it doesn't exist
+          echo "Creating Glance folder..."
+          FOLDER_RESPONSE=$(curl -s -X POST \
+            "${GRAFANA_URL}/api/folders" \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"title": "Glance"}' || echo '{}')
+          echo "Folder response: $FOLDER_RESPONSE"
+
+          # Get folder UID
+          FOLDER_UID=$(curl -s \
+            "${GRAFANA_URL}/api/folders" \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            | jq -r '.[] | select(.title == "Glance") | .uid')
+          echo "Folder UID: $FOLDER_UID"
+
+          if [ -z "$FOLDER_UID" ] || [ "$FOLDER_UID" = "null" ]; then
+            echo "::warning::Could not find/create Glance folder. Alert rules not deployed."
+            echo "You can import alert rules manually from server/grafana-alert-rules.yaml"
+            exit 0
           fi
 
-          # Extract and deploy each rule group
-          GROUPS=$(yq -o=json '.groups' server/grafana-alert-rules.yaml)
+          # Convert YAML to JSON and deploy each rule
+          echo "Processing alert rules..."
+          RULES=$(/tmp/yq -o=json '.groups[].rules[]' server/grafana-alert-rules.yaml)
 
-          for GROUP_NAME in $(echo "$GROUPS" | jq -r '.[].name'); do
-            echo "Deploying rule group: $GROUP_NAME"
+          echo "$RULES" | jq -c '.' | while read -r RULE; do
+            RULE_UID=$(echo "$RULE" | jq -r '.uid')
+            RULE_TITLE=$(echo "$RULE" | jq -r '.title')
+            echo "Deploying: $RULE_TITLE"
 
-            GROUP_JSON=$(echo "$GROUPS" | jq --arg name "$GROUP_NAME" '.[] | select(.name == $name)')
-            FOLDER=$(echo "$GROUP_JSON" | jq -r '.folder // "Glance"')
+            # Build API payload
+            PAYLOAD=$(echo "$RULE" | jq --arg folder "$FOLDER_UID" '{
+              uid: .uid,
+              title: .title,
+              condition: .condition,
+              data: .data,
+              noDataState: .noDataState,
+              execErrState: .execErrState,
+              for: .for,
+              annotations: .annotations,
+              labels: .labels,
+              folderUID: $folder,
+              ruleGroup: "Glance Alerts",
+              orgId: 1
+            }')
 
-            # Create folder if it doesn't exist
-            curl -s -X POST \
-              "${GRAFANA_URL}/api/folders" \
+            # Try PUT first (update), then POST (create)
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+              "${GRAFANA_URL}/api/v1/provisioning/alert-rules/${RULE_UID}" \
               -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
               -H "Content-Type: application/json" \
-              -d "{\"title\": \"$FOLDER\"}" > /dev/null 2>&1 || true
+              -H "X-Disable-Provenance: true" \
+              -d "$PAYLOAD")
 
-            # Get folder UID
-            FOLDER_UID=$(curl -s \
-              "${GRAFANA_URL}/api/folders" \
-              -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
-              | jq -r --arg title "$FOLDER" '.[] | select(.title == $title) | .uid')
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | head -n -1)
 
-            if [ -z "$FOLDER_UID" ]; then
-              echo "::warning::Could not find/create folder $FOLDER"
-              continue
-            fi
-
-            # Deploy each rule in the group
-            RULES=$(echo "$GROUP_JSON" | jq -c '.rules[]')
-
-            echo "$RULES" | while read -r RULE; do
-              RULE_UID=$(echo "$RULE" | jq -r '.uid')
-              RULE_TITLE=$(echo "$RULE" | jq -r '.title')
-
-              # Build the rule payload for Grafana API
-              RULE_PAYLOAD=$(echo "$RULE" | jq --arg folder "$FOLDER_UID" --arg group "$GROUP_NAME" '{
-                uid: .uid,
-                title: .title,
-                condition: .condition,
-                data: .data,
-                noDataState: .noDataState,
-                execErrState: .execErrState,
-                for: .for,
-                annotations: .annotations,
-                labels: .labels,
-                folderUID: $folder,
-                ruleGroup: $group,
-                orgId: 1
-              }')
-
-              # Try to update existing rule, or create new one
-              RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
-                "${GRAFANA_URL}/api/v1/provisioning/alert-rules/${RULE_UID}" \
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+              echo "  ✓ Updated: $RULE_TITLE"
+            elif [ "$HTTP_CODE" = "404" ]; then
+              # Create new rule
+              RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+                "${GRAFANA_URL}/api/v1/provisioning/alert-rules" \
                 -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
                 -H "Content-Type: application/json" \
                 -H "X-Disable-Provenance: true" \
-                -d "$RULE_PAYLOAD")
+                -d "$PAYLOAD")
 
               HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-
-              if [ "$HTTP_CODE" -eq 200 ] || [ "$HTTP_CODE" -eq 201 ]; then
-                echo "  ✓ $RULE_TITLE"
-              elif [ "$HTTP_CODE" -eq 404 ]; then
-                # Rule doesn't exist, create it
-                RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
-                  "${GRAFANA_URL}/api/v1/provisioning/alert-rules" \
-                  -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
-                  -H "Content-Type: application/json" \
-                  -H "X-Disable-Provenance: true" \
-                  -d "$RULE_PAYLOAD")
-
-                HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-                if [ "$HTTP_CODE" -eq 201 ]; then
-                  echo "  ✓ $RULE_TITLE (created)"
-                else
-                  echo "  ✗ $RULE_TITLE (HTTP $HTTP_CODE)"
-                fi
+              if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "202" ]; then
+                echo "  ✓ Created: $RULE_TITLE"
               else
-                echo "  ✗ $RULE_TITLE (HTTP $HTTP_CODE)"
+                echo "  ✗ Failed: $RULE_TITLE (HTTP $HTTP_CODE)"
+                echo "    Response: $(echo "$RESPONSE" | head -n -1)"
               fi
-            done
+            else
+              echo "  ✗ Failed: $RULE_TITLE (HTTP $HTTP_CODE)"
+              echo "    Response: $BODY"
+            fi
           done
 
           echo "Alert rules deployment complete!"
