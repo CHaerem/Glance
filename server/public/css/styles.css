@@ -1057,3 +1057,430 @@
         font-size: 16px;
     }
 }
+
+/* ============================================
+   CURATED PICKS SECTION
+   Calm, horizontal scrolling collection
+   ============================================ */
+
+.curated-section {
+    margin-bottom: 32px;
+}
+
+.curated-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.curated-tab {
+    padding: 6px 14px;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    background: transparent;
+    color: #999;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: lowercase;
+    letter-spacing: 0.3px;
+}
+
+.curated-tab:hover {
+    border-color: #ccc;
+    color: #666;
+}
+
+.curated-tab.active {
+    background: #1a1a1a;
+    border-color: #1a1a1a;
+    color: #ffffff;
+}
+
+.curated-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 4px 0 12px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #e5e5e5 transparent;
+}
+
+.curated-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.curated-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.curated-scroll::-webkit-scrollbar-thumb {
+    background: #e5e5e5;
+    border-radius: 2px;
+}
+
+.curated-scroll::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
+}
+
+.curated-card {
+    flex: 0 0 140px;
+    scroll-snap-align: start;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.curated-card:hover {
+    transform: translateY(-2px);
+}
+
+.curated-card-image {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f5f5f5;
+}
+
+.curated-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.curated-card:hover .curated-card-image img {
+    transform: scale(1.02);
+}
+
+.curated-card-info {
+    padding: 8px 2px 0;
+}
+
+.curated-card-title {
+    font-size: 0.72rem;
+    color: #1a1a1a;
+    font-weight: 500;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.curated-card-artist {
+    font-size: 0.68rem;
+    color: #999;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.curated-empty {
+    color: #999;
+    font-size: 0.8rem;
+    padding: 20px;
+    text-align: center;
+}
+
+/* ============================================
+   SMART CATEGORIES SECTION
+   Clean, minimal category browsing
+   ============================================ */
+
+.categories-section {
+    margin-bottom: 28px;
+    padding: 20px 0;
+    border-top: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.section-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #bbb;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.category-columns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.category-column {
+    text-align: center;
+}
+
+.category-header {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #666;
+    margin-bottom: 10px;
+    text-transform: lowercase;
+}
+
+.category-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.category-item {
+    padding: 6px 4px;
+    font-size: 0.78rem;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.15s ease;
+    background: none;
+    border: none;
+    text-align: center;
+}
+
+.category-item:hover {
+    color: #1a1a1a;
+}
+
+.category-item.active {
+    color: #1a1a1a;
+    font-weight: 500;
+}
+
+/* ============================================
+   RESULTS SECTION
+   Header with active filter
+   ============================================ */
+
+.results-section {
+    margin-top: 8px;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.results-title {
+    font-size: 0.8rem;
+    color: #1a1a1a;
+    font-weight: 500;
+}
+
+.clear-results {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-transform: lowercase;
+    padding: 4px 8px;
+    transition: color 0.15s ease;
+}
+
+.clear-results:hover {
+    color: #666;
+}
+
+/* ============================================
+   MODERN ART CARDS
+   Enhanced cards with metadata preview
+   ============================================ */
+
+.art-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+}
+
+.art-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.card-image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: #f8f8f8;
+}
+
+.card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.art-card:hover .card-image {
+    transform: scale(1.02);
+}
+
+.card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 40%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 10px;
+}
+
+.art-card:hover .card-overlay {
+    opacity: 1;
+}
+
+.card-action {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-action:hover {
+    background: #ffffff;
+    color: #1a1a1a;
+    transform: scale(1.08);
+}
+
+.card-meta {
+    padding: 10px 8px 12px;
+}
+
+.card-title {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #1a1a1a;
+    line-height: 1.3;
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-artist {
+    font-size: 0.7rem;
+    color: #888;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-details {
+    display: flex;
+    gap: 6px;
+    font-size: 0.65rem;
+    color: #bbb;
+}
+
+.card-date::after {
+    content: "";
+}
+
+.card-source {
+    text-transform: capitalize;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (min-width: 601px) {
+    .art-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 16px;
+    }
+
+    .curated-card {
+        flex: 0 0 150px;
+    }
+}
+
+@media (min-width: 768px) {
+    .container {
+        max-width: 900px;
+    }
+
+    .art-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 20px;
+    }
+
+    .curated-card {
+        flex: 0 0 160px;
+    }
+
+    .category-columns {
+        gap: 32px;
+    }
+}
+
+@media (max-width: 600px) {
+    .category-columns {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .category-items {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px 8px;
+    }
+
+    .category-item {
+        padding: 4px 8px;
+    }
+
+    .curated-card {
+        flex: 0 0 120px;
+    }
+
+    .curated-tabs {
+        gap: 4px;
+    }
+
+    .curated-tab {
+        padding: 5px 10px;
+        font-size: 0.7rem;
+    }
+
+    /* Touch devices show card overlay */
+    .card-overlay {
+        opacity: 1;
+        background: linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 30%);
+    }
+}
+
+/* Touch devices - always show quick add button */
+@media (hover: none) and (pointer: coarse) {
+    .card-overlay {
+        opacity: 1;
+        background: linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 30%);
+    }
+}

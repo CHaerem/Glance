@@ -1,0 +1,30 @@
+{
+  "subjects": [
+    { "id": "landscape", "label": "Landscapes", "query": "landscape scenery nature mountains ocean" },
+    { "id": "portrait", "label": "Portraits", "query": "portrait face person figure" },
+    { "id": "still-life", "label": "Still Life", "query": "still life flowers vase fruit table" },
+    { "id": "abstract", "label": "Abstract", "query": "abstract geometric shapes colors" },
+    { "id": "religious", "label": "Religious", "query": "religious biblical saints angels" },
+    { "id": "mythology", "label": "Mythology", "query": "mythology gods greek roman myth" },
+    { "id": "urban", "label": "Urban Scenes", "query": "city street architecture urban buildings" },
+    { "id": "animals", "label": "Animals", "query": "animals wildlife birds horses dogs" }
+  ],
+  "moods": [
+    { "id": "peaceful", "label": "Peaceful", "query": "peaceful calm serene tranquil quiet" },
+    { "id": "dramatic", "label": "Dramatic", "query": "dramatic stormy dark intense powerful" },
+    { "id": "joyful", "label": "Joyful", "query": "joyful happy bright cheerful celebration" },
+    { "id": "melancholic", "label": "Melancholic", "query": "melancholic sad lonely somber thoughtful" },
+    { "id": "romantic", "label": "Romantic", "query": "romantic love intimate tender soft" },
+    { "id": "mysterious", "label": "Mysterious", "query": "mysterious dark shadow enigmatic night" },
+    { "id": "energetic", "label": "Energetic", "query": "energetic dynamic movement action vibrant" }
+  ],
+  "colors": [
+    { "id": "blue", "label": "Blue Tones", "query": "blue ocean sky water cold" },
+    { "id": "warm", "label": "Warm Tones", "query": "warm orange red yellow sunset golden" },
+    { "id": "green", "label": "Green Tones", "query": "green nature forest garden lush" },
+    { "id": "monochrome", "label": "Monochrome", "query": "black white monochrome grayscale minimal" },
+    { "id": "vibrant", "label": "Vibrant", "query": "colorful vibrant bright saturated bold" },
+    { "id": "pastel", "label": "Pastel Tones", "query": "pastel soft pale light delicate" },
+    { "id": "earth", "label": "Earth Tones", "query": "earth brown beige tan natural rustic" }
+  ]
+}
