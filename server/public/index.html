@@ -61,48 +61,56 @@
 
         <!-- Explore Mode -->
         <div class="browse-section" id="exploreMode">
-            <div class="search-bar">
-                <input
-                    type="text"
-                    class="search-input"
-                    id="searchInput"
-                    placeholder="Describe what you're looking for...">
-            </div>
-
-            <!-- Search hint -->
-            <div class="search-hint">
-                Search by mood, style, artist, subject, or describe the feeling you want
+            <!-- Modern search container -->
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input
+                        type="text"
+                        class="search-input"
+                        id="searchInput"
+                        placeholder="Describe what you're looking for...">
+                </div>
+                <p class="search-hint">Search by mood, style, artist, or describe the feeling you want</p>
             </div>
 
             <!-- Categorized Suggestions -->
             <div class="suggestion-categories" id="suggestionCategories">
-                <div class="suggestion-row">
+                <div class="suggestion-group">
                     <span class="suggestion-label">Moods</span>
-                    <button class="suggestion-chip" data-query="peaceful calming serene art">peaceful</button>
-                    <button class="suggestion-chip" data-query="dramatic powerful intense paintings">dramatic</button>
-                    <button class="suggestion-chip" data-query="melancholic contemplative thoughtful art">melancholic</button>
-                    <button class="suggestion-chip" data-query="joyful vibrant cheerful paintings">joyful</button>
+                    <div class="suggestion-chips">
+                        <button class="suggestion-chip" data-query="peaceful calming serene art">peaceful</button>
+                        <button class="suggestion-chip" data-query="dramatic powerful intense paintings">dramatic</button>
+                        <button class="suggestion-chip" data-query="melancholic contemplative thoughtful art">melancholic</button>
+                        <button class="suggestion-chip" data-query="joyful vibrant cheerful paintings">joyful</button>
+                    </div>
                 </div>
-                <div class="suggestion-row">
+                <div class="suggestion-group">
                     <span class="suggestion-label">Styles</span>
-                    <button class="suggestion-chip" data-query="impressionist paintings light and color">impressionist</button>
-                    <button class="suggestion-chip" data-query="renaissance classical paintings">renaissance</button>
-                    <button class="suggestion-chip" data-query="abstract modern contemporary art">abstract</button>
-                    <button class="suggestion-chip" data-query="Japanese ukiyo-e woodblock prints">japanese</button>
+                    <div class="suggestion-chips">
+                        <button class="suggestion-chip" data-query="impressionist paintings light and color">impressionist</button>
+                        <button class="suggestion-chip" data-query="renaissance classical paintings">renaissance</button>
+                        <button class="suggestion-chip" data-query="abstract modern contemporary art">abstract</button>
+                        <button class="suggestion-chip" data-query="Japanese ukiyo-e woodblock prints">japanese</button>
+                    </div>
                 </div>
-                <div class="suggestion-row">
+                <div class="suggestion-group">
                     <span class="suggestion-label">Artists</span>
-                    <button class="suggestion-chip" data-query="Claude Monet impressionism">Monet</button>
-                    <button class="suggestion-chip" data-query="Vincent van Gogh">Van Gogh</button>
-                    <button class="suggestion-chip" data-query="Johannes Vermeer Dutch">Vermeer</button>
-                    <button class="suggestion-chip" data-query="Katsushika Hokusai Japanese">Hokusai</button>
+                    <div class="suggestion-chips">
+                        <button class="suggestion-chip" data-query="Claude Monet impressionism">Monet</button>
+                        <button class="suggestion-chip" data-query="Vincent van Gogh">Van Gogh</button>
+                        <button class="suggestion-chip" data-query="Johannes Vermeer Dutch">Vermeer</button>
+                        <button class="suggestion-chip" data-query="Katsushika Hokusai Japanese">Hokusai</button>
+                    </div>
                 </div>
-                <div class="suggestion-row">
+                <div class="suggestion-group">
                     <span class="suggestion-label">Subjects</span>
-                    <button class="suggestion-chip" data-query="landscape nature scenery mountains">landscapes</button>
-                    <button class="suggestion-chip" data-query="portrait face person">portraits</button>
-                    <button class="suggestion-chip" data-query="still life flowers vase fruit">still life</button>
-                    <button class="suggestion-chip" data-query="seascape ocean marine ships">seascapes</button>
+                    <div class="suggestion-chips">
+                        <button class="suggestion-chip" data-query="landscape nature scenery mountains">landscapes</button>
+                        <button class="suggestion-chip" data-query="portrait face person">portraits</button>
+                        <button class="suggestion-chip" data-query="still life flowers vase fruit">still life</button>
+                        <button class="suggestion-chip" data-query="seascape ocean marine ships">seascapes</button>
+                    </div>
                 </div>
             </div>
 

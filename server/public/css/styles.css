@@ -245,102 +245,157 @@
             display: block;
         }
 
-        .search-bar {
-            margin-bottom: 20px;
+        /* Modern search container */
+        .search-container {
+            margin-bottom: 32px;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 12px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #bbb;
+            font-size: 0.9rem;
+            pointer-events: none;
+            transition: color 0.2s ease;
+        }
+
+        .search-input-wrapper:focus-within .search-icon {
+            color: #666;
         }
 
         .search-input {
             width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #e5e5e5;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            transition: border-color 0.2s ease;
+            padding: 16px 20px 16px 48px;
+            border: none;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            background: #f8f8f8;
+            color: #1a1a1a;
+            transition: all 0.25s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .search-input::placeholder {
+            color: #aaa;
         }
 
         .search-input:focus {
             outline: none;
-            border-color: #1a1a1a;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
         }
 
         /* Search hint text */
         .search-hint {
             text-align: center;
-            margin: 8px 0 20px;
-            font-size: 0.75rem;
-            color: #999;
+            font-size: 0.8rem;
+            color: #aaa;
+            font-weight: 400;
+            letter-spacing: 0.2px;
         }
 
-        /* Categorized suggestion chips */
+        /* Categorized suggestion chips - modern card style */
         .suggestion-categories {
-            margin-bottom: 24px;
+            margin-bottom: 32px;
+            background: #fafafa;
+            border-radius: 16px;
+            padding: 20px 24px;
         }
 
-        .suggestion-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
+        .suggestion-group {
+            margin-bottom: 16px;
+        }
+
+        .suggestion-group:last-child {
+            margin-bottom: 0;
         }
 
         .suggestion-label {
-            font-size: 0.7rem;
+            display: block;
+            font-size: 0.65rem;
             color: #999;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            min-width: 60px;
-            flex-shrink: 0;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .suggestion-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .suggestion-chip {
-            padding: 6px 12px;
-            border: 1px solid #e5e5e5;
-            border-radius: 16px;
-            background: #ffffff;
-            color: #666;
-            font-size: 0.75rem;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: #fff;
+            color: #555;
+            font-size: 0.8rem;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
         }
 
         .suggestion-chip:hover {
-            border-color: #999;
-            color: #333;
+            background: #fff;
+            color: #1a1a1a;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
         }
 
         .suggestion-chip:active {
-            background: #f5f5f5;
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
         }
 
         /* Search status feedback */
         .search-status {
             text-align: center;
-            margin: 16px 0;
-            padding: 12px;
-            background: #fafafa;
-            border-radius: 4px;
+            margin: 20px 0;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+            border-radius: 12px;
         }
 
         .search-status-text {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: #666;
+            font-weight: 500;
         }
 
         /* Mobile adjustments for suggestions */
         @media (max-width: 600px) {
-            .suggestion-row {
-                justify-content: flex-start;
+            .search-container {
+                margin-bottom: 24px;
+            }
+
+            .search-input {
+                padding: 14px 16px 14px 44px;
+                font-size: 1rem;
+            }
+
+            .suggestion-categories {
+                padding: 16px 18px;
+                border-radius: 12px;
             }
 
             .suggestion-label {
-                min-width: 100%;
-                margin-bottom: 4px;
+                margin-bottom: 8px;
             }
 
             .suggestion-chip {
-                padding: 8px 14px;
-                font-size: 0.8rem;
+                padding: 10px 16px;
+                font-size: 0.85rem;
             }
         }
 
