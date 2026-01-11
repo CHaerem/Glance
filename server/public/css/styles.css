@@ -245,22 +245,27 @@
             display: block;
         }
 
-        .search-bar {
-            margin-bottom: 20px;
-        }
-
-        .search-input {
+        /* Minimal explore search */
+        .explore-search {
             width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #e5e5e5;
-            border-radius: 4px;
-            font-size: 0.9rem;
+            padding: 14px 0;
+            border: none;
+            border-bottom: 1px solid #e5e5e5;
+            font-size: 1.1rem;
+            background: transparent;
+            color: #1a1a1a;
             transition: border-color 0.2s ease;
+            margin-bottom: 32px;
         }
 
-        .search-input:focus {
+        .explore-search::placeholder {
+            color: #ccc;
+            font-style: italic;
+        }
+
+        .explore-search:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-bottom-color: #1a1a1a;
         }
 
         .filter-bar {
@@ -769,6 +774,7 @@
             padding: 40px 20px;
             color: #999;
             font-size: 0.85rem;
+            grid-column: 1 / -1; /* Span full width in grid layouts */
         }
 
         /* Generation progress overlay */

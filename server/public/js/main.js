@@ -85,9 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') searchArt();
     });
 
-    document.querySelectorAll('.suggestion-link').forEach(btn => {
-        btn.addEventListener('click', (e) => suggestSearch(e.target.dataset.query));
-    });
+    // Rotating placeholder - inspires search ideas
+    initRotatingPlaceholder();
 
     document.getElementById('showMoreBrowseBtn').addEventListener('click', showMoreBrowse);
     document.getElementById('showMoreCollectionBtn').addEventListener('click', showMoreCollection);
@@ -165,33 +164,10 @@ function suggestSearch(query) {
     searchArt();
 }
 
-// Initialize search suggestions
+// Initialize search suggestions - now using static categorized chips in HTML
+// This function is kept for backwards compatibility but does nothing
 function initializeSearchSuggestions() {
-    const suggestions = window.getSearchSuggestions();
-    const container = document.querySelector('#exploreMode .suggestion-link').parentElement;
-
-    // Clear existing suggestions (keep the "Try:" text)
-    const tryText = container.querySelector('span');
-    container.innerHTML = '';
-    container.appendChild(tryText);
-
-    // Add suggestion links
-    suggestions.forEach((suggestion, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'mode-link suggestion-link';
-        btn.dataset.query = suggestion;
-        btn.textContent = suggestion;
-        btn.addEventListener('click', (e) => suggestSearch(e.target.dataset.query));
-        container.appendChild(btn);
-
-        // Add separator dot between suggestions (not after last one)
-        if (index < suggestions.length - 1) {
-            const separator = document.createElement('span');
-            separator.style.color = '#e5e5e5';
-            separator.textContent = '·';
-            container.appendChild(separator);
-        }
-    });
+    // Suggestions are now static HTML chips - no dynamic initialization needed
 }
 
 // Load current display
@@ -304,22 +280,52 @@ async function feelingLucky() {
     }
 }
 
+// Rotating placeholder - cycles through inspiring search ideas
+function initRotatingPlaceholder() {
+    const placeholders = [
+        'peaceful morning light...',
+        'stormy dramatic skies...',
+        'Monet water lilies...',
+        'Japanese woodblock prints...',
+        'renaissance portraits...',
+        'abstract bold colors...',
+        'melancholic blue tones...',
+        'Van Gogh sunflowers...',
+        'misty mountain landscapes...',
+        'Vermeer quiet interiors...'
+    ];
+
+    const input = document.getElementById('searchInput');
+    let index = 0;
+
+    // Change placeholder every 4 seconds
+    setInterval(() => {
+        if (document.activeElement !== input && !input.value) {
+            index = (index + 1) % placeholders.length;
+            input.placeholder = placeholders[index];
+        }
+    }, 4000);
+}
+
 // Search art with AI
 async function searchArt() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
 
     const grid = document.getElementById('artGrid');
-    grid.innerHTML = '<div class="loading">Searching...</div>';
+
+    // Show searching status
+    grid.innerHTML = '<div class="loading">searching...</div>';
 
     try {
         const data = await window.smartSearch(query);
         currentArtResults = data.results || [];
         browseDisplayCount = getInitialDisplayCount();
+
         displayArtResults();
     } catch (error) {
         console.error('Search failed:', error);
-        grid.innerHTML = '<div class="loading">Search failed</div>';
+        grid.innerHTML = '<div class="loading">Search failed. Please try again.</div>';
     }
 }
 

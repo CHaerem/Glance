@@ -8,44 +8,12 @@ services:
       # Bind mount for data allows direct firmware updates without Docker rebuild
       - ./data:/app/data
       - glance-uploads:/app/uploads
-      - huggingface-cache:/home/glance/.cache/huggingface
     environment:
       - NODE_ENV=production
       - PORT=3000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - HF_TOKEN=${HF_TOKEN:-}
-      - QDRANT_URL=http://qdrant:6333
       - DOCKER_IMAGE_VERSION=${IMAGE_VERSION:-local}
       - BUILD_DATE=${BUILD_DATE:-unknown}
-    depends_on:
-      qdrant:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 512M
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: glance-qdrant
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - qdrant-storage:/qdrant/storage
-    environment:
-      - QDRANT__SERVICE__GRPC_PORT=6334
-      - QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS=2
-      - QDRANT__SERVICE__MAX_REQUEST_SIZE_MB=32
     deploy:
       resources:
         limits:
@@ -54,11 +22,11 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/6333' || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   loki:
     image: grafana/loki:2.9.0
@@ -109,10 +77,6 @@ services:
 
 volumes:
   glance-uploads:
-    driver: local
-  qdrant-storage:
-    driver: local
-  huggingface-cache:
     driver: local
   loki-data:
     driver: local
