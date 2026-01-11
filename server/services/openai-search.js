@@ -1,9 +1,11 @@
 /**
  * OpenAI Agentic Art Search Service
- * Uses GPT-5 with function tools to intelligently search museum APIs
+ * Uses gpt-4o-mini with function tools to intelligently search museum APIs
  *
  * The AI decides which museums to search, what terms to use,
  * and curates the best results based on the user's intent.
+ *
+ * Optimized for speed with parallel museum searches.
  */
 
 const OpenAI = require('openai');
@@ -21,14 +23,13 @@ const museumSearchers = {
             const data = await response.json();
             if (!data.objectIDs?.length) return [];
 
-            const results = [];
-            for (const id of data.objectIDs.slice(0, limit * 2)) {
-                if (results.length >= limit) break;
+            // Fetch objects IN PARALLEL for speed (fetch more than needed to account for filtering)
+            const objectPromises = data.objectIDs.slice(0, limit * 3).map(async (id) => {
                 try {
                     const objRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${id}`);
                     const obj = await objRes.json();
                     if (obj.primaryImage && obj.isPublicDomain) {
-                        results.push({
+                        return {
                             id: `met-${obj.objectID}`,
                             title: obj.title || 'Untitled',
                             artist: obj.artistDisplayName || 'Unknown',
@@ -37,11 +38,14 @@ const museumSearchers = {
                             thumbnailUrl: obj.primaryImageSmall || obj.primaryImage,
                             source: 'The Met Museum',
                             department: obj.department || ''
-                        });
+                        };
                     }
                 } catch (e) { /* skip */ }
-            }
-            return results;
+                return null;
+            });
+
+            const objects = await Promise.all(objectPromises);
+            return objects.filter(Boolean).slice(0, limit);
         } catch (e) {
             log.warn('Met search failed', { error: e.message });
             return [];
@@ -142,7 +146,7 @@ const museumSearchers = {
     }
 };
 
-// Tool definitions for GPT-5
+// Tool definitions for gpt-4o-mini
 const searchTools = [
     {
         type: 'function',
@@ -225,7 +229,7 @@ class OpenAIAgentSearch {
     constructor() {
         this.client = null;
         this.initialized = false;
-        this.model = 'gpt-5'; // Latest model
+        this.model = 'gpt-4o-mini'; // Fast and cost-effective for tool orchestration
     }
 
     async initialize() {
@@ -244,7 +248,7 @@ class OpenAIAgentSearch {
     }
 
     /**
-     * Agentic art search - GPT-5 orchestrates museum API searches
+     * Agentic art search - AI orchestrates museum API searches in parallel
      */
     async searchByText(query, limit = 20) {
         await this.initialize();
@@ -257,7 +261,7 @@ class OpenAIAgentSearch {
         }
 
         try {
-            // Let GPT-5 orchestrate the search
+            // Let AI decide which museums to search
             const response = await this.client.chat.completions.create({
                 model: this.model,
                 messages: [
@@ -288,41 +292,35 @@ Consider:
                 max_tokens: 1000
             });
 
-            // Execute tool calls
-            const allResults = [];
+            // Execute tool calls IN PARALLEL for speed
             const toolCalls = response.choices[0]?.message?.tool_calls || [];
 
-            for (const toolCall of toolCalls) {
+            const searchPromises = toolCalls.map(async (toolCall) => {
                 const args = JSON.parse(toolCall.function.arguments);
                 const searchLimit = args.limit || 10;
-                let results = [];
 
-                switch (toolCall.function.name) {
-                    case 'search_met_museum':
-                        results = await museumSearchers.searchMetMuseum(args.query, searchLimit);
-                        break;
-                    case 'search_art_institute_chicago':
-                        results = await museumSearchers.searchArtInstituteChicago(args.query, searchLimit);
-                        break;
-                    case 'search_rijksmuseum':
-                        results = await museumSearchers.searchRijksmuseum(args.query, searchLimit);
-                        break;
-                    case 'search_cleveland_museum':
-                        results = await museumSearchers.searchClevelandMuseum(args.query, searchLimit);
-                        break;
-                    case 'search_harvard_art_museums':
-                        results = await museumSearchers.searchHarvardArtMuseums(args.query, searchLimit);
-                        break;
-                }
+                const searchFn = {
+                    'search_met_museum': museumSearchers.searchMetMuseum,
+                    'search_art_institute_chicago': museumSearchers.searchArtInstituteChicago,
+                    'search_rijksmuseum': museumSearchers.searchRijksmuseum,
+                    'search_cleveland_museum': museumSearchers.searchClevelandMuseum,
+                    'search_harvard_art_museums': museumSearchers.searchHarvardArtMuseums
+                }[toolCall.function.name];
 
+                if (!searchFn) return [];
+
+                const results = await searchFn(args.query, searchLimit);
                 log.debug('Tool call executed', {
                     tool: toolCall.function.name,
                     query: args.query,
                     results: results.length
                 });
+                return results;
+            });
 
-                allResults.push(...results);
-            }
+            // Wait for all searches to complete in parallel
+            const resultsArrays = await Promise.all(searchPromises);
+            const allResults = resultsArrays.flat();
 
             // If no tool calls, fallback
             if (allResults.length === 0) {
@@ -388,33 +386,23 @@ Search for artworks with similar characteristics.`
                     max_tokens: 500
                 });
 
-                // Execute searches (same as searchByText)
-                const allResults = [];
+                // Execute searches IN PARALLEL
                 const toolCalls = response.choices[0]?.message?.tool_calls || [];
 
-                for (const toolCall of toolCalls) {
+                const searchPromises = toolCalls.map(async (toolCall) => {
                     const args = JSON.parse(toolCall.function.arguments);
-                    let results = [];
+                    const searchFn = {
+                        'search_met_museum': museumSearchers.searchMetMuseum,
+                        'search_art_institute_chicago': museumSearchers.searchArtInstituteChicago,
+                        'search_rijksmuseum': museumSearchers.searchRijksmuseum,
+                        'search_cleveland_museum': museumSearchers.searchClevelandMuseum,
+                        'search_harvard_art_museums': museumSearchers.searchHarvardArtMuseums
+                    }[toolCall.function.name];
+                    return searchFn ? searchFn(args.query, args.limit || 10) : [];
+                });
 
-                    switch (toolCall.function.name) {
-                        case 'search_met_museum':
-                            results = await museumSearchers.searchMetMuseum(args.query, args.limit || 10);
-                            break;
-                        case 'search_art_institute_chicago':
-                            results = await museumSearchers.searchArtInstituteChicago(args.query, args.limit || 10);
-                            break;
-                        case 'search_rijksmuseum':
-                            results = await museumSearchers.searchRijksmuseum(args.query, args.limit || 10);
-                            break;
-                        case 'search_cleveland_museum':
-                            results = await museumSearchers.searchClevelandMuseum(args.query, args.limit || 10);
-                            break;
-                        case 'search_harvard_art_museums':
-                            results = await museumSearchers.searchHarvardArtMuseums(args.query, args.limit || 10);
-                            break;
-                    }
-                    allResults.push(...results);
-                }
+                const resultsArrays = await Promise.all(searchPromises);
+                const allResults = resultsArrays.flat();
 
                 // Filter out the source artwork
                 const filtered = allResults.filter(a => a.id !== artworkId);

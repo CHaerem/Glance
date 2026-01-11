@@ -170,33 +170,10 @@ function suggestSearch(query) {
     searchArt();
 }
 
-// Initialize search suggestions
+// Initialize search suggestions - now using static categorized chips in HTML
+// This function is kept for backwards compatibility but does nothing
 function initializeSearchSuggestions() {
-    const suggestions = window.getSearchSuggestions();
-    const container = document.querySelector('#exploreMode .suggestion-link').parentElement;
-
-    // Clear existing suggestions (keep the "Try:" text)
-    const tryText = container.querySelector('span');
-    container.innerHTML = '';
-    container.appendChild(tryText);
-
-    // Add suggestion links
-    suggestions.forEach((suggestion, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'mode-link suggestion-link';
-        btn.dataset.query = suggestion;
-        btn.textContent = suggestion;
-        btn.addEventListener('click', (e) => suggestSearch(e.target.dataset.query));
-        container.appendChild(btn);
-
-        // Add separator dot between suggestions (not after last one)
-        if (index < suggestions.length - 1) {
-            const separator = document.createElement('span');
-            separator.style.color = '#e5e5e5';
-            separator.textContent = '·';
-            container.appendChild(separator);
-        }
-    });
+    // Suggestions are now static HTML chips - no dynamic initialization needed
 }
 
 // Load current display
