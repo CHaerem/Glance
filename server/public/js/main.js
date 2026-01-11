@@ -85,14 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') searchArt();
     });
 
-    document.querySelectorAll('.suggestion-link').forEach(btn => {
-        btn.addEventListener('click', (e) => suggestSearch(e.target.dataset.query));
-    });
-
-    // New suggestion chips (categorized)
-    document.querySelectorAll('.suggestion-chip').forEach(btn => {
-        btn.addEventListener('click', (e) => suggestSearch(e.target.dataset.query));
-    });
+    // Rotating placeholder - inspires search ideas
+    initRotatingPlaceholder();
 
     document.getElementById('showMoreBrowseBtn').addEventListener('click', showMoreBrowse);
     document.getElementById('showMoreCollectionBtn').addEventListener('click', showMoreCollection);
@@ -286,43 +280,52 @@ async function feelingLucky() {
     }
 }
 
+// Rotating placeholder - cycles through inspiring search ideas
+function initRotatingPlaceholder() {
+    const placeholders = [
+        'peaceful morning light...',
+        'stormy dramatic skies...',
+        'Monet water lilies...',
+        'Japanese woodblock prints...',
+        'renaissance portraits...',
+        'abstract bold colors...',
+        'melancholic blue tones...',
+        'Van Gogh sunflowers...',
+        'misty mountain landscapes...',
+        'Vermeer quiet interiors...'
+    ];
+
+    const input = document.getElementById('searchInput');
+    let index = 0;
+
+    // Change placeholder every 4 seconds
+    setInterval(() => {
+        if (document.activeElement !== input && !input.value) {
+            index = (index + 1) % placeholders.length;
+            input.placeholder = placeholders[index];
+        }
+    }, 4000);
+}
+
 // Search art with AI
 async function searchArt() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
 
     const grid = document.getElementById('artGrid');
-    const searchStatus = document.getElementById('searchStatus');
-    const searchStatusText = document.getElementById('searchStatusText');
 
     // Show searching status
-    grid.innerHTML = '<div class="loading">Searching museums for artwork...</div>';
-    searchStatus.style.display = 'none';
+    grid.innerHTML = '<div class="loading">searching...</div>';
 
     try {
         const data = await window.smartSearch(query);
         currentArtResults = data.results || [];
         browseDisplayCount = getInitialDisplayCount();
 
-        // Show search results feedback
-        if (currentArtResults.length > 0) {
-            const sources = [...new Set(currentArtResults.map(r => r.source).filter(Boolean))];
-            if (sources.length > 0) {
-                searchStatusText.textContent = `Found ${currentArtResults.length} artworks from ${sources.slice(0, 3).join(', ')}${sources.length > 3 ? ' and more' : ''}`;
-                searchStatus.style.display = 'block';
-            } else {
-                searchStatus.style.display = 'none';
-            }
-        } else {
-            searchStatusText.textContent = 'No artworks found. Try different keywords or browse the suggestions below.';
-            searchStatus.style.display = 'block';
-        }
-
         displayArtResults();
     } catch (error) {
         console.error('Search failed:', error);
         grid.innerHTML = '<div class="loading">Search failed. Please try again.</div>';
-        searchStatus.style.display = 'none';
     }
 }
 
