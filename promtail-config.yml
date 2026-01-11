@@ -6,14 +6,10 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  # For Grafana Cloud: uncomment and configure below, then remove the local Loki URL
-  # - url: https://logs-prod-eu-west-0.grafana.net/loki/api/v1/push
-  #   basic_auth:
-  #     username: ${LOKI_USERNAME}  # Your Grafana Cloud user ID (number)
-  #     password: ${LOKI_API_KEY}   # Grafana Cloud API key with logs:write scope
-
-  # Local Loki (default - comment out if using Grafana Cloud)
-  - url: http://loki:3100/loki/api/v1/push
+  - url: ${LOKI_URL:-http://loki:3100}/loki/api/v1/push
+    basic_auth:
+      username: ${LOKI_USERNAME:-}
+      password: ${LOKI_API_KEY:-}
 
 scrape_configs:
   - job_name: docker
