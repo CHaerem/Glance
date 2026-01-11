@@ -6,6 +6,8 @@
 const path = require('path');
 const fs = require('fs');
 const statistics = require("./statistics");
+const { loggers } = require('./logger');
+const log = loggers.api;
 
 // Load curated collections from JSON file
 const CURATED_COLLECTIONS = JSON.parse(
@@ -19,7 +21,7 @@ const ART_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 function getCachedResult(key) {
 	const cached = artSearchCache.get(key);
 	if (cached && Date.now() - cached.timestamp < ART_CACHE_TTL) {
-		console.log(`Cache hit: ${key}`);
+		log.debug('Cache hit', { cacheKey: key });
 		return cached.data;
 	}
 	return null;
@@ -55,7 +57,7 @@ function getCuratedCollections() {
 async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 	const offset = startOffset;
 
-	console.log(`Searching for artworks: "${query}", limit: ${targetCount}, offset: ${offset}`);
+	log.info('Searching for artworks', { query, limit: targetCount, offset });
 
 	// Art departments to include (paintings, drawings, prints - not decorative objects)
 	const artDepartments = [
@@ -88,7 +90,7 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		for (const term of hardExcludeTerms) {
 			if (allText.includes(term)) {
-				console.log(`Filtering out: ${title} (contains "${term}")`);
+				log.debug('Filtering out artwork', { title, excludeTerm: term });
 				return false;
 			}
 		}
@@ -104,17 +106,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const searchUrl = `https://collectionapi.metmuseum.org/public/collection/v1/search?hasImages=true&q=${encodeURIComponent(query || "painting")}`;
-			console.log(`Searching Met Museum: ${searchUrl}`);
+			log.debug('Searching Met Museum', { url: searchUrl });
 
 			const searchResponse = await fetch(searchUrl);
 			const contentType = searchResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("Met API returned non-JSON response (likely rate limited or error)");
+				log.warn('Met API returned non-JSON response', { reason: 'likely rate limited or error' });
 				return [];
 			}
 
 			const searchData = await searchResponse.json();
-			console.log(`Met search found ${searchData.total || 0} total results`);
+			log.debug('Met search results', { total: searchData.total || 0 });
 
 			if (!searchData.objectIDs || searchData.objectIDs.length === 0) {
 				return [];
@@ -164,11 +166,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 				}
 			}
 
-			console.log(`Met Museum returned ${metArtworks.length} artworks`);
+			log.debug('Met Museum returned artworks', { count: metArtworks.length });
 			setCachedResult(cacheKey, metArtworks);
 			return metArtworks;
 		} catch (error) {
-			console.error("Error searching Met Museum:", error.message);
+			log.error('Error searching Met Museum', { error: error.message });
 			return [];
 		}
 	};
@@ -181,17 +183,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const articUrl = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query || "painting")}&limit=${targetCount * 3}&fields=id,title,artist_display,date_display,image_id,is_public_domain,department_title,artwork_type_title,classification_title,medium_display`;
-			console.log(`Searching Art Institute of Chicago: ${articUrl}`);
+			log.debug('Searching Art Institute of Chicago', { url: articUrl });
 
 			const articResponse = await fetch(articUrl);
 			const contentType = articResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("ARTIC API returned non-JSON response");
+				log.warn('ARTIC API returned non-JSON response');
 				return [];
 			}
 
 			const articData = await articResponse.json();
-			console.log(`ARTIC search found ${articData.pagination?.total || 0} total results`);
+			log.debug('ARTIC search results', { total: articData.pagination?.total || 0 });
 
 			if (!articData.data || articData.data.length === 0) {
 				return [];
@@ -222,11 +224,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 					source: "Art Institute of Chicago"
 				}));
 
-			console.log(`ARTIC returned ${articArtworks.length} artworks`);
+			log.debug('ARTIC returned artworks', { count: articArtworks.length });
 			setCachedResult(cacheKey, articArtworks);
 			return articArtworks;
 		} catch (error) {
-			console.error("Error searching ARTIC:", error.message);
+			log.error('Error searching ARTIC', { error: error.message });
 			return [];
 		}
 	};
@@ -239,17 +241,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const cmaUrl = `https://openaccess-api.clevelandart.org/api/artworks/?q=${encodeURIComponent(query || "painting")}&cc=1&has_image=1&limit=${targetCount * 3}`;
-			console.log(`Searching Cleveland Museum: ${cmaUrl}`);
+			log.debug('Searching Cleveland Museum', { url: cmaUrl });
 
 			const cmaResponse = await fetch(cmaUrl);
 			const contentType = cmaResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("Cleveland API returned non-JSON response");
+				log.warn('Cleveland API returned non-JSON response');
 				return [];
 			}
 
 			const cmaData = await cmaResponse.json();
-			console.log(`Cleveland search found ${cmaData.info?.total || 0} total results`);
+			log.debug('Cleveland search results', { total: cmaData.info?.total || 0 });
 
 			if (!cmaData.data || cmaData.data.length === 0) {
 				return [];
@@ -278,11 +280,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 					source: "Cleveland Museum of Art"
 				}));
 
-			console.log(`Cleveland returned ${cmaArtworks.length} artworks`);
+			log.debug('Cleveland returned artworks', { count: cmaArtworks.length });
 			setCachedResult(cacheKey, cmaArtworks);
 			return cmaArtworks;
 		} catch (error) {
-			console.error("Error searching Cleveland Museum:", error.message);
+			log.error('Error searching Cleveland Museum', { error: error.message });
 			return [];
 		}
 	};
@@ -295,17 +297,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const rijksUrl = `https://www.rijksmuseum.nl/api/en/collection?key=0fiuZFh4&q=${encodeURIComponent(query || "painting")}&imgonly=true&ps=${targetCount * 2}`;
-			console.log(`Searching Rijksmuseum: ${rijksUrl}`);
+			log.debug('Searching Rijksmuseum', { url: rijksUrl });
 
 			const rijksResponse = await fetch(rijksUrl);
 			const contentType = rijksResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("Rijksmuseum API returned non-JSON response");
+				log.warn('Rijksmuseum API returned non-JSON response');
 				return [];
 			}
 
 			const rijksData = await rijksResponse.json();
-			console.log(`Rijksmuseum search found ${rijksData.count || 0} total results`);
+			log.debug('Rijksmuseum search results', { total: rijksData.count || 0 });
 
 			if (!rijksData.artObjects || rijksData.artObjects.length === 0) {
 				return [];
@@ -326,11 +328,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 					source: "Rijksmuseum"
 				}));
 
-			console.log(`Rijksmuseum returned ${rijksArtworks.length} artworks`);
+			log.debug('Rijksmuseum returned artworks', { count: rijksArtworks.length });
 			setCachedResult(cacheKey, rijksArtworks);
 			return rijksArtworks;
 		} catch (error) {
-			console.error("Error searching Rijksmuseum:", error.message);
+			log.error('Error searching Rijksmuseum', { error: error.message });
 			return [];
 		}
 	};
@@ -343,17 +345,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const wikimediaUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${query || "painting"} filetype:bitmap`)}&srnamespace=6&srlimit=${targetCount * 3}&format=json&origin=*`;
-			console.log(`Searching Wikimedia Commons: ${wikimediaUrl}`);
+			log.debug('Searching Wikimedia Commons', { url: wikimediaUrl });
 
 			const wikimediaResponse = await fetch(wikimediaUrl);
 			const contentType = wikimediaResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("Wikimedia API returned non-JSON response");
+				log.warn('Wikimedia API returned non-JSON response');
 				return [];
 			}
 
 			const wikimediaData = await wikimediaResponse.json();
-			console.log(`Wikimedia search found ${wikimediaData.query?.search?.length || 0} results`);
+			log.debug('Wikimedia search results', { count: wikimediaData.query?.search?.length || 0 });
 
 			if (!wikimediaData.query?.search || wikimediaData.query.search.length === 0) {
 				return [];
@@ -380,11 +382,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 				}
 			}
 
-			console.log(`Wikimedia returned ${wikimediaArtworks.length} artworks`);
+			log.debug('Wikimedia returned artworks', { count: wikimediaArtworks.length });
 			setCachedResult(cacheKey, wikimediaArtworks);
 			return wikimediaArtworks;
 		} catch (error) {
-			console.error("Error searching Wikimedia:", error.message);
+			log.error('Error searching Wikimedia', { error: error.message });
 			return [];
 		}
 	};
@@ -397,17 +399,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const vamUrl = `https://api.vam.ac.uk/v2/objects/search?q=${encodeURIComponent(query || "painting")}&images_exist=true&page_size=${targetCount * 2}`;
-			console.log(`Searching Victoria & Albert Museum: ${vamUrl}`);
+			log.debug('Searching Victoria & Albert Museum', { url: vamUrl });
 
 			const vamResponse = await fetch(vamUrl);
 			const contentType = vamResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("V&A API returned non-JSON response");
+				log.warn('V&A API returned non-JSON response');
 				return [];
 			}
 
 			const vamData = await vamResponse.json();
-			console.log(`V&A search found ${vamData.info?.record_count || 0} total results`);
+			log.debug('V&A search results', { total: vamData.info?.record_count || 0 });
 
 			if (!vamData.records || vamData.records.length === 0) {
 				return [];
@@ -428,11 +430,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 					source: "Victoria & Albert Museum"
 				}));
 
-			console.log(`V&A returned ${vamArtworks.length} artworks`);
+			log.debug('V&A returned artworks', { count: vamArtworks.length });
 			setCachedResult(cacheKey, vamArtworks);
 			return vamArtworks;
 		} catch (error) {
-			console.error("Error searching V&A:", error.message);
+			log.error('Error searching V&A', { error: error.message });
 			return [];
 		}
 	};
@@ -445,17 +447,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const harvardUrl = `https://api.harvardartmuseums.org/object?apikey=0d2b2e70-e1a4-11ea-8f9e-c3ccf15bc2e2&q=${encodeURIComponent(query || "painting")}&hasimage=1&size=${targetCount * 2}`;
-			console.log(`Searching Harvard Art Museums: ${harvardUrl}`);
+			log.debug('Searching Harvard Art Museums', { url: harvardUrl });
 
 			const harvardResponse = await fetch(harvardUrl);
 			const contentType = harvardResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("Harvard API returned non-JSON response");
+				log.warn('Harvard API returned non-JSON response');
 				return [];
 			}
 
 			const harvardData = await harvardResponse.json();
-			console.log(`Harvard search found ${harvardData.info?.totalrecords || 0} total results`);
+			log.debug('Harvard search results', { total: harvardData.info?.totalrecords || 0 });
 
 			if (!harvardData.records || harvardData.records.length === 0) {
 				return [];
@@ -476,11 +478,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 					source: "Harvard Art Museums"
 				}));
 
-			console.log(`Harvard returned ${harvardArtworks.length} artworks`);
+			log.debug('Harvard returned artworks', { count: harvardArtworks.length });
 			setCachedResult(cacheKey, harvardArtworks);
 			return harvardArtworks;
 		} catch (error) {
-			console.error("Error searching Harvard:", error.message);
+			log.error('Error searching Harvard', { error: error.message });
 			return [];
 		}
 	};
@@ -493,17 +495,17 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 
 		try {
 			const smithsonianUrl = `https://api.si.edu/openaccess/api/v1.0/search?q=${encodeURIComponent(query || "painting")}&rows=${targetCount * 2}&api_key=nqVVclBbPSvTQNlHGUTKfwj8xOxnCz7cPf0zQ3Xu`;
-			console.log(`Searching Smithsonian: ${smithsonianUrl}`);
+			log.debug('Searching Smithsonian', { url: smithsonianUrl });
 
 			const smithsonianResponse = await fetch(smithsonianUrl);
 			const contentType = smithsonianResponse.headers.get("content-type");
 			if (!contentType || !contentType.includes("application/json")) {
-				console.error("Smithsonian API returned non-JSON response");
+				log.warn('Smithsonian API returned non-JSON response');
 				return [];
 			}
 
 			const smithsonianData = await smithsonianResponse.json();
-			console.log(`Smithsonian search found ${smithsonianData.response?.rowCount || 0} total results`);
+			log.debug('Smithsonian search results', { total: smithsonianData.response?.rowCount || 0 });
 
 			if (!smithsonianData.response?.rows || smithsonianData.response.rows.length === 0) {
 				return [];
@@ -539,11 +541,11 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 					};
 				});
 
-			console.log(`Smithsonian returned ${smithsonianArtworks.length} artworks`);
+			log.debug('Smithsonian returned artworks', { count: smithsonianArtworks.length });
 			setCachedResult(cacheKey, smithsonianArtworks);
 			return smithsonianArtworks;
 		} catch (error) {
-			console.error("Error searching Smithsonian:", error.message);
+			log.error('Error searching Smithsonian', { error: error.message });
 			return [];
 		}
 	};
@@ -649,7 +651,7 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 	}
 
 	if (curatedResults.length > 0) {
-		console.log(`Found ${curatedResults.length} curated artworks matching "${query}"`);
+		log.debug('Found curated artworks', { count: curatedResults.length, query });
 	}
 
 	// Merge all results
@@ -681,7 +683,19 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 	// Apply offset and limit to sorted results
 	const paginatedResults = allResults.slice(offset, offset + targetCount);
 
-	console.log(`Returning ${paginatedResults.length} artworks (Met: ${metResults.length}, ARTIC: ${articResults.length}, CMA: ${cmaResults.length}, Rijks: ${rijksResults.length}, Wikimedia: ${wikimediaResults.length}, V&A: ${vamResults.length}, Harvard: ${harvardResults.length}, Smithsonian: ${smithsonianResults.length})`);
+	log.info('Art search complete', {
+		returned: paginatedResults.length,
+		sources: {
+			met: metResults.length,
+			artic: articResults.length,
+			cma: cmaResults.length,
+			rijks: rijksResults.length,
+			wikimedia: wikimediaResults.length,
+			vam: vamResults.length,
+			harvard: harvardResults.length,
+			smithsonian: smithsonianResults.length
+		}
+	});
 
 	return {
 		results: paginatedResults,

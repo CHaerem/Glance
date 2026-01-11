@@ -1,5 +1,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const { loggers } = require('./logger');
+const log = loggers.server;
 
 /**
  * Database service for storing and querying artwork embeddings
@@ -16,13 +18,13 @@ class EmbeddingDatabase {
         if (this.db) return;
 
         const fullPath = path.resolve(dbPath);
-        console.log(`Initializing embedding database: ${fullPath}`);
+        log.info('Initializing embedding database', { path: fullPath });
 
         this.db = new Database(fullPath);
         this.db.pragma('journal_mode = WAL'); // Better concurrency
 
         this.createTables();
-        console.log('✓ Embedding database initialized');
+        log.info('Embedding database initialized');
     }
 
     /**

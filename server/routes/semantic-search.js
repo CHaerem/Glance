@@ -7,6 +7,8 @@
 const express = require('express');
 const router = express.Router();
 const vectorSearch = require('../services/vector-search');
+const { loggers } = require('../services/logger');
+const log = loggers.api;
 
 /**
  * Search artworks by natural language query (text-to-image search)
@@ -21,7 +23,7 @@ router.post('/search', async (req, res) => {
             return res.status(400).json({ error: 'Query is required' });
         }
 
-        console.log(`Semantic search: "${query}"`);
+        log.debug('Semantic search', { query });
 
         // Search using vector similarity
         const results = await vectorSearch.searchByText(query, parseInt(limit));
@@ -45,7 +47,7 @@ router.post('/search', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Semantic search error:', error);
+        log.error('Semantic search error', { error: error.message });
 
         if (error.message.includes('Qdrant')) {
             return res.status(503).json({
@@ -71,7 +73,7 @@ router.post('/similar', async (req, res) => {
             return res.status(400).json({ error: 'artworkId is required' });
         }
 
-        console.log(`Finding similar to artwork: ${artworkId}`);
+        log.debug('Finding similar artwork', { artworkId });
 
         // Find visually similar artworks
         const results = await vectorSearch.searchSimilar(artworkId, parseInt(limit));
@@ -95,7 +97,7 @@ router.post('/similar', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Similar artwork error:', error);
+        log.error('Similar artwork error', { error: error.message });
 
         if (error.message === 'Artwork not found') {
             return res.status(404).json({ error: 'Artwork not found in vector database' });
@@ -114,7 +116,7 @@ router.get('/stats', async (req, res) => {
         const stats = await vectorSearch.getStats();
         res.json(stats);
     } catch (error) {
-        console.error('Stats error:', error);
+        log.error('Stats error', { error: error.message });
         res.status(500).json({ error: error.message });
     }
 });
@@ -145,7 +147,7 @@ router.get('/recommendations', async (req, res) => {
             });
         }
 
-        console.log(`Building taste profile from ${interactions.length} interactions...`);
+        log.debug('Building taste profile', { interactionCount: interactions.length });
 
         // Build taste profile by averaging embeddings
         const tasteVector = await buildTasteProfile(interactions);
@@ -157,7 +159,7 @@ router.get('/recommendations', async (req, res) => {
             with_payload: true
         });
 
-        console.log(`✓ Found ${results.length} personalized recommendations`);
+        log.debug('Found personalized recommendations', { count: results.length });
 
         res.json({
             results: results.map(r => ({
@@ -178,7 +180,7 @@ router.get('/recommendations', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Recommendations error:', error);
+        log.error('Recommendations error', { error: error.message });
         res.status(500).json({ error: error.message });
     }
 });
@@ -206,7 +208,7 @@ router.post('/interaction', async (req, res) => {
         res.json({ success: true });
 
     } catch (error) {
-        console.error('Interaction recording error:', error);
+        log.error('Interaction recording error', { error: error.message });
         res.status(500).json({ error: error.message });
     }
 });
@@ -232,7 +234,7 @@ router.post('/index', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Index error:', error);
+        log.error('Index error', { error: error.message });
         res.status(500).json({ error: error.message });
     }
 });
@@ -267,7 +269,7 @@ async function recordInteraction(artworkId, action) {
         await fs.mkdir(path.dirname(INTERACTIONS_FILE), { recursive: true });
         await fs.writeFile(INTERACTIONS_FILE, JSON.stringify(interactions, null, 2));
     } catch (error) {
-        console.error('Failed to record interaction:', error);
+        log.error('Failed to record interaction', { error: error.message });
     }
 }
 
@@ -298,7 +300,7 @@ async function buildTasteProfile(interactions) {
     // Get vectors for all interacted artworks
     const artworkIds = [...new Set(interactions.map(i => i.artworkId))];
 
-    console.log(`Fetching vectors for ${artworkIds.length} artworks...`);
+    log.debug('Fetching vectors for artworks', { count: artworkIds.length });
 
     const vectors = [];
     for (const artworkId of artworkIds) {
@@ -315,7 +317,7 @@ async function buildTasteProfile(interactions) {
                 vectors.push(result[0].vector);
             }
         } catch (err) {
-            console.warn(`Could not find vector for artwork ${artworkId}`);
+            log.warn('Could not find vector for artwork', { artworkId });
         }
     }
 
@@ -323,7 +325,7 @@ async function buildTasteProfile(interactions) {
         throw new Error('No vectors found for user interactions');
     }
 
-    console.log(`Averaging ${vectors.length} vectors to build taste profile...`);
+    log.debug('Averaging vectors for taste profile', { vectorCount: vectors.length });
 
     // Average all vectors to create taste profile
     const dimensions = vectors[0].length;

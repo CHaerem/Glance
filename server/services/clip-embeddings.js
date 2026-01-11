@@ -5,6 +5,8 @@ const {
     AutoProcessor,
     RawImage
 } = require('@xenova/transformers');
+const { loggers } = require('./logger');
+const log = loggers.api;
 
 /**
  * CLIP Embedding Service using Transformers.js
@@ -35,8 +37,7 @@ class CLIPEmbeddingService {
 
         this.initPromise = (async () => {
             try {
-                console.log('Loading CLIP model (this may take a minute on first run)...');
-                console.log('Model will be cached in ~/.cache/huggingface/');
+                log.info('Loading CLIP model', { note: 'This may take a minute on first run', cacheLocation: '~/.cache/huggingface/' });
 
                 // Load tokenizer for text
                 this.tokenizer = await AutoTokenizer.from_pretrained(this.model);
@@ -49,9 +50,9 @@ class CLIPEmbeddingService {
                 this.visionModel = await CLIPVisionModelWithProjection.from_pretrained(this.model);
 
                 this.initialized = true;
-                console.log('✓ CLIP model loaded and ready');
+                log.info('CLIP model loaded and ready');
             } catch (error) {
-                console.error('Failed to initialize CLIP model:', error);
+                log.error('Failed to initialize CLIP model', { error: error.message });
                 throw error;
             }
         })();
@@ -68,7 +69,7 @@ class CLIPEmbeddingService {
         await this.initialize();
 
         try {
-            console.log(`Generating embedding for image: ${imageUrl.substring(0, 60)}...`);
+            log.debug('Generating embedding for image', { imageUrl: imageUrl.substring(0, 60) });
 
             // Load and process image
             const image = await RawImage.fromURL(imageUrl);
@@ -86,11 +87,11 @@ class CLIPEmbeddingService {
             const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
             const normalized = embedding.map(val => val / magnitude);
 
-            console.log(`✓ Generated image embedding (${normalized.length} dimensions)`);
+            log.debug('Generated image embedding', { dimensions: normalized.length });
             return normalized;
 
         } catch (error) {
-            console.error('Image embedding error:', error.message);
+            log.error('Image embedding error', { error: error.message });
             throw error;
         }
     }
@@ -104,7 +105,7 @@ class CLIPEmbeddingService {
         await this.initialize();
 
         try {
-            console.log(`Generating embedding for text: "${text}"`);
+            log.debug('Generating embedding for text', { text });
 
             // Tokenize text
             const text_inputs = await this.tokenizer(text, { padding: true, truncation: true });
@@ -119,11 +120,11 @@ class CLIPEmbeddingService {
             const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
             const normalized = embedding.map(val => val / magnitude);
 
-            console.log(`✓ Generated text embedding (${normalized.length} dimensions)`);
+            log.debug('Generated text embedding', { dimensions: normalized.length });
             return normalized;
 
         } catch (error) {
-            console.error('Text embedding error:', error.message);
+            log.error('Text embedding error', { error: error.message });
             throw error;
         }
     }

@@ -8,6 +8,8 @@ const express = require('express');
 const { validateDeviceId, sanitizeInput } = require('../utils/validation');
 const { readJSONFile, writeJSONFile } = require('../utils/data-store');
 const { deviceLogs } = require('../utils/state');
+const { loggers } = require('../services/logger');
+const log = loggers.api;
 
 /**
  * Create log routes
@@ -53,11 +55,11 @@ function createLogRoutes() {
 
             await writeJSONFile('logs.json', allLogs);
 
-            console.log(`Log received from ${deviceId}: ${logs}`);
+            log.debug('Log received from device', { deviceId, logs });
 
             res.json({ success: true });
         } catch (error) {
-            console.error('Error storing logs:', error);
+            log.error('Error storing logs', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -91,10 +93,10 @@ function createLogRoutes() {
                 if (streamEvent === 'started') {
                     allStreams[deviceId].isStreaming = true;
                     allStreams[deviceId].lastActivity = Date.now();
-                    console.log(`Serial streaming started for device: ${deviceId}`);
+                    log.debug('Serial streaming started', { deviceId });
                 } else if (streamEvent === 'stopped') {
                     allStreams[deviceId].isStreaming = false;
-                    console.log(`Serial streaming stopped for device: ${deviceId}`);
+                    log.debug('Serial streaming stopped', { deviceId });
                 }
             } else if (serialOutput) {
                 // Handle actual serial output data
@@ -113,14 +115,14 @@ function createLogRoutes() {
                     allStreams[deviceId].chunks = allStreams[deviceId].chunks.slice(-100);
                 }
 
-                console.log(`Serial stream chunk received from ${deviceId}: ${serialOutput.length} chars`);
+                log.debug('Serial stream chunk received', { deviceId, length: serialOutput.length });
             }
 
             await writeJSONFile('serial-streams.json', allStreams);
 
             res.json({ success: true });
         } catch (error) {
-            console.error('Error storing serial stream:', error);
+            log.error('Error storing serial stream', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -142,7 +144,7 @@ function createLogRoutes() {
 
             res.json({ deviceId, logs });
         } catch (error) {
-            console.error('Error getting logs:', error);
+            log.error('Error getting logs', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -156,7 +158,7 @@ function createLogRoutes() {
             const allLogs = (await readJSONFile('logs.json')) || {};
             res.json(allLogs);
         } catch (error) {
-            console.error('Error getting all logs:', error);
+            log.error('Error getting all logs', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -187,7 +189,7 @@ function createLogRoutes() {
                 chunks
             });
         } catch (error) {
-            console.error('Error getting serial streams:', error);
+            log.error('Error getting serial streams', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -201,7 +203,7 @@ function createLogRoutes() {
             const allStreams = (await readJSONFile('serial-streams.json')) || {};
             res.json(allStreams);
         } catch (error) {
-            console.error('Error getting all serial streams:', error);
+            log.error('Error getting all serial streams', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -271,7 +273,7 @@ function createLogRoutes() {
                 total: filtered.length
             });
         } catch (error) {
-            console.error('Error getting combined logs:', error);
+            log.error('Error getting combined logs', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -347,7 +349,7 @@ function createLogRoutes() {
                 totalCycles: wakeCycles.length
             });
         } catch (error) {
-            console.error('Error getting wake cycle diagnostics:', error);
+            log.error('Error getting wake cycle diagnostics', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });

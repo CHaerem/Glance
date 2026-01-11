@@ -16,6 +16,10 @@ const { formatBuildDate, getOsloTime, getOsloTimestamp, isInNightSleep, calculat
 const { validateDeviceId, validateImageData, sanitizeInput, getRandomLuckyPrompt } = require("./utils/validation");
 const { ensureDataDir, ensureDir, readJSONFile, writeJSONFile, getDataDir } = require("./utils/data-store");
 
+// Structured logging
+const { loggers } = require("./services/logger");
+const log = loggers.server;
+
 // Services
 const imageProcessing = require("./services/image-processing");
 const statistics = require("./services/statistics");
@@ -86,7 +90,7 @@ const upload = multer({
 		if (mimetype || extname) {
 			return cb(null, true);
 		} else {
-			console.error(`Upload rejected: unsupported file type - name: ${file.originalname}, mime: ${file.mimetype}`);
+			log.warn('Upload rejected: unsupported file type', { filename: file.originalname, mime: file.mimetype });
 			cb(new Error(`Unsupported image format: ${file.mimetype || path.extname(file.originalname)}. Supported formats: JPEG, PNG, GIF, BMP, WebP, HEIC`));
 		}
 	},
@@ -104,28 +108,26 @@ app.use(express.static("public"));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 // HTTP request logging for Grafana/Loki
+const httpLog = loggers.api.child({ component: 'http' });
 app.use((req, res, next) => {
 	const start = Date.now();
 	res.on('finish', () => {
 		const duration = Date.now() - start;
 		// Skip health checks and metrics to reduce noise
 		if (req.path !== '/health' && req.path !== '/api/health' && req.path !== '/api/metrics') {
-			console.log(JSON.stringify({
-				level: 'info',
-				component: 'http',
+			httpLog.info('HTTP request', {
 				method: req.method,
 				path: req.path,
 				status: res.statusCode,
-				duration_ms: duration,
-				timestamp: new Date().toISOString()
-			}));
+				duration_ms: duration
+			});
 		}
 	});
 	next();
 });
 
 // Load statistics on startup
-statistics.loadStats().catch(err => console.error('Failed to load stats on startup:', err));
+statistics.loadStats().catch(err => log.error('Failed to load stats on startup', { error: err }));
 
 // Mount route modules
 app.use('/api/collections', collectionsRoutes);
@@ -182,11 +184,12 @@ app.use('/api/metrics', metricsRoutes);
 // Error handling middleware for multer and other errors
 app.use((err, req, res, _next) => {
 	// Log the error for debugging
-	console.error(`Request error: ${req.method} ${req.path}`, {
-		error: err.message,
+	log.error('Request error', {
+		method: req.method,
+		path: req.path,
+		error: err,
 		code: err.code,
-		field: err.field,
-		stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+		field: err.field
 	});
 
 	// Handle multer-specific errors
@@ -244,7 +247,7 @@ app.get("/", async (_req, res) => {
 
 		res.send(indexContent);
 	} catch (error) {
-		console.error('Error serving UI file:', error);
+		log.error('Error serving UI file', { error });
 		res.status(500).send(`
 			<html><body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
 				<h1>UI File Missing</h1>
@@ -280,7 +283,7 @@ app.get("/admin", async (_req, res) => {
 
 		res.send(adminContent);
 	} catch (error) {
-		console.error('Error serving admin file:', error);
+		log.error('Error serving admin file', { error });
 		res.status(500).send('Admin page not found');
 	}
 });
@@ -308,7 +311,7 @@ app.get("/preview", async (_req, res) => {
 
 		res.send(previewContent);
 	} catch (error) {
-		console.error('Error serving preview file:', error);
+		log.error('Error serving preview file', { error });
 		res.status(500).send('Preview page not found');
 	}
 });
@@ -344,12 +347,12 @@ async function sendBatteryNotification(deviceId, batteryPercent, batteryVoltage,
 		});
 
 		if (response.ok) {
-			console.log(`[Notification] Sent ${level} battery alert to webhook`);
+			log.info('Sent battery alert to webhook', { level, deviceId, batteryPercent });
 		} else {
-			console.error(`[Notification] Webhook failed: ${response.status}`);
+			log.error('Webhook failed', { status: response.status, level });
 		}
 	} catch (error) {
-		console.error(`[Notification] Failed to send webhook: ${error.message}`);
+		log.error('Failed to send webhook', { error });
 	}
 }
 
@@ -442,7 +445,7 @@ app.get("/api/device-logs-combined", async (req, res) => {
 			total: filtered.length
 		});
 	} catch (error) {
-		console.error("Error getting combined logs:", error);
+		log.error('Error getting combined logs', { error });
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
@@ -515,7 +518,7 @@ app.get("/api/wake-cycle-diagnostics", async (_req, res) => {
 			totalCycles: wakeCycles.length
 		});
 	} catch (error) {
-		console.error("Error getting wake cycle diagnostics:", error);
+		log.error('Error getting wake cycle diagnostics', { error });
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
@@ -562,10 +565,10 @@ const { data: rgbData, info } = await sharp(pngBuffer)
 		});
 		
 		res.send(rgbData);
-		console.log(`📍 Served Bhutan flag RGB data: ${rgbData.length} bytes`);
-		
+		log.info('Served Bhutan flag RGB data', { bytes: rgbData.length });
+
 	} catch (error) {
-		console.error("Error serving Bhutan flag:", error);
+		log.error('Error serving Bhutan flag', { error });
 		res.status(500).json({ error: "Failed to process Bhutan flag" });
 	}
 });
@@ -576,18 +579,17 @@ async function startServer() {
 	await ensureDir(UPLOAD_DIR);
 
 	app.listen(PORT, "0.0.0.0", () => {
-		console.log(`Glance server running on port ${PORT}`);
-		console.log(`Docker image version: ${IMAGE_VERSION} (built ${BUILD_DATE_HUMAN})`);
-		console.log(`Access the web interface at http://localhost:${PORT}`);
-		console.log(
-			`API endpoint for ESP32: http://localhost:${PORT}/api/current.json`
-		);
+		log.info('Glance server started', {
+			port: PORT,
+			version: IMAGE_VERSION,
+			buildDate: BUILD_DATE_HUMAN
+		});
 	});
 }
 
 // Only start server if not in test mode
 if (process.env.NODE_ENV !== 'test') {
-	startServer().catch(console.error);
+	startServer().catch(err => log.error('Failed to start server', { error: err }));
 }
 
 // Export for testing

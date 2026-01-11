@@ -12,6 +12,8 @@ const statistics = require('../services/statistics');
 const { readJSONFile, writeJSONFile } = require('../utils/data-store');
 const { getOsloTimestamp } = require('../utils/time');
 const { getServerLogs, getDeviceLogs } = require('../utils/state');
+const { loggers } = require('../services/logger');
+const log = loggers.server;
 
 /**
  * Create system routes
@@ -71,7 +73,7 @@ function createSystemRoutes({ imageVersion, buildDate, buildDateHuman }) {
             const stats = statistics.getStats(timeRange);
             res.json(stats);
         } catch (error) {
-            console.error("Error retrieving stats:", error);
+            log.error('Error retrieving stats', { error: error.message });
             res.status(500).json({ error: "Failed to retrieve statistics" });
         }
     });
@@ -85,7 +87,7 @@ function createSystemRoutes({ imageVersion, buildDate, buildDateHuman }) {
             await statistics.resetStats();
             res.json({ success: true, message: "Statistics reset successfully" });
         } catch (error) {
-            console.error("Error resetting stats:", error);
+            log.error('Error resetting stats', { error: error.message });
             res.status(500).json({ error: "Failed to reset statistics" });
         }
     });
@@ -171,7 +173,7 @@ function createSystemRoutes({ imageVersion, buildDate, buildDateHuman }) {
             };
             res.json(settings);
         } catch (error) {
-            console.error("Error reading settings:", error);
+            log.error('Error reading settings', { error: error.message });
             res.status(500).json({ error: "Failed to read settings" });
         }
     });
@@ -254,11 +256,15 @@ function createSystemRoutes({ imageVersion, buildDate, buildDateHuman }) {
                 await writeJSONFile("current.json", current);
             }
 
-            const nightSleepLog = existingSettings.nightSleepEnabled ? `, nightSleep=${existingSettings.nightSleepStartHour}:00-${existingSettings.nightSleepEndHour}:00` : '';
-            console.log(`Settings updated: sleep=${existingSettings.defaultSleepDuration}µs, devMode=${existingSettings.devMode}, orientation=${existingSettings.defaultOrientation}${nightSleepLog}`);
+            log.info('Settings updated', {
+                sleepDuration: existingSettings.defaultSleepDuration,
+                devMode: existingSettings.devMode,
+                orientation: existingSettings.defaultOrientation,
+                nightSleepEnabled: existingSettings.nightSleepEnabled
+            });
             res.json({ success: true, settings: existingSettings });
         } catch (error) {
-            console.error("Error updating settings:", error);
+            log.error('Error updating settings', { error: error.message });
             res.status(500).json({ error: "Failed to update settings" });
         }
     });

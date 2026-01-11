@@ -6,6 +6,8 @@
 const express = require('express');
 const router = express.Router();
 const { CURATED_COLLECTIONS } = require('../services/museum-api');
+const { loggers } = require('../services/logger');
+const log = loggers.api;
 
 /**
  * Get curated collections list
@@ -22,7 +24,7 @@ router.get('/', (req, res) => {
 
         res.json({ collections });
     } catch (error) {
-        console.error("Error getting collections:", error);
+        log.error('Error getting collections', { error: error.message });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -61,7 +63,7 @@ router.get('/:collectionId', (req, res) => {
             artworks: artworks
         });
     } catch (error) {
-        console.error("Error getting collection:", error);
+        log.error('Error getting collection', { error: error.message });
         res.status(500).json({ error: "Internal server error" });
     }
 });

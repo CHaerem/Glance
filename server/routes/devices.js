@@ -10,6 +10,7 @@ const { validateDeviceId, sanitizeInput } = require('../utils/validation');
 const { readJSONFile, writeJSONFile } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
 const { loggers } = require('../services/logger');
+const log = loggers.device;
 
 /**
  * Send low battery notification via webhook
@@ -44,12 +45,12 @@ async function sendBatteryNotification(deviceId, batteryPercent, batteryVoltage,
         });
 
         if (!response.ok) {
-            console.error(`Battery notification webhook failed: ${response.status}`);
+            log.error('Battery notification webhook failed', { status: response.status });
         } else {
-            console.log(`Battery notification sent for ${deviceId}: ${level}`);
+            log.info('Battery notification sent', { deviceId, level });
         }
     } catch (error) {
-        console.error('Error sending battery notification:', error);
+        log.error('Error sending battery notification', { error: error.message });
     }
 }
 
@@ -76,7 +77,7 @@ function createDeviceRoutes() {
             if (status.usedFallback === true) {
                 const settings = (await readJSONFile('settings.json')) || {};
                 if (settings.devMode) {
-                    console.log(`[Dev Mode] Device ${deviceId} couldn't reach dev server ${settings.devServerHost}, auto-disabling dev mode`);
+                    log.info('Dev mode disabled - device used fallback', { deviceId, devServerHost: settings.devServerHost });
                     addDeviceLog(`Dev server ${settings.devServerHost} unreachable, disabled dev mode`);
 
                     settings.devMode = false;
@@ -522,7 +523,7 @@ function createDeviceRoutes() {
 
             res.json({ success: true });
         } catch (error) {
-            console.error('Error updating device status:', error);
+            log.error('Error updating device status', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -687,7 +688,7 @@ function createDeviceRoutes() {
                 currentImage: current.title || null
             });
         } catch (error) {
-            console.error('Error getting ESP32 status:', error);
+            log.error('Error getting ESP32 status', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -740,7 +741,7 @@ function createDeviceRoutes() {
 
             await writeJSONFile('commands.json', commands);
 
-            console.log(`Command '${command}' sent to device: ${deviceId}`);
+            log.info('Command sent to device', { command, deviceId });
 
             const message = isRecentlyActive
                 ? `Command sent to ${deviceId}`
@@ -753,7 +754,7 @@ function createDeviceRoutes() {
                 lastSeen: devices[deviceId].lastSeen,
             });
         } catch (error) {
-            console.error('Error sending device command:', error);
+            log.error('Error sending device command', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -781,7 +782,7 @@ function createDeviceRoutes() {
 
             res.json({ commands: deviceCommands });
         } catch (error) {
-            console.error('Error getting commands:', error);
+            log.error('Error getting commands', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -795,7 +796,7 @@ function createDeviceRoutes() {
             const devices = (await readJSONFile('devices.json')) || {};
             res.json(devices);
         } catch (error) {
-            console.error('Error getting devices:', error);
+            log.error('Error getting devices', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });

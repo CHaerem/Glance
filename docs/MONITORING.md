@@ -177,6 +177,79 @@ cd ~/monitoring
 docker compose up -d
 ```
 
+## Structured Logging
+
+The server uses structured JSON logging optimized for Loki ingestion.
+
+### Logger Service
+
+**File:** `server/services/logger.js`
+
+```javascript
+const { loggers } = require('./services/logger');
+
+// Component-specific loggers
+loggers.server.info('Server started', { port: 3000 });
+loggers.api.info('Art search complete', { returned: 5, source: 'met' });
+loggers.device.info('Device status received', { deviceId: 'esp32-001' });
+loggers.ota.info('Firmware update started', { version: 'abc123' });
+loggers.image.info('Image processed', { width: 1200, height: 1600 });
+```
+
+### Log Format
+
+Logs are output as single-line JSON for Loki parsing:
+
+```json
+{"timestamp":"2026-01-11T14:07:31.522Z","ts":1736604451522,"level":"INFO","service":"glance-server","component":"api","message":"Art search complete","returned":5}
+```
+
+### Component Loggers
+
+| Logger | Component | Usage |
+|--------|-----------|-------|
+| `loggers.server` | server | Startup, settings, system events |
+| `loggers.api` | api | Art search, museum APIs, semantic search |
+| `loggers.device` | device | Device status, commands |
+| `loggers.ota` | ota | Firmware updates, version tracking |
+| `loggers.image` | image | Image processing, uploads |
+| `loggers.battery` | battery | Battery monitoring |
+
+### Log Levels
+
+Configurable via `LOG_LEVEL` environment variable:
+
+| Level | Value | Description |
+|-------|-------|-------------|
+| DEBUG | 0 | Verbose debugging info |
+| INFO | 1 | Normal operations (default) |
+| WARN | 2 | Warnings |
+| ERROR | 3 | Errors only |
+
+```bash
+# Set log level in docker-compose.yml
+environment:
+  - LOG_LEVEL=DEBUG
+```
+
+### Querying Logs in Grafana
+
+Example LogQL queries:
+
+```logql
+# All errors from glance-server
+{container="glance-server"} |= "ERROR"
+
+# Parsed JSON - filter by component
+{container="glance-server"} | json | component="api"
+
+# Parsed JSON - filter by level
+{container="glance-server"} | json | level="ERROR"
+
+# Search specific message
+{container="glance-server"} | json | message=~".*search.*"
+```
+
 ## Available Metrics
 
 The Glance server exposes these Prometheus metrics at `/metrics`:

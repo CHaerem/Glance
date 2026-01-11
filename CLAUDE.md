@@ -49,7 +49,8 @@ Glance/
 │   │   ├── semantic-search.js    # Vector similarity search
 │   │   ├── system.js             # Health, settings, build info
 │   │   └── upload.js             # Upload, AI generation
-│   ├── services/                 # Business logic (7 modules)
+│   ├── services/                 # Business logic (8 modules)
+│   │   ├── logger.js             # Structured JSON logging for Loki
 │   │   ├── image-processing.js   # Dithering, color conversion
 │   │   ├── museum-api.js         # Museum search orchestration
 │   │   ├── statistics.js         # API tracking, pricing
@@ -250,6 +251,7 @@ Test suites in `server/__tests__/`:
 - `OPENAI_API_KEY` - For AI art generation
 - `HF_TOKEN` - Hugging Face (optional, for private models)
 - `QDRANT_URL` - Vector database URL
+- `LOG_LEVEL` - Logging level: DEBUG, INFO (default), WARN, ERROR
 
 ### ESP32 (build time)
 - `WIFI_SSID` - WiFi network name
@@ -333,6 +335,10 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 
 ## Recent Changes
 
+- **Structured logging**: Migrated all console.log to structured JSON logging for Loki
+  - Component-based loggers (server, api, device, ota, image, battery)
+  - JSON output format for Grafana Cloud Loki ingestion
+  - Configurable log levels via LOG_LEVEL environment variable
 - **Power system upgrade**: Replaced LiPo Amigo Pro + MiniBoost with PowerBoost 1000C
   - Solved brownout issues during display refresh on battery
   - Voltage divider ratio recalibrated to 8.3 for new setup

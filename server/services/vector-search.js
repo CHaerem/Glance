@@ -1,6 +1,8 @@
 const { QdrantClient } = require('@qdrant/js-client-rest');
 const clipEmbeddings = require('./clip-embeddings');
 const crypto = require('crypto');
+const { loggers } = require('./logger');
+const log = loggers.api;
 
 /**
  * Vector Search Service
@@ -23,7 +25,7 @@ class VectorSearchService {
         const qdrantUrl = process.env.QDRANT_URL || 'http://localhost:6333';
 
         try {
-            console.log(`Connecting to Qdrant at ${qdrantUrl}...`);
+            log.info('Connecting to Qdrant', { url: qdrantUrl });
             this.client = new QdrantClient({ url: qdrantUrl });
 
             // Check if collection exists
@@ -33,24 +35,23 @@ class VectorSearchService {
             );
 
             if (!collectionExists) {
-                console.log(`Creating collection: ${this.collectionName}`);
+                log.info('Creating collection', { collection: this.collectionName });
                 await this.client.createCollection(this.collectionName, {
                     vectors: {
                         size: this.vectorSize,
                         distance: 'Cosine'
                     }
                 });
-                console.log('✓ Collection created');
+                log.info('Collection created');
             } else {
-                console.log('✓ Collection already exists');
+                log.debug('Collection already exists');
             }
 
             this.initialized = true;
-            console.log('✓ Vector search service ready');
+            log.info('Vector search service ready');
 
         } catch (error) {
-            console.error('Failed to initialize Qdrant:', error.message);
-            console.error('Make sure Qdrant is running: docker run -p 6333:6333 qdrant/qdrant');
+            log.error('Failed to initialize Qdrant', { error: error.message, hint: 'Make sure Qdrant is running: docker run -p 6333:6333 qdrant/qdrant' });
             throw error;
         }
     }
@@ -84,7 +85,7 @@ class VectorSearchService {
         await clipEmbeddings.initialize();
 
         try {
-            console.log(`Indexing artwork: ${artwork.title} by ${artwork.artist}`);
+            log.debug('Indexing artwork', { title: artwork.title, artist: artwork.artist });
 
             // Generate embedding for artwork image
             const embedding = await clipEmbeddings.embedImage(artwork.imageUrl);
@@ -112,11 +113,10 @@ class VectorSearchService {
                 ]
             });
 
-            console.log(`✓ Indexed: ${artwork.title}`);
+            log.debug('Artwork indexed', { title: artwork.title });
 
         } catch (error) {
-            console.error(`Failed to index ${artwork.title}:`, error.message);
-            console.error('Full error:', error);
+            log.error('Failed to index artwork', { title: artwork.title, error: error.message });
             throw error;
         }
     }
@@ -132,7 +132,7 @@ class VectorSearchService {
         await clipEmbeddings.initialize();
 
         try {
-            console.log(`Text search: "${query}"`);
+            log.debug('Text search', { query });
 
             // Generate embedding for query text
             const queryEmbedding = await clipEmbeddings.embedText(query);
@@ -144,7 +144,7 @@ class VectorSearchService {
                 with_payload: true
             });
 
-            console.log(`✓ Found ${results.length} results (top score: ${results[0]?.score?.toFixed(3)})`);
+            log.debug('Text search results', { count: results.length, topScore: results[0]?.score?.toFixed(3) });
 
             return results.map(hit => ({
                 id: hit.payload.artworkId || hit.id, // Use artworkId from payload
@@ -153,7 +153,7 @@ class VectorSearchService {
             }));
 
         } catch (error) {
-            console.error('Text search error:', error.message);
+            log.error('Text search error', { error: error.message });
             throw error;
         }
     }
@@ -168,7 +168,7 @@ class VectorSearchService {
         await this.initialize();
 
         try {
-            console.log(`Finding similar to artwork ID: ${artworkId}`);
+            log.debug('Finding similar artworks', { artworkId });
 
             // Convert artwork ID to Qdrant point ID (UUID)
             const pointId = this.generatePointId(artworkId);
@@ -195,7 +195,7 @@ class VectorSearchService {
             // Filter out the source artwork itself
             const filtered = results.filter(hit => hit.payload.artworkId !== artworkId);
 
-            console.log(`✓ Found ${filtered.length} similar artworks`);
+            log.debug('Similar artworks found', { count: filtered.length });
 
             return filtered.slice(0, limit).map(hit => ({
                 id: hit.payload.artworkId || hit.id,
@@ -204,7 +204,7 @@ class VectorSearchService {
             }));
 
         } catch (error) {
-            console.error('Similar search error:', error.message);
+            log.error('Similar search error', { error: error.message });
             throw error;
         }
     }
@@ -224,7 +224,7 @@ class VectorSearchService {
                 model: 'CLIP ViT-B/32'
             };
         } catch (error) {
-            console.error('Stats error:', error.message);
+            log.error('Stats error', { error: error.message });
             return {
                 totalArtworks: 0,
                 vectorSize: this.vectorSize,

@@ -11,6 +11,8 @@
 const express = require('express');
 const os = require('os');
 const { readJSONFile } = require('../utils/data-store');
+const { loggers } = require('../services/logger');
+const log = loggers.server;
 
 const router = express.Router();
 
@@ -329,7 +331,7 @@ router.get('/', async (_req, res) => {
         res.send(metrics.join('\n\n') + '\n');
 
     } catch (error) {
-        console.error('Error generating metrics:', error);
+        log.error('Error generating metrics', { error: error.message });
         res.status(500).send('# Error generating metrics\n');
     }
 });

@@ -14,6 +14,8 @@ const { validateImageData, sanitizeInput } = require('../utils/validation');
 const { readJSONFile, writeJSONFile, ensureDir } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
 const imageProcessing = require('../services/image-processing');
+const { loggers } = require('../services/logger');
+const log = loggers.api;
 
 // Spectra 6 palette for preview info
 const SPECTRA_6_PALETTE = [
@@ -77,7 +79,7 @@ function createImageRoutes({ upload, uploadDir }) {
                         playlist.lastUpdate = now;
                         await writeJSONFile('playlist.json', playlist);
 
-                        console.log(`Playlist advanced to image ${nextImageId} (${playlist.mode} mode)`);
+                        log.debug('Playlist advanced', { nextImageId, mode: playlist.mode });
                     }
                 }
             }
@@ -114,11 +116,11 @@ function createImageRoutes({ upload, uploadDir }) {
             };
 
             const nightSleepLog = nightSleepActive ? ' [night sleep]' : '';
-            console.log(`Serving metadata: hasImage=${metadata.hasImage}, imageId=${metadata.imageId}, sleep=${metadata.sleepDuration}us, devServer=${devServerHost || 'none'}${nightSleepLog}`);
+            log.debug('Serving metadata', { hasImage: metadata.hasImage, imageId: metadata.imageId, sleepDuration: metadata.sleepDuration, devServer: devServerHost, nightSleep: nightSleepActive });
             addDeviceLog(`Device fetched image metadata: ${metadata.imageId} (sleep: ${Math.round(metadata.sleepDuration/60000000)}min)${devServerHost ? ' [dev mode]' : ''}${nightSleepLog}`);
             res.json(metadata);
         } catch (error) {
-            console.error('Error getting current:', error);
+            log.error('Error getting current', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -143,10 +145,10 @@ function createImageRoutes({ upload, uploadDir }) {
             });
 
             // Return full data including image for web UI
-            console.log(`Serving full current data for web UI: imageId=${current.imageId}`);
+            log.debug('Serving full current data for web UI', { imageId: current.imageId });
             res.json(current);
         } catch (error) {
-            console.error('Error getting current full:', error);
+            log.error('Error getting current full', { error: error.message });
             res.status(500).json({ error: 'Internal server error' });
         }
     });
@@ -163,7 +165,7 @@ function createImageRoutes({ upload, uploadDir }) {
                 return res.status(404).send('No image available');
             }
 
-            console.log('Serving raw binary image data for PSRAM streaming');
+            log.debug('Serving raw binary image data for PSRAM streaming');
 
             // Convert base64 to binary buffer
             const binaryData = Buffer.from(current.image, 'base64');
@@ -175,12 +177,12 @@ function createImageRoutes({ upload, uploadDir }) {
                 'Cache-Control': 'no-cache'
             });
 
-            console.log(`Sending ${binaryData.length} bytes of raw image data`);
+            log.debug('Sending raw image data', { bytes: binaryData.length });
             addDeviceLog(`Device downloaded image data: ${(binaryData.length / 1024 / 1024).toFixed(2)}MB`);
             res.send(binaryData);
 
         } catch (error) {
-            console.error('Error serving binary image:', error);
+            log.error('Error serving binary image', { error: error.message });
             res.status(500).send('Error serving binary image');
         }
     });
@@ -222,7 +224,7 @@ function createImageRoutes({ upload, uploadDir }) {
 
                     // Convert to RGB format for ESP32 processing
                     const rgbBuffer = await imageProcessing.convertImageToRGB(tempPath, 0, 1200, 1600);
-                    console.log(`RGB buffer size: ${rgbBuffer.length} bytes`);
+                    log.debug('RGB buffer converted', { bytes: rgbBuffer.length });
                     imageData = rgbBuffer.toString('base64');
 
                     // Clean up temp file
@@ -244,11 +246,11 @@ function createImageRoutes({ upload, uploadDir }) {
             await writeJSONFile('current.json', current);
 
             // Log the update
-            console.log(`Image updated: ${sanitizedTitle} (${current.imageId})`);
+            log.info('Image updated', { title: sanitizedTitle, imageId: current.imageId });
 
             res.json({ success: true, current });
         } catch (error) {
-            console.error('Error updating current:', error);
+            log.error('Error updating current', { error: error.message });
             res.status(500).json({ error: 'Internal server error: ' + error.message });
         }
     });
@@ -263,7 +265,7 @@ function createImageRoutes({ upload, uploadDir }) {
                 return res.status(400).json({ error: 'No file uploaded' });
             }
 
-            console.log(`Generating art gallery preview for: ${req.file.originalname}`);
+            log.debug('Generating art gallery preview', { filename: req.file.originalname });
 
             // Get dithering options from request
             const ditherAlgorithm = req.body.ditherAlgorithm || 'floyd-steinberg';
@@ -305,7 +307,7 @@ function createImageRoutes({ upload, uploadDir }) {
                 }
             });
         } catch (error) {
-            console.error('Error generating art gallery preview:', error);
+            log.error('Error generating art gallery preview', { error: error.message });
             if (req.file?.path) {
                 try {
                     await fs.unlink(req.file.path);
@@ -357,10 +359,10 @@ function createImageRoutes({ upload, uploadDir }) {
             });
 
             res.send(rgbData);
-            console.log(`Served Bhutan flag RGB data: ${rgbData.length} bytes`);
+            log.debug('Served Bhutan flag RGB data', { bytes: rgbData.length });
 
         } catch (error) {
-            console.error('Error serving Bhutan flag:', error);
+            log.error('Error serving Bhutan flag', { error: error.message });
             res.status(500).json({ error: 'Failed to process Bhutan flag' });
         }
     });

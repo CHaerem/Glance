@@ -1,4 +1,6 @@
 const { HfInference } = require('@huggingface/inference');
+const { loggers } = require('./logger');
+const log = loggers.api;
 
 /**
  * SigLIP 2 Embedding Service
@@ -19,13 +21,13 @@ class SigLIPService {
 
         const hfToken = process.env.HF_TOKEN;
         if (!hfToken) {
-            console.warn('HF_TOKEN not set - SigLIP embeddings will not be available');
+            log.warn('HF_TOKEN not set - SigLIP embeddings will not be available');
             return;
         }
 
         this.hf = new HfInference(hfToken);
         this.initialized = true;
-        console.log('✓ SigLIP service initialized');
+        log.info('SigLIP service initialized');
     }
 
     /**
@@ -41,7 +43,7 @@ class SigLIPService {
         }
 
         try {
-            console.log(`Generating embedding for image: ${imageUrl.substring(0, 50)}...`);
+            log.debug('Generating embedding for image', { imageUrl: imageUrl.substring(0, 50) });
 
             // Fetch image
             const response = await fetch(imageUrl);
@@ -60,11 +62,11 @@ class SigLIPService {
             // Convert to array if needed
             const embeddingArray = Array.isArray(embedding) ? embedding : Array.from(embedding);
 
-            console.log(`✓ Generated embedding (${embeddingArray.length} dimensions)`);
+            log.debug('Generated embedding', { dimensions: embeddingArray.length });
             return embeddingArray;
 
         } catch (error) {
-            console.error('Image embedding error:', error.message);
+            log.error('Image embedding error', { error: error.message });
             throw error;
         }
     }
@@ -82,7 +84,7 @@ class SigLIPService {
         }
 
         try {
-            console.log(`Generating embedding for text: "${text}"`);
+            log.debug('Generating embedding for text', { text });
 
             const embedding = await this.hf.featureExtraction({
                 model: this.model,
@@ -92,11 +94,11 @@ class SigLIPService {
             // Convert to array if needed
             const embeddingArray = Array.isArray(embedding) ? embedding : Array.from(embedding);
 
-            console.log(`✓ Generated text embedding (${embeddingArray.length} dimensions)`);
+            log.debug('Generated text embedding', { dimensions: embeddingArray.length });
             return embeddingArray;
 
         } catch (error) {
-            console.error('Text embedding error:', error.message);
+            log.error('Text embedding error', { error: error.message });
             throw error;
         }
     }
@@ -131,7 +133,7 @@ class SigLIPService {
      * @returns {Array} Sorted array of artworks with similarity scores
      */
     findSimilar(queryEmbedding, artworkEmbeddings, limit = 20) {
-        console.log(`Finding similar artworks (${artworkEmbeddings.length} candidates)`);
+        log.debug('Finding similar artworks', { candidates: artworkEmbeddings.length });
 
         // Calculate similarity for each artwork
         const scored = artworkEmbeddings.map(art => ({
@@ -143,7 +145,7 @@ class SigLIPService {
         scored.sort((a, b) => b.similarity - a.similarity);
 
         const results = scored.slice(0, limit);
-        console.log(`✓ Found ${results.length} similar artworks (top score: ${results[0]?.similarity?.toFixed(3)})`);
+        log.debug('Similar artworks found', { count: results.length, topScore: results[0]?.similarity?.toFixed(3) });
 
         return results;
     }

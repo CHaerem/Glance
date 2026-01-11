@@ -11,6 +11,8 @@ const { v4: uuidv4 } = require('uuid');
 const imageProcessing = require('../services/image-processing');
 const { readJSONFile, writeJSONFile, ensureDir } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
+const { loggers } = require('../services/logger');
+const log = loggers.api;
 
 /**
  * Create history routes
@@ -30,7 +32,7 @@ function createHistoryRoutes({ uploadDir }) {
             const history = (await readJSONFile("history.json")) || [];
             res.json(history);
         } catch (error) {
-            console.error("Error getting history:", error);
+            log.error('Error getting history', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -50,7 +52,7 @@ function createHistoryRoutes({ uploadDir }) {
 
             res.json(imagesArchive[imageId]);
         } catch (error) {
-            console.error("Error getting image:", error);
+            log.error('Error getting image', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -85,7 +87,7 @@ function createHistoryRoutes({ uploadDir }) {
                     return res.status(400).json({ error: "Cannot reprocess image: original not available" });
                 }
 
-                console.log(`Regenerating processed image for ${imageId} with rotation ${rotationDegrees}°, crop (${cropXVal}%, ${cropYVal}%), zoom ${zoomVal}x...`);
+                log.debug('Regenerating processed image', { imageId, rotation: rotationDegrees, cropX: cropXVal, cropY: cropYVal, zoom: zoomVal });
 
                 const originalBuffer = Buffer.from(imageData.originalImage, 'base64');
                 const tempPath = path.join(uploadDir, `reload-${Date.now()}.png`);
@@ -128,12 +130,12 @@ function createHistoryRoutes({ uploadDir }) {
             };
 
             await writeJSONFile("current.json", currentData);
-            console.log(`Loaded image ${imageId} from history: ${imageData.title} (rotation: ${rotationDegrees}°)`);
+            log.info('Loaded image from history', { imageId, title: imageData.title, rotation: rotationDegrees });
             addDeviceLog(`Applied image from history: "${imageData.title || imageId}" (rotation: ${rotationDegrees}°)`);
 
             res.json({ success: true, current: currentData });
         } catch (error) {
-            console.error("Error loading from history:", error);
+            log.error('Error loading from history', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -160,11 +162,11 @@ function createHistoryRoutes({ uploadDir }) {
             delete imagesArchive[imageId];
             await writeJSONFile("images.json", imagesArchive);
 
-            console.log(`Deleted image ${imageId} from history and archive`);
+            log.info('Deleted image from history', { imageId });
 
             res.json({ success: true, message: "Image deleted from history" });
         } catch (error) {
-            console.error("Error deleting from history:", error);
+            log.error('Error deleting from history', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -194,7 +196,7 @@ function createHistoryRoutes({ uploadDir }) {
 
             res.json(myCollection);
         } catch (error) {
-            console.error("Error getting my collection:", error);
+            log.error('Error getting my collection', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -233,7 +235,7 @@ function createHistoryRoutes({ uploadDir }) {
             collection.unshift(collectionItem);
             await writeJSONFile("my-collection.json", collection);
 
-            console.log(`Added "${title}" by ${artist} to collection`);
+            log.info('Added to collection', { title, artist });
 
             res.json({
                 success: true,
@@ -241,7 +243,7 @@ function createHistoryRoutes({ uploadDir }) {
                 item: collectionItem
             });
         } catch (error) {
-            console.error("Error adding to collection:", error);
+            log.error('Error adding to collection', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -263,11 +265,11 @@ function createHistoryRoutes({ uploadDir }) {
             }
 
             await writeJSONFile("my-collection.json", collection);
-            console.log(`Removed item ${id} from collection`);
+            log.info('Removed from collection', { id });
 
             res.json({ success: true, message: "Removed from collection" });
         } catch (error) {
-            console.error("Error removing from collection:", error);
+            log.error('Error removing from collection', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -326,7 +328,7 @@ function createHistoryRoutes({ uploadDir }) {
 
             const duplicatesRemoved = validImages.length - dedupedImages.length;
             if (duplicatesRemoved > 0) {
-                console.log(`Playlist: removed ${duplicatesRemoved} duplicate image(s)`);
+                log.debug('Playlist: removed duplicate images', { duplicatesRemoved });
             }
 
             const playlistConfig = {
@@ -356,7 +358,7 @@ function createHistoryRoutes({ uploadDir }) {
                 };
 
                 await writeJSONFile("current.json", currentData);
-                console.log(`Started playlist with ${dedupedImages.length} images, first image: ${firstImageId}`);
+                log.info('Started playlist', { imageCount: dedupedImages.length, firstImageId });
             }
 
             res.json({
@@ -365,7 +367,7 @@ function createHistoryRoutes({ uploadDir }) {
                 config: playlistConfig
             });
         } catch (error) {
-            console.error("Error creating playlist:", error);
+            log.error('Error creating playlist', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -379,7 +381,7 @@ function createHistoryRoutes({ uploadDir }) {
             const playlist = await readJSONFile("playlist.json");
             res.json(playlist || { active: false, images: [], mode: 'sequential', interval: 3600000000 });
         } catch (error) {
-            console.error("Error getting playlist:", error);
+            log.error('Error getting playlist', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -408,11 +410,11 @@ function createHistoryRoutes({ uploadDir }) {
             }
 
             await writeJSONFile("playlist.json", playlist);
-            console.log(`Playlist updated: active=${playlist.active}, mode=${playlist.mode}`);
+            log.info('Playlist updated', { active: playlist.active, mode: playlist.mode });
 
             res.json(playlist);
         } catch (error) {
-            console.error("Error updating playlist:", error);
+            log.error('Error updating playlist', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });
@@ -424,10 +426,10 @@ function createHistoryRoutes({ uploadDir }) {
     router.delete('/playlist', async (_req, res) => {
         try {
             await writeJSONFile("playlist.json", { active: false, images: [], mode: 'sequential', interval: 3600000000 });
-            console.log("Playlist cleared");
+            log.info('Playlist cleared');
             res.json({ success: true, message: "Playlist cleared" });
         } catch (error) {
-            console.error("Error deleting playlist:", error);
+            log.error('Error deleting playlist', { error: error.message });
             res.status(500).json({ error: "Internal server error" });
         }
     });

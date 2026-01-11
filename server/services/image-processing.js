@@ -4,6 +4,8 @@
  */
 
 const sharp = require("sharp");
+const { loggers } = require('./logger');
+const log = loggers.image;
 
 // E-ink color palette for Waveshare 13.3" Spectra 6 (hardware colors - do not change RGB values)
 const EINK_PALETTE = [
@@ -151,7 +153,7 @@ class ImageProcessingService {
                 ...color,
                 lab: this.rgbToLab(color.r, color.g, color.b)
             }));
-            console.log('Pre-computed LAB values for Spectra 6 palette');
+            log.debug('Pre-computed LAB values for Spectra 6 palette');
         }
     }
 
@@ -215,7 +217,7 @@ class ImageProcessingService {
      * Adaptive color mapping that analyzes the image content
      */
     createAdaptiveColorMapper(imageBuffer, width, height) {
-        console.log("Analyzing image colors for adaptive mapping...");
+        log.debug('Analyzing image colors for adaptive mapping');
 
         const colorStats = {
             brightness: { min: 255, max: 0, avg: 0 },
@@ -254,7 +256,7 @@ class ImageProcessingService {
         colorStats.brightness.avg = totalBrightness / pixelCount;
         colorStats.saturation.avg = totalSaturation / pixelCount;
 
-        console.log("Image analysis:", {
+        log.debug('Image analysis complete', {
             brightnessRange: [colorStats.brightness.min, colorStats.brightness.max],
             avgBrightness: colorStats.brightness.avg,
             avgSaturation: colorStats.saturation.avg,
@@ -339,7 +341,7 @@ class ImageProcessingService {
      * Boost saturation to compensate for limited e-ink color palette
      */
     boostSaturation(imageData, boostFactor = 1.3) {
-        console.log(`Boosting saturation by ${boostFactor}x for more vibrant colors...`);
+        log.debug('Boosting saturation', { boostFactor });
         const boostedData = new Uint8ClampedArray(imageData);
 
         for (let i = 0; i < boostedData.length; i += 3) {
@@ -399,7 +401,7 @@ class ImageProcessingService {
      * Art-optimized dithering algorithms for E Ink Spectra 6
      */
     applyDithering(imageData, width, height, algorithm = 'floyd-steinberg', saturationBoost = 1.3) {
-        console.log(`Applying ${algorithm} dithering for art reproduction...`);
+        log.debug('Applying dithering', { algorithm });
 
         // Clear color cache before each image
         this.colorCache.clear();
@@ -465,8 +467,7 @@ class ImageProcessingService {
         const totalPixels = width * height;
         const uniqueColors = this.colorCache.size;
         const cacheHitRate = ((totalPixels - uniqueColors) / totalPixels * 100).toFixed(1);
-        console.log(`${algorithm} dithering completed for art optimization`);
-        console.log(`Color cache efficiency: ${uniqueColors} unique colors from ${totalPixels} pixels (${cacheHitRate}% cache hit rate)`);
+        log.debug('Dithering completed', { algorithm, uniqueColors, totalPixels, cacheHitRate: `${cacheHitRate}%` });
 
         return Buffer.from(ditheredData);
     }
@@ -476,7 +477,7 @@ class ImageProcessingService {
      */
     async convertImageToRGB(imagePath, rotation = 0, targetWidth = 1200, targetHeight = 1600, options = {}) {
         try {
-            console.log(`Processing image for art gallery display: ${imagePath} (rotation: ${rotation}°)`);
+            log.debug('Processing image for art gallery display', { imagePath, rotation });
 
             const {
                 ditherAlgorithm = 'floyd-steinberg',
@@ -500,9 +501,9 @@ class ImageProcessingService {
             if (autoCropWhitespace) {
                 try {
                     sharpPipeline = sharpPipeline.trim({ threshold: 25 });
-                    console.log('Auto-cropped whitespace margins from AI image');
+                    log.debug('Auto-cropped whitespace margins from AI image');
                 } catch (trimError) {
-                    console.log('No significant whitespace to crop');
+                    log.debug('No significant whitespace to crop');
                 }
             }
 
@@ -531,7 +532,7 @@ class ImageProcessingService {
                     height: Math.min(visibleHeight, imgHeight - extractY)
                 });
 
-                console.log(`Applied crop/zoom: zoom=${zoomLevel}, position=(${cropX}%, ${cropY}%), extract=${visibleWidth}x${visibleHeight} at (${extractX}, ${extractY})`);
+                log.debug('Applied crop/zoom', { zoomLevel, cropX, cropY, extractWidth: visibleWidth, extractHeight: visibleHeight, extractX, extractY });
             }
 
             sharpPipeline = sharpPipeline
@@ -558,7 +559,7 @@ class ImageProcessingService {
             if (info.channels !== 3) {
                 throw new Error(`Expected 3 channels (RGB), got ${info.channels}`);
             }
-            console.log(`Art preprocessing complete: ${info.width}x${info.height}, ${imageBuffer.length / 3} pixels`);
+            log.debug('Art preprocessing complete', { width: info.width, height: info.height, pixels: imageBuffer.length / 3 });
 
             if (info.width !== targetWidth || info.height !== targetHeight) {
                 throw new Error(`Unexpected dimensions: got ${info.width}x${info.height}, expected ${targetWidth}x${targetHeight}`);
@@ -566,11 +567,11 @@ class ImageProcessingService {
 
             const ditheredBuffer = this.applyDithering(imageBuffer, targetWidth, targetHeight, ditherAlgorithm);
 
-            console.log(`Art gallery image ready: ${targetWidth}x${targetHeight}, algorithm: ${ditherAlgorithm}, rotation: ${rotation}°`);
+            log.info('Art gallery image ready', { width: targetWidth, height: targetHeight, algorithm: ditherAlgorithm, rotation });
             return ditheredBuffer;
 
         } catch (error) {
-            console.error("Error processing image for art gallery:", error);
+            log.error('Error processing image for art gallery', { error: error.message });
             throw error;
         }
     }
@@ -599,10 +600,10 @@ class ImageProcessingService {
                 throw new Error(`Text image generated ${info.channels} channels, expected 3`);
             }
 
-            console.log(`Created text image: ${imageBuffer.length / 3} pixels as RGB data`);
+            log.debug('Created text image', { pixels: imageBuffer.length / 3 });
             return imageBuffer;
         } catch (error) {
-            console.error("Error creating text image:", error);
+            log.error('Error creating text image', { error: error.message });
             throw error;
         }
     }

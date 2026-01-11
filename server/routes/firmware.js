@@ -6,6 +6,8 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { loggers } = require('../services/logger');
+const log = loggers.ota;
 
 function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
     const router = express.Router();
@@ -22,7 +24,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
                 return data.forceUpdate === true;
             }
         } catch (e) {
-            console.warn('Failed to read force-ota.json:', e.message);
+            log.warn('Failed to read force-ota.json', { error: e.message });
         }
         return false;
     }
@@ -63,7 +65,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
                 try {
                     firmwareInfo = JSON.parse(fs.readFileSync(firmwareInfoPath, 'utf8'));
                 } catch (e) {
-                    console.warn('Failed to parse firmware-info.json, regenerating...');
+                    log.warn('Failed to parse firmware-info.json, regenerating...');
                 }
             }
 
@@ -80,7 +82,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
                                 !firmwareInfo.sha256;
 
             if (needsUpdate) {
-                console.log('Generating/updating firmware info...');
+                log.debug('Generating/updating firmware info...');
 
                 // Calculate SHA256
                 const fileBuffer = fs.readFileSync(firmwarePath);
@@ -103,7 +105,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
 
                 // Cache the info
                 fs.writeFileSync(firmwareInfoPath, JSON.stringify(firmwareInfo, null, 2));
-                console.log(`Firmware info cached: v${firmwareInfo.version}, ${firmwareInfo.size} bytes`);
+                log.info('Firmware info cached', { version: firmwareInfo.version, size: firmwareInfo.size });
             }
 
             // Return info (without internal mtime field)
@@ -119,7 +121,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
             });
 
         } catch (error) {
-            console.error('Error getting firmware info:', error);
+            log.error('Error getting firmware info', { error: error.message });
             res.status(500).json({ error: 'Failed to get firmware info' });
         }
     });
@@ -139,7 +141,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
             const stats = fs.statSync(firmwarePath);
             const deviceId = req.query.deviceId || 'unknown';
 
-            console.log(`Firmware download requested by device: ${deviceId}`);
+            log.info('Firmware download requested', { deviceId });
 
             res.set({
                 'Content-Type': 'application/octet-stream',
@@ -152,18 +154,18 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
             stream.pipe(res);
 
             stream.on('end', () => {
-                console.log(`Firmware download complete for device: ${deviceId} (${stats.size} bytes)`);
+                log.info('Firmware download complete', { deviceId, size: stats.size });
             });
 
             stream.on('error', (err) => {
-                console.error('Error streaming firmware:', err);
+                log.error('Error streaming firmware', { error: err.message });
                 if (!res.headersSent) {
                     res.status(500).json({ error: 'Error streaming firmware' });
                 }
             });
 
         } catch (error) {
-            console.error('Error serving firmware:', error);
+            log.error('Error serving firmware', { error: error.message });
             res.status(500).json({ error: 'Failed to serve firmware' });
         }
     });
@@ -196,7 +198,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
                 ? 'Force OTA enabled - all devices will update on next check'
                 : 'Force OTA disabled - normal version comparison resumed';
 
-            console.log(`[Firmware] ${message}`);
+            log.info('Force OTA state changed', { enabled, message });
 
             res.json({
                 forceUpdate: enabled,
@@ -204,7 +206,7 @@ function createFirmwareRoutes({ dataDir, firmwareVersion, buildDate }) {
             });
 
         } catch (error) {
-            console.error('Error setting force OTA:', error);
+            log.error('Error setting force OTA', { error: error.message });
             res.status(500).json({ error: 'Failed to set force OTA state' });
         }
     });

@@ -15,6 +15,8 @@ const { readJSONFile, writeJSONFile } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
 const imageProcessing = require('../services/image-processing');
 const statistics = require('../services/statistics');
+const { loggers } = require('../services/logger');
+const log = loggers.api;
 
 /**
  * Create upload routes
@@ -35,14 +37,14 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
     router.post('/upload', upload.single('image'), async (req, res) => {
         try {
             if (!req.file) {
-                console.error('Upload failed: No file in request');
+                log.error('Upload failed: No file in request');
                 return res.status(400).json({ error: 'No file uploaded' });
             }
 
-            console.log(`Uploading image for preview: ${req.file.originalname}`, {
+            log.debug('Uploading image for preview', {
+                filename: req.file.originalname,
                 size: `${(req.file.size / 1024 / 1024).toFixed(2)}MB`,
-                mimetype: req.file.mimetype,
-                originalname: req.file.originalname
+                mimetype: req.file.mimetype
             });
 
             // Read file and compute hash for duplicate detection
@@ -55,7 +57,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
 
             if (existingEntry) {
                 const [existingId, existingImage] = existingEntry;
-                console.log(`Duplicate image detected (hash: ${fileHash}), returning existing: ${existingId}`);
+                log.debug('Duplicate image detected', { hash: fileHash, existingId });
 
                 // Clean up uploaded file
                 await fs.unlink(req.file.path);
@@ -140,7 +142,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
             // Clean up uploaded file
             await fs.unlink(req.file.path);
 
-            console.log(`Image uploaded for preview: ${imageId}`);
+            log.info('Image uploaded for preview', { imageId });
             addDeviceLog(`New image uploaded for preview: "${req.file.originalname}"`);
 
             res.json({
@@ -150,7 +152,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
                 message: 'Image uploaded. Adjust crop/zoom and click Apply to display.'
             });
         } catch (error) {
-            console.error('Error uploading image:', error);
+            log.error('Error uploading image', { error: error.message });
             if (req.file?.path) {
                 try {
                     await fs.unlink(req.file.path);
@@ -178,7 +180,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
                 return res.status(400).json({ error: 'Prompt is required' });
             }
 
-            console.log(`Generating AI art with prompt: "${prompt}"`);
+            log.info('Generating AI art', { prompt });
 
             // Input validation - use settings default if not provided
             const settings = (await readJSONFile('settings.json')) || { defaultSleepDuration: 3600000000 };
@@ -215,7 +217,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
 
             const enhancedPrompt = `${prompt}. ${styleGuidance}. COMPOSITION RULES: ${compositionRules} This artwork must fill a tall vertical portrait frame completely with NO empty borders, NO colored bars on top or bottom, NO whitespace margins. The subject extends naturally beyond all four edges of the frame like a full-bleed poster or magazine cover. Absolutely NO letterboxing or pillarboxing.`;
 
-            console.log(`Enhanced prompt: ${enhancedPrompt}`);
+            log.debug('Enhanced prompt', { enhancedPrompt });
 
             // Generate image with GPT-4o image generation (gpt-image-1)
             const response = await openai.images.generate({
@@ -227,7 +229,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
             });
 
             const imageBase64 = response.data[0].b64_json;
-            console.log(`AI image generated (base64, ${imageBase64 ? imageBase64.length : 0} chars)`);
+            log.debug('AI image generated', { base64Length: imageBase64 ? imageBase64.length : 0 });
 
             // Track OpenAI API usage
             statistics.trackOpenAICall('gpt-image-1', 0, 0, true, {
@@ -332,7 +334,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
             // Clean up temp file
             await fs.unlink(tempFilePath);
 
-            console.log(`AI art generated and processed successfully`);
+            log.info('AI art generated successfully', { prompt: prompt.substring(0, 50), style: artStyle });
             addDeviceLog(`New AI art generated: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}" (${artStyle} style)`);
 
             res.json({
@@ -341,7 +343,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
                 revisedPrompt: response.data[0].revised_prompt
             });
         } catch (error) {
-            console.error('Error generating AI art:', error);
+            log.error('Error generating AI art', { error: error.message });
 
             // Track failed OpenAI API call
             statistics.trackOpenAICall('gpt-image-1', 0, 0, false, {
@@ -429,7 +431,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
                 });
 
             if (!candidate) {
-                console.warn('OpenAI returned no content for lucky prompt');
+                log.warn('OpenAI returned no content for lucky prompt');
                 return res.status(502).json({
                     error: 'AI did not return a prompt. Please try again.'
                 });
@@ -452,7 +454,7 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
 
             res.json(responseData);
         } catch (error) {
-            console.error('Error generating lucky prompt with OpenAI:', error);
+            log.error('Error generating lucky prompt with OpenAI', { error: error.message });
 
             // Track failed OpenAI API call
             statistics.trackOpenAICall('gpt-4o-mini', 0, 0, false, {

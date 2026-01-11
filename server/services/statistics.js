@@ -4,6 +4,8 @@
  */
 
 const { readJSONFile, writeJSONFile } = require("../utils/data-store");
+const { loggers } = require('./logger');
+const log = loggers.server;
 
 // OpenAI model pricing (as of 2025, in USD per 1M tokens)
 const OPENAI_PRICING = {
@@ -56,10 +58,10 @@ class StatisticsService {
 			const stats = await readJSONFile(STATS_FILE);
 			if (stats) {
 				this.statsCache = stats;
-				console.log('Statistics loaded from file');
+				log.debug('Statistics loaded from file');
 			}
 		} catch (error) {
-			console.log('No existing statistics file, starting fresh');
+			log.debug('No existing statistics file, starting fresh');
 		}
 	}
 
@@ -70,7 +72,7 @@ class StatisticsService {
 		try {
 			await writeJSONFile(STATS_FILE, this.statsCache);
 		} catch (error) {
-			console.error('Failed to save statistics:', error);
+			log.error('Failed to save statistics', { error: error.message });
 		}
 	}
 
@@ -129,7 +131,7 @@ class StatisticsService {
 		this.statsCache.openai.summary.byModel[model].cost += call.cost;
 
 		// Save to file (async, don't wait)
-		this.saveStats().catch(err => console.error('Failed to save stats:', err));
+		this.saveStats().catch(err => log.error('Failed to save stats', { error: err.message }));
 
 		return call;
 	}
@@ -176,7 +178,7 @@ class StatisticsService {
 		}
 
 		// Save to file (async, don't wait)
-		this.saveStats().catch(err => console.error('Failed to save stats:', err));
+		this.saveStats().catch(err => log.error('Failed to save stats', { error: err.message }));
 
 		return call;
 	}

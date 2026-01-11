@@ -14,6 +14,8 @@ const imageProcessing = require('../services/image-processing');
 const statistics = require('../services/statistics');
 const { readJSONFile, writeJSONFile, ensureDir } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
+const { loggers } = require('../services/logger');
+const log = loggers.api;
 
 /**
  * Create art routes with dependencies
@@ -35,7 +37,7 @@ function createArtRoutes({ openai, uploadDir }) {
             const result = await performArtSearch(query, parseInt(limit), parseInt(offset));
             res.json(result);
         } catch (error) {
-            console.error("Error searching art:", error);
+            log.error('Error searching art', { error });
             res.status(500).json({ error: "Internal server error: " + error.message });
         }
     });
@@ -53,11 +55,11 @@ function createArtRoutes({ openai, uploadDir }) {
             }
 
             if (!openai) {
-                console.log("OpenAI not configured, using simple search");
+                log.info('OpenAI not configured, using simple search');
                 return res.redirect(307, `/api/art/search?q=${encodeURIComponent(query)}`);
             }
 
-            console.log(`Smart search query: "${query}"`);
+            log.info('Smart search query', { query });
 
             const completion = await openai.chat.completions.create({
                 model: "gpt-4",
@@ -105,11 +107,11 @@ Response: {
                 const content = completion.choices[0].message.content;
                 searchParams = JSON.parse(content);
             } catch (parseError) {
-                console.error("Failed to parse OpenAI response:", parseError);
+                log.error('Failed to parse OpenAI response', { error: parseError });
                 return res.redirect(307, `/api/art/search?q=${encodeURIComponent(query)}`);
             }
 
-            console.log("Extracted search parameters:", searchParams);
+            log.debug('Extracted search parameters', { searchParams });
 
             const searchQuery = [
                 ...(searchParams.searchTerms || []),
@@ -129,7 +131,7 @@ Response: {
             });
 
         } catch (error) {
-            console.error("Smart search error:", error);
+            log.error('Smart search error', { error });
 
             if (openai) {
                 statistics.trackOpenAICall('gpt-4', 0, 0, false, {
@@ -156,12 +158,12 @@ Response: {
             }
 
             if (!openai) {
-                console.log("OpenAI not configured, using simple similarity search");
+                log.info('OpenAI not configured, using simple similarity search');
                 const fallbackQuery = artist || title.split(' ').slice(0, 3).join(' ');
                 return res.redirect(307, `/api/art/search?q=${encodeURIComponent(fallbackQuery)}`);
             }
 
-            console.log(`Finding artworks similar to: "${title}" by ${artist}`);
+            log.info('Finding similar artworks', { title, artist });
 
             const completion = await openai.chat.completions.create({
                 model: "gpt-4",
@@ -216,13 +218,12 @@ Source: ${source || 'Unknown'}`
                 const content = completion.choices[0].message.content;
                 similarityParams = JSON.parse(content);
             } catch (parseError) {
-                console.error("Failed to parse OpenAI response:", parseError);
+                log.error('Failed to parse OpenAI response', { error: parseError });
                 const fallbackQuery = artist || title.split(' ').slice(0, 3).join(' ');
                 return res.redirect(307, `/api/art/search?q=${encodeURIComponent(fallbackQuery)}`);
             }
 
-            console.log("Similarity search terms:", similarityParams.searchTerms);
-            console.log("Reasoning:", similarityParams.reasoning);
+            log.debug('Similarity search terms', { searchTerms: similarityParams.searchTerms, reasoning: similarityParams.reasoning });
 
             const searchQuery = similarityParams.searchTerms.join(" ");
             const searchResults = await performArtSearch(searchQuery, 30);
@@ -244,7 +245,7 @@ Source: ${source || 'Unknown'}`
             });
 
         } catch (error) {
-            console.error("Similar artwork search error:", error);
+            log.error('Similar artwork search error', { error });
 
             if (openai) {
                 statistics.trackOpenAICall('gpt-4', 0, 0, false, {
@@ -264,7 +265,7 @@ Source: ${source || 'Unknown'}`
      */
     router.get('/random', async (req, res) => {
         try {
-            console.log(`Getting random artwork from multiple sources`);
+            log.info('Getting random artwork from multiple sources');
 
             const artDepartments = [
                 "European Paintings",
@@ -310,7 +311,7 @@ Source: ${source || 'Unknown'}`
                                               artDepartments.includes(objectData.department);
 
                             if (isArtwork) {
-                                console.log(`Found random Met artwork: ${objectData.title}`);
+                                log.debug('Found random Met artwork', { title: objectData.title });
                                 return {
                                     id: `met-${objectData.objectID}`,
                                     title: objectData.title || "Untitled",
@@ -330,7 +331,7 @@ Source: ${source || 'Unknown'}`
 
                     return null;
                 } catch (error) {
-                    console.error("Error getting random Met artwork:", error.message);
+                    log.error('Error getting random Met artwork', { error: error.message });
                     return null;
                 }
             };
@@ -363,7 +364,7 @@ Source: ${source || 'Unknown'}`
 
                     const randomArtwork = validArtworks[Math.floor(Math.random() * validArtworks.length)];
 
-                    console.log(`Found random ARTIC artwork: ${randomArtwork.title}`);
+                    log.debug('Found random ARTIC artwork', { title: randomArtwork.title });
                     return {
                         id: `artic-${randomArtwork.id}`,
                         title: randomArtwork.title || "Untitled",
@@ -376,7 +377,7 @@ Source: ${source || 'Unknown'}`
                         source: "Art Institute of Chicago"
                     };
                 } catch (error) {
-                    console.error("Error getting random ARTIC artwork:", error.message);
+                    log.error('Error getting random ARTIC artwork', { error: error.message });
                     return null;
                 }
             };
@@ -408,7 +409,7 @@ Source: ${source || 'Unknown'}`
 
                     const randomArtwork = validArtworks[Math.floor(Math.random() * validArtworks.length)];
 
-                    console.log(`Found random CMA artwork: ${randomArtwork.title}`);
+                    log.debug('Found random CMA artwork', { title: randomArtwork.title });
                     return {
                         id: `cma-${randomArtwork.id}`,
                         title: randomArtwork.title || "Untitled",
@@ -421,7 +422,7 @@ Source: ${source || 'Unknown'}`
                         source: "Cleveland Museum of Art"
                     };
                 } catch (error) {
-                    console.error("Error getting random CMA artwork:", error.message);
+                    log.error('Error getting random CMA artwork', { error: error.message });
                     return null;
                 }
             };
@@ -453,7 +454,7 @@ Source: ${source || 'Unknown'}`
 
                     const randomArtwork = validArtworks[Math.floor(Math.random() * validArtworks.length)];
 
-                    console.log(`Found random Rijksmuseum artwork: ${randomArtwork.title}`);
+                    log.debug('Found random Rijksmuseum artwork', { title: randomArtwork.title });
                     return {
                         id: `rijks-${randomArtwork.objectNumber}`,
                         title: randomArtwork.title || "Untitled",
@@ -466,7 +467,7 @@ Source: ${source || 'Unknown'}`
                         source: "Rijksmuseum"
                     };
                 } catch (error) {
-                    console.error("Error getting random Rijksmuseum artwork:", error.message);
+                    log.error('Error getting random Rijksmuseum artwork', { error: error.message });
                     return null;
                 }
             };
@@ -486,7 +487,7 @@ Source: ${source || 'Unknown'}`
 
             res.json(artwork);
         } catch (error) {
-            console.error("Error getting random art:", error);
+            log.error('Error getting random art', { error });
             res.status(500).json({ error: "Internal server error: " + error.message });
         }
     });
@@ -507,34 +508,34 @@ Source: ${source || 'Unknown'}`
             const cropXVal = cropX !== undefined ? parseFloat(cropX) : 50;
             const cropYVal = cropY !== undefined ? parseFloat(cropY) : 50;
             const zoomVal = zoomLevel !== undefined ? parseFloat(zoomLevel) : 1.0;
-            console.log(`Importing artwork: ${title} from ${imageUrl} (rotation: ${rotationDegrees}°, crop: ${cropXVal}%/${cropYVal}%, zoom: ${zoomVal}x)`);
+            log.info('Importing artwork', { title, imageUrl, rotation: rotationDegrees, cropX: cropXVal, cropY: cropYVal, zoom: zoomVal });
 
             let imageResponse;
             try {
                 imageResponse = await fetch(imageUrl);
             } catch (fetchError) {
-                console.error("Failed to fetch image from URL:", fetchError.message);
+                log.error('Failed to fetch image from URL', { error: fetchError.message });
                 return res.status(400).json({ error: `Failed to fetch image: ${fetchError.message}` });
             }
 
             if (!imageResponse.ok) {
-                console.error(`Image fetch returned status: ${imageResponse.status}`);
+                log.error('Image fetch failed', { status: imageResponse.status });
                 return res.status(400).json({ error: `Failed to fetch image: HTTP ${imageResponse.status}` });
             }
 
             const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-            console.log(`✓ Downloaded image: ${imageBuffer.length} bytes`);
+            log.debug('Downloaded image', { bytes: imageBuffer.length });
 
             await ensureDir(uploadDir);
 
             const tempPath = path.join(uploadDir, `temp-${Date.now()}.jpg`);
             await fs.writeFile(tempPath, imageBuffer);
-            console.log(`✓ Saved to temp file: ${tempPath}`);
+            log.debug('Saved to temp file', { tempPath });
 
             const targetWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 1600 : 1200;
             const targetHeight = (rotationDegrees === 90 || rotationDegrees === 270) ? 1200 : 1600;
 
-            console.log(`Processing image for e-ink display...`);
+            log.debug('Processing image for e-ink display');
             const ditheredRgbBuffer = await imageProcessing.convertImageToRGB(
                 tempPath,
                 rotationDegrees,
@@ -549,7 +550,7 @@ Source: ${source || 'Unknown'}`
                     zoomLevel: zoomVal
                 }
             );
-            console.log(`✓ Image processed and dithered`);
+            log.debug('Image processed and dithered');
 
             const thumbnailWidth = (rotationDegrees === 90 || rotationDegrees === 270) ? 400 : 300;
             const thumbnailHeight = (rotationDegrees === 90 || rotationDegrees === 270) ? 300 : 400;
@@ -610,13 +611,12 @@ Source: ${source || 'Unknown'}`
             }
             await writeJSONFile("history.json", history);
 
-            console.log(`Imported artwork: ${title} from ${source}`);
+            log.info('Imported artwork', { title, source, artist: artist || 'Unknown' });
             addDeviceLog(`Applied artwork from browse: "${title}" by ${artist || 'Unknown'}`);
 
             res.json({ success: true, message: "Artwork imported successfully" });
         } catch (error) {
-            console.error("Error importing art:", error);
-            console.error("Stack trace:", error.stack);
+            log.error('Error importing art', { error: error.message, stack: error.stack });
             res.status(500).json({
                 error: "Internal server error: " + error.message,
                 details: error.stack
