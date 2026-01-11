@@ -6,6 +6,18 @@ let selectedHistoryItem = null;
 let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
 
+// Playlist hints for explore mode
+const playlistHints = [
+    { id: 'morning-calm', text: 'try: morning calm' },
+    { id: 'rainy-afternoon', text: 'try: rainy afternoon' },
+    { id: 'focus-time', text: 'try: focus time' },
+    { id: 'evening-wind-down', text: 'try: evening wind-down' },
+    { id: 'impressionist-dreams', text: 'try: impressionist dreams' },
+    { id: 'dutch-golden-age', text: 'try: dutch golden age' },
+    { id: 'japanese-serenity', text: 'try: japanese serenity' },
+    { id: 'bold-and-vibrant', text: 'try: bold and vibrant' }
+];
+
 // Browse state
 let browseDisplayCount = getInitialDisplayCount();
 let collectionDisplayCount = getInitialDisplayCount();
@@ -87,6 +99,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Rotating placeholder - inspires search ideas
     initRotatingPlaceholder();
+
+    // Playlist hints - subtle rotating suggestions
+    initPlaylistHints();
 
     document.getElementById('showMoreBrowseBtn').addEventListener('click', showMoreBrowse);
     document.getElementById('showMoreCollectionBtn').addEventListener('click', showMoreCollection);
@@ -305,6 +320,51 @@ function initRotatingPlaceholder() {
             input.placeholder = placeholders[index];
         }
     }, 4000);
+}
+
+// Playlist hints - subtle rotating suggestions below search
+function initPlaylistHints() {
+    const hintEl = document.getElementById('playlistHint');
+    if (!hintEl) return;
+
+    let index = 0;
+
+    // Set initial data attribute
+    hintEl.dataset.playlistId = playlistHints[0].id;
+
+    // Rotate hints every 5 seconds
+    setInterval(() => {
+        index = (index + 1) % playlistHints.length;
+        hintEl.textContent = playlistHints[index].text;
+        hintEl.dataset.playlistId = playlistHints[index].id;
+    }, 5000);
+
+    // Click to load playlist
+    hintEl.addEventListener('click', () => {
+        loadPlaylist(hintEl.dataset.playlistId);
+    });
+}
+
+// Load playlist by ID
+async function loadPlaylist(playlistId) {
+    const grid = document.getElementById('artGrid');
+    const playlist = playlistHints.find(p => p.id === playlistId);
+    const playlistName = playlist ? playlist.text.replace('try: ', '') : playlistId;
+
+    grid.innerHTML = `<div class="loading">loading ${playlistName}...</div>`;
+
+    try {
+        const response = await fetch(`/api/collections/playlists/${playlistId}`);
+        if (!response.ok) throw new Error('Failed to load playlist');
+
+        const data = await response.json();
+        currentArtResults = data.artworks || [];
+        browseDisplayCount = getInitialDisplayCount();
+        displayArtResults();
+    } catch (error) {
+        console.error('Failed to load playlist:', error);
+        grid.innerHTML = '<div class="loading">Failed to load playlist</div>';
+    }
 }
 
 // Search art with AI

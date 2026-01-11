@@ -1,0 +1,60 @@
+{
+  "playlists": [
+    {
+      "id": "morning-calm",
+      "name": "Morning Calm",
+      "type": "mood",
+      "description": "Peaceful art for quiet mornings",
+      "searchQuery": "peaceful serene calm morning light soft pastel landscape water reflections"
+    },
+    {
+      "id": "rainy-afternoon",
+      "name": "Rainy Afternoon",
+      "type": "mood",
+      "description": "Contemplative pieces for grey days",
+      "searchQuery": "melancholic contemplative rain grey moody atmospheric foggy"
+    },
+    {
+      "id": "focus-time",
+      "name": "Focus Time",
+      "type": "mood",
+      "description": "Abstract and minimal for concentration",
+      "searchQuery": "abstract minimal geometric clean simple forms modern"
+    },
+    {
+      "id": "evening-wind-down",
+      "name": "Evening Wind-down",
+      "type": "mood",
+      "description": "Warm, cozy scenes for relaxation",
+      "searchQuery": "warm golden interior cozy candlelight firelight sunset evening"
+    },
+    {
+      "id": "impressionist-dreams",
+      "name": "Impressionist Dreams",
+      "type": "style",
+      "description": "Light, color, and movement",
+      "searchQuery": "impressionist Monet Renoir Degas light garden water lilies"
+    },
+    {
+      "id": "dutch-golden-age",
+      "name": "Dutch Golden Age",
+      "type": "style",
+      "description": "Vermeer, Rembrandt and Dutch masters",
+      "searchQuery": "Vermeer Rembrandt Dutch interior light window golden age"
+    },
+    {
+      "id": "japanese-serenity",
+      "name": "Japanese Serenity",
+      "type": "style",
+      "description": "Ukiyo-e woodblock prints and landscapes",
+      "searchQuery": "Hokusai Hiroshige Japanese ukiyo-e woodblock Mount Fuji waves"
+    },
+    {
+      "id": "bold-and-vibrant",
+      "name": "Bold and Vibrant",
+      "type": "style",
+      "description": "Van Gogh, Expressionists and vivid colors",
+      "searchQuery": "Van Gogh expressionist bold vibrant colorful intense sunflowers starry"
+    }
+  ]
+}

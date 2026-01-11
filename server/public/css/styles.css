@@ -268,6 +268,21 @@
             border-bottom-color: #1a1a1a;
         }
 
+        /* Playlist hint - subtle rotating suggestion */
+        .playlist-hint {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #bbb;
+            margin: -20px 0 24px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            font-style: italic;
+        }
+
+        .playlist-hint:hover {
+            color: #666;
+        }
+
         .filter-bar {
             display: flex;
             gap: 8px;
