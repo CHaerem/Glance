@@ -1172,10 +1172,14 @@ async function loadRotationStatus() {
 
         // Sync local state with server
         rotationImages.clear();
-        if (playlist.images) {
+        rotationActive = playlist.active || false;
+
+        // Only populate rotation images if rotation is actually active
+        // This keeps the UI clean - no "ghost" selections
+        if (rotationActive && playlist.images) {
             playlist.images.forEach(id => rotationImages.add(id));
         }
-        rotationActive = playlist.active || false;
+
         if (playlist.mode) rotationMode = playlist.mode;
         if (playlist.interval) rotationInterval = playlist.interval;
 
@@ -1190,6 +1194,7 @@ function updateRotationStatusBar() {
     const statusBar = document.getElementById('rotationStatus');
     const statusText = document.getElementById('rotationStatusText');
 
+    // Only show status and filled buttons when rotation is actually active
     if (rotationImages.size >= 2 && rotationActive) {
         const modeText = rotationMode === 'random' ? 'shuffle' : 'in order';
         const intervalLabel = intervalOptions.find(opt => opt.value === rotationInterval)?.label || '5 min';
@@ -1197,10 +1202,8 @@ function updateRotationStatusBar() {
         document.getElementById('rotationModeToggle').textContent = modeText;
         document.getElementById('rotationIntervalToggle').textContent = intervalLabel;
         statusBar.style.display = 'flex';
-    } else if (rotationImages.size >= 2) {
-        statusText.textContent = `${rotationImages.size} images selected`;
-        statusBar.style.display = 'flex';
     } else {
+        // If not active, clear the visual state - don't show "selected" state
         statusBar.style.display = 'none';
     }
 }
