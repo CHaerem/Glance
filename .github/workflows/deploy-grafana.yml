@@ -79,24 +79,31 @@ jobs:
           # Test yq works
           /tmp/yq --version
 
-          # Create Glance folder for alerts if it doesn't exist
-          echo "Creating Glance folder..."
-          FOLDER_RESPONSE=$(curl -s -X POST \
-            "${GRAFANA_URL}/api/folders" \
-            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d '{"title": "Glance"}' || echo '{}')
-          echo "Folder response: $FOLDER_RESPONSE"
+          # Create or get Glance folder for alerts
+          echo "Getting/creating Glance folder..."
 
-          # Get folder UID
+          # First try to get existing folder
           FOLDER_UID=$(curl -s \
             "${GRAFANA_URL}/api/folders" \
             -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
-            | jq -r '.[] | select(.title == "Glance") | .uid')
-          echo "Folder UID: $FOLDER_UID"
+            | jq -r '.[] | select(.title == "Glance") | .uid' | head -1)
 
           if [ -z "$FOLDER_UID" ] || [ "$FOLDER_UID" = "null" ]; then
-            echo "::warning::Could not find/create Glance folder. Alert rules not deployed."
+            # Create new folder
+            echo "Creating new Glance folder..."
+            FOLDER_RESPONSE=$(curl -s -X POST \
+              "${GRAFANA_URL}/api/folders" \
+              -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d '{"title": "Glance Alerts"}')
+            echo "Folder response: $FOLDER_RESPONSE"
+            FOLDER_UID=$(echo "$FOLDER_RESPONSE" | jq -r '.uid')
+          fi
+
+          echo "Using folder UID: $FOLDER_UID"
+
+          if [ -z "$FOLDER_UID" ] || [ "$FOLDER_UID" = "null" ]; then
+            echo "::warning::Could not find/create folder. Alert rules not deployed."
             echo "You can import alert rules manually from server/grafana-alert-rules.yaml"
             exit 0
           fi
