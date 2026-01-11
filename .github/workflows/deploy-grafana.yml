@@ -169,3 +169,77 @@ jobs:
           done
 
           echo "Alert rules deployment complete!"
+
+      - name: Setup email contact point
+        continue-on-error: true
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+          GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: |
+          # Check if secrets are configured
+          if [ -z "$GRAFANA_URL" ] || [ -z "$GRAFANA_SA_TOKEN" ]; then
+            exit 0
+          fi
+
+          # Use default email if not set
+          EMAIL="${ALERT_EMAIL:-chris.haerem@gmail.com}"
+          echo "Setting up email contact point for: $EMAIL"
+
+          # Check if contact point already exists
+          EXISTING=$(curl -s \
+            "${GRAFANA_URL}/api/v1/provisioning/contact-points" \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            | jq -r '.[] | select(.name == "Glance Email") | .uid')
+
+          if [ -n "$EXISTING" ] && [ "$EXISTING" != "null" ]; then
+            echo "Contact point already exists, updating..."
+            METHOD="PUT"
+            ENDPOINT="${GRAFANA_URL}/api/v1/provisioning/contact-points/${EXISTING}"
+          else
+            echo "Creating new contact point..."
+            METHOD="POST"
+            ENDPOINT="${GRAFANA_URL}/api/v1/provisioning/contact-points"
+          fi
+
+          # Create/update email contact point
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X "$METHOD" \
+            "$ENDPOINT" \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "X-Disable-Provenance: true" \
+            -d "{
+              \"name\": \"Glance Email\",
+              \"type\": \"email\",
+              \"settings\": {
+                \"addresses\": \"$EMAIL\",
+                \"singleEmail\": true
+              },
+              \"disableResolveMessage\": false
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "202" ]; then
+            echo "✓ Email contact point configured for $EMAIL"
+
+            # Update default notification policy to use this contact point
+            echo "Updating notification policy..."
+            curl -s -X PUT \
+              "${GRAFANA_URL}/api/v1/provisioning/policies" \
+              -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -H "X-Disable-Provenance: true" \
+              -d '{
+                "receiver": "Glance Email",
+                "group_by": ["alertname"],
+                "group_wait": "30s",
+                "group_interval": "5m",
+                "repeat_interval": "4h"
+              }' > /dev/null
+
+            echo "✓ Notification policy updated"
+          else
+            echo "✗ Failed to create contact point (HTTP $HTTP_CODE)"
+            echo "Response: $(echo "$RESPONSE" | head -n -1)"
+          fi
