@@ -208,14 +208,46 @@ async function loadPlaylists() {
 
         renderPlaylistStacks();
 
-        // Auto-load a random playlist on first visit
-        if (allPlaylists.length > 0 && currentArtResults.length === 0) {
-            const randomIndex = Math.floor(Math.random() * allPlaylists.length);
-            loadPlaylist(allPlaylists[randomIndex].id);
+        // Load featured art (most popular works) on first visit
+        if (currentArtResults.length === 0) {
+            loadFeaturedArt();
         }
     } catch (error) {
         console.error('Failed to load playlists:', error);
         stacksContainer.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">Failed to load playlists</div>';
+    }
+}
+
+// Load featured art (most popular artworks)
+async function loadFeaturedArt() {
+    currentPlaylistId = null; // Not a playlist
+
+    // Clear any active playlist stack highlighting
+    document.querySelectorAll('.playlist-stack').forEach(stack => {
+        stack.classList.remove('active');
+    });
+
+    // Hide current playlist indicator
+    const currentPlaylistEl = document.getElementById('currentPlaylist');
+    currentPlaylistEl.style.display = 'none';
+
+    const cardsContainer = document.getElementById('artCards');
+    cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Loading featured art...</div>';
+
+    try {
+        const response = await fetch('/api/collections/featured?limit=30');
+        const data = await response.json();
+
+        if (data.artworks && data.artworks.length > 0) {
+            currentArtResults = data.artworks;
+            browseDisplayCount = getInitialDisplayCount();
+            displayPlaylistCards();
+        } else {
+            cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">No featured art available</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load featured art:', error);
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Failed to load featured art</div>';
     }
 }
 

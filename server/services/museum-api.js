@@ -98,7 +98,8 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 			}
 		}
 
-		// Exclude non-art object types (furniture, decorative arts, etc.)
+		// Exclude non-art object types (furniture, decorative arts, sculptures, etc.)
+		// We focus on 2D art (paintings, drawings, prints) as they display best on e-ink
 		const excludeObjectTypes = [
 			"furniture", "table", "chair", "desk", "cabinet", "chest", "bed", "bench", "stool", "armchair",
 			"ceramic", "ceramics", "pottery", "porcelain", "vase", "bowl", "plate", "dish", "cup", "teapot", "jar",
@@ -115,7 +116,8 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 			"musical instrument", "piano", "violin", "guitar",
 			"model", "miniature model",
 			"manuscript", "document", "letter", "certificate",
-			"tile", "tiles"
+			"tile", "tiles",
+			"sculpture", "sculpted", "bronze", "marble statue", "stone carving", "relief"
 		];
 
 		for (const term of excludeObjectTypes) {
