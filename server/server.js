@@ -24,6 +24,7 @@ const log = loggers.server;
 const imageProcessing = require("./services/image-processing");
 const statistics = require("./services/statistics");
 const { performArtSearch, getCuratedCollections, CURATED_COLLECTIONS } = require("./services/museum-api");
+const { warmupCache } = require("./utils/image-validator");
 
 // Shared state (logs)
 const { serverLogs, deviceLogs, addDeviceLog, addServerLog, getDeviceLogs, getServerLogs, MAX_LOGS } = require("./utils/state");
@@ -579,6 +580,23 @@ const { data: rgbData, info } = await sharp(pngBuffer)
 async function startServer() {
 	await ensureDataDir();
 	await ensureDir(UPLOAD_DIR);
+
+	// Warm up image validation cache with all curated collection filenames
+	const allFilenames = [];
+	for (const collection of Object.values(CURATED_COLLECTIONS)) {
+		for (const artwork of collection.artworks) {
+			if (artwork.wikimedia) {
+				allFilenames.push(artwork.wikimedia);
+			}
+		}
+	}
+
+	// Run cache warmup in background (don't block server startup)
+	warmupCache(allFilenames).then(result => {
+		log.info('Image validation cache warmed up', result);
+	}).catch(err => {
+		log.error('Cache warmup failed', { error: err.message });
+	});
 
 	app.listen(PORT, "0.0.0.0", () => {
 		log.info('Glance server started', {

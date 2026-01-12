@@ -11,7 +11,6 @@
       { "artist": "Michelangelo", "title": "The Last Judgment", "year": "1541", "popularity": 88, "wikimedia": "Last_Judgement_(Michelangelo).jpg" },
       { "artist": "Michelangelo", "title": "Doni Tondo", "year": "1507", "popularity": 70, "wikimedia": "Michelangelo_Buonarroti_-_Tondo_Doni_-_Google_Art_Project.jpg" },
       { "artist": "Raphael", "title": "The School of Athens", "year": "1511", "popularity": 92, "wikimedia": "Raphael_School_of_Athens.jpg" },
-      { "artist": "Raphael", "title": "Sistine Madonna", "year": "1512", "popularity": 82, "wikimedia": "Raphael_-_Sistine_Madonna_-_WGA18595.jpg" },
       { "artist": "Raphael", "title": "The Transfiguration", "year": "1520", "popularity": 75, "wikimedia": "Transfiguration_Raphael.jpg" },
       { "artist": "Botticelli", "title": "The Birth of Venus", "year": "1485", "popularity": 93, "wikimedia": "Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg" },
       { "artist": "Botticelli", "title": "Primavera", "year": "1482", "popularity": 86, "wikimedia": "Sandro_Botticelli_-_La_Primavera_-_Google_Art_Project.jpg" }

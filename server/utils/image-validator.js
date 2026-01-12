@@ -1,6 +1,9 @@
 /**
  * Image URL Validator
  * Validates and caches image URL availability
+ *
+ * All Wikimedia filenames are validated on first use and cached.
+ * No manual "verified" list - the cache IS the verification.
  */
 
 const { loggers } = require('../services/logger');
@@ -10,68 +13,14 @@ const log = loggers.api;
 const validationCache = new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000;
 
-// Pre-validated Wikimedia filenames (manually verified to exist)
-// These skip validation for faster loading
-const VERIFIED_FILENAMES = new Set([
-    // Renaissance Masters
-    "Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg",
-    "The_Last_Supper_-_Leonardo_Da_Vinci_-_High_Resolution_32x16.jpg",
-    "Da_Vinci_Vitruve_Luc_Viatour.jpg",
-    "Leonardo_da_Vinci_046.jpg",
-    "Michelangelo_-_Creation_of_Adam_(cropped).jpg",
-    "Last_Judgement_(Michelangelo).jpg",
-    "Michelangelo_Buonarroti_-_Tondo_Doni_-_Google_Art_Project.jpg",
-    "Raphael_School_of_Athens.jpg",
-    "Raphael_-_Sistine_Madonna_-_WGA18595.jpg",
-    "Transfiguration_Raphael.jpg",
-    "Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg",
-    "Sandro_Botticelli_-_La_Primavera_-_Google_Art_Project.jpg",
-    // Dutch Masters
-    "La_ronda_de_noche,_por_Rembrandt_van_Rijn.jpg",
-    "Girl_with_a_Pearl_Earring.jpg",
-    "Johannes_Vermeer_-_Het_melkmeisje_-_Google_Art_Project.jpg",
-    "Rembrandt_van_Rijn_-_Self-Portrait_-_Google_Art_Project.jpg",
-    "Vermeer-view-of-delft.jpg",
-    "Rembrandt_-_The_Anatomy_Lesson_of_Dr_Nicolaes_Tulp.jpg",
-    // Impressionists
-    "Claude_Monet_-_Water_Lilies_-_1906,_Ryerson.jpg",
-    "Monet_-_Impression,_Sunrise.jpg",
-    "Claude_Monet_-_Woman_with_a_Parasol_-_Madame_Monet_and_Her_Son_-_Google_Art_Project.jpg",
-    "Auguste_Renoir_-_Dance_at_Le_Moulin_de_la_Galette_-_Google_Art_Project.jpg",
-    "Pierre-Auguste_Renoir_-_Luncheon_of_the_Boating_Party_-_Google_Art_Project.jpg",
-    "Edgar_Degas_-_The_Ballet_Class_-_Google_Art_Project.jpg",
-    "Edgar_Degas_-_In_a_Caf%C3%A9_-_Google_Art_Project_2.jpg",
-    // Post-Impressionists
-    "Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
-    "Vincent_Willem_van_Gogh_128.jpg",
-    "Van_Gogh_-_Terrasse_des_Caf%C3%A9s_an_der_Place_du_Forum_in_Arles_am_Abend1.jpeg",
-    "Vincent_van_Gogh_-_De_slaapkamer_-_Google_Art_Project.jpg",
-    "Paul_C%C3%A9zanne_-_Mont_Sainte-Victoire_-_Google_Art_Project.jpg",
-    "Les_Joueurs_de_cartes,_par_Paul_C%C3%A9zanne.jpg",
-    "Paul_Gauguin_-_D%27ou_venons-nous.jpg",
-    "Paul_Gauguin_-_Le_Christ_jaune_(The_Yellow_Christ).jpg",
-    // Japanese Masters
-    "Tsunami_by_hokusai_19th_century.jpg",
-    "Red_Fuji_southern_wind_clear_morning.jpg",
-    "Lightnings_below_the_summit.jpg",
-    "Hiroshige,_Plum_Park_in_Kameido.jpg",
-    "Hiroshige_-_Sudden_Shower_at_the_Atake_Bridge.jpg",
-    // Modern Icons
-    "Mural_del_Gernika.jpg",
-    "Gustav_Klimt_016.jpg",
-    // Public domain modern art (replacing copyrighted Picasso/Dalí)
-    "Vassily_Kandinsky,_1923_-_Composition_8,_huile_sur_toile,_140_cm_x_201_cm,_Mus%C3%A9e_Guggenheim,_New_York.jpg",
-    "Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg",
-    "Egon_Schiele_-_Self-Portrait_with_Physalis_-_Google_Art_Project.jpg",
-    "Gustav_Klimt_046.jpg",
-    "Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg"
-]);
+// Track initialization state
+let initializationPromise = null;
 
 /**
- * Check if a URL is accessible (returns 200 or redirect)
- * Uses HEAD request for efficiency
+ * Check if a URL is accessible (returns 200 after following redirects)
+ * Uses HEAD request for efficiency, follows redirects to check final status
  */
-async function isUrlAccessible(url, timeout = 5000) {
+async function isUrlAccessible(url, timeout = 8000) {
     // Check cache first
     const cached = validationCache.get(url);
     if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
@@ -82,17 +31,21 @@ async function isUrlAccessible(url, timeout = 5000) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+        // Use GET with redirect: 'follow' to check the final destination
         const response = await fetch(url, {
-            method: 'HEAD',
+            method: 'GET',
             signal: controller.signal,
+            redirect: 'follow',
             headers: {
-                'User-Agent': 'Glance/1.0 (Art Gallery Display; contact@example.com)'
+                'User-Agent': 'Glance/1.0 (Art Gallery Display; contact@example.com)',
+                'Range': 'bytes=0-0' // Only fetch first byte to minimize bandwidth
             }
         });
 
         clearTimeout(timeoutId);
 
-        const valid = response.ok || (response.status >= 300 && response.status < 400);
+        // Check if final response is successful (after redirects)
+        const valid = response.ok;
 
         // Cache the result
         validationCache.set(url, { valid, timestamp: Date.now() });
@@ -103,7 +56,7 @@ async function isUrlAccessible(url, timeout = 5000) {
 
         return valid;
     } catch (error) {
-        // Cache negative results too (but maybe shorter TTL)
+        // Cache negative results too
         validationCache.set(url, { valid: false, timestamp: Date.now() });
         log.debug('Image URL check failed', { url, error: error.message });
         return false;
@@ -129,21 +82,9 @@ function getWikimediaUrl(filename, width = 1200) {
 }
 
 /**
- * Check if a Wikimedia filename is pre-verified (skip validation)
- */
-function isVerifiedFilename(filename) {
-    return VERIFIED_FILENAMES.has(filename);
-}
-
-/**
  * Validate a Wikimedia filename
- * Returns true immediately for pre-verified files
  */
 async function isWikimediaFileValid(filename) {
-    // Skip validation for pre-verified files
-    if (VERIFIED_FILENAMES.has(filename)) {
-        return true;
-    }
     const url = getWikimediaUrl(filename, 400); // Use smaller size for validation
     return isUrlAccessible(url);
 }
@@ -183,31 +124,79 @@ async function filterValidArtworks(artworks, getImageUrl) {
 
 /**
  * Validate artworks with Wikimedia filenames
- * Pre-verified files skip validation for instant results
+ * All files are validated (using cache for performance)
  */
 async function filterValidWikimediaArtworks(artworks) {
     if (!artworks || artworks.length === 0) return [];
 
-    // Separate verified and unverified artworks
-    const verified = [];
-    const needsValidation = [];
+    return filterValidArtworks(
+        artworks.filter(a => a.wikimedia),
+        (artwork) => getWikimediaUrl(artwork.wikimedia, 400)
+    );
+}
 
-    for (const artwork of artworks) {
-        if (!artwork.wikimedia) continue;
-        if (VERIFIED_FILENAMES.has(artwork.wikimedia)) {
-            verified.push(artwork);
-        } else {
-            needsValidation.push(artwork);
+/**
+ * Pre-warm the validation cache with a list of filenames
+ * Call this at server startup with all known filenames
+ */
+async function warmupCache(filenames) {
+    if (!filenames || filenames.length === 0) return { valid: 0, invalid: 0 };
+
+    log.info('Starting cache warmup', { count: filenames.length });
+
+    // Validate in batches to avoid overwhelming Wikimedia
+    const BATCH_SIZE = 10;
+    const BATCH_DELAY = 500; // ms between batches
+
+    let validCount = 0;
+    let invalidCount = 0;
+    const invalidFiles = [];
+
+    for (let i = 0; i < filenames.length; i += BATCH_SIZE) {
+        const batch = filenames.slice(i, i + BATCH_SIZE);
+
+        const results = await Promise.all(
+            batch.map(async (filename) => {
+                const url = getWikimediaUrl(filename, 400);
+                const valid = await isUrlAccessible(url);
+                return { filename, valid };
+            })
+        );
+
+        for (const { filename, valid } of results) {
+            if (valid) {
+                validCount++;
+            } else {
+                invalidCount++;
+                invalidFiles.push(filename);
+            }
+        }
+
+        // Delay between batches to avoid rate limiting
+        if (i + BATCH_SIZE < filenames.length) {
+            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
         }
     }
 
-    // Validate only unverified artworks
-    const validatedUnverified = await filterValidArtworks(needsValidation, (artwork) => {
-        return getWikimediaUrl(artwork.wikimedia, 400);
-    });
+    if (invalidFiles.length > 0) {
+        log.warn('Found invalid Wikimedia filenames during warmup', {
+            invalidFiles,
+            count: invalidFiles.length
+        });
+    }
 
-    // Combine results
-    return [...verified, ...validatedUnverified];
+    log.info('Cache warmup complete', { valid: validCount, invalid: invalidCount });
+
+    return { valid: validCount, invalid: invalidCount, invalidFiles };
+}
+
+/**
+ * Check if a filename has been validated (exists in cache with valid=true)
+ */
+function isFilenameValidated(filename) {
+    const url = getWikimediaUrl(filename, 400);
+    const cached = validationCache.get(url);
+    return cached && cached.valid && (Date.now() - cached.timestamp) < CACHE_TTL;
 }
 
 /**
@@ -240,10 +229,11 @@ function getCacheStats() {
 module.exports = {
     isUrlAccessible,
     isWikimediaFileValid,
-    isVerifiedFilename,
+    isFilenameValidated,
     getWikimediaUrl,
     filterValidArtworks,
     filterValidWikimediaArtworks,
+    warmupCache,
     clearValidationCache,
     getCacheStats
 };

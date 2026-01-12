@@ -8,7 +8,7 @@ const router = express.Router();
 const { CURATED_COLLECTIONS } = require('../services/museum-api');
 const { loggers } = require('../services/logger');
 const log = loggers.api;
-const { filterValidWikimediaArtworks, getWikimediaUrl, isVerifiedFilename } = require('../utils/image-validator');
+const { filterValidWikimediaArtworks, getWikimediaUrl, isFilenameValidated } = require('../utils/image-validator');
 
 /**
  * Get featured artworks (most popular, instantly loaded)
@@ -23,7 +23,7 @@ router.get('/featured', (req, res) => {
         const allArtworks = [];
         for (const [collectionId, collection] of Object.entries(CURATED_COLLECTIONS)) {
             for (const artwork of collection.artworks) {
-                if (artwork.wikimedia && isVerifiedFilename(artwork.wikimedia)) {
+                if (artwork.wikimedia && isFilenameValidated(artwork.wikimedia)) {
                     allArtworks.push({
                         ...artwork,
                         collectionId,
