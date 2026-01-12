@@ -185,6 +185,45 @@ docker compose up -d
 | `/api/playlists` | List curated and dynamic playlists |
 | `/api/playlists/:id` | Get playlist artworks (static or AI-searched) |
 | `/api/settings` | Server settings (sleep duration, etc.) |
+| `/api/mcp` | MCP server endpoint for Claude.ai integration |
+| `/api/mcp/health` | MCP server health check and available tools |
+
+## AI Art Guide (MCP Integration)
+
+The Glance server includes an MCP (Model Context Protocol) server for Claude.ai artifact integration.
+
+### MCP Tools Available
+
+| Tool | Description |
+|------|-------------|
+| `search_artworks` | Search museums for artworks by keyword |
+| `display_artwork` | Display artwork on the e-ink frame |
+| `get_current_display` | Get currently displayed artwork info |
+| `list_playlists` | List available art playlists |
+| `get_playlist` | Get artworks from a playlist |
+| `get_device_status` | Get device battery and connection status |
+| `random_artwork` | Get a random artwork |
+
+### Setup
+
+1. **Tailscale Funnel**: Expose the server publicly
+   ```bash
+   ssh chris@serverpi.local "sudo tailscale funnel --bg 3000"
+   ```
+   This creates: `https://serverpi.corgi-climb.ts.net/`
+
+2. **Claude.ai Configuration**: Connect the MCP server to your Claude.ai account
+   - Go to Claude.ai Settings → MCP Servers
+   - Add server URL: `https://serverpi.corgi-climb.ts.net/api/mcp`
+
+3. **Use in Artifacts**: Create artifacts that use MCP tools to search and display art
+
+### Security
+
+- Sensitive endpoints (upload, generate-art, delete) require API key when accessed externally
+- Set `API_KEYS` environment variable to enable authentication
+- Rate limiting: 100 requests per 15 minutes per IP for external access
+- Local requests bypass authentication and rate limiting
 
 ## Hardware
 
@@ -342,6 +381,12 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 
 ## Recent Changes
 
+- **MCP Server for Claude.ai**: AI Art Guide integration via Model Context Protocol
+  - MCP server exposes Glance API as tools for Claude artifacts
+  - Tools: search_artworks, display_artwork, get_current_display, list_playlists, etc.
+  - Tailscale Funnel for public HTTPS access: `https://serverpi.corgi-climb.ts.net/`
+  - API key authentication for sensitive endpoints (upload, generate, delete)
+  - Rate limiting for external requests (100/15min per IP)
 - **OpenAI Vector Stores migration**: Replaced Qdrant/CLIP with OpenAI's hosted vector database
   - Uses `text-embedding-3-small` model for semantic art search
   - 2+ million artwork embeddings stored in OpenAI Vector Stores
