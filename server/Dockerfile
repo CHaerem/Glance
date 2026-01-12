@@ -55,6 +55,8 @@ COPY services ./services
 COPY utils ./utils
 COPY data ./data
 COPY scripts ./scripts
+COPY middleware ./middleware
+COPY mcp ./mcp
 
 # Create non-root user for security
 RUN groupadd --gid 1001 nodejs && \
