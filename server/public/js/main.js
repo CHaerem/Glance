@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Playlist stack navigation
     document.getElementById('stacksNavLeft').addEventListener('click', () => scrollPlaylistStacks('left'));
     document.getElementById('stacksNavRight').addEventListener('click', () => scrollPlaylistStacks('right'));
+    setupPlaylistDragScroll();
 
     // Playlist controls
     document.getElementById('playlistClear').addEventListener('click', clearPlaylist);
@@ -211,8 +212,14 @@ function renderPlaylistStacks() {
         const isActive = playlist.id === currentPlaylistId;
         const typeLabel = playlist.type === 'classic' ? 'curated' : playlist.type;
 
-        // For classic playlists, use the preview image; for dynamic, use a placeholder
-        const previewUrl = playlist.preview || '/api/placeholder-art.jpg';
+        // For classic playlists, use the preview image; for dynamic, show a placeholder icon
+        let previewContent;
+        if (playlist.preview) {
+            previewContent = `<img src="${playlist.preview}" alt="${playlist.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'stack-card-placeholder\\'>&#9733;</div>'">`;
+        } else {
+            // Dynamic playlist - show a star icon placeholder
+            previewContent = `<div class="stack-card-placeholder">&#9733;</div>`;
+        }
 
         return `
             <div class="playlist-stack ${isActive ? 'active' : ''}" onclick="loadPlaylist('${playlist.id}')" title="${playlist.description || playlist.name}">
@@ -220,7 +227,7 @@ function renderPlaylistStacks() {
                     <div class="stack-card"></div>
                     <div class="stack-card"></div>
                     <div class="stack-card">
-                        <img src="${previewUrl}" alt="${playlist.name}" loading="lazy" onerror="this.style.display='none'">
+                        ${previewContent}
                     </div>
                 </div>
                 <div class="stack-label">
@@ -305,13 +312,18 @@ function displayPlaylistCards() {
 function createPhysicalCard(art) {
     const title = art.title || 'Untitled';
     const artist = art.artist || '';
-    const imageUrl = art.thumbnail || art.thumbnailUrl || art.imageUrl;
+    const imageUrl = art.thumbnail || art.thumbnailUrl || art.imageUrl || '';
     const artJson = JSON.stringify(art).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+    // Handle missing images gracefully
+    const imgContent = imageUrl
+        ? `<img src="${imageUrl}" alt="${truncateText(title, 50)}" loading="lazy" onerror="this.parentElement.classList.add('no-image'); this.style.display='none';">`
+        : '';
 
     return `
         <div class="physical-card" onclick='previewArt(${artJson.replace(/&quot;/g, "&#34;")})'>
-            <div class="physical-card-image">
-                <img src="${imageUrl}" alt="${truncateText(title, 50)}" loading="lazy">
+            <div class="physical-card-image ${!imageUrl ? 'no-image' : ''}">
+                ${imgContent}
             </div>
             <div class="physical-card-overlay">
                 <button class="physical-card-action" onclick='event.stopPropagation(); quickAddToCollection(${artJson.replace(/&quot;/g, "&#34;")})' title="Add to collection">+</button>
@@ -349,6 +361,61 @@ function updateStacksNavigation() {
 
     leftBtn.disabled = container.scrollLeft <= 0;
     rightBtn.disabled = container.scrollLeft >= container.scrollWidth - container.clientWidth - 10;
+}
+
+// Setup drag-to-scroll for playlist stacks (works on both touch and mouse)
+function setupPlaylistDragScroll() {
+    const container = document.getElementById('playlistStacks');
+    if (!container) return;
+
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+    let hasMoved = false;
+
+    container.addEventListener('mousedown', (e) => {
+        // Don't initiate drag on buttons or interactive elements
+        if (e.target.closest('.playlist-stack')) {
+            isDown = true;
+            hasMoved = false;
+            container.classList.add('dragging');
+            startX = e.pageX - container.offsetLeft;
+            scrollLeft = container.scrollLeft;
+        }
+    });
+
+    container.addEventListener('mouseleave', () => {
+        isDown = false;
+        container.classList.remove('dragging');
+    });
+
+    container.addEventListener('mouseup', () => {
+        isDown = false;
+        container.classList.remove('dragging');
+        setTimeout(updateStacksNavigation, 100);
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX) * 1.5; // Scroll speed multiplier
+        if (Math.abs(walk) > 5) hasMoved = true;
+        container.scrollLeft = scrollLeft - walk;
+    });
+
+    // Prevent click on playlist stack if user was dragging
+    container.addEventListener('click', (e) => {
+        if (hasMoved) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+    }, true);
+
+    // Update nav buttons on scroll
+    container.addEventListener('scroll', () => {
+        updateStacksNavigation();
+    });
 }
 
 // Clear playlist selection
