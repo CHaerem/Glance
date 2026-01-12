@@ -1,151 +1,108 @@
 /**
- * Glance Art Guide Artifact (MCP Version)
+ * Glance Art Guide - Claude Artifact
  *
- * This artifact uses MCP tools to interact with the Glance e-ink display.
- * It requires the Glance Art Guide MCP server to be connected in Claude.ai settings.
- *
- * To use:
- * 1. Connect MCP server in Claude.ai: https://serverpi.corgi-climb.ts.net/api/mcp
- * 2. Create a new artifact with this code
- * 3. Publish and embed in your Glance explore page
+ * Instructions:
+ * 1. Copy this entire code
+ * 2. Go to Claude.ai and start a new chat
+ * 3. Ask: "Create a React artifact with this code" and paste it
+ * 4. After the artifact appears, enable "AI capabilities" in artifact settings
+ * 5. Publish the artifact
+ * 6. Add "serverpi.corgi-climb.ts.net" to allowed domains
+ * 7. Copy the embed URL (https://claude.site/artifacts/...)
+ * 8. Paste it in the Glance explore page
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export default function GlanceArtGuide() {
   const [messages, setMessages] = useState([
-    { role: 'system', content: 'Welcome to Glance Art Guide! Search for art, browse playlists, or ask me to display something on your e-ink frame.' }
+    {
+      role: 'assistant',
+      content: 'Welcome to Glance Art Guide! I can help you discover and display art on your e-ink frame. Try asking me to search for art, show your playlists, or display a random artwork.'
+    }
   ]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentDisplay, setCurrentDisplay] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Load current display on mount
-  useEffect(() => {
-    loadCurrentDisplay();
-  }, []);
-
-  const addMessage = (role, content, artworks = null) => {
-    setMessages(prev => [...prev, { role, content, artworks, timestamp: Date.now() }]);
-  };
-
-  // MCP tool calls (these will be handled by Claude when the artifact runs)
-  const loadCurrentDisplay = async () => {
-    try {
-      // This would use the get_current_display MCP tool
-      // For now, show a placeholder - Claude will fill this in
-      addMessage('system', 'Use the "What\'s displaying?" button to check your current artwork.');
-    } catch (err) {
-      console.error('Failed to load current display:', err);
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim()) return;
 
-    const userMessage = input.trim();
+    setMessages(prev => [...prev, { role: 'user', content: input.trim() }]);
     setInput('');
-    addMessage('user', userMessage);
-    setIsLoading(true);
-
-    // The artifact will send this to Claude, which will use MCP tools
-    addMessage('assistant', `I'll help you with: "${userMessage}". Use the MCP tools in Claude to search for art or control your display.`);
-
-    setIsLoading(false);
   };
 
   const handleQuickAction = (action) => {
-    let message = '';
-    switch (action) {
-      case 'random':
-        message = 'Get me a random artwork and display it on my frame';
-        break;
-      case 'search':
-        message = 'Search for impressionist landscapes';
-        break;
-      case 'current':
-        message = "What's currently displaying on my Glance frame?";
-        break;
-      case 'playlists':
-        message = 'Show me the available playlists';
-        break;
-      case 'status':
-        message = 'Check the device battery and connection status';
-        break;
-    }
-    setInput(message);
+    const prompts = {
+      search: 'Search for impressionist landscape paintings',
+      random: 'Show me a random artwork and display it on my frame',
+      playlists: 'What playlists are available?',
+      current: "What's currently displaying on my Glance frame?",
+      status: 'Check my device battery and status'
+    };
+    setInput(prompts[action] || '');
   };
 
   return (
     <div style={styles.container}>
-      {/* Header */}
       <div style={styles.header}>
-        <h2 style={styles.headerTitle}>Glance Art Guide</h2>
-        <p style={styles.headerSubtitle}>AI-powered art discovery for your e-ink frame</p>
+        <h2 style={styles.title}>Glance Art Guide</h2>
+        <p style={styles.subtitle}>AI-powered art discovery for your e-ink frame</p>
       </div>
 
-      {/* Messages */}
       <div style={styles.messages}>
         {messages.map((msg, i) => (
-          <div key={i} style={{
-            ...styles.message,
-            ...(msg.role === 'user' ? styles.userMessage : styles.assistantMessage)
-          }}>
+          <div
+            key={i}
+            style={{
+              ...styles.message,
+              ...(msg.role === 'user' ? styles.userMessage : styles.assistantMessage)
+            }}
+          >
             <p style={styles.messageText}>{msg.content}</p>
           </div>
         ))}
-
-        {isLoading && (
-          <div style={styles.loading}>Thinking...</div>
-        )}
-
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick actions */}
       <div style={styles.quickActions}>
-        <button style={styles.chip} onClick={() => handleQuickAction('random')}>
-          Random artwork
-        </button>
         <button style={styles.chip} onClick={() => handleQuickAction('search')}>
-          Impressionist
+          Search art
         </button>
-        <button style={styles.chip} onClick={() => handleQuickAction('current')}>
-          What's displaying?
+        <button style={styles.chip} onClick={() => handleQuickAction('random')}>
+          Random
         </button>
         <button style={styles.chip} onClick={() => handleQuickAction('playlists')}>
           Playlists
         </button>
+        <button style={styles.chip} onClick={() => handleQuickAction('current')}>
+          Current
+        </button>
         <button style={styles.chip} onClick={() => handleQuickAction('status')}>
-          Device status
+          Status
         </button>
       </div>
 
-      {/* Input */}
       <form onSubmit={handleSubmit} style={styles.inputForm}>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about art or control your display..."
-          style={styles.chatInput}
-          disabled={isLoading}
+          style={styles.input}
         />
-        <button type="submit" style={styles.sendButton} disabled={isLoading}>
+        <button type="submit" style={styles.sendButton}>
           Send
         </button>
       </form>
 
-      {/* MCP Info */}
-      <div style={styles.mcpInfo}>
-        <p style={styles.mcpText}>
-          This artifact uses MCP tools. Ask Claude to search for art, display artworks, or check your device status.
+      <div style={styles.footer}>
+        <p style={styles.footerText}>
+          Connected to Glance MCP Server. I can search museums, display artwork, and check your device.
         </p>
       </div>
     </div>
@@ -157,10 +114,10 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    minHeight: '500px',
-    backgroundColor: '#f8f9fa',
+    minHeight: '450px',
+    backgroundColor: '#fafafa',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    borderRadius: '12px',
+    borderRadius: '8px',
     overflow: 'hidden',
   },
   header: {
@@ -168,48 +125,44 @@ const styles = {
     backgroundColor: '#1a1a1a',
     color: 'white',
   },
-  headerTitle: {
+  title: {
     margin: 0,
-    fontSize: '18px',
+    fontSize: '16px',
     fontWeight: '600',
   },
-  headerSubtitle: {
+  subtitle: {
     margin: '4px 0 0 0',
     fontSize: '12px',
-    opacity: 0.8,
+    opacity: 0.7,
   },
   messages: {
     flex: 1,
     overflow: 'auto',
     padding: '16px',
-    minHeight: '200px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
   },
   message: {
-    marginBottom: '12px',
-    padding: '10px 14px',
+    padding: '12px 16px',
     borderRadius: '12px',
     maxWidth: '85%',
   },
   userMessage: {
-    marginLeft: 'auto',
+    alignSelf: 'flex-end',
     backgroundColor: '#1a1a1a',
     color: 'white',
   },
   assistantMessage: {
-    marginRight: 'auto',
+    alignSelf: 'flex-start',
     backgroundColor: 'white',
     border: '1px solid #e5e5e5',
+    color: '#1a1a1a',
   },
   messageText: {
     margin: 0,
     fontSize: '14px',
     lineHeight: '1.5',
-  },
-  loading: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: '14px',
-    padding: '12px',
   },
   quickActions: {
     display: 'flex',
@@ -223,11 +176,11 @@ const styles = {
     padding: '8px 14px',
     fontSize: '13px',
     backgroundColor: '#f5f5f5',
-    border: '1px solid #ddd',
+    border: '1px solid #e5e5e5',
     borderRadius: '20px',
     cursor: 'pointer',
     whiteSpace: 'nowrap',
-    transition: 'background-color 0.2s',
+    transition: 'all 0.2s',
   },
   inputForm: {
     display: 'flex',
@@ -236,30 +189,30 @@ const styles = {
     backgroundColor: 'white',
     borderTop: '1px solid #e5e5e5',
   },
-  chatInput: {
+  input: {
     flex: 1,
-    padding: '10px 14px',
+    padding: '12px 16px',
     fontSize: '14px',
-    border: '1px solid #ddd',
-    borderRadius: '20px',
+    border: '1px solid #e5e5e5',
+    borderRadius: '24px',
     outline: 'none',
   },
   sendButton: {
-    padding: '10px 20px',
+    padding: '12px 24px',
     fontSize: '14px',
     fontWeight: '500',
     color: 'white',
     backgroundColor: '#1a1a1a',
     border: 'none',
-    borderRadius: '20px',
+    borderRadius: '24px',
     cursor: 'pointer',
   },
-  mcpInfo: {
+  footer: {
     padding: '8px 16px',
     backgroundColor: '#f0f7ff',
     borderTop: '1px solid #d0e3ff',
   },
-  mcpText: {
+  footerText: {
     margin: 0,
     fontSize: '11px',
     color: '#4a6fa5',

@@ -192,7 +192,9 @@ function saveArtifactUrl() {
 function isValidArtifactUrl(url) {
     try {
         const parsed = new URL(url);
-        return parsed.hostname === 'claude.site' && parsed.pathname.startsWith('/artifacts/');
+        // Accept both /artifacts/ and /public/artifacts/ paths
+        return parsed.hostname === 'claude.site' &&
+               (parsed.pathname.startsWith('/artifacts/') || parsed.pathname.startsWith('/public/artifacts/'));
     } catch {
         return false;
     }
