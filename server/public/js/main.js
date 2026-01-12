@@ -84,6 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') searchArt();
     });
 
+    // AI Art Guide toggle
+    document.getElementById('aiGuideBtn').addEventListener('click', toggleAiGuide);
+    document.getElementById('aiGuideClose').addEventListener('click', toggleAiGuide);
+
     // Playlist stack navigation
     document.getElementById('stacksNavLeft').addEventListener('click', () => scrollPlaylistStacks('left'));
     document.getElementById('stacksNavRight').addEventListener('click', () => scrollPlaylistStacks('right'));
@@ -128,6 +132,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('moveLeft').addEventListener('click', () => adjustCrop('left'));
     document.getElementById('moveRight').addEventListener('click', () => adjustCrop('right'));
 });
+
+// AI Art Guide toggle
+function toggleAiGuide() {
+    const panel = document.getElementById('aiGuidePanel');
+    const btn = document.getElementById('aiGuideBtn');
+    const isVisible = panel.style.display !== 'none';
+
+    if (isVisible) {
+        panel.style.display = 'none';
+        btn.classList.remove('active');
+    } else {
+        panel.style.display = 'block';
+        btn.classList.add('active');
+    }
+}
 
 // Mode switching
 function switchMode(mode) {

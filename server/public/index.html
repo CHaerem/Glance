@@ -61,13 +61,36 @@
 
         <!-- Explore Mode -->
         <div class="browse-section" id="exploreMode">
-            <!-- Search Bar -->
+            <!-- Search Bar with AI Guide Toggle -->
             <div class="search-bar">
                 <input
                     type="text"
                     class="search-input"
                     id="searchInput"
                     placeholder="Search for art...">
+                <button class="ai-guide-btn" id="aiGuideBtn" title="Open AI Art Guide">
+                    <span class="ai-icon">✨</span>
+                </button>
+            </div>
+
+            <!-- AI Art Guide Panel (hidden by default) -->
+            <div class="ai-guide-panel" id="aiGuidePanel" style="display: none;">
+                <div class="ai-guide-header">
+                    <span class="ai-guide-title">AI Art Guide</span>
+                    <button class="ai-guide-close" id="aiGuideClose">×</button>
+                </div>
+                <div class="ai-guide-content">
+                    <p>Chat with Claude to discover art for your Glance frame.</p>
+                    <a href="https://claude.ai" target="_blank" class="ai-guide-link">
+                        Open Claude.ai →
+                    </a>
+                    <div class="ai-guide-hint">
+                        The Glance MCP server is connected. Try asking:<br>
+                        <em>"Search for impressionist landscapes"</em><br>
+                        <em>"Show me a random artwork"</em><br>
+                        <em>"What's currently on my display?"</em>
+                    </div>
+                </div>
             </div>
 
             <!-- Playlist Stacks -->
