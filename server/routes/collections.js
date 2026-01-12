@@ -51,6 +51,8 @@ router.get('/featured', (req, res) => {
                 };
             });
 
+        // Cache featured artworks for 10 minutes
+        res.set('Cache-Control', 'public, max-age=600');
         res.json({ artworks: featured });
     } catch (error) {
         log.error('Error getting featured artworks', { error: error.message });
@@ -71,6 +73,8 @@ router.get('/', (req, res) => {
             count: collection.artworks.length
         }));
 
+        // Cache collections list for 10 minutes
+        res.set('Cache-Control', 'public, max-age=600');
         res.json({ collections });
     } catch (error) {
         log.error('Error getting collections', { error: error.message });
@@ -108,6 +112,8 @@ router.get('/:collectionId', async (req, res) => {
             };
         });
 
+        // Cache specific collection for 10 minutes
+        res.set('Cache-Control', 'public, max-age=600');
         res.json({
             id: collectionId,
             name: collection.name,

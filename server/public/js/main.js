@@ -167,6 +167,7 @@ function switchMode(mode) {
 let allPlaylists = [];
 let currentPlaylistId = null;
 let exploreInitialized = false;
+const playlistDataCache = new Map(); // Client-side cache for loaded playlist artworks
 
 // Initialize explore mode with playlist stacks
 async function initializeExploreMode() {
@@ -246,11 +247,11 @@ async function loadPlaylist(playlistId) {
 
     if (!playlist) return;
 
-    // Update stack active states
+    // Update active state without full re-render (just toggle classes)
     document.querySelectorAll('.playlist-stack').forEach(stack => {
-        stack.classList.toggle('active', stack.querySelector('.stack-label')?.textContent.includes(playlist.name));
+        const label = stack.querySelector('.stack-label');
+        stack.classList.toggle('active', label?.textContent.includes(playlist.name));
     });
-    renderPlaylistStacks(); // Re-render to update active state
 
     // Show current playlist indicator
     const currentPlaylistEl = document.getElementById('currentPlaylist');
@@ -263,8 +264,18 @@ async function loadPlaylist(playlistId) {
     // Show refresh button only for dynamic playlists
     refreshBtn.style.display = (playlist.type === 'dynamic' || playlist.type === 'seasonal') ? 'inline-block' : 'none';
 
-    // Show loading state
     const cardsContainer = document.getElementById('artCards');
+
+    // Check client-side cache first
+    const cached = playlistDataCache.get(playlistId);
+    if (cached && cached.artworks && cached.artworks.length > 0) {
+        currentArtResults = cached.artworks;
+        browseDisplayCount = getInitialDisplayCount();
+        displayPlaylistCards();
+        return;
+    }
+
+    // Show loading state
     cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Loading...</div>';
 
     try {
@@ -272,6 +283,8 @@ async function loadPlaylist(playlistId) {
         const data = await response.json();
 
         if (data.artworks && data.artworks.length > 0) {
+            // Cache the results client-side
+            playlistDataCache.set(playlistId, { artworks: data.artworks, timestamp: Date.now() });
             currentArtResults = data.artworks;
             browseDisplayCount = getInitialDisplayCount();
             displayPlaylistCards();
@@ -432,6 +445,9 @@ async function refreshPlaylist() {
 
     const playlist = allPlaylists.find(p => p.id === currentPlaylistId);
     if (!playlist || playlist.type === 'classic') return;
+
+    // Clear client-side cache for this playlist
+    playlistDataCache.delete(currentPlaylistId);
 
     // Show loading
     const cardsContainer = document.getElementById('artCards');

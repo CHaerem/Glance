@@ -47,6 +47,8 @@ router.get('/', (req, res) => {
             artworkCount: p.artworks ? p.artworks.length : null
         }));
 
+        // Cache playlist metadata for 5 minutes (rarely changes)
+        res.set('Cache-Control', 'public, max-age=300');
         res.json({ playlists });
     } catch (error) {
         log.error('Error getting playlists', { error: error.message });
@@ -84,6 +86,8 @@ router.get('/:playlistId', async (req, res) => {
                 };
             });
 
+            // Cache classic playlists for 10 minutes (static content)
+            res.set('Cache-Control', 'public, max-age=600');
             return res.json({
                 id: playlist.id,
                 name: playlist.name,
@@ -100,6 +104,9 @@ router.get('/:playlistId', async (req, res) => {
             const cacheKey = `${playlistId}-${playlist.searchQuery}`;
             const cached = dynamicCache.get(cacheKey);
             if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+                // Cache for remaining TTL time
+                const remainingTTL = Math.floor((CACHE_TTL - (Date.now() - cached.timestamp)) / 1000);
+                res.set('Cache-Control', `public, max-age=${Math.min(remainingTTL, 300)}`);
                 return res.json({
                     id: playlist.id,
                     name: playlist.name,
@@ -140,6 +147,8 @@ router.get('/:playlistId', async (req, res) => {
                 timestamp: Date.now()
             });
 
+            // Cache dynamic playlists for 5 minutes on client
+            res.set('Cache-Control', 'public, max-age=300');
             return res.json({
                 id: playlist.id,
                 name: playlist.name,
