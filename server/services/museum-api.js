@@ -70,27 +70,73 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 		"Photographs"
 	];
 
-	// Helper function to check if artwork is suitable
-	const isOriginalArtwork = (title, classification, objectName, medium) => {
+	// Helper function to check if item is actual art (not furniture, ceramics, etc.)
+	const isOriginalArtwork = (title, classification, objectName, medium, objectType) => {
 		const lowerTitle = (title || "").toLowerCase();
 		const lowerClass = (classification || "").toLowerCase();
 		const lowerObject = (objectName || "").toLowerCase();
 		const lowerMedium = (medium || "").toLowerCase();
+		const lowerType = (objectType || "").toLowerCase();
 
-		const allText = `${lowerTitle} ${lowerClass} ${lowerObject} ${lowerMedium}`;
+		const allText = `${lowerTitle} ${lowerClass} ${lowerObject} ${lowerMedium} ${lowerType}`;
 
+		// Exclude book pages, photographs of objects, etc.
 		const hardExcludeTerms = [
 			"page from a book",
 			"page from an album",
 			"photograph of",
 			"illustrated book",
 			"title page",
-			"frontispiece"
+			"frontispiece",
+			"book cover"
 		];
 
 		for (const term of hardExcludeTerms) {
 			if (allText.includes(term)) {
-				log.debug('Filtering out artwork', { title, excludeTerm: term });
+				log.debug('Filtering out item', { title, reason: 'hard exclude', term });
+				return false;
+			}
+		}
+
+		// Exclude non-art object types (furniture, decorative arts, etc.)
+		const excludeObjectTypes = [
+			"furniture", "table", "chair", "desk", "cabinet", "chest", "bed", "bench", "stool", "armchair",
+			"ceramic", "ceramics", "pottery", "porcelain", "vase", "bowl", "plate", "dish", "cup", "teapot", "jar",
+			"textile", "costume", "dress", "robe", "coat", "tapestry", "carpet", "rug", "embroidery", "lace",
+			"jewelry", "jewellery", "necklace", "ring", "bracelet", "brooch", "pendant", "earring",
+			"metalwork", "silverware", "goldwork", "bronze object", "copper object",
+			"glass", "glassware", "bottle", "goblet",
+			"clock", "watch", "timepiece",
+			"weapon", "sword", "armor", "armour", "shield", "dagger", "gun", "pistol",
+			"coin", "medal", "medallion", "numismatic",
+			"tool", "implement", "utensil", "spoon", "fork", "knife",
+			"figurine", "statuette", "ornament", "decorative object",
+			"mask", "helmet",
+			"musical instrument", "piano", "violin", "guitar",
+			"model", "miniature model",
+			"manuscript", "document", "letter", "certificate",
+			"tile", "tiles"
+		];
+
+		for (const term of excludeObjectTypes) {
+			if (lowerObject.includes(term) || lowerClass.includes(term) || lowerType.includes(term)) {
+				log.debug('Filtering out item', { title, reason: 'object type', term });
+				return false;
+			}
+		}
+
+		// Also check title for obvious non-art items
+		const titleExcludes = [
+			"chair", "table", "cabinet", "vase", "bowl", "plate", "teapot", "cup and saucer",
+			"dress", "robe", "costume", "textile fragment", "carpet", "rug",
+			"necklace", "ring", "bracelet", "brooch", "earrings",
+			"clock", "watch", "sword", "dagger", "armor", "helmet",
+			"coin", "medal", "spoon", "fork", "knife", "tile"
+		];
+
+		for (const term of titleExcludes) {
+			if (lowerTitle.includes(term) && !lowerTitle.includes("painting") && !lowerTitle.includes("portrait")) {
+				log.debug('Filtering out item', { title, reason: 'title suggests non-art', term });
 				return false;
 			}
 		}
@@ -145,7 +191,8 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 						objectData.title,
 						objectData.classification,
 						objectData.objectName,
-						objectData.medium
+						objectData.medium,
+						objectData.objectName // objectType
 					);
 
 					if (hasImage && isPublicOrMuseumQuality && isArtDept && isOriginal) {
@@ -208,7 +255,8 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 						artwork.title,
 						artwork.classification_title,
 						artwork.artwork_type_title,
-						artwork.medium_display
+						artwork.medium_display,
+						artwork.artwork_type_title // objectType
 					);
 				})
 				.slice(0, targetCount)
@@ -264,7 +312,8 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 						artwork.title,
 						artwork.type,
 						artwork.technique,
-						artwork.technique
+						artwork.technique,
+						artwork.type // objectType
 					);
 				})
 				.slice(0, targetCount)
@@ -314,7 +363,18 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 			}
 
 			const rijksArtworks = rijksData.artObjects
-				.filter(artwork => artwork.webImage?.url)
+				.filter(artwork => {
+					if (!artwork.webImage?.url) return false;
+					// Rijksmuseum doesn't provide detailed type info in search results,
+					// so filter by title
+					return isOriginalArtwork(
+						artwork.title,
+						"", // classification
+						"", // objectName
+						"", // medium
+						"" // objectType
+					);
+				})
 				.slice(0, targetCount)
 				.map(artwork => ({
 					id: `rijks-${artwork.objectNumber}`,
@@ -416,7 +476,16 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 			}
 
 			const vamArtworks = vamData.records
-				.filter(artwork => artwork._primaryImageId)
+				.filter(artwork => {
+					if (!artwork._primaryImageId) return false;
+					return isOriginalArtwork(
+						artwork._primaryTitle,
+						"", // classification
+						artwork._objectType || "", // objectName
+						"", // medium
+						artwork._objectType || "" // objectType
+					);
+				})
 				.slice(0, targetCount)
 				.map(artwork => ({
 					id: `vam-${artwork.systemNumber}`,
@@ -464,7 +533,16 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 			}
 
 			const harvardArtworks = harvardData.records
-				.filter(artwork => artwork.primaryimageurl)
+				.filter(artwork => {
+					if (!artwork.primaryimageurl) return false;
+					return isOriginalArtwork(
+						artwork.title,
+						artwork.classification || "",
+						artwork.technique || "",
+						artwork.medium || "",
+						artwork.classification || "" // objectType
+					);
+				})
 				.slice(0, targetCount)
 				.map(artwork => ({
 					id: `harvard-${artwork.id}`,
@@ -514,7 +592,19 @@ async function performArtSearch(query, targetCount = 20, startOffset = 0) {
 			const smithsonianArtworks = smithsonianData.response.rows
 				.filter(row => {
 					const content = row.content;
-					return content?.descriptiveNonRepeating?.online_media?.media?.[0]?.content;
+					if (!content?.descriptiveNonRepeating?.online_media?.media?.[0]?.content) {
+						return false;
+					}
+					const title = content.descriptiveNonRepeating?.title?.content || "";
+					const objectType = content.freetext?.objectType?.[0]?.content || "";
+					const physicalDescription = content.freetext?.physicalDescription?.[0]?.content || "";
+					return isOriginalArtwork(
+						title,
+						"", // classification
+						objectType, // objectName
+						physicalDescription, // medium
+						objectType // objectType
+					);
 				})
 				.slice(0, targetCount)
 				.map(row => {
