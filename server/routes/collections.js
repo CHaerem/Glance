@@ -8,6 +8,7 @@ const router = express.Router();
 const { CURATED_COLLECTIONS } = require('../services/museum-api');
 const { loggers } = require('../services/logger');
 const log = loggers.api;
+const { filterValidWikimediaArtworks, getWikimediaUrl } = require('../utils/image-validator');
 
 /**
  * Get curated collections list
@@ -33,7 +34,7 @@ router.get('/', (req, res) => {
  * Get artworks from a specific collection
  * GET /api/collections/:collectionId
  */
-router.get('/:collectionId', (req, res) => {
+router.get('/:collectionId', async (req, res) => {
     try {
         const { collectionId } = req.params;
         const collection = CURATED_COLLECTIONS[collectionId];
@@ -42,9 +43,12 @@ router.get('/:collectionId', (req, res) => {
             return res.status(404).json({ error: "Collection not found" });
         }
 
+        // Validate Wikimedia images and filter out broken ones
+        const validatedArtworks = await filterValidWikimediaArtworks(collection.artworks);
+
         // Convert artworks to response format
-        const artworks = collection.artworks.map(artwork => {
-            const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${artwork.wikimedia}?width=1200`;
+        const artworks = validatedArtworks.map(artwork => {
+            const imageUrl = getWikimediaUrl(artwork.wikimedia, 1200);
             return {
                 title: `${artwork.title} (${artwork.year})`,
                 artist: artwork.artist,

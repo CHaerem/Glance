@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { loggers } = require('../services/logger');
 const log = loggers.api;
+const { filterValidWikimediaArtworks, getWikimediaUrl, isUrlAccessible } = require('../utils/image-validator');
 
 // Load playlists data
 const PLAYLISTS_PATH = path.join(__dirname, '..', 'data', 'playlists.json');
@@ -66,16 +67,19 @@ router.get('/:playlistId', async (req, res) => {
             return res.status(404).json({ error: "Playlist not found" });
         }
 
-        // Classic playlist - return static artworks
+        // Classic playlist - return static artworks with validated images
         if (playlist.type === 'classic' && playlist.artworks) {
-            const artworks = playlist.artworks.map(artwork => {
-                const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${artwork.wikimedia}?width=1200`;
+            // Validate Wikimedia images and filter out broken ones
+            const validatedArtworks = await filterValidWikimediaArtworks(playlist.artworks);
+
+            const artworks = validatedArtworks.map(artwork => {
+                const imageUrl = getWikimediaUrl(artwork.wikimedia, 1200);
                 return {
                     title: artwork.title,
                     artist: artwork.artist,
                     year: artwork.year,
                     imageUrl: imageUrl,
-                    thumbnail: `https://commons.wikimedia.org/wiki/Special:FilePath/${artwork.wikimedia}?width=400`,
+                    thumbnail: getWikimediaUrl(artwork.wikimedia, 400),
                     source: 'curated'
                 };
             });
