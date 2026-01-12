@@ -8,22 +8,25 @@ const router = express.Router();
 const { CURATED_COLLECTIONS } = require('../services/museum-api');
 const { loggers } = require('../services/logger');
 const log = loggers.api;
-const { filterValidWikimediaArtworks, getWikimediaUrl, isFilenameValidated } = require('../utils/image-validator');
+const { filterValidWikimediaArtworks, getWikimediaUrl } = require('../utils/image-validator');
 
 /**
  * Get featured artworks (most popular, instantly loaded)
  * GET /api/collections/featured
+ *
+ * Returns all curated artworks without requiring cache validation.
+ * Curated artworks are manually selected and should be reliable.
  */
 router.get('/featured', (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 20;
 
-        // Collect all artworks from all collections with their popularity
-        // Only include verified filenames for instant, guaranteed loading
+        // Collect all artworks from all curated collections
+        // No validation required - curated collections are manually verified
         const allArtworks = [];
         for (const [collectionId, collection] of Object.entries(CURATED_COLLECTIONS)) {
             for (const artwork of collection.artworks) {
-                if (artwork.wikimedia && isFilenameValidated(artwork.wikimedia)) {
+                if (artwork.wikimedia) {
                     allArtworks.push({
                         ...artwork,
                         collectionId,
