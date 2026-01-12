@@ -84,9 +84,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') searchArt();
     });
 
-    // AI Art Guide toggle
+    // AI Art Guide toggle and setup
     document.getElementById('aiGuideBtn').addEventListener('click', toggleAiGuide);
     document.getElementById('aiGuideClose').addEventListener('click', toggleAiGuide);
+    document.getElementById('artifactUrlSave').addEventListener('click', saveArtifactUrl);
+    document.getElementById('artifactUrlInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') saveArtifactUrl();
+    });
 
     // Playlist stack navigation
     document.getElementById('stacksNavLeft').addEventListener('click', () => scrollPlaylistStacks('left'));
@@ -145,6 +149,52 @@ function toggleAiGuide() {
     } else {
         panel.style.display = 'block';
         btn.classList.add('active');
+        loadArtifactUrl(); // Load saved URL when opening
+    }
+}
+
+// AI Art Guide artifact URL management
+function loadArtifactUrl() {
+    const savedUrl = localStorage.getItem('glance_artifact_url');
+    const iframe = document.getElementById('aiGuideFrame');
+    const setup = document.getElementById('aiGuideSetup');
+    const input = document.getElementById('artifactUrlInput');
+
+    if (savedUrl && isValidArtifactUrl(savedUrl)) {
+        iframe.src = savedUrl;
+        iframe.classList.add('show');
+        setup.classList.add('hidden');
+    } else {
+        iframe.classList.remove('show');
+        setup.classList.remove('hidden');
+        if (savedUrl) input.value = savedUrl;
+    }
+}
+
+function saveArtifactUrl() {
+    const input = document.getElementById('artifactUrlInput');
+    const url = input.value.trim();
+
+    if (!url) {
+        alert('Please enter an artifact URL');
+        return;
+    }
+
+    if (!isValidArtifactUrl(url)) {
+        alert('Please enter a valid Claude artifact URL (https://claude.site/artifacts/...)');
+        return;
+    }
+
+    localStorage.setItem('glance_artifact_url', url);
+    loadArtifactUrl();
+}
+
+function isValidArtifactUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.hostname === 'claude.site' && parsed.pathname.startsWith('/artifacts/');
+    } catch {
+        return false;
     }
 }
 

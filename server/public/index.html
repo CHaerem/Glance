@@ -79,16 +79,32 @@
                     <span class="ai-guide-title">AI Art Guide</span>
                     <button class="ai-guide-close" id="aiGuideClose">×</button>
                 </div>
-                <div class="ai-guide-content">
-                    <p>Chat with Claude to discover art for your Glance frame.</p>
-                    <a href="https://claude.ai" target="_blank" class="ai-guide-link">
-                        Open Claude.ai →
-                    </a>
-                    <div class="ai-guide-hint">
-                        The Glance MCP server is connected. Try asking:<br>
-                        <em>"Search for impressionist landscapes"</em><br>
-                        <em>"Show me a random artwork"</em><br>
-                        <em>"What's currently on my display?"</em>
+                <div class="ai-guide-embed" id="aiGuideEmbed">
+                    <!-- Artifact iframe (shown when URL is configured) -->
+                    <iframe
+                        id="aiGuideFrame"
+                        class="ai-guide-iframe"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                        allow="clipboard-read; clipboard-write"
+                    ></iframe>
+                    <!-- Setup instructions (shown when no URL configured) -->
+                    <div class="ai-guide-setup" id="aiGuideSetup">
+                        <p><strong>Setup AI Art Guide</strong></p>
+                        <ol>
+                            <li>Open <a href="https://claude.ai" target="_blank">Claude.ai</a></li>
+                            <li>Create an artifact with the Glance Art Guide code</li>
+                            <li>Enable "AI capabilities" and publish</li>
+                            <li>Add <code>serverpi.corgi-climb.ts.net</code> to allowed domains</li>
+                            <li>Copy the embed URL and paste below:</li>
+                        </ol>
+                        <div class="artifact-url-form">
+                            <input type="text" id="artifactUrlInput" class="artifact-url-input" placeholder="https://claude.site/artifacts/...">
+                            <button class="artifact-url-save" id="artifactUrlSave">Load</button>
+                        </div>
+                        <div class="ai-guide-fallback">
+                            <p>Or use Claude.ai directly with the MCP server connected:</p>
+                            <a href="https://claude.ai" target="_blank" class="ai-guide-link">Open Claude.ai →</a>
+                        </div>
                     </div>
                 </div>
             </div>
