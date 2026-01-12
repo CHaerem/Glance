@@ -134,6 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // AI Art Guide toggle
+// Track if user has authenticated with Claude this session
+let claudeAuthAttempted = false;
+
 function toggleAiGuide() {
     const panel = document.getElementById('aiGuidePanel');
     const btn = document.getElementById('aiGuideBtn');
@@ -144,9 +147,32 @@ function toggleAiGuide() {
         btn.classList.remove('active');
         stopAiSearchPolling();
     } else {
-        panel.style.display = 'block';
-        btn.classList.add('active');
-        startAiSearchPolling();
+        // If this is first time opening, try popup auth first
+        if (!claudeAuthAttempted) {
+            claudeAuthAttempted = true;
+            // Open Claude.ai briefly to establish cookies
+            const authPopup = window.open('https://claude.ai', 'claude_auth', 'width=600,height=400,popup=true');
+            // Close after 2 seconds and show the iframe
+            setTimeout(() => {
+                if (authPopup && !authPopup.closed) {
+                    authPopup.close();
+                }
+                showAiGuidePanel(panel, btn);
+            }, 2000);
+        } else {
+            showAiGuidePanel(panel, btn);
+        }
+    }
+}
+
+function showAiGuidePanel(panel, btn) {
+    panel.style.display = 'block';
+    btn.classList.add('active');
+    startAiSearchPolling();
+    // Reload iframe to pick up any new cookies
+    const iframe = document.getElementById('aiGuideFrame');
+    if (iframe) {
+        iframe.src = iframe.src;
     }
 }
 
