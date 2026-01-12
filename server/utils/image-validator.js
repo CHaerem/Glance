@@ -112,9 +112,20 @@ async function isUrlAccessible(url, timeout = 5000) {
 
 /**
  * Build Wikimedia Commons URL from filename
+ * Handles both raw and pre-encoded filenames to avoid double-encoding
  */
 function getWikimediaUrl(filename, width = 1200) {
-    return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=${width}`;
+    // Normalize: decode first if already encoded, then encode properly
+    // This prevents double-encoding (e.g., %C3%A9 becoming %25C3%25A9)
+    let normalizedFilename;
+    try {
+        // Try to decode (handles already-encoded filenames like "Caf%C3%A9")
+        normalizedFilename = decodeURIComponent(filename);
+    } catch {
+        // If decode fails (invalid encoding), use as-is
+        normalizedFilename = filename;
+    }
+    return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(normalizedFilename)}?width=${width}`;
 }
 
 /**
