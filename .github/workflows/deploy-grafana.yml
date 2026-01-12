@@ -108,6 +108,24 @@ jobs:
             exit 0
           fi
 
+          # Delete old rules that are no longer in the YAML file
+          echo "Cleaning up removed alert rules..."
+          REMOVED_RULES="glance-device-offline glance-brownout-detected glance-server-memory-high glance-server-down glance-wifi-signal-weak"
+          for RULE_UID in $REMOVED_RULES; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE \
+              "${GRAFANA_URL}/api/v1/provisioning/alert-rules/${RULE_UID}" \
+              -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+              -H "X-Disable-Provenance: true")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+              echo "  ✓ Deleted: $RULE_UID"
+            elif [ "$HTTP_CODE" = "404" ]; then
+              echo "  - Not found (already deleted): $RULE_UID"
+            else
+              echo "  ✗ Failed to delete: $RULE_UID (HTTP $HTTP_CODE)"
+            fi
+          done
+
           # Convert YAML to JSON and deploy each rule
           echo "Processing alert rules..."
           RULES=$(/tmp/yq -o=json '.groups[].rules[]' server/grafana-alert-rules.yaml)
