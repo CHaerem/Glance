@@ -12,7 +12,6 @@ let collectionDisplayCount = getInitialDisplayCount();
 let allArtworks = [];
 let myCollection = [];
 let filteredCollection = [];
-let currentFilter = 'all';
 let collectionSearchQuery = '';
 let collectionSortBy = 'date-desc';
 
@@ -144,11 +143,11 @@ function switchMode(mode) {
     } else if (mode === 'explore') {
         document.getElementById('exploreMode').classList.add('show');
         browseDisplayCount = getInitialDisplayCount();
-        initializeExploreMode(); // Initialize curated picks and categories
+        initializeExploreMode(); // Initialize playlist stacks
         if (currentArtResults.length === 0) {
-            loadAllArt(); // Load initial art
+            // Playlists will load via initializeExploreMode
         } else {
-            displayArtResults();
+            displayPlaylistCards();
         }
     } else if (mode === 'my-collection') {
         document.getElementById('myCollectionMode').classList.add('show');
@@ -379,14 +378,6 @@ async function refreshPlaylist() {
         console.error('Failed to refresh playlist:', error);
     }
 }
-
-// Suggestion click
-function suggestSearch(query) {
-    document.getElementById('searchInput').value = query;
-    searchArt();
-}
-
-// Search suggestions removed - now using curated picks and smart categories
 
 // Load current display
 async function loadCurrentDisplay() {
@@ -666,73 +657,6 @@ function displayMyCollection() {
 function showMoreCollection() {
     collectionDisplayCount += getShowMoreIncrement();
     displayMyCollection();
-}
-
-function filterArt(collectionId) {
-    currentFilter = collectionId;
-
-    if (collectionId === 'all') {
-        currentArtResults = allArtworks;
-    } else {
-        currentArtResults = allArtworks.filter(art => art.collectionId === collectionId);
-    }
-
-    browseDisplayCount = getInitialDisplayCount();
-    displayArtResults();
-}
-
-function displayArtResults() {
-    const grid = document.getElementById('artGrid');
-    const showMoreBtn = document.getElementById('browseShowMore');
-
-    if (currentArtResults.length === 0) {
-        grid.innerHTML = '<div class="loading">No results</div>';
-        showMoreBtn.style.display = 'none';
-        return;
-    }
-
-    const displayedResults = currentArtResults.slice(0, browseDisplayCount);
-    grid.innerHTML = displayedResults.map(art => createArtCard(art)).join('');
-
-    // Show "show more" button if there are more results
-    if (browseDisplayCount < currentArtResults.length) {
-        const increment = getShowMoreIncrement();
-        document.getElementById('showMoreBrowseBtn').textContent = `show ${increment} more`;
-        showMoreBtn.style.display = 'block';
-    } else {
-        showMoreBtn.style.display = 'none';
-    }
-}
-
-// Create a modern art card with metadata
-function createArtCard(art) {
-    const title = art.title || 'Untitled';
-    const artist = art.artist || '';
-    const date = art.date || art.year || '';
-    const source = art.source || '';
-    const imageUrl = art.thumbnail || art.thumbnailUrl || art.imageUrl;
-    const artJson = JSON.stringify(art).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
-
-    return `
-        <div class="art-card" onclick='previewArt(${artJson.replace(/&quot;/g, "&#34;")})'>
-            <div class="card-image-container">
-                <img class="card-image" src="${imageUrl}" alt="${truncateText(title, 50)}" loading="lazy">
-                <div class="card-overlay">
-                    <button class="card-action" onclick='event.stopPropagation(); quickAddToCollection(${artJson.replace(/&quot;/g, "&#34;")})' title="Add to collection">+</button>
-                </div>
-            </div>
-            <div class="card-meta">
-                <div class="card-title">${truncateText(title, 28)}</div>
-                ${artist ? `<div class="card-artist">${truncateText(artist, 24)}</div>` : ''}
-                ${(date || source) ? `
-                <div class="card-details">
-                    ${date ? `<span class="card-date">${date}</span>` : ''}
-                    ${source && source !== 'curated' ? `<span class="card-source">${source}</span>` : ''}
-                </div>
-                ` : ''}
-            </div>
-        </div>
-    `;
 }
 
 // Truncate text with ellipsis
