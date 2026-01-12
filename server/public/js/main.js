@@ -582,19 +582,12 @@ async function searchArt() {
 
 async function loadAllArt() {
     try {
-        const response = await fetch('/api/collections');
-        const data = await response.json();
+        // Load featured artworks first (instant, pre-verified)
+        const featuredResponse = await fetch('/api/collections/featured?limit=30');
+        const featuredData = await featuredResponse.json();
 
-        allArtworks = [];
-        for (const collection of data.collections) {
-            const collResponse = await fetch(`/api/collections/${collection.id}`);
-            const collData = await collResponse.json();
-            collData.artworks.forEach(artwork => {
-                artwork.collectionId = collection.id;
-                allArtworks.push(artwork);
-            });
-        }
-
+        // Show featured immediately (sorted by popularity - most iconic art first)
+        allArtworks = featuredData.artworks || [];
         currentArtResults = allArtworks;
         browseDisplayCount = getInitialDisplayCount();
         displayPlaylistCards();

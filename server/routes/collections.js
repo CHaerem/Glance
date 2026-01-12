@@ -11,6 +11,51 @@ const log = loggers.api;
 const { filterValidWikimediaArtworks, getWikimediaUrl } = require('../utils/image-validator');
 
 /**
+ * Get featured artworks (most popular, instantly loaded)
+ * GET /api/collections/featured
+ */
+router.get('/featured', (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+
+        // Collect all artworks from all collections with their popularity
+        const allArtworks = [];
+        for (const [collectionId, collection] of Object.entries(CURATED_COLLECTIONS)) {
+            for (const artwork of collection.artworks) {
+                allArtworks.push({
+                    ...artwork,
+                    collectionId,
+                    collectionName: collection.name
+                });
+            }
+        }
+
+        // Sort by popularity (highest first) and take top N
+        const featured = allArtworks
+            .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+            .slice(0, limit)
+            .map(artwork => {
+                const imageUrl = getWikimediaUrl(artwork.wikimedia, 1200);
+                return {
+                    title: artwork.title,
+                    artist: artwork.artist,
+                    year: artwork.year,
+                    imageUrl: imageUrl,
+                    thumbnail: getWikimediaUrl(artwork.wikimedia, 400),
+                    source: "curated",
+                    popularity: artwork.popularity,
+                    collectionId: artwork.collectionId
+                };
+            });
+
+        res.json({ artworks: featured });
+    } catch (error) {
+        log.error('Error getting featured artworks', { error: error.message });
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+/**
  * Get curated collections list
  * GET /api/collections
  */
