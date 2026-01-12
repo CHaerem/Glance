@@ -6,18 +6,6 @@ let selectedHistoryItem = null;
 let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
 
-// Playlist hints for explore mode
-const playlistHints = [
-    { id: 'morning-calm', text: 'try: morning calm' },
-    { id: 'rainy-afternoon', text: 'try: rainy afternoon' },
-    { id: 'focus-time', text: 'try: focus time' },
-    { id: 'evening-wind-down', text: 'try: evening wind-down' },
-    { id: 'impressionist-dreams', text: 'try: impressionist dreams' },
-    { id: 'dutch-golden-age', text: 'try: dutch golden age' },
-    { id: 'japanese-serenity', text: 'try: japanese serenity' },
-    { id: 'bold-and-vibrant', text: 'try: bold and vibrant' }
-];
-
 // Browse state
 let browseDisplayCount = getInitialDisplayCount();
 let collectionDisplayCount = getInitialDisplayCount();
@@ -97,11 +85,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') searchArt();
     });
 
-    // Rotating placeholder - inspires search ideas
-    initRotatingPlaceholder();
+    // Playlist stack navigation
+    document.getElementById('stacksNavLeft').addEventListener('click', () => scrollPlaylistStacks('left'));
+    document.getElementById('stacksNavRight').addEventListener('click', () => scrollPlaylistStacks('right'));
 
-    // Playlist hints - subtle rotating suggestions
-    initPlaylistHints();
+    // Playlist controls
+    document.getElementById('playlistClear').addEventListener('click', clearPlaylist);
+    document.getElementById('playlistRefresh').addEventListener('click', refreshPlaylist);
 
     document.getElementById('showMoreBrowseBtn').addEventListener('click', showMoreBrowse);
     document.getElementById('showMoreCollectionBtn').addEventListener('click', showMoreCollection);
@@ -154,7 +144,7 @@ function switchMode(mode) {
     } else if (mode === 'explore') {
         document.getElementById('exploreMode').classList.add('show');
         browseDisplayCount = getInitialDisplayCount();
-        initializeSearchSuggestions(); // Load dynamic suggestions
+        initializeExploreMode(); // Initialize curated picks and categories
         if (currentArtResults.length === 0) {
             loadAllArt(); // Load initial art
         } else {
@@ -173,17 +163,230 @@ function switchMode(mode) {
     document.getElementById('myCollectionLink').style.color = mode === 'my-collection' ? '#1a1a1a' : '#999';
 }
 
+// Playlist state
+let allPlaylists = [];
+let currentPlaylistId = null;
+let exploreInitialized = false;
+
+// Initialize explore mode with playlist stacks
+async function initializeExploreMode() {
+    if (!exploreInitialized) {
+        await loadPlaylists();
+        exploreInitialized = true;
+    }
+    updateStacksNavigation();
+}
+
+// Load all playlists from API
+async function loadPlaylists() {
+    const stacksContainer = document.getElementById('playlistStacks');
+
+    try {
+        const response = await fetch('/api/playlists');
+        const data = await response.json();
+        allPlaylists = data.playlists || [];
+
+        renderPlaylistStacks();
+
+        // Auto-load a random playlist on first visit
+        if (allPlaylists.length > 0 && currentArtResults.length === 0) {
+            const randomIndex = Math.floor(Math.random() * allPlaylists.length);
+            loadPlaylist(allPlaylists[randomIndex].id);
+        }
+    } catch (error) {
+        console.error('Failed to load playlists:', error);
+        stacksContainer.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">Failed to load playlists</div>';
+    }
+}
+
+// Render playlist stacks UI
+function renderPlaylistStacks() {
+    const stacksContainer = document.getElementById('playlistStacks');
+
+    if (allPlaylists.length === 0) {
+        stacksContainer.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">No playlists available</div>';
+        return;
+    }
+
+    stacksContainer.innerHTML = allPlaylists.map(playlist => {
+        const isActive = playlist.id === currentPlaylistId;
+        const typeLabel = playlist.type === 'classic' ? 'curated' : playlist.type;
+
+        // For classic playlists, use the preview image; for dynamic, use a placeholder
+        const previewUrl = playlist.preview || '/api/placeholder-art.jpg';
+
+        return `
+            <div class="playlist-stack ${isActive ? 'active' : ''}" onclick="loadPlaylist('${playlist.id}')" title="${playlist.description || playlist.name}">
+                <div class="stack-cards">
+                    <div class="stack-card"></div>
+                    <div class="stack-card"></div>
+                    <div class="stack-card">
+                        <img src="${previewUrl}" alt="${playlist.name}" loading="lazy" onerror="this.style.display='none'">
+                    </div>
+                </div>
+                <div class="stack-label">
+                    ${playlist.name}
+                    <span class="stack-type">${typeLabel}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Load a specific playlist
+async function loadPlaylist(playlistId) {
+    currentPlaylistId = playlistId;
+    const playlist = allPlaylists.find(p => p.id === playlistId);
+
+    if (!playlist) return;
+
+    // Update stack active states
+    document.querySelectorAll('.playlist-stack').forEach(stack => {
+        stack.classList.toggle('active', stack.querySelector('.stack-label')?.textContent.includes(playlist.name));
+    });
+    renderPlaylistStacks(); // Re-render to update active state
+
+    // Show current playlist indicator
+    const currentPlaylistEl = document.getElementById('currentPlaylist');
+    const playlistNameEl = document.getElementById('playlistName');
+    const refreshBtn = document.getElementById('playlistRefresh');
+
+    playlistNameEl.textContent = playlist.name;
+    currentPlaylistEl.style.display = 'flex';
+
+    // Show refresh button only for dynamic playlists
+    refreshBtn.style.display = (playlist.type === 'dynamic' || playlist.type === 'seasonal') ? 'inline-block' : 'none';
+
+    // Show loading state
+    const cardsContainer = document.getElementById('artCards');
+    cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Loading...</div>';
+
+    try {
+        const response = await fetch(`/api/playlists/${playlistId}`);
+        const data = await response.json();
+
+        if (data.artworks && data.artworks.length > 0) {
+            currentArtResults = data.artworks;
+            browseDisplayCount = getInitialDisplayCount();
+            displayPlaylistCards();
+        } else {
+            cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">No artworks in this playlist</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load playlist:', error);
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Failed to load playlist</div>';
+    }
+}
+
+// Display artworks using physical card design
+function displayPlaylistCards() {
+    const cardsContainer = document.getElementById('artCards');
+    const showMoreBtn = document.getElementById('browseShowMore');
+
+    if (currentArtResults.length === 0) {
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">No results</div>';
+        showMoreBtn.style.display = 'none';
+        return;
+    }
+
+    const displayedResults = currentArtResults.slice(0, browseDisplayCount);
+    cardsContainer.innerHTML = displayedResults.map(art => createPhysicalCard(art)).join('');
+
+    // Show "show more" button if there are more results
+    if (browseDisplayCount < currentArtResults.length) {
+        const increment = getShowMoreIncrement();
+        document.getElementById('showMoreBrowseBtn').textContent = `show ${increment} more`;
+        showMoreBtn.style.display = 'block';
+    } else {
+        showMoreBtn.style.display = 'none';
+    }
+}
+
+// Create a physical card element
+function createPhysicalCard(art) {
+    const title = art.title || 'Untitled';
+    const artist = art.artist || '';
+    const imageUrl = art.thumbnail || art.thumbnailUrl || art.imageUrl;
+    const artJson = JSON.stringify(art).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+    return `
+        <div class="physical-card" onclick='previewArt(${artJson.replace(/&quot;/g, "&#34;")})'>
+            <div class="physical-card-image">
+                <img src="${imageUrl}" alt="${truncateText(title, 50)}" loading="lazy">
+            </div>
+            <div class="physical-card-overlay">
+                <button class="physical-card-action" onclick='event.stopPropagation(); quickAddToCollection(${artJson.replace(/&quot;/g, "&#34;")})' title="Add to collection">+</button>
+            </div>
+            <div class="physical-card-meta">
+                <div class="physical-card-title">${truncateText(title, 28)}</div>
+                ${artist ? `<div class="physical-card-artist">${truncateText(artist, 24)}</div>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Scroll playlist stacks
+function scrollPlaylistStacks(direction) {
+    const container = document.getElementById('playlistStacks');
+    const scrollAmount = 240; // Scroll by ~2 stacks
+
+    if (direction === 'left') {
+        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else {
+        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+
+    // Update navigation button states after scroll
+    setTimeout(updateStacksNavigation, 300);
+}
+
+// Update navigation button visibility
+function updateStacksNavigation() {
+    const container = document.getElementById('playlistStacks');
+    const leftBtn = document.getElementById('stacksNavLeft');
+    const rightBtn = document.getElementById('stacksNavRight');
+
+    if (!container) return;
+
+    leftBtn.disabled = container.scrollLeft <= 0;
+    rightBtn.disabled = container.scrollLeft >= container.scrollWidth - container.clientWidth - 10;
+}
+
+// Clear playlist selection
+function clearPlaylist() {
+    currentPlaylistId = null;
+    document.getElementById('currentPlaylist').style.display = 'none';
+    renderPlaylistStacks();
+    loadAllArt();
+}
+
+// Refresh dynamic playlist
+async function refreshPlaylist() {
+    if (!currentPlaylistId) return;
+
+    const playlist = allPlaylists.find(p => p.id === currentPlaylistId);
+    if (!playlist || playlist.type === 'classic') return;
+
+    // Show loading
+    const cardsContainer = document.getElementById('artCards');
+    cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Refreshing...</div>';
+
+    try {
+        // Call refresh endpoint then reload
+        await fetch(`/api/playlists/${currentPlaylistId}/refresh`, { method: 'POST' });
+        await loadPlaylist(currentPlaylistId);
+    } catch (error) {
+        console.error('Failed to refresh playlist:', error);
+    }
+}
+
 // Suggestion click
 function suggestSearch(query) {
     document.getElementById('searchInput').value = query;
     searchArt();
 }
 
-// Initialize search suggestions - now using static categorized chips in HTML
-// This function is kept for backwards compatibility but does nothing
-function initializeSearchSuggestions() {
-    // Suggestions are now static HTML chips - no dynamic initialization needed
-}
+// Search suggestions removed - now using curated picks and smart categories
 
 // Load current display
 async function loadCurrentDisplay() {
@@ -295,97 +498,27 @@ async function feelingLucky() {
     }
 }
 
-// Rotating placeholder - cycles through inspiring search ideas
-function initRotatingPlaceholder() {
-    const placeholders = [
-        'peaceful morning light...',
-        'stormy dramatic skies...',
-        'Monet water lilies...',
-        'Japanese woodblock prints...',
-        'renaissance portraits...',
-        'abstract bold colors...',
-        'melancholic blue tones...',
-        'Van Gogh sunflowers...',
-        'misty mountain landscapes...',
-        'Vermeer quiet interiors...'
-    ];
-
-    const input = document.getElementById('searchInput');
-    let index = 0;
-
-    // Change placeholder every 4 seconds
-    setInterval(() => {
-        if (document.activeElement !== input && !input.value) {
-            index = (index + 1) % placeholders.length;
-            input.placeholder = placeholders[index];
-        }
-    }, 4000);
-}
-
-// Playlist hints - subtle rotating suggestions below search
-function initPlaylistHints() {
-    const hintEl = document.getElementById('playlistHint');
-    if (!hintEl) return;
-
-    let index = 0;
-
-    // Set initial data attribute
-    hintEl.dataset.playlistId = playlistHints[0].id;
-
-    // Rotate hints every 5 seconds
-    setInterval(() => {
-        index = (index + 1) % playlistHints.length;
-        hintEl.textContent = playlistHints[index].text;
-        hintEl.dataset.playlistId = playlistHints[index].id;
-    }, 5000);
-
-    // Click to load playlist
-    hintEl.addEventListener('click', () => {
-        loadPlaylist(hintEl.dataset.playlistId);
-    });
-}
-
-// Load playlist by ID
-async function loadPlaylist(playlistId) {
-    const grid = document.getElementById('artGrid');
-    const playlist = playlistHints.find(p => p.id === playlistId);
-    const playlistName = playlist ? playlist.text.replace('try: ', '') : playlistId;
-
-    grid.innerHTML = `<div class="loading">loading ${playlistName}...</div>`;
-
-    try {
-        const response = await fetch(`/api/collections/playlists/${playlistId}`);
-        if (!response.ok) throw new Error('Failed to load playlist');
-
-        const data = await response.json();
-        currentArtResults = data.artworks || [];
-        browseDisplayCount = getInitialDisplayCount();
-        displayArtResults();
-    } catch (error) {
-        console.error('Failed to load playlist:', error);
-        grid.innerHTML = '<div class="loading">Failed to load playlist</div>';
-    }
-}
-
 // Search art with AI
 async function searchArt() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
 
-    const grid = document.getElementById('artGrid');
+    // Clear playlist selection when searching
+    currentPlaylistId = null;
+    document.getElementById('currentPlaylist').style.display = 'none';
+    renderPlaylistStacks();
 
-    // Show searching status
-    grid.innerHTML = '<div class="loading">searching...</div>';
+    const cardsContainer = document.getElementById('artCards');
+    cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Searching...</div>';
 
     try {
         const data = await window.smartSearch(query);
         currentArtResults = data.results || [];
         browseDisplayCount = getInitialDisplayCount();
-
-        displayArtResults();
+        displayPlaylistCards();
     } catch (error) {
         console.error('Search failed:', error);
-        grid.innerHTML = '<div class="loading">Search failed. Please try again.</div>';
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Search failed</div>';
     }
 }
 
@@ -404,7 +537,9 @@ async function loadAllArt() {
             });
         }
 
-        filterArt('all');
+        currentArtResults = allArtworks;
+        browseDisplayCount = getInitialDisplayCount();
+        displayPlaylistCards();
     } catch (error) {
         console.error('Failed to load art:', error);
     }
@@ -557,12 +692,7 @@ function displayArtResults() {
     }
 
     const displayedResults = currentArtResults.slice(0, browseDisplayCount);
-    grid.innerHTML = displayedResults.map(art => `
-        <div class="art-item" onclick='previewArt(${JSON.stringify(art).replace(/'/g, "&apos;")})'>
-            <img class="art-image" src="${art.thumbnail || art.imageUrl}" alt="${art.title}">
-            <div class="art-title">${art.title}</div>
-        </div>
-    `).join('');
+    grid.innerHTML = displayedResults.map(art => createArtCard(art)).join('');
 
     // Show "show more" button if there are more results
     if (browseDisplayCount < currentArtResults.length) {
@@ -574,9 +704,68 @@ function displayArtResults() {
     }
 }
 
+// Create a modern art card with metadata
+function createArtCard(art) {
+    const title = art.title || 'Untitled';
+    const artist = art.artist || '';
+    const date = art.date || art.year || '';
+    const source = art.source || '';
+    const imageUrl = art.thumbnail || art.thumbnailUrl || art.imageUrl;
+    const artJson = JSON.stringify(art).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+    return `
+        <div class="art-card" onclick='previewArt(${artJson.replace(/&quot;/g, "&#34;")})'>
+            <div class="card-image-container">
+                <img class="card-image" src="${imageUrl}" alt="${truncateText(title, 50)}" loading="lazy">
+                <div class="card-overlay">
+                    <button class="card-action" onclick='event.stopPropagation(); quickAddToCollection(${artJson.replace(/&quot;/g, "&#34;")})' title="Add to collection">+</button>
+                </div>
+            </div>
+            <div class="card-meta">
+                <div class="card-title">${truncateText(title, 28)}</div>
+                ${artist ? `<div class="card-artist">${truncateText(artist, 24)}</div>` : ''}
+                ${(date || source) ? `
+                <div class="card-details">
+                    ${date ? `<span class="card-date">${date}</span>` : ''}
+                    ${source && source !== 'curated' ? `<span class="card-source">${source}</span>` : ''}
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Truncate text with ellipsis
+function truncateText(str, maxLen) {
+    if (!str) return '';
+    return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+}
+
+// Quick add to collection from card button
+async function quickAddToCollection(art) {
+    try {
+        const response = await fetch('/api/my-collection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(art)
+        });
+
+        if (response.ok) {
+            // Brief visual feedback - could add a toast here
+            console.log('Added to collection:', art.title);
+            // Refresh collection if in collection mode
+            if (currentMode === 'my-collection') {
+                loadMyCollection();
+            }
+        }
+    } catch (error) {
+        console.error('Failed to add to collection:', error);
+    }
+}
+
 function showMoreBrowse() {
     browseDisplayCount += getShowMoreIncrement();
-    displayArtResults();
+    displayPlaylistCards();
 }
 
 function previewArt(art) {

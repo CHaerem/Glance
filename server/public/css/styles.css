@@ -245,42 +245,22 @@
             display: block;
         }
 
-        /* Minimal explore search */
-        .explore-search {
+        .search-bar {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
             width: 100%;
-            padding: 14px 0;
-            border: none;
-            border-bottom: 1px solid #e5e5e5;
-            font-size: 1.1rem;
-            background: transparent;
-            color: #1a1a1a;
+            padding: 12px 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 4px;
+            font-size: 0.9rem;
             transition: border-color 0.2s ease;
-            margin-bottom: 32px;
         }
 
-        .explore-search::placeholder {
-            color: #ccc;
-            font-style: italic;
-        }
-
-        .explore-search:focus {
+        .search-input:focus {
             outline: none;
-            border-bottom-color: #1a1a1a;
-        }
-
-        /* Playlist hint - subtle rotating suggestion */
-        .playlist-hint {
-            text-align: center;
-            font-size: 0.8rem;
-            color: #bbb;
-            margin: -20px 0 24px;
-            cursor: pointer;
-            transition: color 0.2s ease;
-            font-style: italic;
-        }
-
-        .playlist-hint:hover {
-            color: #666;
+            border-color: #1a1a1a;
         }
 
         .filter-bar {
@@ -789,7 +769,6 @@
             padding: 40px 20px;
             color: #999;
             font-size: 0.85rem;
-            grid-column: 1 / -1; /* Span full width in grid layouts */
         }
 
         /* Generation progress overlay */
@@ -1076,5 +1055,729 @@
         width: 32px;
         height: 32px;
         font-size: 16px;
+    }
+}
+
+/* ============================================
+   CURATED PICKS SECTION
+   Calm, horizontal scrolling collection
+   ============================================ */
+
+.curated-section {
+    margin-bottom: 32px;
+}
+
+.curated-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.curated-tab {
+    padding: 6px 14px;
+    border: 1px solid #e5e5e5;
+    border-radius: 20px;
+    background: transparent;
+    color: #999;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: lowercase;
+    letter-spacing: 0.3px;
+}
+
+.curated-tab:hover {
+    border-color: #ccc;
+    color: #666;
+}
+
+.curated-tab.active {
+    background: #1a1a1a;
+    border-color: #1a1a1a;
+    color: #ffffff;
+}
+
+.curated-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 4px 0 12px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #e5e5e5 transparent;
+}
+
+.curated-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.curated-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.curated-scroll::-webkit-scrollbar-thumb {
+    background: #e5e5e5;
+    border-radius: 2px;
+}
+
+.curated-scroll::-webkit-scrollbar-thumb:hover {
+    background: #ccc;
+}
+
+.curated-card {
+    flex: 0 0 140px;
+    scroll-snap-align: start;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.curated-card:hover {
+    transform: translateY(-2px);
+}
+
+.curated-card-image {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f5f5f5;
+}
+
+.curated-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.curated-card:hover .curated-card-image img {
+    transform: scale(1.02);
+}
+
+.curated-card-info {
+    padding: 8px 2px 0;
+}
+
+.curated-card-title {
+    font-size: 0.72rem;
+    color: #1a1a1a;
+    font-weight: 500;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.curated-card-artist {
+    font-size: 0.68rem;
+    color: #999;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.curated-empty {
+    color: #999;
+    font-size: 0.8rem;
+    padding: 20px;
+    text-align: center;
+}
+
+/* ============================================
+   SMART CATEGORIES SECTION
+   Clean, minimal category browsing
+   ============================================ */
+
+.categories-section {
+    margin-bottom: 28px;
+    padding: 20px 0;
+    border-top: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.section-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #bbb;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.category-columns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.category-column {
+    text-align: center;
+}
+
+.category-header {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #666;
+    margin-bottom: 10px;
+    text-transform: lowercase;
+}
+
+.category-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.category-item {
+    padding: 6px 4px;
+    font-size: 0.78rem;
+    color: #999;
+    cursor: pointer;
+    transition: color 0.15s ease;
+    background: none;
+    border: none;
+    text-align: center;
+}
+
+.category-item:hover {
+    color: #1a1a1a;
+}
+
+.category-item.active {
+    color: #1a1a1a;
+    font-weight: 500;
+}
+
+/* ============================================
+   RESULTS SECTION
+   Header with active filter
+   ============================================ */
+
+.results-section {
+    margin-top: 8px;
+}
+
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.results-title {
+    font-size: 0.8rem;
+    color: #1a1a1a;
+    font-weight: 500;
+}
+
+.clear-results {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-transform: lowercase;
+    padding: 4px 8px;
+    transition: color 0.15s ease;
+}
+
+.clear-results:hover {
+    color: #666;
+}
+
+/* ============================================
+   MODERN ART CARDS
+   Enhanced cards with metadata preview
+   ============================================ */
+
+.art-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+}
+
+.art-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.card-image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: #f8f8f8;
+}
+
+.card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.art-card:hover .card-image {
+    transform: scale(1.02);
+}
+
+.card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 40%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 10px;
+}
+
+.art-card:hover .card-overlay {
+    opacity: 1;
+}
+
+.card-action {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-action:hover {
+    background: #ffffff;
+    color: #1a1a1a;
+    transform: scale(1.08);
+}
+
+.card-meta {
+    padding: 10px 8px 12px;
+}
+
+.card-title {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #1a1a1a;
+    line-height: 1.3;
+    margin-bottom: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-artist {
+    font-size: 0.7rem;
+    color: #888;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-details {
+    display: flex;
+    gap: 6px;
+    font-size: 0.65rem;
+    color: #bbb;
+}
+
+.card-date::after {
+    content: "";
+}
+
+.card-source {
+    text-transform: capitalize;
+}
+
+/* ============================================
+   PLAYLIST STACKS
+   Physical card stack design for playlists
+   ============================================ */
+
+.playlist-stacks-container {
+    position: relative;
+    margin: 24px 0;
+    padding: 0 32px;
+}
+
+.playlist-stacks {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 8px 4px 16px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.playlist-stacks::-webkit-scrollbar {
+    display: none;
+}
+
+.stacks-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    font-size: 18px;
+    color: #999;
+    transition: all 0.2s ease;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stacks-nav:hover {
+    color: #1a1a1a;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stacks-nav:disabled {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.stacks-nav-left {
+    left: 0;
+}
+
+.stacks-nav-right {
+    right: 0;
+}
+
+/* Individual playlist stack */
+.playlist-stack {
+    flex: 0 0 auto;
+    width: 100px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.playlist-stack:hover {
+    transform: translateY(-4px);
+}
+
+.playlist-stack.active .stack-cards {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.stack-cards {
+    position: relative;
+    width: 100px;
+    height: 125px;
+    border-radius: 6px;
+    overflow: visible;
+}
+
+/* Stacked card effect - cards behind */
+.stack-card {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    background: #f5f5f5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.stack-card:nth-child(1) {
+    transform: rotate(-2deg) translate(-2px, 2px);
+    z-index: 1;
+}
+
+.stack-card:nth-child(2) {
+    transform: rotate(1deg) translate(1px, 1px);
+    z-index: 2;
+}
+
+.stack-card:nth-child(3) {
+    transform: rotate(0);
+    z-index: 3;
+}
+
+.stack-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.stack-label {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: #666;
+    text-align: center;
+    line-height: 1.3;
+}
+
+.playlist-stack.active .stack-label {
+    color: #1a1a1a;
+    font-weight: 500;
+}
+
+.stack-type {
+    display: block;
+    font-size: 0.6rem;
+    color: #bbb;
+    margin-top: 2px;
+    text-transform: lowercase;
+}
+
+/* Current playlist indicator */
+.current-playlist {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 8px 0;
+}
+
+.playlist-name {
+    font-size: 0.85rem;
+    color: #1a1a1a;
+    font-weight: 500;
+}
+
+.playlist-refresh,
+.playlist-clear {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #bbb;
+    padding: 4px;
+    transition: color 0.15s ease;
+    line-height: 1;
+}
+
+.playlist-refresh:hover,
+.playlist-clear:hover {
+    color: #666;
+}
+
+/* ============================================
+   ART CARDS GRID
+   Physical card feel with shadows
+   ============================================ */
+
+.art-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    padding: 4px;
+}
+
+.physical-card {
+    position: relative;
+    cursor: pointer;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    overflow: hidden;
+}
+
+.physical-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+}
+
+.physical-card-image {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    background: #f8f8f8;
+}
+
+.physical-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.physical-card:hover .physical-card-image img {
+    transform: scale(1.03);
+}
+
+.physical-card-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 12px;
+}
+
+.physical-card:hover .physical-card-overlay {
+    opacity: 1;
+}
+
+.physical-card-action {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.physical-card-action:hover {
+    background: #ffffff;
+    color: #1a1a1a;
+    transform: scale(1.1);
+}
+
+.physical-card-meta {
+    padding: 12px 10px 14px;
+}
+
+.physical-card-title {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #1a1a1a;
+    line-height: 1.35;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.physical-card-artist {
+    font-size: 0.7rem;
+    color: #888;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (min-width: 601px) {
+    .art-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 16px;
+    }
+
+    .art-cards {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 18px;
+    }
+
+    .playlist-stack {
+        width: 110px;
+    }
+
+    .stack-cards {
+        width: 110px;
+        height: 138px;
+    }
+}
+
+@media (min-width: 768px) {
+    .container {
+        max-width: 900px;
+    }
+
+    .art-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 20px;
+    }
+
+    .art-cards {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 20px;
+    }
+
+    .playlist-stack {
+        width: 120px;
+    }
+
+    .stack-cards {
+        width: 120px;
+        height: 150px;
+    }
+
+    .playlist-stacks {
+        gap: 24px;
+    }
+}
+
+@media (max-width: 600px) {
+    .playlist-stacks-container {
+        padding: 0 24px;
+    }
+
+    .playlist-stacks {
+        gap: 16px;
+    }
+
+    .playlist-stack {
+        width: 85px;
+    }
+
+    .stack-cards {
+        width: 85px;
+        height: 106px;
+    }
+
+    .stack-label {
+        font-size: 0.68rem;
+    }
+
+    .art-cards {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+    }
+
+    /* Touch devices show card overlay */
+    .card-overlay,
+    .physical-card-overlay {
+        opacity: 1;
+        background: linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 30%);
+    }
+}
+
+/* Touch devices - always show quick add button */
+@media (hover: none) and (pointer: coarse) {
+    .card-overlay,
+    .physical-card-overlay {
+        opacity: 1;
+        background: linear-gradient(to top, rgba(0,0,0,0.15) 0%, transparent 30%);
     }
 }

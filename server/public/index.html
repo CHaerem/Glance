@@ -61,18 +61,39 @@
 
         <!-- Explore Mode -->
         <div class="browse-section" id="exploreMode">
-            <input
-                type="text"
-                class="explore-search"
-                id="searchInput"
-                placeholder="peaceful morning light...">
-            <div class="playlist-hint" id="playlistHint">try: morning calm</div>
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <input
+                    type="text"
+                    class="search-input"
+                    id="searchInput"
+                    placeholder="Search for art...">
+            </div>
 
-            <div class="art-grid" id="artGrid"></div>
+            <!-- Playlist Stacks -->
+            <div class="playlist-stacks-container">
+                <button class="stacks-nav stacks-nav-left" id="stacksNavLeft" aria-label="Previous playlists">&#8249;</button>
+                <div class="playlist-stacks" id="playlistStacks">
+                    <!-- Populated dynamically with card stacks -->
+                </div>
+                <button class="stacks-nav stacks-nav-right" id="stacksNavRight" aria-label="Next playlists">&#8250;</button>
+            </div>
+
+            <!-- Current Playlist Label -->
+            <div class="current-playlist" id="currentPlaylist" style="display: none;">
+                <span class="playlist-name" id="playlistName"></span>
+                <button class="playlist-refresh" id="playlistRefresh" title="Refresh for new results" style="display: none;">&#8635;</button>
+                <button class="playlist-clear" id="playlistClear">&#215;</button>
+            </div>
+
+            <!-- Art Cards Grid -->
+            <div class="art-cards" id="artCards">
+                <!-- Populated dynamically with physical cards -->
+            </div>
 
             <!-- Show more button -->
             <div class="show-more" id="browseShowMore" style="display: none;">
-                <button class="show-more-btn" id="showMoreBrowseBtn">show 8 more</button>
+                <button class="show-more-btn" id="showMoreBrowseBtn">show more</button>
             </div>
         </div>
 
@@ -166,6 +187,8 @@
     <input type="file" id="fileInput" accept="image/*">
 
     <script src="/js/features/search.js"></script>
+    <script src="/js/features/categories.js"></script>
+    <script src="/js/features/curated.js"></script>
     <script src="/js/main.js"></script>
 </body>
 </html>

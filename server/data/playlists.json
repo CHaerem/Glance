@@ -1,0 +1,135 @@
+{
+  "playlists": [
+    {
+      "id": "renaissance-masters",
+      "name": "Renaissance Masters",
+      "type": "classic",
+      "description": "Essential works from the Renaissance masters",
+      "source": "museum-curated",
+      "artworks": [
+        { "artist": "Leonardo da Vinci", "title": "Mona Lisa", "year": "1503-1519", "wikimedia": "Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg" },
+        { "artist": "Leonardo da Vinci", "title": "The Last Supper", "year": "1495-1498", "wikimedia": "The_Last_Supper_-_Leonardo_Da_Vinci_-_High_Resolution_32x16.jpg" },
+        { "artist": "Michelangelo", "title": "The Creation of Adam", "year": "1512", "wikimedia": "Michelangelo_-_Creation_of_Adam_(cropped).jpg" },
+        { "artist": "Raphael", "title": "The School of Athens", "year": "1511", "wikimedia": "Raphael_School_of_Athens.jpg" },
+        { "artist": "Botticelli", "title": "The Birth of Venus", "year": "1485", "wikimedia": "Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg" },
+        { "artist": "Botticelli", "title": "Primavera", "year": "1482", "wikimedia": "Sandro_Botticelli_-_La_Primavera_-_Google_Art_Project.jpg" },
+        { "artist": "Leonardo da Vinci", "title": "Lady with an Ermine", "year": "1489-1491", "wikimedia": "Leonardo_da_Vinci_046.jpg" },
+        { "artist": "Raphael", "title": "Sistine Madonna", "year": "1512", "wikimedia": "Raphael_-_Sistine_Madonna_-_WGA18595.jpg" }
+      ]
+    },
+    {
+      "id": "dutch-masters",
+      "name": "Dutch Masters",
+      "type": "classic",
+      "description": "Golden Age of Dutch painting",
+      "source": "museum-curated",
+      "artworks": [
+        { "artist": "Rembrandt", "title": "The Night Watch", "year": "1642", "wikimedia": "La_ronda_de_noche,_por_Rembrandt_van_Rijn.jpg" },
+        { "artist": "Vermeer", "title": "Girl with a Pearl Earring", "year": "1665", "wikimedia": "Girl_with_a_Pearl_Earring.jpg" },
+        { "artist": "Vermeer", "title": "The Milkmaid", "year": "1658", "wikimedia": "Johannes_Vermeer_-_Het_melkmeisje_-_Google_Art_Project.jpg" },
+        { "artist": "Rembrandt", "title": "Self-Portrait", "year": "1659", "wikimedia": "Rembrandt_van_Rijn_-_Self-Portrait_-_Google_Art_Project.jpg" },
+        { "artist": "Vermeer", "title": "View of Delft", "year": "1661", "wikimedia": "Vermeer-view-of-delft.jpg" },
+        { "artist": "Rembrandt", "title": "The Anatomy Lesson", "year": "1632", "wikimedia": "Rembrandt_-_The_Anatomy_Lesson_of_Dr_Nicolaes_Tulp.jpg" }
+      ]
+    },
+    {
+      "id": "impressionists",
+      "name": "Impressionists",
+      "type": "classic",
+      "description": "Light and color of the Impressionist movement",
+      "source": "museum-curated",
+      "artworks": [
+        { "artist": "Claude Monet", "title": "Water Lilies", "year": "1906", "wikimedia": "Claude_Monet_-_Water_Lilies_-_1906,_Ryerson.jpg" },
+        { "artist": "Claude Monet", "title": "Impression, Sunrise", "year": "1872", "wikimedia": "Monet_-_Impression,_Sunrise.jpg" },
+        { "artist": "Claude Monet", "title": "Woman with a Parasol", "year": "1875", "wikimedia": "Claude_Monet_-_Woman_with_a_Parasol_-_Madame_Monet_and_Her_Son_-_Google_Art_Project.jpg" },
+        { "artist": "Renoir", "title": "Dance at Le Moulin de la Galette", "year": "1876", "wikimedia": "Auguste_Renoir_-_Dance_at_Le_Moulin_de_la_Galette_-_Google_Art_Project.jpg" },
+        { "artist": "Renoir", "title": "Luncheon of the Boating Party", "year": "1881", "wikimedia": "Pierre-Auguste_Renoir_-_Luncheon_of_the_Boating_Party_-_Google_Art_Project.jpg" },
+        { "artist": "Edgar Degas", "title": "The Dance Class", "year": "1874", "wikimedia": "Edgar_Degas_-_The_Dance_Class_-_Google_Art_Project.jpg" }
+      ]
+    },
+    {
+      "id": "japanese-masters",
+      "name": "Japanese Masters",
+      "type": "classic",
+      "description": "Ukiyo-e woodblock prints",
+      "source": "museum-curated",
+      "artworks": [
+        { "artist": "Katsushika Hokusai", "title": "The Great Wave off Kanagawa", "year": "1831", "wikimedia": "Tsunami_by_hokusai_19th_century.jpg" },
+        { "artist": "Katsushika Hokusai", "title": "Fine Wind, Clear Morning", "year": "1831", "wikimedia": "Red_Fuji_southern_wind_clear_morning.jpg" },
+        { "artist": "Utagawa Hiroshige", "title": "Plum Estate", "year": "1857", "wikimedia": "Hiroshige,_Plum_Park_in_Kameido.jpg" },
+        { "artist": "Utagawa Hiroshige", "title": "Sudden Shower", "year": "1857", "wikimedia": "Hiroshige_-_Sudden_Shower_at_the_Atake_Bridge.jpg" },
+        { "artist": "Katsushika Hokusai", "title": "Rainstorm Beneath the Summit", "year": "1831", "wikimedia": "Lightnings_below_the_summit.jpg" }
+      ]
+    },
+    {
+      "id": "post-impressionists",
+      "name": "Post-Impressionists",
+      "type": "classic",
+      "description": "Bold expressions beyond Impressionism",
+      "source": "museum-curated",
+      "artworks": [
+        { "artist": "Vincent van Gogh", "title": "The Starry Night", "year": "1889", "wikimedia": "Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg" },
+        { "artist": "Vincent van Gogh", "title": "Sunflowers", "year": "1888", "wikimedia": "Vincent_Willem_van_Gogh_128.jpg" },
+        { "artist": "Vincent van Gogh", "title": "Cafe Terrace at Night", "year": "1888", "wikimedia": "Van_Gogh_-_Terrasse_des_Caf%C3%A9s_an_der_Place_du_Forum_in_Arles_am_Abend1.jpeg" },
+        { "artist": "Paul Cezanne", "title": "Mont Sainte-Victoire", "year": "1887", "wikimedia": "Paul_C%C3%A9zanne_-_Mont_Sainte-Victoire_-_Google_Art_Project.jpg" },
+        { "artist": "Paul Gauguin", "title": "Where Do We Come From?", "year": "1897", "wikimedia": "Paul_Gauguin_-_D%27ou_venons-nous.jpg" }
+      ]
+    },
+    {
+      "id": "modern-icons",
+      "name": "Modern Icons",
+      "type": "classic",
+      "description": "20th century masterpieces",
+      "source": "museum-curated",
+      "artworks": [
+        { "artist": "Gustav Klimt", "title": "The Kiss", "year": "1908", "wikimedia": "Gustav_Klimt_016.jpg" },
+        { "artist": "Edvard Munch", "title": "The Scream", "year": "1893", "wikimedia": "Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg" },
+        { "artist": "Gustav Klimt", "title": "Portrait of Adele Bloch-Bauer I", "year": "1907", "wikimedia": "Gustav_Klimt_046.jpg" },
+        { "artist": "Pablo Picasso", "title": "Guernica", "year": "1937", "wikimedia": "Mural_del_Gernika.jpg" },
+        { "artist": "Salvador Dali", "title": "The Persistence of Memory", "year": "1931", "wikimedia": "The_Persistence_of_Memory.jpg" }
+      ]
+    },
+    {
+      "id": "morning-calm",
+      "name": "Morning Calm",
+      "type": "dynamic",
+      "description": "Peaceful art for quiet mornings",
+      "searchQuery": "serene peaceful calm morning light pastel landscape water reflections soft gentle"
+    },
+    {
+      "id": "rainy-afternoon",
+      "name": "Rainy Afternoon",
+      "type": "dynamic",
+      "description": "Contemplative moods",
+      "searchQuery": "melancholic contemplative rain grey moody atmospheric foggy introspective"
+    },
+    {
+      "id": "golden-hour",
+      "name": "Golden Hour",
+      "type": "dynamic",
+      "description": "Warm evening light",
+      "searchQuery": "golden hour sunset warm light evening glow amber orange twilight"
+    },
+    {
+      "id": "bold-vibrant",
+      "name": "Bold & Vibrant",
+      "type": "dynamic",
+      "description": "Energetic and colorful",
+      "searchQuery": "bold vibrant colorful intense saturated expressive dynamic energetic"
+    },
+    {
+      "id": "quiet-interiors",
+      "name": "Quiet Interiors",
+      "type": "dynamic",
+      "description": "Intimate indoor scenes",
+      "searchQuery": "interior room domestic quiet intimate window light reading solitude"
+    },
+    {
+      "id": "winter-light",
+      "name": "Winter Light",
+      "type": "seasonal",
+      "description": "Cold beauty and snow",
+      "searchQuery": "winter snow cold ice frost white blue serene quiet landscape"
+    }
+  ]
+}

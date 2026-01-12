@@ -30,6 +30,7 @@ const { serverLogs, deviceLogs, addDeviceLog, addServerLog, getDeviceLogs, getSe
 
 // Route modules
 const collectionsRoutes = require("./routes/collections");
+const playlistsRoutes = require("./routes/playlists");
 const createArtRoutes = require("./routes/art");
 const createSystemRoutes = require("./routes/system");
 const createHistoryRoutes = require("./routes/history");
@@ -131,6 +132,7 @@ statistics.loadStats().catch(err => log.error('Failed to load stats on startup',
 
 // Mount route modules
 app.use('/api/collections', collectionsRoutes);
+app.use('/api/playlists', playlistsRoutes);
 app.use('/api/art', createArtRoutes({ openai, uploadDir: UPLOAD_DIR }));
 
 // History routes - mount at /api for history, images, my-collection, playlist
