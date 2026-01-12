@@ -29,6 +29,9 @@ const { warmupCache } = require("./utils/image-validator");
 // Shared state (logs)
 const { serverLogs, deviceLogs, addDeviceLog, addServerLog, getDeviceLogs, getServerLogs, MAX_LOGS } = require("./utils/state");
 
+// Authentication middleware available at ./middleware/auth.js
+// To enable API key auth: set API_KEYS env var and apply apiKeyAuth middleware to routes
+
 // Route modules
 const collectionsRoutes = require("./routes/collections");
 const playlistsRoutes = require("./routes/playlists");
@@ -98,13 +101,70 @@ const upload = multer({
 	},
 });
 
-// Rate limiting disabled for development
+// Rate limiting for external API access (via Tailscale Funnel)
+const publicApiLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 100, // 100 requests per window per IP
+	message: {
+		error: 'Too many requests',
+		code: 'RATE_LIMITED',
+		retryAfter: '15 minutes'
+	},
+	standardHeaders: true,
+	legacyHeaders: false,
+	// Skip rate limiting for local requests
+	skip: (req) => {
+		const ip = req.ip || '';
+		return (
+			ip === '127.0.0.1' ||
+			ip === '::1' ||
+			ip === '::ffff:127.0.0.1' ||
+			ip.startsWith('192.168.') ||
+			ip.startsWith('10.') ||
+			ip.startsWith('::ffff:192.168.') ||
+			ip.startsWith('::ffff:10.')
+		);
+	}
+});
 
-// Upload rate limiting also disabled for development
+// CORS configuration for Claude.ai artifact integration
+const corsOptions = {
+	origin: (origin, callback) => {
+		// Allow requests with no origin (same-origin, Postman, curl, etc.)
+		if (!origin) return callback(null, true);
+
+		const allowedOrigins = [
+			'https://claude.ai',
+			'https://www.claude.ai',
+			/^https:\/\/.*\.claude\.ai$/,  // Any subdomain of claude.ai
+			/^https:\/\/.*\.ts\.net$/,      // Tailscale domains
+			'http://localhost:3000',        // Local development
+			'http://127.0.0.1:3000'
+		];
+
+		const isAllowed = allowedOrigins.some(allowed => {
+			if (allowed instanceof RegExp) {
+				return allowed.test(origin);
+			}
+			return allowed === origin;
+		});
+
+		if (isAllowed) {
+			callback(null, true);
+		} else {
+			// Log blocked origins for debugging, but still allow (for now)
+			log.debug('CORS request from origin', { origin });
+			callback(null, true); // TODO: Change to callback(new Error('CORS blocked')) for strict mode
+		}
+	},
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+	allowedHeaders: ['Content-Type', 'X-API-Key', 'Authorization'],
+	credentials: true
+};
 
 // Middleware
-app.use(cors());
-// app.use(limiter); // Rate limiting disabled for development
+app.use(cors(corsOptions));
+app.use('/api', publicApiLimiter); // Rate limit API endpoints for external access
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static("public"));
 app.use("/uploads", express.static(UPLOAD_DIR));
@@ -179,6 +239,11 @@ app.use('/api/semantic', semanticSearchRoutes);
 
 // Prometheus metrics endpoint for Grafana
 app.use('/api/metrics', metricsRoutes);
+
+// MCP server for Claude.ai artifact integration
+const { createMcpRoutes } = require('./mcp');
+const mcpRoutes = createMcpRoutes({ glanceBaseUrl: 'http://localhost:3000' });
+app.use('/api', mcpRoutes);
 
 // Health check moved to routes/system.js
 

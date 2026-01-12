@@ -10,6 +10,7 @@ const { validateDeviceId, sanitizeInput } = require('../utils/validation');
 const { readJSONFile, writeJSONFile } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
 const { loggers } = require('../services/logger');
+const { apiKeyAuth } = require('../middleware/auth');
 const log = loggers.device;
 
 /**
@@ -696,8 +697,9 @@ function createDeviceRoutes() {
     /**
      * Send command to device
      * POST /api/device-command/:deviceId
+     * Protected: Requires API key when accessed externally via Funnel
      */
-    router.post('/device-command/:deviceId', async (req, res) => {
+    router.post('/device-command/:deviceId', apiKeyAuth, async (req, res) => {
         try {
             const { deviceId } = req.params;
             const { command, duration } = req.body;

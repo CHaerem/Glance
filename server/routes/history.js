@@ -12,6 +12,7 @@ const imageProcessing = require('../services/image-processing');
 const { readJSONFile, writeJSONFile, ensureDir } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
 const { loggers } = require('../services/logger');
+const { apiKeyAuth } = require('../middleware/auth');
 const log = loggers.api;
 
 /**
@@ -143,8 +144,9 @@ function createHistoryRoutes({ uploadDir }) {
     /**
      * Delete image from history
      * DELETE /api/history/:imageId
+     * Protected: Requires API key when accessed externally via Funnel
      */
-    router.delete('/history/:imageId', async (req, res) => {
+    router.delete('/history/:imageId', apiKeyAuth, async (req, res) => {
         try {
             const { imageId } = req.params;
             let history = (await readJSONFile("history.json")) || [];
@@ -251,8 +253,9 @@ function createHistoryRoutes({ uploadDir }) {
     /**
      * Remove artwork from my collection
      * DELETE /api/my-collection/:id
+     * Protected: Requires API key when accessed externally via Funnel
      */
-    router.delete('/my-collection/:id', async (req, res) => {
+    router.delete('/my-collection/:id', apiKeyAuth, async (req, res) => {
         try {
             const { id } = req.params;
             let collection = (await readJSONFile("my-collection.json")) || [];
@@ -422,8 +425,9 @@ function createHistoryRoutes({ uploadDir }) {
     /**
      * Delete/clear playlist
      * DELETE /api/playlist
+     * Protected: Requires API key when accessed externally via Funnel
      */
-    router.delete('/playlist', async (_req, res) => {
+    router.delete('/playlist', apiKeyAuth, async (_req, res) => {
         try {
             await writeJSONFile("playlist.json", { active: false, images: [], mode: 'sequential', interval: 3600000000 });
             log.info('Playlist cleared');

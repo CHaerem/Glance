@@ -16,6 +16,7 @@ const { addDeviceLog } = require('../utils/state');
 const imageProcessing = require('../services/image-processing');
 const statistics = require('../services/statistics');
 const { loggers } = require('../services/logger');
+const { apiKeyAuth } = require('../middleware/auth');
 const log = loggers.api;
 
 /**
@@ -33,8 +34,9 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
      * Upload image to history (preview before applying)
      * Fast upload - saves original only, dithering happens when user clicks "Apply"
      * POST /api/upload
+     * Protected: Requires API key when accessed externally via Funnel
      */
-    router.post('/upload', upload.single('image'), async (req, res) => {
+    router.post('/upload', apiKeyAuth, upload.single('image'), async (req, res) => {
         try {
             if (!req.file) {
                 log.error('Upload failed: No file in request');
@@ -165,8 +167,9 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
     /**
      * AI Image Generation endpoint
      * POST /api/generate-art
+     * Protected: Requires API key when accessed externally via Funnel
      */
-    router.post('/generate-art', async (req, res) => {
+    router.post('/generate-art', apiKeyAuth, async (req, res) => {
         try {
             if (!openai) {
                 return res.status(503).json({
@@ -360,8 +363,9 @@ function createUploadRoutes({ upload, uploadDir, openai }) {
     /**
      * Lucky prompt helper - expands simple cues into a detailed art prompt
      * POST /api/lucky-prompt
+     * Protected: Requires API key when accessed externally via Funnel
      */
-    router.post('/lucky-prompt', async (req, res) => {
+    router.post('/lucky-prompt', apiKeyAuth, async (req, res) => {
         const body = req.body || {};
         const currentPrompt = sanitizeInput(body.currentPrompt || '');
         const idea = sanitizeInput(body.idea || '');
