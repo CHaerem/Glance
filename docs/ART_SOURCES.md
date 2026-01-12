@@ -49,34 +49,34 @@ Documentation of museum APIs integrated into Glance for art discovery.
 - **Documentation**: https://www.mediawiki.org/wiki/API
 - **Notes**: Category-based search, good for famous artists
 
-## Planned Additions
-
-### Harvard Art Museums
-- **Collection Size**: 250,000+ objects
-- **API Key**: Required (free registration)
-- **License**: Mixed (check per object)
-- **Endpoint**: `https://api.harvardartmuseums.org/`
-- **Documentation**: https://harvardartmuseums.org/collections/api
-- **Value**: Comprehensive academic collection, strong Asian and European art
-- **Registration**: https://docs.google.com/forms/d/e/1FAIpQLSfkmEBqH76HLMMiCC-GPPnhcvHC9aJS86E32dOd0Z8MpY2rvQ/viewform
-
-### Smithsonian Open Access
-- **Collection Size**: 11+ million records
-- **API Key**: Required (free registration via api.data.gov)
-- **License**: CC0 for open access items
-- **Endpoint**: `https://api.si.edu/openaccess/api/v1.0`
-- **Documentation**: https://www.si.edu/openaccess/devtools
-- **Value**: Massive collection across 19 museums, American art focus
-- **Registration**: https://api.data.gov/signup/
-
-### Victoria & Albert Museum (V&A)
+### 6. Victoria & Albert Museum (V&A)
+- **Status**: ✅ Active
 - **Collection Size**: 1+ million records (500,000+ images)
 - **API Key**: Not required for non-commercial
 - **License**: Free for personal/educational use
 - **Endpoint**: `https://api.vam.ac.uk/v2`
 - **Documentation**: https://developers.vam.ac.uk/
-- **Value**: Design, decorative arts, fashion, British collections
-- **Note**: Commercial use requires license
+- **Notes**: Strong decorative arts, filtered to show actual art (paintings, prints, drawings)
+
+### 7. Harvard Art Museums
+- **Status**: ✅ Active
+- **Collection Size**: 250,000+ objects
+- **API Key**: Required (currently hardcoded)
+- **License**: Mixed (check per object)
+- **Endpoint**: `https://api.harvardartmuseums.org/`
+- **Documentation**: https://harvardartmuseums.org/collections/api
+- **Notes**: Comprehensive academic collection, strong Asian and European art
+
+### 8. Smithsonian Open Access
+- **Status**: ✅ Active
+- **Collection Size**: 11+ million records
+- **API Key**: Required (currently hardcoded)
+- **License**: CC0 for open access items
+- **Endpoint**: `https://api.si.edu/openaccess/api/v1.0`
+- **Documentation**: https://www.si.edu/openaccess/devtools
+- **Notes**: Massive collection across 19 museums, filtered to show actual art
+
+## Planned Additions
 
 ### Cooper Hewitt (Smithsonian Design Museum)
 - **Collection Size**: 215,000+ items
@@ -116,6 +116,21 @@ When evaluating new art sources, we consider:
 - Query all sources simultaneously using `Promise.all()`
 - Combine results with smart ranking algorithm
 - Deduplicate similar artworks across sources
+
+### Art Filtering
+
+All museum API results are filtered to show only actual art (paintings, drawings, prints, photographs), excluding:
+
+- **Furniture**: tables, chairs, desks, cabinets, beds
+- **Ceramics**: pottery, porcelain, vases, bowls, plates
+- **Textiles**: costumes, dresses, tapestries, carpets, rugs
+- **Jewelry**: necklaces, rings, bracelets, brooches
+- **Metalwork**: silverware, goldwork, bronze objects
+- **Weapons**: swords, armor, shields, daggers
+- **Coins/Medals**: numismatics, medallions
+- **Other**: clocks, musical instruments, manuscripts, tiles
+
+Filtering is applied via the `isOriginalArtwork()` function in `museum-api.js`.
 
 ### Ranking Algorithm
 Current scoring (from highest to lowest):

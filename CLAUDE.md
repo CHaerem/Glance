@@ -9,18 +9,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Architecture
 
 ```
-┌─────────────────┐     HTTP/WiFi     ┌─────────────────┐
-│   ESP32-S3      │◄──────────────────│   Raspberry Pi  │
-│ Good Display    │                   │   (serverpi)    │
-│ 13.3" e-ink     │                   │                 │
-└─────────────────┘                   │  Node.js/Docker │
-                                      │  + Qdrant VectorDB
-                                      └─────────────────┘
+┌─────────────────┐     HTTP/WiFi     ┌─────────────────────────┐
+│   ESP32-S3      │◄──────────────────│   Raspberry Pi          │
+│ Good Display    │                   │   (serverpi)            │
+│ 13.3" e-ink     │                   │                         │
+└─────────────────┘                   │  Node.js/Docker         │
+                                      │  + OpenAI Vector Stores │
+                                      │  + Grafana Cloud (Loki) │
+                                      └─────────────────────────┘
 ```
 
 - **ESP32-S3**: Good Display ESP32-133C02 board, controls Waveshare 13.3" Spectra 6 e-ink display
 - **Raspberry Pi**: Runs Node.js server in Docker, serves images and web interface
-- **Vector DB**: Qdrant for semantic art search (CLIP/SigLIP embeddings)
+- **Vector Search**: OpenAI Vector Stores for semantic art search (text-embedding-3-small)
+- **Monitoring**: Grafana Cloud with Loki for centralized log aggregation
 - **Communication**: ESP32 fetches images via HTTP, reports battery/status back
 
 ## Project Structure
@@ -39,31 +41,33 @@ Glance/
 │   └── build.sh                  # Build automation
 ├── server/                       # Node.js Express server
 │   ├── server.js                 # Main entry (~500 lines)
-│   ├── routes/                   # API route handlers (9 modules)
+│   ├── routes/                   # API route handlers (12 modules)
 │   │   ├── art.js                # Art search, smart search, similar
 │   │   ├── collections.js        # Curated art collections
 │   │   ├── devices.js            # Device status, commands
+│   │   ├── firmware.js           # OTA firmware updates
 │   │   ├── history.js            # History, playlist, collections
 │   │   ├── images.js             # Current image, binary stream
 │   │   ├── logs.js               # Logging, serial streams
-│   │   ├── semantic-search.js    # Vector similarity search
+│   │   ├── metrics.js            # Prometheus metrics
+│   │   ├── playlists.js          # Curated and dynamic playlists
+│   │   ├── semantic-search.js    # OpenAI vector similarity search
 │   │   ├── system.js             # Health, settings, build info
 │   │   └── upload.js             # Upload, AI generation
-│   ├── services/                 # Business logic (8 modules)
+│   ├── services/                 # Business logic (5 modules)
 │   │   ├── logger.js             # Structured JSON logging for Loki
 │   │   ├── image-processing.js   # Dithering, color conversion
-│   │   ├── museum-api.js         # Museum search orchestration
-│   │   ├── statistics.js         # API tracking, pricing
-│   │   ├── clip-embeddings.js    # CLIP model integration
-│   │   ├── vector-search.js      # Qdrant search
-│   │   └── embedding-db.js       # Embedding cache
+│   │   ├── museum-api.js         # Museum search with art filtering
+│   │   ├── openai-search.js      # OpenAI Vector Stores integration
+│   │   └── statistics.js         # API tracking, pricing
 │   ├── utils/                    # Shared utilities (3 modules)
 │   │   ├── time.js               # Oslo timezone, night sleep
 │   │   ├── validation.js         # Input validation
 │   │   └── data-store.js         # JSON file handling
 │   ├── data/                     # Static data files
-│   │   └── curated-collections.json
-│   ├── public/                   # Web interface
+│   │   ├── curated-collections.json
+│   │   └── playlists.json        # Curated and dynamic playlists
+│   ├── public/                   # Web interface (physical card UI)
 │   ├── Dockerfile                # Multi-stage Docker build
 │   ├── scripts/                  # Data import scripts
 │   └── __tests__/                # Jest test suite (188 tests)
@@ -77,7 +81,7 @@ Glance/
 ├── .github/workflows/            # GitHub Actions CI/CD
 │   ├── test-and-build.yml        # Auto deploy to serverpi
 │   └── preview-deploy.yml        # GitHub Pages preview
-├── docker-compose.yml            # Local dev + Qdrant
+├── docker-compose.yml            # Local development
 └── deploy-to-pi.sh               # Manual deployment
 ```
 
@@ -175,9 +179,11 @@ docker compose up -d
 | `/api/firmware/download` | Download firmware binary for OTA update |
 | `/api/upload` | Upload custom images |
 | `/api/generate-art` | AI art generation (OpenAI GPT-4o) |
-| `/api/art/search` | Keyword search (8 museum sources) |
-| `/api/art/smart-search` | Semantic search (CLIP/SigLIP) |
+| `/api/art/search` | Keyword search (8 museum sources, filtered for actual art) |
+| `/api/art/smart-search` | Semantic search (OpenAI Vector Stores) |
 | `/api/art/random` | Random artwork |
+| `/api/playlists` | List curated and dynamic playlists |
+| `/api/playlists/:id` | Get playlist artworks (static or AI-searched) |
 | `/api/settings` | Server settings (sleep duration, etc.) |
 
 ## Hardware
@@ -248,9 +254,10 @@ Test suites in `server/__tests__/`:
 ## Environment Variables
 
 ### Server (production via GitHub Secrets)
-- `OPENAI_API_KEY` - For AI art generation
-- `HF_TOKEN` - Hugging Face (optional, for private models)
-- `QDRANT_URL` - Vector database URL
+- `OPENAI_API_KEY` - For AI art generation and vector search
+- `LOKI_URL` - Grafana Cloud Loki endpoint (optional)
+- `LOKI_USER` - Loki username (optional)
+- `LOKI_TOKEN` - Loki API token (optional)
 - `LOG_LEVEL` - Logging level: DEBUG, INFO (default), WARN, ERROR
 
 ### ESP32 (build time)
@@ -262,7 +269,7 @@ Test suites in `server/__tests__/`:
 ## Docker
 
 ```bash
-# Local development with Qdrant
+# Local development
 docker compose up -d
 
 # Build manually
@@ -335,7 +342,26 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 
 ## Recent Changes
 
-- **Structured logging**: Migrated all console.log to structured JSON logging for Loki
+- **OpenAI Vector Stores migration**: Replaced Qdrant/CLIP with OpenAI's hosted vector database
+  - Uses `text-embedding-3-small` model for semantic art search
+  - 2+ million artwork embeddings stored in OpenAI Vector Stores
+  - File search with metadata filtering (artist, title, museum)
+  - Removed local Qdrant container dependency
+- **Explore page redesign**: New physical card stacks UI for browsing playlists
+  - 12 curated playlists: 6 classic (museum-curated), 6 dynamic (AI-searched)
+  - Physical card styling with shadows and hover effects
+  - Touch-friendly drag scrolling for playlist navigation
+  - Dynamic playlists fetch fresh results via semantic search
+- **Museum API filtering**: Enhanced filtering to show only actual art
+  - Excludes furniture, ceramics, textiles, jewelry, weapons, coins, etc.
+  - Filters applied consistently across all 8 museum sources
+  - Prevents photos of tables, vases, costumes from appearing
+- **Grafana Cloud monitoring**: Centralized logging with Loki
+  - Structured JSON logging for all server components
+  - Promtail agent ships logs to Grafana Cloud
+  - Alert rules for device offline, low battery, errors
+  - See `docs/MONITORING.md` for setup details
+- **Structured logging**: Migrated all console.log to structured JSON logging
   - Component-based loggers (server, api, device, ota, image, battery)
   - JSON output format for Grafana Cloud Loki ingestion
   - Configurable log levels via LOG_LEVEL environment variable
@@ -343,16 +369,6 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
   - Solved brownout issues during display refresh on battery
   - Voltage divider ratio recalibrated to 8.3 for new setup
   - Blue LED removed to save ~2mA standby current
-  - See `docs/POWER_INVESTIGATION_REPORT.md` for full analysis
-- **ESP32 client refactored**: Named constants, removed globals, comprehensive documentation
-  - 30+ magic numbers converted to #define constants
-  - Created server_config.h for shared server URLs
-  - Removed global variables, added NULL checks and validation
-  - Input validation prevents device brick scenarios
-- **OTA monitoring**: Firmware version tracking, OTA history, admin UI display
-  - ESP32 reports firmware version in device status
-  - Server tracks OTA success/failure events
-  - Admin page shows current firmware and last OTA status
 - **Server refactored**: Modular architecture with routes/, services/, utils/
   - Server.js reduced from 5,225 lines to 523 lines (90% reduction)
 - 188 tests all passing

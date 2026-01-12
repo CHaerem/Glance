@@ -27,9 +27,10 @@ The main `docker-compose.yml` already includes:
 | Service | Port | Purpose |
 |---------|------|---------|
 | glance-server | 3000 | Main application + `/metrics` endpoint |
-| glance-qdrant | 6333 | Vector database for semantic search |
 | glance-loki | 3100 | Log aggregation |
 | glance-promtail | - | Collects Docker container logs |
+
+**Note**: Semantic search now uses OpenAI Vector Stores (cloud-hosted), so no local vector database is needed.
 
 Logs from all `glance-*` containers are automatically shipped to Loki.
 
