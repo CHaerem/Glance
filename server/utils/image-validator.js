@@ -196,7 +196,7 @@ async function warmupCache(filenames) {
 function isFilenameValidated(filename) {
     const url = getWikimediaUrl(filename, 400);
     const cached = validationCache.get(url);
-    return cached && cached.valid && (Date.now() - cached.timestamp) < CACHE_TTL;
+    return !!(cached && cached.valid && (Date.now() - cached.timestamp) < CACHE_TTL);
 }
 
 /**
