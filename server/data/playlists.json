@@ -86,7 +86,9 @@
         { "artist": "Edvard Munch", "title": "The Scream", "year": "1893", "wikimedia": "Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg" },
         { "artist": "Gustav Klimt", "title": "Portrait of Adele Bloch-Bauer I", "year": "1907", "wikimedia": "Gustav_Klimt_046.jpg" },
         { "artist": "Pablo Picasso", "title": "Guernica", "year": "1937", "wikimedia": "Mural_del_Gernika.jpg" },
-        { "artist": "Salvador Dali", "title": "The Persistence of Memory", "year": "1931", "wikimedia": "The_Persistence_of_Memory.jpg" }
+        { "artist": "Wassily Kandinsky", "title": "Composition VIII", "year": "1923", "wikimedia": "Vassily_Kandinsky,_1923_-_Composition_8,_huile_sur_toile,_140_cm_x_201_cm,_Mus%C3%A9e_Guggenheim,_New_York.jpg" },
+        { "artist": "Piet Mondrian", "title": "Composition II in Red, Blue, and Yellow", "year": "1930", "wikimedia": "Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg" },
+        { "artist": "Egon Schiele", "title": "Self-Portrait with Physalis", "year": "1912", "wikimedia": "Egon_Schiele_-_Self-Portrait_with_Physalis_-_Google_Art_Project.jpg" }
       ]
     },
     {

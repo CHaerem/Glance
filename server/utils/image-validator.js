@@ -58,9 +58,11 @@ const VERIFIED_FILENAMES = new Set([
     "Hiroshige_-_Sudden_Shower_at_the_Atake_Bridge.jpg",
     // Modern Icons
     "Mural_del_Gernika.jpg",
-    "Les_Demoiselles_d%27Avignon.jpg",
-    "The_Persistence_of_Memory.jpg",
     "Gustav_Klimt_016.jpg",
+    // Public domain modern art (replacing copyrighted Picasso/Dalí)
+    "Vassily_Kandinsky,_1923_-_Composition_8,_huile_sur_toile,_140_cm_x_201_cm,_Mus%C3%A9e_Guggenheim,_New_York.jpg",
+    "Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg",
+    "Egon_Schiele_-_Self-Portrait_with_Physalis_-_Google_Art_Project.jpg",
     "Gustav_Klimt_046.jpg",
     "Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg"
 ]);
