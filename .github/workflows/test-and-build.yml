@@ -237,6 +237,7 @@ jobs:
         env:
           SHORT_SHA: ${{ github.sha }}
           OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          API_KEYS: ${{ secrets.GLANCE_API_KEY }}
           BUILD_DATE: ${{ github.event.head_commit.timestamp }}
           LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_USERNAME: ${{ secrets.LOKI_USERNAME }}
@@ -253,6 +254,9 @@ jobs:
 
           # Build env vars string for docker compose
           ENV_VARS="IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}'"
+          if [ -n "$API_KEYS" ]; then
+            ENV_VARS="$ENV_VARS API_KEYS='${API_KEYS}'"
+          fi
           if [ -n "$LOKI_URL" ]; then
             ENV_VARS="$ENV_VARS LOKI_URL='${LOKI_URL}' LOKI_USERNAME='${LOKI_USERNAME}' LOKI_API_KEY='${LOKI_API_KEY}'"
           fi

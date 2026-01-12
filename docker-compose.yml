@@ -3,7 +3,7 @@ services:
     image: ${DOCKER_USERNAME:-chaerem}/glance-server:${IMAGE_VERSION:-latest}
     container_name: glance-server
     ports:
-      - "3000:3000"
+      - "80:3000"
     volumes:
       # Bind mount for data allows direct firmware updates without Docker rebuild
       - ./data:/app/data
@@ -12,6 +12,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - API_KEYS=${API_KEYS:-}
       - DOCKER_IMAGE_VERSION=${IMAGE_VERSION:-local}
       - BUILD_DATE=${BUILD_DATE:-unknown}
     deploy:

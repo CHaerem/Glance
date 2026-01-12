@@ -222,7 +222,7 @@ When Claude calls `search_artworks` via MCP:
 
 1. **Tailscale Funnel**: Expose the server publicly
    ```bash
-   ssh chris@serverpi.local "sudo tailscale funnel --bg 3000"
+   ssh chris@serverpi.local "sudo tailscale funnel --bg 80"
    ```
    This creates: `https://serverpi.corgi-climb.ts.net/`
 
@@ -237,12 +237,27 @@ When Claude calls `search_artworks` via MCP:
 
 4. **Embed in Glance**: Update iframe src in `server/public/index.html`
 
+5. **Access**: Use `https://serverpi.corgi-climb.ts.net` from any device (no Tailscale client needed)
+
 ### Security
 
-- Sensitive endpoints (upload, generate-art, delete) require API key when accessed externally
-- Set `API_KEYS` environment variable to enable authentication
+Protected endpoints require API key (`X-API-Key` header) when accessed externally:
+
+| Endpoint | Protection | Reason |
+|----------|------------|--------|
+| `/api/upload` | API key required | Creates content |
+| `/api/generate-art` | API key required | Uses OpenAI credits |
+| `/api/art/import` | API key required | Displays on frame |
+| `/api/device-command` | API key required | Controls device |
+| DELETE endpoints | API key required | Destructive |
+| `/api/art/search`, `/api/playlists` | Public | Read-only |
+| `/api/mcp` | Public | Tools call internal endpoints |
+
+**Configuration:**
+- Set `API_KEYS` environment variable (comma-separated for multiple keys)
+- Set `GLANCE_API_KEY` GitHub secret for CI/CD deployment
+- Local requests (127.0.0.1, 192.168.x.x, 10.x.x.x) bypass authentication
 - Rate limiting: 100 requests per 15 minutes per IP for external access
-- Local requests bypass authentication and rate limiting
 
 ## Hardware
 

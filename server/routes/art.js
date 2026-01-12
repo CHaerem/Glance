@@ -15,6 +15,7 @@ const statistics = require('../services/statistics');
 const { readJSONFile, writeJSONFile, ensureDir } = require('../utils/data-store');
 const { addDeviceLog } = require('../utils/state');
 const { loggers } = require('../services/logger');
+const { apiKeyAuth } = require('../middleware/auth');
 const log = loggers.api;
 
 /**
@@ -495,8 +496,9 @@ Source: ${source || 'Unknown'}`
     /**
      * Import artwork from URL
      * POST /api/art/import
+     * Requires API key for external requests (sends to e-ink display)
      */
-    router.post('/import', async (req, res) => {
+    router.post('/import', apiKeyAuth, async (req, res) => {
         try {
             const { imageUrl, title, artist, source, rotation, cropX, cropY, zoomLevel } = req.body;
 
