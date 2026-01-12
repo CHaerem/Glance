@@ -79,13 +79,14 @@
                     <span class="ai-guide-title">AI Art Guide</span>
                     <button class="ai-guide-close" id="aiGuideClose">×</button>
                 </div>
-                <div class="ai-guide-content">
-                    <p>Use Claude.ai with the Glance MCP server to discover and display art using natural language.</p>
-                    <p class="ai-guide-example">"Show me peaceful impressionist landscapes"</p>
-                    <p class="ai-guide-example">"Display a random Monet painting"</p>
-                    <p class="ai-guide-example">"What's currently on my display?"</p>
-                    <a href="https://claude.ai" target="_blank" class="ai-guide-launch-btn">Open Claude.ai →</a>
-                    <p class="ai-guide-note">Make sure the MCP server is connected in Claude.ai Settings.</p>
+                <div class="ai-guide-embed">
+                    <iframe
+                        id="aiGuideFrame"
+                        class="ai-guide-iframe"
+                        src="https://claude.site/public/artifacts/4c514fa6-4e61-4287-907c-c426f521f0da/embed"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                        allow="clipboard-read; clipboard-write"
+                    ></iframe>
                 </div>
             </div>
 

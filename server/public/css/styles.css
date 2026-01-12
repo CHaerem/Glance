@@ -329,42 +329,18 @@
             color: #1a1a1a;
         }
 
-        /* AI Guide Content */
-        .ai-guide-content p {
-            font-size: 0.85rem;
-            color: #666;
-            margin-bottom: 12px;
-            line-height: 1.5;
+        /* AI Guide Embed Container */
+        .ai-guide-embed {
+            position: relative;
+            min-height: 400px;
         }
 
-        .ai-guide-example {
-            font-style: italic;
-            color: #999 !important;
-            padding-left: 12px;
-            border-left: 2px solid #e5e5e5;
-            margin-bottom: 8px !important;
-        }
-
-        .ai-guide-launch-btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background: #1a1a1a;
-            color: #fff;
-            text-decoration: none;
+        .ai-guide-iframe {
+            width: 100%;
+            height: 450px;
+            border: none;
             border-radius: 4px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin: 16px 0;
-            transition: background 0.2s ease;
-        }
-
-        .ai-guide-launch-btn:hover {
-            background: #333;
-        }
-
-        .ai-guide-note {
-            font-size: 0.75rem !important;
-            color: #999 !important;
+            background: #fff;
         }
 
         .filter-bar {
