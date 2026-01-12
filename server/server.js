@@ -112,7 +112,7 @@ const publicApiLimiter = rateLimit({
 	},
 	standardHeaders: true,
 	legacyHeaders: false,
-	// Skip rate limiting for local requests
+	// Skip rate limiting for local and Tailscale requests
 	skip: (req) => {
 		const ip = req.ip || '';
 		return (
@@ -121,8 +121,10 @@ const publicApiLimiter = rateLimit({
 			ip === '::ffff:127.0.0.1' ||
 			ip.startsWith('192.168.') ||
 			ip.startsWith('10.') ||
+			ip.startsWith('100.') || // Tailscale IPs
 			ip.startsWith('::ffff:192.168.') ||
-			ip.startsWith('::ffff:10.')
+			ip.startsWith('::ffff:10.') ||
+			ip.startsWith('::ffff:100.') // Tailscale IPs
 		);
 	}
 });
@@ -161,6 +163,9 @@ const corsOptions = {
 	allowedHeaders: ['Content-Type', 'X-API-Key', 'Authorization'],
 	credentials: true
 };
+
+// Trust proxy for correct IP detection (needed for Tailscale Funnel)
+app.set('trust proxy', true);
 
 // Middleware
 app.use(cors(corsOptions));
