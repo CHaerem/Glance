@@ -142,9 +142,78 @@ function toggleAiGuide() {
     if (isVisible) {
         panel.style.display = 'none';
         btn.classList.remove('active');
+        stopAiSearchPolling();
     } else {
         panel.style.display = 'block';
         btn.classList.add('active');
+        startAiSearchPolling();
+    }
+}
+
+// AI Search polling state
+let aiSearchPollInterval = null;
+let lastAiSearchTimestamp = null;
+const AI_SEARCH_MAX_AGE_MS = 5 * 60 * 1000; // Ignore results older than 5 minutes
+
+// Poll for AI search results from MCP
+async function pollAiSearchResults() {
+    try {
+        const response = await fetch('/api/ai-search/latest');
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        // Check if we have new results (different timestamp, not stale)
+        if (data.timestamp &&
+            data.timestamp !== lastAiSearchTimestamp &&
+            data.results?.length > 0 &&
+            (Date.now() - data.timestamp) < AI_SEARCH_MAX_AGE_MS) {
+
+            lastAiSearchTimestamp = data.timestamp;
+            console.log('New AI search results:', data.query, data.results.length);
+
+            // Display results in the art grid
+            currentArtResults = data.results;
+            browseDisplayCount = getInitialDisplayCount();
+
+            // Show playlist label for AI results
+            const playlistLabel = document.getElementById('currentPlaylist');
+            const playlistName = document.getElementById('playlistName');
+            playlistLabel.style.display = 'flex';
+            playlistName.textContent = data.query ? `"${data.query}"` : 'AI Results';
+            document.getElementById('playlistRefresh').style.display = 'none';
+
+            displayPlaylistCards();
+
+            // Switch to explore mode if not already there
+            if (currentMode !== 'explore') {
+                switchMode('explore');
+            }
+        }
+    } catch (error) {
+        // Silently ignore polling errors - will retry on next interval
+        console.debug('AI search poll failed:', error.message);
+    }
+}
+
+// Start polling when AI Guide panel opens
+function startAiSearchPolling() {
+    if (aiSearchPollInterval) return; // Already polling
+
+    // Reset timestamp so we pick up recent results on panel reopen
+    lastAiSearchTimestamp = null;
+
+    console.log('Starting AI search polling');
+    aiSearchPollInterval = setInterval(pollAiSearchResults, 1500); // Poll every 1.5 seconds
+    pollAiSearchResults(); // Initial poll
+}
+
+// Stop polling when AI Guide panel closes
+function stopAiSearchPolling() {
+    if (aiSearchPollInterval) {
+        console.log('Stopping AI search polling');
+        clearInterval(aiSearchPollInterval);
+        aiSearchPollInterval = null;
     }
 }
 

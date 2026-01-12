@@ -187,10 +187,24 @@ docker compose up -d
 | `/api/settings` | Server settings (sleep duration, etc.) |
 | `/api/mcp` | MCP server endpoint for Claude.ai integration |
 | `/api/mcp/health` | MCP server health check and available tools |
+| `/api/ai-search/latest` | Get latest AI Art Guide search results (for page polling) |
 
 ## AI Art Guide (MCP Integration)
 
-The Glance server includes an MCP (Model Context Protocol) server for Claude.ai artifact integration.
+The Glance server includes an MCP (Model Context Protocol) server for Claude.ai artifact integration. A Claude artifact provides conversational art discovery, with search results displayed in the Glance explore page grid.
+
+**Full artifact specification:** See [docs/AI-ART-GUIDE-ARTIFACT.md](docs/AI-ART-GUIDE-ARTIFACT.md)
+
+### Architecture
+
+```
+Claude Artifact ──MCP──► Glance Server ──stores results──► Glance Page polls & displays
+```
+
+When Claude calls `search_artworks` via MCP:
+1. Results are returned to Claude for conversational response
+2. Results are stored server-side (`/api/ai-search/latest`)
+3. Glance page polls this endpoint and displays results in the art grid
 
 ### MCP Tools Available
 
@@ -212,11 +226,16 @@ The Glance server includes an MCP (Model Context Protocol) server for Claude.ai 
    ```
    This creates: `https://serverpi.corgi-climb.ts.net/`
 
-2. **Claude.ai Configuration**: Connect the MCP server to your Claude.ai account
-   - Go to Claude.ai Settings → MCP Servers
+2. **Claude.ai Configuration**: Connect the MCP server in Claude.ai
+   - Go to Claude.ai Settings → Connectors
    - Add server URL: `https://serverpi.corgi-climb.ts.net/api/mcp`
 
-3. **Use in Artifacts**: Create artifacts that use MCP tools to search and display art
+3. **Create Artifact**: Ask Claude to create an AI-powered chat artifact
+   - Provide [docs/AI-ART-GUIDE-ARTIFACT.md](docs/AI-ART-GUIDE-ARTIFACT.md) as context
+   - Enable AI capabilities for the artifact
+   - Publish with allowed domain: `serverpi.corgi-climb.ts.net`
+
+4. **Embed in Glance**: Update iframe src in `server/public/index.html`
 
 ### Security
 

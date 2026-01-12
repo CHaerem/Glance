@@ -12,6 +12,29 @@ const express = require('express');
 const { loggers } = require('../services/logger');
 const log = loggers.api.child({ component: 'mcp' });
 
+// In-memory cache for latest AI search results
+// This allows the Glance page to display results when Claude searches via MCP
+let latestAiSearch = {
+	query: null,
+	results: [],
+	timestamp: null,
+};
+
+/**
+ * Get the latest AI search results
+ * @returns {Object} Latest search data
+ */
+function getLatestAiSearch() {
+	return latestAiSearch;
+}
+
+/**
+ * Clear the latest AI search results
+ */
+function clearLatestAiSearch() {
+	latestAiSearch = { query: null, results: [], timestamp: null };
+}
+
 /**
  * Create MCP server with Glance tools
  * @param {Object} options
@@ -63,6 +86,14 @@ function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }) {
 			try {
 				const data = await glanceApi(`/api/art/search?q=${encodeURIComponent(query)}&limit=${Math.min(limit, 20)}`);
 				const results = data.results || [];
+
+				// Store results for Glance page to fetch
+				latestAiSearch = {
+					query,
+					results,
+					timestamp: Date.now(),
+				};
+				log.info('MCP search_artworks stored results', { query, count: results.length });
 
 				if (results.length === 0) {
 					return {
@@ -252,6 +283,14 @@ function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }) {
 					};
 				}
 
+				// Store results for Glance page to fetch
+				latestAiSearch = {
+					query: data.name || playlistId,
+					results: artworks,
+					timestamp: Date.now(),
+				};
+				log.info('MCP get_playlist stored results', { playlistId, count: artworks.length });
+
 				const formatted = artworks.slice(0, 10).map((art, i) =>
 					`${i + 1}. "${art.title}" by ${art.artist || 'Unknown'}`
 				).join('\n');
@@ -330,6 +369,14 @@ function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }) {
 						content: [{ type: 'text', text: 'Could not fetch a random artwork. Please try again.' }],
 					};
 				}
+
+				// Store result for Glance page to fetch (as single-item array)
+				latestAiSearch = {
+					query: 'Random artwork',
+					results: [data],
+					timestamp: Date.now(),
+				};
+				log.info('MCP random_artwork stored result', { title: data.title });
 
 				return {
 					content: [
@@ -422,10 +469,24 @@ function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' } = {}) {
 		});
 	});
 
+	// Endpoint for Glance page to fetch latest AI search results
+	router.get('/ai-search/latest', (req, res) => {
+		const data = getLatestAiSearch();
+		res.json(data);
+	});
+
+	// Clear AI search results (called when user clears the search)
+	router.delete('/ai-search/latest', (req, res) => {
+		clearLatestAiSearch();
+		res.json({ success: true });
+	});
+
 	return router;
 }
 
 module.exports = {
 	createMcpServer,
 	createMcpRoutes,
+	getLatestAiSearch,
+	clearLatestAiSearch,
 };
