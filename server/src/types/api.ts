@@ -98,3 +98,45 @@ export interface AuthConfig {
   localNetworkPrefixes: string[];
   tailscalePrefix: string;
 }
+
+// Multer file type for upload handling
+export interface MulterFile {
+  path: string;
+  originalname: string;
+  fieldname?: string;
+  encoding?: string;
+  mimetype?: string;
+  size?: number;
+  destination?: string;
+  filename?: string;
+  buffer?: Buffer;
+}
+
+// Request with uploaded file
+export type FileRequest = Request & {
+  file?: MulterFile;
+};
+
+// Current display data (stored in current.json)
+export interface CurrentData {
+  title?: string;
+  image?: string;
+  imageId?: string;
+  timestamp?: number;
+  sleepDuration?: number;
+  rotation?: number;
+  artist?: string;
+  source?: string;
+  devServerHost?: string;
+}
+
+// Playlist configuration (stored in playlist.json)
+export interface PlaylistData {
+  active?: boolean;
+  images?: string[];
+  mode?: 'random' | 'sequential';
+  interval?: number;
+  currentIndex?: number;
+  lastUpdate?: number;
+  createdAt?: number;
+}

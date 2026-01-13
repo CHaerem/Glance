@@ -15,7 +15,7 @@ import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import imageProcessing from '../services/image-processing';
 import { loggers } from '../services/logger';
-import type { ServerSettings } from '../types';
+import type { ServerSettings, FileRequest, CurrentData, PlaylistData } from '../types';
 
 const log = loggers.api;
 
@@ -29,48 +29,10 @@ const SPECTRA_6_PALETTE = [
   { name: 'Green', rgb: [0, 255, 0] },
 ];
 
-/** Multer file type (simplified) */
-interface MulterFile {
-  path: string;
-  originalname: string;
-  fieldname?: string;
-  encoding?: string;
-  mimetype?: string;
-  size?: number;
-  destination?: string;
-  filename?: string;
-  buffer?: Buffer;
-}
-
-/** Request with file - using intersection type to avoid extends conflict */
-type FileRequest = Request & {
-  file?: MulterFile;
-};
-
 /** Image route dependencies */
 export interface ImageRouteDeps {
   upload: { single: (fieldName: string) => RequestHandler };
   uploadDir: string;
-}
-
-/** Current image data */
-interface CurrentData {
-  title?: string;
-  image?: string;
-  imageId?: string;
-  timestamp?: number;
-  sleepDuration?: number;
-  rotation?: number;
-}
-
-/** Playlist data */
-interface PlaylistData {
-  active?: boolean;
-  images?: string[];
-  mode?: 'random' | 'sequential';
-  interval?: number;
-  currentIndex?: number;
-  lastUpdate?: number;
 }
 
 /**

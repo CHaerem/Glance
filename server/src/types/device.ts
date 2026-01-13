@@ -215,3 +215,36 @@ export interface ESP32StatusResponse {
   status: string | null;
   currentImage: string | null;
 }
+
+// Type aliases for backward compatibility
+export type BrownoutHistoryEntry = BrownoutEvent;
+export type OtaHistoryEntry = OTAEvent;
+
+// Device data (stored in devices.json) - alias for DeviceStatus
+export type DeviceData = DeviceStatus;
+
+// Status payload from ESP32 device report
+export interface DeviceStatusPayload {
+  batteryVoltage?: string | number;
+  batteryPercent?: string | number;
+  isCharging?: boolean;
+  signalStrength?: string | number;
+  freeHeap?: string | number;
+  bootCount?: string | number;
+  brownoutCount?: string | number;
+  firmwareVersion?: string;
+  status?: string;
+  usedFallback?: boolean;
+}
+
+// Profiling payload from ESP32 device report
+export interface ProfilingPayload {
+  displayInitMs?: string | number;
+  wifiConnectMs?: string | number;
+  otaCheckMs?: string | number;
+  metadataFetchMs?: string | number;
+  imageDownloadMs?: string | number;
+  displayRefreshMs?: string | number;
+  totalWakeMs?: string | number;
+  hasDisplayUpdate?: boolean;
+}

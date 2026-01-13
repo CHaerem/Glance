@@ -11,170 +11,31 @@ import { readJSONFile, writeJSONFile } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
-import type { ServerSettings } from '../types';
+import type {
+  ServerSettings,
+  CurrentData,
+  DeviceStatus,
+  DeviceCommand,
+  DeviceStatusPayload,
+  ProfilingPayload,
+  BatteryHistoryEntry,
+  SignalHistoryEntry,
+  UsageStats,
+  BatterySession,
+  OperationSample,
+  BrownoutEvent,
+  OTAEvent,
+  ProfilingEntry,
+  ChargingSource,
+} from '../types';
 
 const log = loggers.device;
 
-/** Battery history entry */
-interface BatteryHistoryEntry {
-  timestamp: number;
-  voltage: number;
-  isCharging: boolean;
-  isDisplayUpdate: boolean;
-}
-
-/** Signal history entry */
-interface SignalHistoryEntry {
-  timestamp: number;
-  rssi: number;
-}
-
-/** Usage statistics */
-interface UsageStats {
-  totalWakes: number;
-  totalDisplayUpdates: number;
-  totalVoltageDrop: number;
-  lastFullCharge: number | null;
-  wakesThisCycle: number;
-  displayUpdatesThisCycle: number;
-  voltageAtFullCharge: number | null;
-  displayUpdateVoltageDrop: number;
-  nonDisplayVoltageDrop: number;
-  otaUpdateVoltageDrop: number;
-  otaUpdateCount: number;
-}
-
-/** Battery session */
-interface BatterySession {
-  startTime: number;
-  startVoltage: number;
-  startPercent: number;
-  firmwareVersions: string[];
-  wakes: number;
-  displayUpdates: number;
-  otaUpdates: number;
-  totalVoltageDrop: number;
-  displayVoltageDrop: number;
-  wakeVoltageDrop: number;
-  otaVoltageDrop: number;
-  endTime?: number;
-  endVoltage?: number;
-  endPercent?: number;
-  duration?: number;
-}
-
-/** Operation sample */
-interface OperationSample {
-  timestamp: number;
-  type: 'display' | 'ota' | 'wake';
-  voltageBefore: number;
-  voltageAfter: number;
-  voltageDrop: number;
-  firmwareVersion: string;
-  signalStrength: number;
-}
-
-/** Brownout history entry */
-interface BrownoutHistoryEntry {
-  timestamp: number;
-  brownoutNumber: number;
-  batteryVoltage: number;
-  batteryPercent: number;
-  status: string;
-  displayUpdatesThisCycle: number;
-  wakesThisCycle: number;
-}
-
-/** OTA history entry */
-interface OtaHistoryEntry {
-  timestamp: number;
-  fromVersion: string;
-  toVersion: string;
-  success: boolean;
-  error?: string;
-}
-
-/** Profiling entry */
-interface ProfilingEntry {
-  timestamp: string;
-  displayInitMs: number;
-  wifiConnectMs: number;
-  otaCheckMs: number;
-  metadataFetchMs: number;
-  imageDownloadMs: number;
-  displayRefreshMs: number;
-  totalWakeMs: number;
-  hasDisplayUpdate: boolean;
-  batteryVoltage: number;
-  firmwareVersion: string;
-  signalStrength: number;
-}
-
-/** Device data structure */
-interface DeviceData {
-  batteryVoltage: number;
-  batteryPercent: number | null;
-  isCharging: boolean;
-  chargingSource: string;
-  lastChargeTimestamp: number | null;
-  batteryHistory: BatteryHistoryEntry[];
-  usageStats: UsageStats;
-  batterySessions: BatterySession[];
-  currentSession: BatterySession | null;
-  operationSamples: OperationSample[];
-  signalStrength: number;
-  signalHistory: SignalHistoryEntry[];
-  freeHeap: number;
-  bootCount: number;
-  brownoutCount: number;
-  brownoutHistory: BrownoutHistoryEntry[];
-  firmwareVersion: string | null;
-  otaHistory: OtaHistoryEntry[];
-  profilingHistory: ProfilingEntry[];
-  status: string;
-  lastSeen: number;
-  deviceId: string;
-}
-
-/** Current data */
-interface CurrentData {
-  title?: string;
-  sleepDuration?: number;
-}
-
-/** Command data */
-interface CommandData {
-  command: string;
-  duration: number;
-  timestamp: number;
-  deviceId: string;
-}
-
-/** Status from device */
-interface DeviceStatusPayload {
-  batteryVoltage?: string | number;
-  batteryPercent?: string | number;
-  isCharging?: boolean;
-  signalStrength?: string | number;
-  freeHeap?: string | number;
-  bootCount?: string | number;
-  brownoutCount?: string | number;
-  firmwareVersion?: string;
-  status?: string;
-  usedFallback?: boolean;
-}
-
-/** Profiling data from device */
-interface ProfilingPayload {
-  displayInitMs?: string | number;
-  wifiConnectMs?: string | number;
-  otaCheckMs?: string | number;
-  metadataFetchMs?: string | number;
-  imageDownloadMs?: string | number;
-  displayRefreshMs?: string | number;
-  totalWakeMs?: string | number;
-  hasDisplayUpdate?: boolean;
-}
+// Local type aliases for backward compatibility
+type DeviceData = DeviceStatus;
+type BrownoutHistoryEntry = BrownoutEvent;
+type OtaHistoryEntry = OTAEvent;
+type CommandData = DeviceCommand;
 
 /**
  * Send low battery notification via webhook
@@ -289,7 +150,7 @@ export function createDeviceRoutes(): Router {
       const batteryHistory: BatteryHistoryEntry[] = previousDevice.batteryHistory || [];
 
       let isCharging = false;
-      let chargingSource = 'none';
+      let chargingSource: ChargingSource = 'none';
 
       // Priority 1: ESP32's charging detection
       if (typeof status.isCharging === 'boolean') {
@@ -895,7 +756,7 @@ export function createDeviceRoutes(): Router {
       const isRecentlyActive = Date.now() - devices[deviceId!]!.lastSeen < 300000;
 
       const deviceCommand: CommandData = {
-        command,
+        command: command as DeviceCommand['command'],
         duration: parseInt(String(duration)) || 300000,
         timestamp: Date.now(),
         deviceId: sanitizeInput(deviceId) || '',

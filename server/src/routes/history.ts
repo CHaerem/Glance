@@ -13,7 +13,7 @@ import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
-import type { ServerSettings } from '../types';
+import type { ServerSettings, PlaylistData } from '../types';
 
 const log = loggers.api;
 
@@ -22,7 +22,7 @@ export interface HistoryRouteDeps {
   uploadDir: string;
 }
 
-/** History item */
+/** History item in history.json */
 interface HistoryItem {
   imageId: string;
   title?: string;
@@ -53,17 +53,6 @@ interface CollectionItem {
   collectionId?: string;
   wikimedia?: string;
   addedToCollection: number;
-}
-
-/** Playlist config */
-interface PlaylistConfig {
-  images: string[];
-  mode: 'sequential' | 'random';
-  interval: number;
-  currentIndex: number;
-  active: boolean;
-  createdAt: number;
-  lastUpdate: number;
 }
 
 /**
@@ -445,7 +434,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
         log.debug('Playlist: removed duplicate images', { duplicatesRemoved });
       }
 
-      const playlistConfig: PlaylistConfig = {
+      const playlistConfig: PlaylistData = {
         images: dedupedImages,
         mode: mode as 'sequential' | 'random',
         interval,
@@ -512,7 +501,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
    */
   router.patch('/playlist', async (req: Request, res: Response) => {
     try {
-      const playlist: Partial<PlaylistConfig> | null = await readJSONFile('playlist.json');
+      const playlist: Partial<PlaylistData> | null = await readJSONFile('playlist.json');
 
       if (!playlist) {
         res.status(404).json({ error: 'No playlist exists' });

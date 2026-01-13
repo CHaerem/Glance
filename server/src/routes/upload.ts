@@ -18,22 +18,9 @@ import imageProcessing from '../services/image-processing';
 import statistics from '../services/statistics';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
-import type { ServerSettings } from '../types';
+import type { ServerSettings, FileRequest } from '../types';
 
 const log = loggers.api;
-
-/** Multer file type */
-interface MulterFile {
-  path: string;
-  originalname: string;
-  size: number;
-  mimetype: string;
-}
-
-/** Request with file */
-type FileRequest = Request & {
-  file?: MulterFile;
-};
 
 /** Upload route dependencies */
 export interface UploadRouteDeps {
@@ -61,8 +48,8 @@ interface ImageArchiveEntry {
   quality?: string;
 }
 
-/** History entry */
-interface HistoryEntry {
+/** History entry for uploads */
+interface UploadHistoryEntry {
   imageId: string;
   title: string;
   thumbnail?: string;
@@ -173,7 +160,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
         };
         await writeJSONFile('images.json', imagesArchive);
 
-        const history: HistoryEntry[] = (await readJSONFile('history.json')) || [];
+        const history: UploadHistoryEntry[] = (await readJSONFile('history.json')) || [];
         history.unshift({
           imageId: imageId,
           title: title,
@@ -379,7 +366,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       };
       await writeJSONFile('images.json', imagesArchive);
 
-      const history: HistoryEntry[] = (await readJSONFile('history.json')) || [];
+      const history: UploadHistoryEntry[] = (await readJSONFile('history.json')) || [];
       history.unshift({
         imageId: imageId,
         title: current.title,
