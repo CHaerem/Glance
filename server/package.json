@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "build": "tsc",
+    "build:check": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -27,11 +29,20 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
     "@types/jest": "^29.5.8",
+    "@types/multer": "^1.4.13",
+    "@types/node": "^20.19.28",
+    "@types/supertest": "^6.0.3",
+    "@types/uuid": "^9.0.8",
     "cheerio": "^1.1.2",
     "jest": "^29.7.0",
     "nodemon": "^3.0.1",
-    "supertest": "^6.3.3"
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   },
   "keywords": [
     "e-ink",
@@ -40,33 +51,5 @@
     "api"
   ],
   "author": "Glance Project",
-  "license": "MIT",
-  "jest": {
-    "testEnvironment": "node",
-    "testTimeout": 60000,
-    "coverageDirectory": "coverage",
-    "collectCoverageFrom": [
-      "*.js",
-      "services/**/*.js",
-      "utils/**/*.js",
-      "routes/**/*.js",
-      "!coverage/**",
-      "!node_modules/**",
-      "!jest.setup.js",
-      "!**/*.test.js"
-    ],
-    "coverageReporters": [
-      "text",
-      "lcov",
-      "html"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.js",
-      "**/*.test.js"
-    ],
-    "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.js"
-    ],
-    "moduleNameMapper": {}
-  }
+  "license": "MIT"
 }
