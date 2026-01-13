@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 
 const log = loggers.ota;
 
@@ -169,7 +170,7 @@ export function createFirmwareRoutes({
       res.json(response);
     } catch (error) {
       log.error('Error getting firmware info', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to get firmware info' });
     }
@@ -213,7 +214,7 @@ export function createFirmwareRoutes({
       });
     } catch (error) {
       log.error('Error serving firmware', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to serve firmware' });
     }
@@ -249,7 +250,7 @@ export function createFirmwareRoutes({
       });
     } catch (error) {
       log.error('Error setting force OTA', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to set force OTA state' });
     }

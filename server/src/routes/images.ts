@@ -13,6 +13,7 @@ import { isInNightSleep, calculateNightSleepDuration } from '../utils/time';
 import { validateImageData, sanitizeInput } from '../utils/validation';
 import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
+import { getErrorMessage } from '../utils/error';
 import imageProcessing from '../services/image-processing';
 import { loggers } from '../services/logger';
 import type { ServerSettings, FileRequest, CurrentData, PlaylistData } from '../types';
@@ -125,7 +126,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
       res.json(metadata);
     } catch (error) {
       log.error('Error getting current', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -153,7 +154,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
       res.json(current);
     } catch (error) {
       log.error('Error getting current full', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -187,7 +188,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
       res.send(binaryData);
     } catch (error) {
       log.error('Error serving binary image', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).send('Error serving binary image');
     }
@@ -261,9 +262,9 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
       res.json({ success: true, current });
     } catch (error) {
       log.error('Error updating current', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
-      res.status(500).json({ error: 'Internal server error: ' + (error instanceof Error ? error.message : String(error)) });
+      res.status(500).json({ error: 'Internal server error: ' + (getErrorMessage(error)) });
     }
   });
 
@@ -326,7 +327,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
       });
     } catch (error) {
       log.error('Error generating art gallery preview', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       const fileReq = req as FileRequest;
       if (fileReq.file?.path) {
@@ -337,7 +338,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
         }
       }
       res.status(500).json({
-        error: 'Error generating art preview: ' + (error instanceof Error ? error.message : String(error)),
+        error: 'Error generating art preview: ' + (getErrorMessage(error)),
       });
     }
   });
@@ -388,7 +389,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
       log.debug('Served Bhutan flag RGB data', { bytes: rgbData.length });
     } catch (error) {
       log.error('Error serving Bhutan flag', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to process Bhutan flag' });
     }

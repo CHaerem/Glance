@@ -12,6 +12,7 @@ import OpenAI from 'openai';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 import { loggers } from './logger';
 import { performArtSearch } from './museum-api';
+import { getErrorMessage } from '../utils/error';
 import type { Artwork } from '../types';
 
 const log = loggers.api;
@@ -466,7 +467,7 @@ Consider:
       }));
     } catch (error) {
       log.error('Agentic search failed', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return this._fallbackSearch(query, limit);
     }
@@ -532,7 +533,7 @@ Search for artworks with similar characteristics.`,
           .map((art) => ({ ...art, score: 0.8 }));
       } catch (error) {
         log.error('Similar search failed', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
       }
     }

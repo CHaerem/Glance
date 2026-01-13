@@ -10,6 +10,7 @@ import { readJSONFile, writeJSONFile } from '../utils/data-store';
 import { getOsloTimestamp } from '../utils/time';
 import { getServerLogs, getDeviceLogs } from '../utils/state';
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 
 const log = loggers.server;
 
@@ -96,7 +97,7 @@ export function createSystemRoutes({
       res.json(stats);
     } catch (error) {
       log.error('Error retrieving stats', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to retrieve statistics' });
     }
@@ -112,7 +113,7 @@ export function createSystemRoutes({
       res.json({ success: true, message: 'Statistics reset successfully' });
     } catch (error) {
       log.error('Error resetting stats', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to reset statistics' });
     }
@@ -209,7 +210,7 @@ export function createSystemRoutes({
       res.json(settings);
     } catch (error) {
       log.error('Error reading settings', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to read settings' });
     }
@@ -314,7 +315,7 @@ export function createSystemRoutes({
       res.json({ success: true, settings: existingSettings });
     } catch (error) {
       log.error('Error updating settings', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Failed to update settings' });
     }

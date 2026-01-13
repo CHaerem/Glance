@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import statistics from './statistics';
 import { loggers } from './logger';
+import { TtlCache, TTL, getErrorMessage } from '../utils';
 import type { Artwork } from '../types';
 
 const log = loggers.api;
@@ -55,12 +56,6 @@ interface ArtSearchResult {
   sources: Record<string, SourceStatus>;
 }
 
-/** Cache entry structure */
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-}
-
 // Load curated collections from JSON file
 const CURATED_COLLECTIONS: CuratedCollections = JSON.parse(
   fs.readFileSync(
@@ -69,32 +64,8 @@ const CURATED_COLLECTIONS: CuratedCollections = JSON.parse(
   )
 );
 
-// Simple in-memory cache for museum API responses
-const artSearchCache = new Map<string, CacheEntry<Artwork[]>>();
-const ART_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-function getCachedResult(key: string): Artwork[] | null {
-  const cached = artSearchCache.get(key);
-  if (cached && Date.now() - cached.timestamp < ART_CACHE_TTL) {
-    log.debug('Cache hit', { cacheKey: key });
-    return cached.data;
-  }
-  return null;
-}
-
-function setCachedResult(key: string, data: Artwork[]): void {
-  artSearchCache.set(key, {
-    data,
-    timestamp: Date.now(),
-  });
-  // Limit cache size to 1000 entries
-  if (artSearchCache.size > 1000) {
-    const firstKey = artSearchCache.keys().next().value;
-    if (firstKey) {
-      artSearchCache.delete(firstKey);
-    }
-  }
-}
+// Cache for museum API responses (24 hour TTL)
+const artSearchCache = new TtlCache<Artwork[]>({ ttl: TTL.ONE_DAY });
 
 /**
  * Get curated collections
@@ -330,7 +301,7 @@ export async function performArtSearch(
   // Helper to search Met Museum
   const searchMet = async (): Promise<Artwork[]> => {
     const cacheKey = `met-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -420,11 +391,11 @@ export async function performArtSearch(
       }
 
       log.debug('Met Museum returned artworks', { count: metArtworks.length });
-      setCachedResult(cacheKey, metArtworks);
+      artSearchCache.set(cacheKey, metArtworks);
       return metArtworks;
     } catch (error) {
       log.error('Error searching Met Museum', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -433,7 +404,7 @@ export async function performArtSearch(
   // Helper to search Art Institute of Chicago
   const searchArtic = async (): Promise<Artwork[]> => {
     const cacheKey = `artic-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -497,11 +468,11 @@ export async function performArtSearch(
         }));
 
       log.debug('ARTIC returned artworks', { count: articArtworks.length });
-      setCachedResult(cacheKey, articArtworks);
+      artSearchCache.set(cacheKey, articArtworks);
       return articArtworks;
     } catch (error) {
       log.error('Error searching ARTIC', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -510,7 +481,7 @@ export async function performArtSearch(
   // Helper to search Cleveland Museum of Art
   const searchCleveland = async (): Promise<Artwork[]> => {
     const cacheKey = `cma-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -571,11 +542,11 @@ export async function performArtSearch(
         }));
 
       log.debug('Cleveland returned artworks', { count: cmaArtworks.length });
-      setCachedResult(cacheKey, cmaArtworks);
+      artSearchCache.set(cacheKey, cmaArtworks);
       return cmaArtworks;
     } catch (error) {
       log.error('Error searching Cleveland Museum', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -584,7 +555,7 @@ export async function performArtSearch(
   // Helper to search Rijksmuseum
   const searchRijksmuseum = async (): Promise<Artwork[]> => {
     const cacheKey = `rijks-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -643,11 +614,11 @@ export async function performArtSearch(
         }));
 
       log.debug('Rijksmuseum returned artworks', { count: rijksArtworks.length });
-      setCachedResult(cacheKey, rijksArtworks);
+      artSearchCache.set(cacheKey, rijksArtworks);
       return rijksArtworks;
     } catch (error) {
       log.error('Error searching Rijksmuseum', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -656,7 +627,7 @@ export async function performArtSearch(
   // Helper to search Wikimedia Commons
   const searchWikimedia = async (): Promise<Artwork[]> => {
     const cacheKey = `wikimedia-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -713,11 +684,11 @@ export async function performArtSearch(
       log.debug('Wikimedia returned artworks', {
         count: wikimediaArtworks.length,
       });
-      setCachedResult(cacheKey, wikimediaArtworks);
+      artSearchCache.set(cacheKey, wikimediaArtworks);
       return wikimediaArtworks;
     } catch (error) {
       log.error('Error searching Wikimedia', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -726,7 +697,7 @@ export async function performArtSearch(
   // Helper to search Victoria & Albert Museum
   const searchVictoriaAlbert = async (): Promise<Artwork[]> => {
     const cacheKey = `vam-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -784,11 +755,11 @@ export async function performArtSearch(
         }));
 
       log.debug('V&A returned artworks', { count: vamArtworks.length });
-      setCachedResult(cacheKey, vamArtworks);
+      artSearchCache.set(cacheKey, vamArtworks);
       return vamArtworks;
     } catch (error) {
       log.error('Error searching V&A', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -797,7 +768,7 @@ export async function performArtSearch(
   // Helper to search Harvard Art Museums
   const searchHarvard = async (): Promise<Artwork[]> => {
     const cacheKey = `harvard-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -861,11 +832,11 @@ export async function performArtSearch(
         }));
 
       log.debug('Harvard returned artworks', { count: harvardArtworks.length });
-      setCachedResult(cacheKey, harvardArtworks);
+      artSearchCache.set(cacheKey, harvardArtworks);
       return harvardArtworks;
     } catch (error) {
       log.error('Error searching Harvard', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -874,7 +845,7 @@ export async function performArtSearch(
   // Helper to search Smithsonian
   const searchSmithsonian = async (): Promise<Artwork[]> => {
     const cacheKey = `smithsonian-${query}-${targetCount}`;
-    const cached = getCachedResult(cacheKey);
+    const cached = artSearchCache.get(cacheKey);
     if (cached) return cached;
 
     try {
@@ -977,11 +948,11 @@ export async function performArtSearch(
       log.debug('Smithsonian returned artworks', {
         count: smithsonianArtworks.length,
       });
-      setCachedResult(cacheKey, smithsonianArtworks);
+      artSearchCache.set(cacheKey, smithsonianArtworks);
       return smithsonianArtworks;
     } catch (error) {
       log.error('Error searching Smithsonian', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }
@@ -1003,7 +974,7 @@ export async function performArtSearch(
     } catch (error) {
       statistics.trackAPICall(sourceName, '/search', false, {
         query: query,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       return [];
     }

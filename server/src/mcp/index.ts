@@ -12,6 +12,7 @@ const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 
 const log = loggers.api.child({ component: 'mcp' });
 
@@ -188,11 +189,11 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         };
       } catch (error) {
         log.error('MCP search_artworks error', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return {
           content: [
-            { type: 'text', text: `Search failed: ${error instanceof Error ? error.message : String(error)}` },
+            { type: 'text', text: `Search failed: ${getErrorMessage(error)}` },
           ],
           isError: true,
         };
@@ -252,13 +253,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         };
       } catch (error) {
         log.error('MCP display_artwork error', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return {
           content: [
             {
               type: 'text',
-              text: `Failed to display artwork: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Failed to display artwork: ${getErrorMessage(error)}`,
             },
           ],
           isError: true,
@@ -295,13 +296,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         };
       } catch (error) {
         log.error('MCP get_current_display error', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return {
           content: [
             {
               type: 'text',
-              text: `Failed to get current display: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Failed to get current display: ${getErrorMessage(error)}`,
             },
           ],
           isError: true,
@@ -343,13 +344,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         };
       } catch (error) {
         log.error('MCP list_playlists error', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return {
           content: [
             {
               type: 'text',
-              text: `Failed to list playlists: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Failed to list playlists: ${getErrorMessage(error)}`,
             },
           ],
           isError: true,
@@ -407,13 +408,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         };
       } catch (error) {
         log.error('MCP get_playlist error', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return {
           content: [
             {
               type: 'text',
-              text: `Failed to get playlist: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Failed to get playlist: ${getErrorMessage(error)}`,
             },
           ],
           isError: true,
@@ -453,13 +454,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         };
       } catch (error) {
         log.error('MCP get_device_status error', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return {
           content: [
             {
               type: 'text',
-              text: `Failed to get device status: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Failed to get device status: ${getErrorMessage(error)}`,
             },
           ],
           isError: true,
@@ -504,13 +505,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         };
       } catch (error) {
         log.error('MCP random_artwork error', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         return {
           content: [
             {
               type: 'text',
-              text: `Failed to get random artwork: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Failed to get random artwork: ${getErrorMessage(error)}`,
             },
           ],
           isError: true,
@@ -556,10 +557,10 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       await (transport as { handleRequest: (req: Request, res: Response, body: unknown) => Promise<void> }).handleRequest(req, res, req.body);
     } catch (error) {
       log.error('MCP error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 

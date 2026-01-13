@@ -9,6 +9,7 @@ import { isInNightSleep, calculateNightSleepDuration } from '../utils/time';
 import { validateDeviceId, sanitizeInput } from '../utils/validation';
 import { readJSONFile, writeJSONFile } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
+import { getErrorMessage } from '../utils/error';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
 import type {
@@ -82,7 +83,7 @@ async function sendBatteryNotification(
     }
   } catch (error) {
     log.error('Error sending battery notification', {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
   }
 }
@@ -537,7 +538,7 @@ export function createDeviceRoutes(): Router {
       res.json({ success: true });
     } catch (error) {
       log.error('Error updating device status', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -718,7 +719,7 @@ export function createDeviceRoutes(): Router {
       });
     } catch (error) {
       log.error('Error getting ESP32 status', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -789,7 +790,7 @@ export function createDeviceRoutes(): Router {
       });
     } catch (error) {
       log.error('Error sending device command', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -819,7 +820,7 @@ export function createDeviceRoutes(): Router {
       res.json({ commands: deviceCommands });
     } catch (error) {
       log.error('Error getting commands', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -835,7 +836,7 @@ export function createDeviceRoutes(): Router {
       res.json(devices);
     } catch (error) {
       log.error('Error getting devices', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }

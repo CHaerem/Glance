@@ -5,6 +5,7 @@
 
 import sharp from 'sharp';
 import { loggers } from './logger';
+import { getErrorMessage } from '../utils/error';
 import type { RGB, LAB, DitherMethod } from '../types';
 
 const log = loggers.image;
@@ -729,7 +730,7 @@ class ImageProcessingService {
       return ditheredBuffer;
     } catch (error) {
       log.error('Error processing image for art gallery', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       throw error;
     }
@@ -769,7 +770,7 @@ class ImageProcessingService {
       return imageBuffer;
     } catch (error) {
       log.error('Error creating text image', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       throw error;
     }

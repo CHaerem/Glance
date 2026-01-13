@@ -7,6 +7,7 @@ import { Router, Request, Response } from 'express';
 import * as os from 'os';
 import { readJSONFile } from '../utils/data-store';
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 import type { ServerSettings } from '../types';
 
 const log = loggers.server;
@@ -350,7 +351,7 @@ export function createMetricsRouter(): Router {
       res.send(metrics.join('\n\n') + '\n');
     } catch (error) {
       log.error('Error generating metrics', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).send('# Error generating metrics\n');
     }

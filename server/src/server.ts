@@ -17,6 +17,7 @@ import OpenAI from 'openai';
 // Utility modules
 import { formatBuildDate, getOsloTimestamp } from './utils/time';
 import { ensureDataDir, ensureDir, getDataDir } from './utils/data-store';
+import { getErrorMessage } from './utils/error';
 
 // Structured logging
 import { loggers } from './services/logger';
@@ -305,7 +306,7 @@ app.get('/', async (_req: Request, res: Response) => {
     res.send(indexContent);
   } catch (error) {
     log.error('Error serving UI file', {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     res.status(500).send(`
       <html><body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
@@ -339,7 +340,7 @@ app.get('/admin', async (_req: Request, res: Response) => {
     res.send(adminContent);
   } catch (error) {
     log.error('Error serving admin file', {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     res.status(500).send('Admin page not found');
   }
@@ -368,7 +369,7 @@ app.get('/preview', async (_req: Request, res: Response) => {
     res.send(previewContent);
   } catch (error) {
     log.error('Error serving preview file', {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     res.status(500).send('Preview page not found');
   }

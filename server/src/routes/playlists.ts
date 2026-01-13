@@ -7,7 +7,7 @@ import { Router, Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loggers } from '../services/logger';
-import { filterValidWikimediaArtworks, getWikimediaUrl } from '../utils/image-validator';
+import { filterValidWikimediaArtworks, getWikimediaUrl, TtlCache, TTL, getErrorMessage } from '../utils';
 import type { Artwork } from '../types';
 
 const log = loggers.api;
@@ -57,12 +57,6 @@ interface ArtworkResponse {
   source: string;
 }
 
-/** Cache entry for dynamic playlists */
-interface CacheEntry {
-  artworks: Artwork[];
-  timestamp: number;
-}
-
 // Load playlists data
 const PLAYLISTS_PATH = path.join(__dirname, '..', '..', '..', 'data', 'playlists.json');
 let playlistsData: PlaylistsData = { playlists: [] };
@@ -74,13 +68,12 @@ try {
   }
 } catch (error) {
   log.error('Failed to load playlists', {
-    error: error instanceof Error ? error.message : String(error),
+    error: getErrorMessage(error),
   });
 }
 
 // Cache for dynamic playlist results (1 hour TTL)
-const dynamicCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 60 * 60 * 1000;
+const dynamicCache = new TtlCache<Artwork[]>({ ttl: TTL.ONE_HOUR });
 
 /**
  * Create playlists router
@@ -113,7 +106,7 @@ export function createPlaylistsRouter(): Router {
       res.json({ playlists });
     } catch (error) {
       log.error('Error getting playlists', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -172,17 +165,15 @@ export function createPlaylistsRouter(): Router {
       if ((playlist.type === 'dynamic' || playlist.type === 'seasonal') && playlist.searchQuery) {
         // Check cache
         const cacheKey = `${playlistId}-${playlist.searchQuery}`;
-        const cached = dynamicCache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-          // Cache for remaining TTL time
-          const remainingTTL = Math.floor((CACHE_TTL - (Date.now() - cached.timestamp)) / 1000);
-          res.set('Cache-Control', `public, max-age=${Math.min(remainingTTL, 300)}`);
+        const cachedArtworks = dynamicCache.get(cacheKey);
+        if (cachedArtworks) {
+          res.set('Cache-Control', 'public, max-age=300');
           res.json({
             id: playlist.id,
             name: playlist.name,
             type: playlist.type,
             description: playlist.description,
-            artworks: cached.artworks,
+            artworks: cachedArtworks,
             cached: true,
           });
           return;
@@ -217,10 +208,7 @@ export function createPlaylistsRouter(): Router {
         }
 
         // Cache results
-        dynamicCache.set(cacheKey, {
-          artworks,
-          timestamp: Date.now(),
-        });
+        dynamicCache.set(cacheKey, artworks);
 
         // Cache dynamic playlists for 5 minutes on client
         res.set('Cache-Control', 'public, max-age=300');
@@ -246,7 +234,7 @@ export function createPlaylistsRouter(): Router {
     } catch (error) {
       log.error('Error getting playlist', {
         playlistId: req.params.playlistId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -277,18 +265,14 @@ export function createPlaylistsRouter(): Router {
       }
 
       // Clear cache for this playlist
-      for (const key of dynamicCache.keys()) {
-        if (key.startsWith(playlistId)) {
-          dynamicCache.delete(key);
-        }
-      }
+      dynamicCache.deleteByPrefix(playlistId);
 
       // Redirect to GET to fetch fresh results
       res.redirect(`/api/playlists/${playlistId}`);
     } catch (error) {
       log.error('Error refreshing playlist', {
         playlistId: req.params.playlistId,
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }

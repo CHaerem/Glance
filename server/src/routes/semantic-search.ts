@@ -9,6 +9,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import openaiSearch from '../services/openai-search';
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 
 const log = loggers.api;
 
@@ -87,7 +88,7 @@ async function recordInteraction(
     await fs.writeFile(INTERACTIONS_FILE, JSON.stringify(interactions, null, 2));
   } catch (error) {
     log.error('Failed to record interaction', {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
   }
 }
@@ -211,9 +212,9 @@ export function createSemanticSearchRouter(): Router {
       });
     } catch (error) {
       log.error('Semantic search error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -254,7 +255,7 @@ export function createSemanticSearchRouter(): Router {
       });
     } catch (error) {
       log.error('Similar artwork error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
 
       if (error instanceof Error && error.message === 'Artwork not found') {
@@ -262,7 +263,7 @@ export function createSemanticSearchRouter(): Router {
         return;
       }
 
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -276,9 +277,9 @@ export function createSemanticSearchRouter(): Router {
       res.json(stats);
     } catch (error) {
       log.error('Stats error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -339,9 +340,9 @@ export function createSemanticSearchRouter(): Router {
       });
     } catch (error) {
       log.error('Recommendations error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -373,9 +374,9 @@ export function createSemanticSearchRouter(): Router {
       res.json({ success: true });
     } catch (error) {
       log.error('Interaction recording error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 
@@ -402,9 +403,9 @@ export function createSemanticSearchRouter(): Router {
       });
     } catch (error) {
       log.error('Index error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
-      res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
     }
   });
 

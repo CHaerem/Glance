@@ -14,6 +14,7 @@ import OpenAI from 'openai';
 import { sanitizeInput, getRandomLuckyPrompt } from '../utils/validation';
 import { readJSONFile, writeJSONFile } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
+import { getErrorMessage } from '../utils/error';
 import imageProcessing from '../services/image-processing';
 import statistics from '../services/statistics';
 import { loggers } from '../services/logger';
@@ -193,7 +194,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
         });
       } catch (error) {
         log.error('Error uploading image', {
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
         const fileReq = req as FileRequest;
         if (fileReq.file?.path) {
@@ -204,7 +205,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
           }
         }
         res.status(500).json({
-          error: 'Error uploading image: ' + (error instanceof Error ? error.message : String(error)),
+          error: 'Error uploading image: ' + (getErrorMessage(error)),
         });
       }
     }
@@ -405,16 +406,16 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       });
     } catch (error) {
       log.error('Error generating AI art', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
 
       statistics.trackOpenAICall('gpt-image-1', 0, 0, false, {
         endpoint: 'images.generate',
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
 
       res.status(500).json({
-        error: 'Error generating AI art: ' + (error instanceof Error ? error.message : String(error)),
+        error: 'Error generating AI art: ' + (getErrorMessage(error)),
       });
     }
   });
@@ -518,12 +519,12 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       res.json(responseData);
     } catch (error) {
       log.error('Error generating lucky prompt with OpenAI', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
 
       statistics.trackOpenAICall('gpt-4o-mini', 0, 0, false, {
         endpoint: 'chat.completions',
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
 
       res.status(502).json({

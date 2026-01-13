@@ -8,6 +8,7 @@ import { validateDeviceId, sanitizeInput } from '../utils/validation';
 import { readJSONFile, writeJSONFile } from '../utils/data-store';
 import { deviceLogs } from '../utils/state';
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 
 const log = loggers.api;
 
@@ -111,7 +112,7 @@ export function createLogRoutes(): Router {
       res.json({ success: true });
     } catch (error) {
       log.error('Error storing logs', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -186,7 +187,7 @@ export function createLogRoutes(): Router {
       res.json({ success: true });
     } catch (error) {
       log.error('Error storing serial stream', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -210,7 +211,7 @@ export function createLogRoutes(): Router {
       res.json({ deviceId, logs });
     } catch (error) {
       log.error('Error getting logs', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -226,7 +227,7 @@ export function createLogRoutes(): Router {
       res.json(allLogs);
     } catch (error) {
       log.error('Error getting all logs', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -260,7 +261,7 @@ export function createLogRoutes(): Router {
       });
     } catch (error) {
       log.error('Error getting serial streams', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -276,7 +277,7 @@ export function createLogRoutes(): Router {
       res.json(allStreams);
     } catch (error) {
       log.error('Error getting all serial streams', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -348,7 +349,7 @@ export function createLogRoutes(): Router {
       });
     } catch (error) {
       log.error('Error getting combined logs', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -431,7 +432,7 @@ export function createLogRoutes(): Router {
       });
     } catch (error) {
       log.error('Error getting wake cycle diagnostics', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }

@@ -4,13 +4,11 @@
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { FileCacheEntry } from '../types';
+import { TtlCache } from './cache';
+import { getErrorMessage } from './error';
 
-/** File cache to reduce disk I/O */
-const fileCache = new Map<string, FileCacheEntry>();
-
-/** Cache TTL in milliseconds (5 seconds) */
-const CACHE_TTL = 5000;
+/** File cache to reduce disk I/O (5 second TTL) */
+const fileCache = new TtlCache<unknown>({ ttl: 5000 });
 
 /** File locks to prevent concurrent writes */
 const fileLocks = new Map<string, Promise<void>>();
@@ -53,10 +51,10 @@ export async function readJSONFile<T = unknown>(
 ): Promise<T | null> {
   try {
     // Check cache first for frequently accessed files
-    if (useCache && fileCache.has(filename)) {
+    if (useCache) {
       const cached = fileCache.get(filename);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        return cached.data as T;
+      if (cached !== null) {
+        return cached as T;
       }
     }
 
@@ -66,7 +64,7 @@ export async function readJSONFile<T = unknown>(
 
     // Cache the result
     if (useCache) {
-      fileCache.set(filename, { data: parsed, timestamp: Date.now() });
+      fileCache.set(filename, parsed);
     }
 
     return parsed;
@@ -74,10 +72,7 @@ export async function readJSONFile<T = unknown>(
     // Only log errors for files that should exist
     const optionalFiles = ['playlist.json', 'my-collection.json'];
     if (!optionalFiles.includes(filename)) {
-      console.error(
-        `Error reading ${filename}:`,
-        error instanceof Error ? error.message : String(error)
-      );
+      console.error(`Error reading ${filename}:`, getErrorMessage(error));
     }
     return null;
   }
@@ -125,10 +120,7 @@ export async function writeJSONFile<T = unknown>(
       resolveLock!();
     }
   } catch (error) {
-    console.error(
-      `Error writing ${filename}:`,
-      error instanceof Error ? error.message : String(error)
-    );
+    console.error(`Error writing ${filename}:`, getErrorMessage(error));
     throw error;
   }
 }

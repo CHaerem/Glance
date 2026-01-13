@@ -7,6 +7,7 @@ import { Router, Request, Response } from 'express';
 import { CURATED_COLLECTIONS, CuratedArtwork } from '../services/museum-api';
 import { loggers } from '../services/logger';
 import { filterValidWikimediaArtworks, getWikimediaUrl } from '../utils/image-validator';
+import { getErrorMessage } from '../utils/error';
 
 const log = loggers.api;
 
@@ -102,7 +103,7 @@ export function createCollectionsRouter(): Router {
       res.json({ artworks: featured });
     } catch (error) {
       log.error('Error getting featured artworks', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -128,7 +129,7 @@ export function createCollectionsRouter(): Router {
       res.json({ collections });
     } catch (error) {
       log.error('Error getting collections', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -179,7 +180,7 @@ export function createCollectionsRouter(): Router {
       });
     } catch (error) {
       log.error('Error getting collection', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }

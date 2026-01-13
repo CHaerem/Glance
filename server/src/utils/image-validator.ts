@@ -7,14 +7,10 @@
  */
 
 import { loggers } from '../services/logger';
+import { TtlCache, TTL } from './cache';
+import { getErrorMessage } from './error';
 
 const log = loggers.api;
-
-/** Validation cache entry */
-interface CacheEntry {
-  valid: boolean;
-  timestamp: number;
-}
 
 /** Warmup result */
 interface WarmupResult {
@@ -36,8 +32,7 @@ interface WikimediaArtwork {
 }
 
 // Cache for validated URLs (valid for 24 hours)
-const validationCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+const validationCache = new TtlCache<boolean>({ ttl: TTL.ONE_DAY });
 
 /**
  * Check if a URL is accessible (returns 200 after following redirects)
@@ -49,8 +44,8 @@ export async function isUrlAccessible(
 ): Promise<boolean> {
   // Check cache first
   const cached = validationCache.get(url);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.valid;
+  if (cached !== null) {
+    return cached;
   }
 
   try {
@@ -74,7 +69,7 @@ export async function isUrlAccessible(
     const valid = response.ok;
 
     // Cache the result
-    validationCache.set(url, { valid, timestamp: Date.now() });
+    validationCache.set(url, valid);
 
     if (!valid) {
       log.debug('Image URL not accessible', { url, status: response.status });
@@ -83,10 +78,10 @@ export async function isUrlAccessible(
     return valid;
   } catch (error) {
     // Cache negative results too
-    validationCache.set(url, { valid: false, timestamp: Date.now() });
+    validationCache.set(url, false);
     log.debug('Image URL check failed', {
       url,
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     });
     return false;
   }
@@ -228,7 +223,7 @@ export async function warmupCache(filenames: string[]): Promise<WarmupResult> {
 export function isFilenameValidated(filename: string): boolean {
   const url = getWikimediaUrl(filename, 400);
   const cached = validationCache.get(url);
-  return !!(cached && cached.valid && Date.now() - cached.timestamp < CACHE_TTL);
+  return cached === true;
 }
 
 /**
@@ -246,8 +241,8 @@ export function getCacheStats(): CacheStats {
   let valid = 0;
   let invalid = 0;
 
-  for (const entry of validationCache.values()) {
-    if (entry.valid) valid++;
+  for (const isValid of validationCache.values()) {
+    if (isValid) valid++;
     else invalid++;
   }
 

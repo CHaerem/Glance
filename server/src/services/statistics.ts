@@ -4,6 +4,7 @@
  */
 
 import { readJSONFile, writeJSONFile } from '../utils/data-store';
+import { getErrorMessage } from '../utils/error';
 import { loggers } from './logger';
 
 const log = loggers.server;
@@ -159,7 +160,7 @@ class StatisticsService {
       await writeJSONFile(STATS_FILE, this.statsCache);
     } catch (error) {
       log.error('Failed to save statistics', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
     }
   }

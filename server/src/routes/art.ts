@@ -16,6 +16,7 @@ import statistics from '../services/statistics';
 import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 import { apiKeyAuth } from '../middleware/auth';
 import type { ServerSettings } from '../types';
 
@@ -101,10 +102,10 @@ export function createArtRoutes({ openai, uploadDir }: ArtRouteDeps): Router {
       res.json(result);
     } catch (error) {
       log.error('Error searching art', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({
-        error: 'Internal server error: ' + (error instanceof Error ? error.message : String(error)),
+        error: 'Internal server error: ' + (getErrorMessage(error)),
       });
     }
   });
@@ -206,19 +207,19 @@ Response: {
       });
     } catch (error) {
       log.error('Smart search error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
 
       if (openai) {
         statistics.trackOpenAICall('gpt-4', 0, 0, false, {
           endpoint: 'chat.completions',
           purpose: 'smart-search',
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
       }
 
       res.status(500).json({
-        error: 'Search failed: ' + (error instanceof Error ? error.message : String(error)),
+        error: 'Search failed: ' + (getErrorMessage(error)),
       });
     }
   });
@@ -343,19 +344,19 @@ Source: ${source || 'Unknown'}`,
       });
     } catch (error) {
       log.error('Similar artwork search error', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
 
       if (openai) {
         statistics.trackOpenAICall('gpt-4', 0, 0, false, {
           endpoint: 'chat.completions',
           purpose: 'similar-artwork',
-          error: error instanceof Error ? error.message : String(error),
+          error: getErrorMessage(error),
         });
       }
 
       res.status(500).json({
-        error: 'Similar search failed: ' + (error instanceof Error ? error.message : String(error)),
+        error: 'Similar search failed: ' + (getErrorMessage(error)),
       });
     }
   });
@@ -442,7 +443,7 @@ Source: ${source || 'Unknown'}`,
           return null;
         } catch (error) {
           log.error('Error getting random Met artwork', {
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
           });
           return null;
         }
@@ -498,7 +499,7 @@ Source: ${source || 'Unknown'}`,
           };
         } catch (error) {
           log.error('Error getting random ARTIC artwork', {
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
           });
           return null;
         }
@@ -556,7 +557,7 @@ Source: ${source || 'Unknown'}`,
           };
         } catch (error) {
           log.error('Error getting random CMA artwork', {
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
           });
           return null;
         }
@@ -609,7 +610,7 @@ Source: ${source || 'Unknown'}`,
           };
         } catch (error) {
           log.error('Error getting random Rijksmuseum artwork', {
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
           });
           return null;
         }
@@ -632,10 +633,10 @@ Source: ${source || 'Unknown'}`,
       res.json(artwork);
     } catch (error) {
       log.error('Error getting random art', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({
-        error: 'Internal server error: ' + (error instanceof Error ? error.message : String(error)),
+        error: 'Internal server error: ' + (getErrorMessage(error)),
       });
     }
   });
@@ -791,11 +792,11 @@ Source: ${source || 'Unknown'}`,
       res.json({ success: true, message: 'Artwork imported successfully' });
     } catch (error) {
       log.error('Error importing art', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
       res.status(500).json({
-        error: 'Internal server error: ' + (error instanceof Error ? error.message : String(error)),
+        error: 'Internal server error: ' + (getErrorMessage(error)),
         details: error instanceof Error ? error.stack : undefined,
       });
     }

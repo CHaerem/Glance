@@ -12,6 +12,7 @@ import imageProcessing from '../services/image-processing';
 import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
+import { getErrorMessage } from '../utils/error';
 import { apiKeyAuth } from '../middleware/auth';
 import type { ServerSettings, PlaylistData } from '../types';
 
@@ -71,7 +72,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json(history);
     } catch (error) {
       log.error('Error getting history', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -94,7 +95,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json(imagesArchive[imageId]);
     } catch (error) {
       log.error('Error getting image', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -204,7 +205,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json({ success: true, current: currentData });
     } catch (error) {
       log.error('Error loading from history', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -240,7 +241,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json({ success: true, message: 'Image deleted from history' });
     } catch (error) {
       log.error('Error deleting from history', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -272,7 +273,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json(myCollection);
     } catch (error) {
       log.error('Error getting my collection', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -331,7 +332,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       });
     } catch (error) {
       log.error('Error adding to collection', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -360,7 +361,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json({ success: true, message: 'Removed from collection' });
     } catch (error) {
       log.error('Error removing from collection', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -471,7 +472,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       });
     } catch (error) {
       log.error('Error creating playlist', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -489,7 +490,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       );
     } catch (error) {
       log.error('Error getting playlist', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -530,7 +531,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json(playlist);
     } catch (error) {
       log.error('Error updating playlist', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -552,7 +553,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
       res.json({ success: true, message: 'Playlist cleared' });
     } catch (error) {
       log.error('Error deleting playlist', {
-        error: error instanceof Error ? error.message : String(error),
+        error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
     }
