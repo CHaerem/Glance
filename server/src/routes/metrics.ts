@@ -7,6 +7,7 @@ import { Router, Request, Response } from 'express';
 import * as os from 'os';
 import { readJSONFile } from '../utils/data-store';
 import { loggers } from '../services/logger';
+import type { ServerSettings } from '../types';
 
 const log = loggers.server;
 
@@ -44,13 +45,6 @@ interface DeviceData {
     type?: string;
     voltageDrop?: number;
   }>;
-}
-
-/** Settings data structure */
-interface SettingsData {
-  defaultSleepDuration?: number;
-  devMode?: boolean;
-  nightSleepEnabled?: boolean;
 }
 
 /** Firmware stats */
@@ -101,7 +95,7 @@ export function createMetricsRouter(): Router {
     try {
       const metrics: string[] = [];
       const devices: Record<string, DeviceData> = (await readJSONFile('devices.json')) || {};
-      const settings: SettingsData = (await readJSONFile('settings.json')) || {};
+      const settings: ServerSettings = (await readJSONFile('settings.json')) || {};
 
       // Server metrics
       const uptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);

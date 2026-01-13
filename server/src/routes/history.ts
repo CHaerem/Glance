@@ -13,6 +13,7 @@ import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
+import type { ServerSettings } from '../types';
 
 const log = loggers.api;
 
@@ -63,11 +64,6 @@ interface PlaylistConfig {
   active: boolean;
   createdAt: number;
   lastUpdate: number;
-}
-
-/** Settings data */
-interface SettingsData {
-  defaultSleepDuration?: number;
 }
 
 /**
@@ -196,7 +192,7 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
         await fs.unlink(tempPath);
       }
 
-      const settings: SettingsData = (await readJSONFile('settings.json')) || {
+      const settings: ServerSettings = (await readJSONFile('settings.json')) || {
         defaultSleepDuration: 3600000000,
       };
 

@@ -15,6 +15,7 @@ import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import imageProcessing from '../services/image-processing';
 import { loggers } from '../services/logger';
+import type { ServerSettings } from '../types';
 
 const log = loggers.api;
 
@@ -72,16 +73,6 @@ interface PlaylistData {
   lastUpdate?: number;
 }
 
-/** Settings data */
-interface SettingsData {
-  devMode?: boolean;
-  devServerHost?: string;
-  defaultSleepDuration?: number;
-  nightSleepEnabled?: boolean;
-  nightSleepStartHour?: number;
-  nightSleepEndHour?: number;
-}
-
 /**
  * Create image routes
  */
@@ -136,7 +127,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
         sleepDuration: 3600000000,
       };
 
-      const settings: SettingsData = (await readJSONFile('settings.json')) || {};
+      const settings: ServerSettings = (await readJSONFile('settings.json')) || {};
       const devServerHost =
         settings.devMode && settings.devServerHost ? settings.devServerHost : null;
 
@@ -253,7 +244,7 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
         isText?: boolean;
       };
 
-      const settings: SettingsData = (await readJSONFile('settings.json')) || {
+      const settings: ServerSettings = (await readJSONFile('settings.json')) || {
         defaultSleepDuration: 3600000000,
       };
       const sanitizedTitle = sanitizeInput(title);

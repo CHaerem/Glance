@@ -18,6 +18,7 @@ import imageProcessing from '../services/image-processing';
 import statistics from '../services/statistics';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
+import type { ServerSettings } from '../types';
 
 const log = loggers.api;
 
@@ -72,11 +73,6 @@ interface HistoryEntry {
   artStyle?: string;
   quality?: string;
   rotation?: number;
-}
-
-/** Settings data */
-interface SettingsData {
-  defaultSleepDuration?: number;
 }
 
 /**
@@ -255,7 +251,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
 
       log.info('Generating AI art', { prompt });
 
-      const settings: SettingsData = (await readJSONFile('settings.json')) || {
+      const settings: ServerSettings = (await readJSONFile('settings.json')) || {
         defaultSleepDuration: 3600000000,
       };
       const sleepMs = parseInt(String(sleepDuration)) || settings.defaultSleepDuration || 3600000000;

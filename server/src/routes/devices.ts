@@ -11,6 +11,7 @@ import { readJSONFile, writeJSONFile } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
+import type { ServerSettings } from '../types';
 
 const log = loggers.device;
 
@@ -135,17 +136,6 @@ interface DeviceData {
   deviceId: string;
 }
 
-/** Settings data */
-interface SettingsData {
-  devMode?: boolean;
-  devServerHost?: string;
-  defaultSleepDuration?: number;
-  notificationWebhook?: string;
-  nightSleepEnabled?: boolean;
-  nightSleepStartHour?: number;
-  nightSleepEndHour?: number;
-}
-
 /** Current data */
 interface CurrentData {
   title?: string;
@@ -196,7 +186,7 @@ async function sendBatteryNotification(
   level: 'low' | 'critical'
 ): Promise<void> {
   try {
-    const settings: SettingsData = (await readJSONFile('settings.json')) || {};
+    const settings: ServerSettings = (await readJSONFile('settings.json')) || {};
     const webhookUrl = settings.notificationWebhook;
 
     if (!webhookUrl) {
@@ -261,7 +251,7 @@ export function createDeviceRoutes(): Router {
 
       // Check if device used fallback
       if (status.usedFallback === true) {
-        const settings: SettingsData = (await readJSONFile('settings.json')) || {};
+        const settings: ServerSettings = (await readJSONFile('settings.json')) || {};
         if (settings.devMode) {
           log.info('Dev mode disabled - device used fallback', {
             deviceId,
@@ -733,7 +723,7 @@ export function createDeviceRoutes(): Router {
       const isOnline = deviceStatus.lastSeen > fiveMinutesAgo;
 
       const current: CurrentData = (await readJSONFile('current.json')) || {};
-      const settings: SettingsData = (await readJSONFile('settings.json')) || {};
+      const settings: ServerSettings = (await readJSONFile('settings.json')) || {};
 
       let sleepDuration = current.sleepDuration || 3600000000;
       if (isInNightSleep(settings)) {

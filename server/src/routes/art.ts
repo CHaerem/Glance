@@ -17,6 +17,7 @@ import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
 import { apiKeyAuth } from '../middleware/auth';
+import type { ServerSettings } from '../types';
 
 const log = loggers.api;
 
@@ -37,11 +38,6 @@ interface RandomArtwork {
   department: string;
   culture: string;
   source: string;
-}
-
-/** Settings data */
-interface SettingsData {
-  defaultSleepDuration?: number;
 }
 
 /** Search parameters from AI */
@@ -746,7 +742,7 @@ Source: ${source || 'Unknown'}`,
 
       const imageId = uuidv4();
 
-      const settings: SettingsData = (await readJSONFile('settings.json')) || {
+      const settings: ServerSettings = (await readJSONFile('settings.json')) || {
         defaultSleepDuration: 3600000000,
       };
 

@@ -4,10 +4,11 @@
  */
 
 // Server settings (stored in settings.json)
+// All fields optional since settings.json may not have all values
 export interface ServerSettings {
-  nightSleepEnabled: boolean;
-  nightSleepStartHour: number;
-  nightSleepEndHour: number;
+  nightSleepEnabled?: boolean;
+  nightSleepStartHour?: number;
+  nightSleepEndHour?: number;
   notificationWebhook?: string;
   defaultSleepDuration?: number;
   devMode?: boolean;
