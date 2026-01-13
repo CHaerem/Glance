@@ -107,6 +107,8 @@ const publicApiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Disable strict trust proxy validation (we've configured it properly with trust proxy = 1)
+  validate: { trustProxy: false },
   skip: (req) => {
     const ip = req.ip || '';
     return (
@@ -156,8 +158,8 @@ const corsOptions: cors.CorsOptions = {
   credentials: true,
 };
 
-// Trust proxy for correct IP detection
-app.set('trust proxy', true);
+// Trust proxy for correct IP detection (1 = trust one hop, for Tailscale Funnel)
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors(corsOptions));
