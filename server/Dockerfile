@@ -1,4 +1,4 @@
-# Build stage - compiles native modules with build tools
+# Build stage - compiles TypeScript and native modules
 FROM node:20-slim AS builder
 
 WORKDIR /app
@@ -12,10 +12,19 @@ RUN apt-get update && apt-get install -y \
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
+COPY tsconfig.json ./
 
-# Install dependencies with production optimization
-# This is the slowest layer but cached unless package.json changes
-RUN npm install --production --no-dev && npm cache clean --force
+# Install all dependencies (including dev for TypeScript compilation)
+RUN npm install && npm cache clean --force
+
+# Copy TypeScript source files
+COPY src ./src
+
+# Compile TypeScript
+RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --production
 
 # Runtime stage - clean image without build tools
 FROM node:20-slim
@@ -41,8 +50,9 @@ RUN apt-get update && apt-get install -y \
     dumb-init \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy built node_modules from builder stage
+# Copy built node_modules and compiled TypeScript from builder stage
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 
 # Copy source code, UI files, and assets
 COPY server.js ./
