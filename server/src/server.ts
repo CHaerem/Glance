@@ -21,6 +21,9 @@ import { getErrorMessage } from './utils/error';
 
 // Structured logging
 import { loggers } from './services/logger';
+
+// Authentication middleware
+import { wanRestriction, isTrustedRequest } from './middleware/auth';
 const log = loggers.server;
 
 // Services
@@ -109,20 +112,8 @@ const publicApiLimiter = rateLimit({
   legacyHeaders: false,
   // Disable strict trust proxy validation (we've configured it properly with trust proxy = 1)
   validate: { trustProxy: false },
-  skip: (req) => {
-    const ip = req.ip || '';
-    return (
-      ip === '127.0.0.1' ||
-      ip === '::1' ||
-      ip === '::ffff:127.0.0.1' ||
-      ip.startsWith('192.168.') ||
-      ip.startsWith('10.') ||
-      ip.startsWith('100.') ||
-      ip.startsWith('::ffff:192.168.') ||
-      ip.startsWith('::ffff:10.') ||
-      ip.startsWith('::ffff:100.')
-    );
-  },
+  // Skip rate limiting for trusted requests (local network or authenticated Tailscale)
+  skip: (req) => isTrustedRequest(req),
 });
 
 // CORS configuration for Claude.ai artifact integration
@@ -163,6 +154,7 @@ app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors(corsOptions));
+app.use(wanRestriction); // Block WAN access except /api/mcp and health endpoints
 app.use('/api', publicApiLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));

@@ -31,7 +31,25 @@ export const API_KEYS = new Set(
 );
 
 /**
+ * Check if request is from Tailscale Serve (authenticated tailnet user)
+ *
+ * Tailscale Serve adds identity headers for authenticated users:
+ * - Tailscale-User-Login: User's login email
+ * - Tailscale-User-Name: User's display name
+ *
+ * Funnel (public) traffic does NOT include these headers.
+ * See: https://tailscale.com/kb/1312/serve
+ */
+export function isTailscaleServeRequest(req: Request): boolean {
+  return !!req.headers['tailscale-user-login'];
+}
+
+/**
  * Check if request is from local network
+ *
+ * Allows access from:
+ * - localhost (127.0.0.1, ::1)
+ * - LAN (192.168.x.x, 10.x.x.x)
  */
 export function isLocalRequest(req: Request): boolean {
   const ip = req.ip ?? (req.connection as { remoteAddress?: string })?.remoteAddress ?? '';
@@ -44,6 +62,13 @@ export function isLocalRequest(req: Request): boolean {
     ip.startsWith('::ffff:192.168.') ||
     ip.startsWith('::ffff:10.')
   );
+}
+
+/**
+ * Check if request is from trusted source (local network or authenticated Tailscale)
+ */
+export function isTrustedRequest(req: Request): boolean {
+  return isLocalRequest(req) || isTailscaleServeRequest(req);
 }
 
 /**
@@ -128,4 +153,59 @@ export function optionalApiKeyAuth(
   }
 
   next();
+}
+
+/**
+ * WAN restriction middleware
+ *
+ * Blocks all WAN (non-local, non-Tailscale) requests except for allowed paths.
+ * This ensures only LAN users and authenticated Tailscale users can access
+ * the web UI and most API endpoints.
+ *
+ * Allowed for public (Funnel) access:
+ * - /api/mcp - Claude artifact integration (secured by API key)
+ * - /health, /api/health - Health checks
+ *
+ * See: https://tailscale.com/kb/1312/serve for identity header details
+ */
+export function wanRestriction(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  // Allow trusted requests (local network or authenticated Tailscale Serve)
+  if (isTrustedRequest(req)) {
+    next();
+    return;
+  }
+
+  // Allowed paths for WAN access (MCP endpoint for Claude artifacts)
+  const allowedPaths = [
+    '/api/mcp',
+    '/health',
+    '/api/health',
+  ];
+
+  // Check if path starts with any allowed path
+  const isAllowed = allowedPaths.some(
+    (allowed) => req.path === allowed || req.path.startsWith(allowed + '/')
+  );
+
+  if (isAllowed) {
+    next();
+    return;
+  }
+
+  // Block all other WAN requests
+  log.warn('WAN access blocked', {
+    ip: req.ip,
+    path: req.path,
+    method: req.method,
+  });
+
+  res.status(403).json({
+    error: 'Access denied',
+    code: 'WAN_ACCESS_BLOCKED',
+    message: 'This endpoint is only accessible from the local network',
+  });
 }
