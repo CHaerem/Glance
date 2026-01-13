@@ -24,7 +24,7 @@ interface Spectra6Color {
 }
 
 /** Spectra 6 color with pre-computed LAB values */
-interface Spectra6ColorWithLab extends Spectra6Color {
+export interface Spectra6ColorWithLab extends Spectra6Color {
   lab: LAB;
 }
 
@@ -36,7 +36,7 @@ interface ColorStats {
 }
 
 /** Image conversion options */
-interface ConvertImageOptions {
+export interface ConvertImageOptions {
   ditherAlgorithm?: DitherMethod;
   enhanceContrast?: boolean;
   sharpen?: boolean;
