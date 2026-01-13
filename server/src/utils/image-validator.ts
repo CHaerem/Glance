@@ -30,10 +30,9 @@ interface CacheStats {
   invalidUrls: number;
 }
 
-/** Artwork with wikimedia field */
+/** Artwork with wikimedia field - base interface for filtering */
 interface WikimediaArtwork {
   wikimedia?: string;
-  [key: string]: unknown;
 }
 
 // Cache for validated URLs (valid for 24 hours)

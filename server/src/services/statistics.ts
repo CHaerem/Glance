@@ -422,3 +422,4 @@ export default statisticsService;
 
 // Also export the class for testing
 export { StatisticsService };
+export type { TimeRange };

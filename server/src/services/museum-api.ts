@@ -1182,3 +1182,4 @@ export async function performArtSearch(
 }
 
 export { CURATED_COLLECTIONS };
+export type { CuratedArtworkEntry as CuratedArtwork, CuratedCollectionEntry, CuratedCollections };
