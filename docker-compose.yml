@@ -3,7 +3,7 @@ services:
     image: ${DOCKER_USERNAME:-chaerem}/glance-server:${IMAGE_VERSION:-latest}
     container_name: glance-server
     ports:
-      - "80:3000"
+      - "3000:3000"
     volumes:
       # Bind mount for data allows direct firmware updates without Docker rebuild
       - ./data:/app/data
