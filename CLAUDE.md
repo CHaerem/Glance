@@ -39,38 +39,35 @@ Glance/
 │   │   └── platformio.ini        # Build config with firmware version
 │   ├── lib/epd/                  # E-ink display drivers
 │   └── build.sh                  # Build automation
-├── server/                       # Node.js Express server
-│   ├── server.js                 # Main entry (~500 lines)
-│   ├── routes/                   # API route handlers (12 modules)
-│   │   ├── art.js                # Art search, smart search, similar
-│   │   ├── collections.js        # Curated art collections
-│   │   ├── devices.js            # Device status, commands
-│   │   ├── firmware.js           # OTA firmware updates
-│   │   ├── history.js            # History, playlist, collections
-│   │   ├── images.js             # Current image, binary stream
-│   │   ├── logs.js               # Logging, serial streams
-│   │   ├── metrics.js            # Prometheus metrics
-│   │   ├── playlists.js          # Curated and dynamic playlists
-│   │   ├── semantic-search.js    # OpenAI vector similarity search
-│   │   ├── system.js             # Health, settings, build info
-│   │   └── upload.js             # Upload, AI generation
-│   ├── services/                 # Business logic (5 modules)
-│   │   ├── logger.js             # Structured JSON logging for Loki
-│   │   ├── image-processing.js   # Dithering, color conversion
-│   │   ├── museum-api.js         # Museum search with art filtering
-│   │   ├── openai-search.js      # OpenAI Vector Stores integration
-│   │   └── statistics.js         # API tracking, pricing
-│   ├── utils/                    # Shared utilities (3 modules)
-│   │   ├── time.js               # Oslo timezone, night sleep
-│   │   ├── validation.js         # Input validation
-│   │   └── data-store.js         # JSON file handling
+├── server/                       # Node.js Express server (TypeScript)
+│   ├── server.js                 # Entry point (re-exports from dist/)
+│   ├── src/                      # TypeScript source
+│   │   ├── server.ts             # Main server (~500 lines)
+│   │   ├── routes/               # API route handlers (12 modules)
+│   │   │   └── *.ts              # Factory pattern: createXxxRoutes() => Router
+│   │   ├── services/             # Business logic (5 modules)
+│   │   │   ├── logger.ts         # Structured JSON logging for Loki
+│   │   │   ├── image-processing.ts # Dithering, color conversion
+│   │   │   ├── museum-api.ts     # Museum search with art filtering
+│   │   │   ├── openai-search.ts  # OpenAI Vector Stores integration
+│   │   │   └── statistics.ts     # API tracking, pricing
+│   │   ├── utils/                # Shared utilities
+│   │   │   ├── time.ts           # Oslo timezone, night sleep
+│   │   │   ├── validation.ts     # Input validation
+│   │   │   └── data-store.ts     # JSON file handling
+│   │   └── types/                # TypeScript type definitions
+│   ├── dist/                     # Compiled JavaScript output
+│   ├── routes/                   # JS re-export wrappers (for compatibility)
+│   ├── services/                 # JS re-export wrappers
+│   ├── utils/                    # JS re-export wrappers
 │   ├── data/                     # Static data files
 │   │   ├── curated-collections.json
 │   │   └── playlists.json        # Curated and dynamic playlists
 │   ├── public/                   # Web interface (physical card UI)
-│   ├── Dockerfile                # Multi-stage Docker build
+│   ├── Dockerfile                # Multi-stage Docker build with TypeScript
+│   ├── tsconfig.json             # TypeScript configuration
 │   ├── scripts/                  # Data import scripts
-│   └── __tests__/                # Jest test suite (188 tests)
+│   └── __tests__/                # Jest test suite (220 tests)
 ├── scripts/                      # Root utilities
 │   ├── build-and-push.sh         # Docker build & push
 │   └── run-tests.sh              # Test runner
@@ -148,15 +145,19 @@ cd server/
 # Install dependencies
 npm install
 
+# Build TypeScript (required before running)
+npm run build            # Compile TypeScript to dist/
+npm run build:check      # Type-check without emitting
+
 # Start dev server (with hot reload)
 npm run dev
 
 # Run tests
-npm test                 # All tests
+npm test                 # All tests (220 tests)
 npm run test:watch       # Watch mode
 npm run test:coverage    # Coverage report
 
-# Local Docker with Qdrant
+# Local Docker
 docker compose up -d
 ```
 
@@ -305,11 +306,14 @@ Server-side processing for e-ink optimization:
 ```bash
 cd server/
 
-# Run all tests (188 tests)
+# Run all tests (220 tests)
 npm test
 
 # Specific test file
 npm test -- image-processing.test.js
+
+# Type-check
+npm run build:check
 
 # Coverage report
 npm run test:coverage
@@ -444,10 +448,14 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
   - Component-based loggers (server, api, device, ota, image, battery)
   - JSON output format for Grafana Cloud Loki ingestion
   - Configurable log levels via LOG_LEVEL environment variable
+- **TypeScript migration**: Complete server codebase migrated to TypeScript
+  - All routes, services, utilities, and middleware now in TypeScript
+  - Strict mode enabled with comprehensive type definitions in `src/types/`
+  - Factory pattern for routes: `createXxxRoutes(deps) => Router`
+  - Original JS files converted to thin re-export wrappers from `dist/`
+  - Dockerfile updated to compile TypeScript during build
 - **Power system upgrade**: Replaced LiPo Amigo Pro + MiniBoost with PowerBoost 1000C
   - Solved brownout issues during display refresh on battery
   - Voltage divider ratio recalibrated to 8.3 for new setup
   - Blue LED removed to save ~2mA standby current
-- **Server refactored**: Modular architecture with routes/, services/, utils/
-  - Server.js reduced from 5,225 lines to 523 lines (90% reduction)
-- 188 tests all passing
+- 220 tests all passing
