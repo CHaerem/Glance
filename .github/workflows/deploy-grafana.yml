@@ -108,6 +108,25 @@ jobs:
             exit 0
           fi
 
+          # Find the Prometheus datasource UID
+          echo "Finding Prometheus datasource UID..."
+          PROM_UID=$(curl -s \
+            "${GRAFANA_URL}/api/datasources" \
+            -H "Authorization: Bearer ${GRAFANA_SA_TOKEN}" \
+            | jq -r '.[] | select(.type == "prometheus") | .uid' | head -1)
+
+          if [ -z "$PROM_UID" ] || [ "$PROM_UID" = "null" ]; then
+            echo "::warning::Could not find Prometheus datasource. Alert rules not deployed."
+            echo "Make sure you have a Prometheus datasource configured in Grafana Cloud."
+            exit 0
+          fi
+
+          echo "Found Prometheus datasource UID: $PROM_UID"
+
+          # Replace placeholder datasource UID with actual UID in alert rules
+          echo "Updating datasource UIDs in alert rules..."
+          sed -i "s/datasourceUid: prometheus/datasourceUid: $PROM_UID/g" server/grafana-alert-rules.yaml
+
           # Delete old rules that are no longer in the YAML file
           echo "Cleaning up removed alert rules..."
           REMOVED_RULES="glance-device-offline glance-brownout-detected glance-server-memory-high glance-server-down glance-wifi-signal-weak"
