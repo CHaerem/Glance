@@ -190,8 +190,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 statistics.loadStats().catch((err) => log.error('Failed to load stats on startup', { error: err }));
 
 // Mount route modules
-app.use('/api/collections', collectionsRoutes);
-app.use('/api/playlists', playlistsRoutes);
+app.use('/api/collections', collectionsRoutes());
+app.use('/api/playlists', playlistsRoutes());
 app.use('/api/art', createArtRoutes({ openai, uploadDir: UPLOAD_DIR }));
 
 // History routes
