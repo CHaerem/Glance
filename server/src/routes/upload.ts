@@ -278,7 +278,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       log.debug('Enhanced prompt', { enhancedPrompt });
 
       const response = await openai.images.generate({
-        model: 'gpt-image-1',
+        model: 'gpt-image-1.5',
         prompt: enhancedPrompt,
         n: 1,
         size: '1024x1536',
@@ -288,7 +288,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       const imageBase64 = response.data?.[0]?.b64_json;
       log.debug('AI image generated', { base64Length: imageBase64 ? imageBase64.length : 0 });
 
-      statistics.trackOpenAICall('gpt-image-1', 0, 0, true, {
+      statistics.trackOpenAICall('gpt-image-1.5', 0, 0, true, {
         endpoint: 'images.generate',
         size: '1024x1536',
         quality: imageQuality,
