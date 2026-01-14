@@ -238,6 +238,9 @@ jobs:
           SHORT_SHA: ${{ github.sha }}
           OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
           API_KEYS: ${{ secrets.GLANCE_API_KEY }}
+          MCP_CLIENT_ID: ${{ secrets.MCP_CLIENT_ID }}
+          MCP_CLIENT_SECRET: ${{ secrets.MCP_CLIENT_SECRET }}
+          MCP_JWT_SECRET: ${{ secrets.MCP_JWT_SECRET }}
           BUILD_DATE: ${{ github.event.head_commit.timestamp }}
           LOKI_URL: ${{ secrets.LOKI_URL }}
           LOKI_USERNAME: ${{ secrets.LOKI_USERNAME }}
@@ -256,6 +259,9 @@ jobs:
           ENV_VARS="IMAGE_VERSION=sha-${SHORT_SHA} BUILD_DATE='${BUILD_DATE}' OPENAI_API_KEY='${OPENAI_KEY}'"
           if [ -n "$API_KEYS" ]; then
             ENV_VARS="$ENV_VARS API_KEYS='${API_KEYS}'"
+          fi
+          if [ -n "$MCP_CLIENT_ID" ]; then
+            ENV_VARS="$ENV_VARS MCP_CLIENT_ID='${MCP_CLIENT_ID}' MCP_CLIENT_SECRET='${MCP_CLIENT_SECRET}' MCP_JWT_SECRET='${MCP_JWT_SECRET}'"
           fi
           if [ -n "$LOKI_URL" ]; then
             ENV_VARS="$ENV_VARS LOKI_URL='${LOKI_URL}' LOKI_USERNAME='${LOKI_USERNAME}' LOKI_API_KEY='${LOKI_API_KEY}'"

@@ -12,6 +12,9 @@ services:
       - PORT=3000  # Use iptables to redirect port 80 → 3000 on host
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - API_KEYS=${API_KEYS:-}
+      - MCP_CLIENT_ID=${MCP_CLIENT_ID:-}
+      - MCP_CLIENT_SECRET=${MCP_CLIENT_SECRET:-}
+      - MCP_JWT_SECRET=${MCP_JWT_SECRET:-}
       - DOCKER_IMAGE_VERSION=${IMAGE_VERSION:-local}
       - BUILD_DATE=${BUILD_DATE:-unknown}
     deploy:

@@ -3,9 +3,12 @@
  *
  * Exposes Glance art gallery functionality as MCP tools for Claude.ai integration.
  * Supports the Streamable HTTP transport for remote MCP connections.
+ * Secured with OAuth 2.1 client credentials flow.
  */
 
 import { Router, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -13,32 +16,82 @@ const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/ser
 
 import { loggers } from '../services/logger';
 import { getErrorMessage } from '../utils/error';
-import { API_KEYS } from '../middleware/auth';
 
 const log = loggers.api.child({ component: 'mcp' });
 
+// OAuth configuration from environment
+const MCP_CLIENT_ID = process.env.MCP_CLIENT_ID || '';
+const MCP_CLIENT_SECRET = process.env.MCP_CLIENT_SECRET || '';
+const MCP_JWT_SECRET = process.env.MCP_JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const MCP_TOKEN_EXPIRY = 3600; // 1 hour in seconds
+
+/** JWT payload structure */
+interface McpTokenPayload {
+  client_id: string;
+  scope: string;
+  iat: number;
+  exp: number;
+}
+
 /**
- * Validate API key for MCP requests
+ * Check if OAuth is configured
+ */
+function isOAuthConfigured(): boolean {
+  return MCP_CLIENT_ID.length > 0 && MCP_CLIENT_SECRET.length > 0;
+}
+
+/**
+ * Generate an access token for valid client credentials
+ */
+function generateAccessToken(clientId: string): string {
+  const payload: McpTokenPayload = {
+    client_id: clientId,
+    scope: 'mcp:tools',
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + MCP_TOKEN_EXPIRY,
+  };
+  return jwt.sign(payload, MCP_JWT_SECRET);
+}
+
+/**
+ * Validate a Bearer token
+ * Returns the decoded payload if valid, null otherwise
+ */
+function validateBearerToken(token: string): McpTokenPayload | null {
+  try {
+    const decoded = jwt.verify(token, MCP_JWT_SECRET) as McpTokenPayload;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Validate OAuth for MCP requests
  * Returns true if valid, false otherwise
  */
-function validateMcpApiKey(req: Request): boolean {
-  // If no API keys configured, allow all (development mode)
-  if (API_KEYS.size === 0) {
+function validateMcpOAuth(req: Request): boolean {
+  // If OAuth not configured, allow all (development mode)
+  if (!isOAuthConfigured()) {
     return true;
   }
 
-  // Check for API key in header or query
-  const apiKeyHeader = req.headers['x-api-key'];
-  const apiKeyQuery = req.query.apiKey;
-  const apiKey =
-    (Array.isArray(apiKeyHeader) ? apiKeyHeader[0] : apiKeyHeader) ??
-    (typeof apiKeyQuery === 'string' ? apiKeyQuery : undefined);
-
-  if (!apiKey) {
+  // Check for Bearer token in Authorization header
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return false;
   }
 
-  return API_KEYS.has(apiKey);
+  const token = authHeader.substring(7);
+  const payload = validateBearerToken(token);
+
+  if (!payload) {
+    return false;
+  }
+
+  // Token is valid
+  log.debug('MCP OAuth validated', { client_id: payload.client_id });
+  return true;
 }
 
 /** Artwork result from search */
@@ -558,20 +611,69 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
   // Store active transports by session ID
   const transports = new Map<string, unknown>();
 
+  // OAuth Token Endpoint (client_credentials grant)
+  router.post('/token', (req: Request, res: Response) => {
+    const { grant_type, client_id, client_secret } = req.body as {
+      grant_type?: string;
+      client_id?: string;
+      client_secret?: string;
+    };
+
+    log.info('OAuth token request', { grant_type, client_id: client_id?.substring(0, 8) + '...' });
+
+    // Validate grant type
+    if (grant_type !== 'client_credentials') {
+      res.status(400).json({
+        error: 'unsupported_grant_type',
+        error_description: 'Only client_credentials grant type is supported',
+      });
+      return;
+    }
+
+    // Check if OAuth is configured
+    if (!isOAuthConfigured()) {
+      res.status(400).json({
+        error: 'server_error',
+        error_description: 'OAuth is not configured on this server',
+      });
+      return;
+    }
+
+    // Validate client credentials
+    if (client_id !== MCP_CLIENT_ID || client_secret !== MCP_CLIENT_SECRET) {
+      log.warn('OAuth token request rejected: invalid credentials', { client_id });
+      res.status(401).json({
+        error: 'invalid_client',
+        error_description: 'Invalid client credentials',
+      });
+      return;
+    }
+
+    // Generate access token
+    const accessToken = generateAccessToken(client_id);
+    log.info('OAuth token issued', { client_id });
+
+    res.json({
+      access_token: accessToken,
+      token_type: 'Bearer',
+      expires_in: MCP_TOKEN_EXPIRY,
+      scope: 'mcp:tools',
+    });
+  });
+
   // MCP endpoint for Streamable HTTP
   router.post('/mcp', async (req: Request, res: Response) => {
     log.info('MCP request received', { body: req.body });
 
-    // Validate API key
-    if (!validateMcpApiKey(req)) {
-      log.warn('MCP request rejected: invalid or missing API key', {
+    // Validate OAuth Bearer token
+    if (!validateMcpOAuth(req)) {
+      log.warn('MCP request rejected: invalid or missing OAuth token', {
         ip: req.ip,
-        hasApiKey: !!req.headers['x-api-key'],
+        hasAuth: !!req.headers.authorization,
       });
       res.status(401).json({
-        error: 'API key required',
-        code: 'MISSING_API_KEY',
-        hint: 'Include X-API-Key header with your MCP requests',
+        error: 'invalid_token',
+        error_description: 'Bearer token required. Use /api/token endpoint to obtain one.',
       });
       return;
     }
@@ -609,7 +711,7 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       status: 'healthy',
       server: 'glance-art-guide',
       version: '1.0.0',
-      authentication: API_KEYS.size > 0 ? 'required' : 'disabled',
+      authentication: isOAuthConfigured() ? 'oauth2' : 'disabled',
       tools: [
         'search_artworks',
         'display_artwork',
@@ -629,9 +731,9 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       version: '1.0.0',
       description: 'AI-powered art guide for Glance e-ink display',
       authentication: {
-        type: 'api-key',
-        header: 'X-API-Key',
-        required: API_KEYS.size > 0,
+        type: isOAuthConfigured() ? 'oauth2_client_credentials' : 'none',
+        tokenEndpoint: '/api/token',
+        required: isOAuthConfigured(),
       },
       transport: 'streamable-http',
       endpoint: '/api/mcp',

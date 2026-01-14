@@ -242,7 +242,29 @@ When Claude calls `search_artworks` via MCP:
 
 ### Security
 
-Protected endpoints require API key (`X-API-Key` header) when accessed externally:
+**MCP Authentication (OAuth 2.1 Client Credentials):**
+
+The MCP endpoint uses OAuth 2.1 client credentials flow for machine-to-machine authentication:
+
+| Endpoint | Protection | Notes |
+|----------|------------|-------|
+| `/api/token` | Public | Token endpoint for client credentials grant |
+| `/api/mcp` | OAuth Bearer token | Requires valid JWT from `/api/token` |
+| `/api/mcp/health` | Public | Health check and server discovery |
+
+**OAuth Configuration:**
+- `MCP_CLIENT_ID` - Client identifier for OAuth
+- `MCP_CLIENT_SECRET` - Client secret for OAuth
+- `MCP_JWT_SECRET` - Secret for signing JWT tokens (auto-generated if not set)
+
+**Token Request:**
+```bash
+curl -X POST https://serverpi.corgi-climb.ts.net/api/token \
+  -H "Content-Type: application/json" \
+  -d '{"grant_type":"client_credentials","client_id":"...","client_secret":"..."}'
+```
+
+**Protected endpoints require API key (`X-API-Key` header) when accessed externally:**
 
 | Endpoint | Protection | Reason |
 |----------|------------|--------|
@@ -252,7 +274,6 @@ Protected endpoints require API key (`X-API-Key` header) when accessed externall
 | `/api/device-command` | API key required | Controls device |
 | DELETE endpoints | API key required | Destructive |
 | `/api/art/search`, `/api/playlists` | Public | Read-only |
-| `/api/mcp` | Public | Tools call internal endpoints |
 
 **Configuration:**
 - Set `API_KEYS` environment variable (comma-separated for multiple keys)
@@ -332,6 +353,10 @@ Test suites in `server/__tests__/`:
 
 ### Server (production via GitHub Secrets)
 - `OPENAI_API_KEY` - For AI art generation and vector search
+- `API_KEYS` - Comma-separated API keys for protected endpoints
+- `MCP_CLIENT_ID` - OAuth client ID for MCP authentication
+- `MCP_CLIENT_SECRET` - OAuth client secret for MCP authentication
+- `MCP_JWT_SECRET` - Secret for signing JWT tokens (auto-generated if not set)
 - `LOKI_URL` - Grafana Cloud Loki endpoint (optional)
 - `LOKI_USER` - Loki username (optional)
 - `LOKI_TOKEN` - Loki API token (optional)
