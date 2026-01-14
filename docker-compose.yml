@@ -9,7 +9,7 @@ services:
       - glance-uploads:/app/uploads
     environment:
       - NODE_ENV=production
-      - PORT=80
+      - PORT=3000  # Use iptables to redirect port 80 → 3000 on host
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - API_KEYS=${API_KEYS:-}
       - DOCKER_IMAGE_VERSION=${IMAGE_VERSION:-local}
@@ -22,7 +22,7 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:80/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
