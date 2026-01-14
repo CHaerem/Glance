@@ -13,8 +13,33 @@ const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/ser
 
 import { loggers } from '../services/logger';
 import { getErrorMessage } from '../utils/error';
+import { API_KEYS } from '../middleware/auth';
 
 const log = loggers.api.child({ component: 'mcp' });
+
+/**
+ * Validate API key for MCP requests
+ * Returns true if valid, false otherwise
+ */
+function validateMcpApiKey(req: Request): boolean {
+  // If no API keys configured, allow all (development mode)
+  if (API_KEYS.size === 0) {
+    return true;
+  }
+
+  // Check for API key in header or query
+  const apiKeyHeader = req.headers['x-api-key'];
+  const apiKeyQuery = req.query.apiKey;
+  const apiKey =
+    (Array.isArray(apiKeyHeader) ? apiKeyHeader[0] : apiKeyHeader) ??
+    (typeof apiKeyQuery === 'string' ? apiKeyQuery : undefined);
+
+  if (!apiKey) {
+    return false;
+  }
+
+  return API_KEYS.has(apiKey);
+}
 
 /** Artwork result from search */
 interface ArtworkResult {
@@ -537,6 +562,20 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
   router.post('/mcp', async (req: Request, res: Response) => {
     log.info('MCP request received', { body: req.body });
 
+    // Validate API key
+    if (!validateMcpApiKey(req)) {
+      log.warn('MCP request rejected: invalid or missing API key', {
+        ip: req.ip,
+        hasApiKey: !!req.headers['x-api-key'],
+      });
+      res.status(401).json({
+        error: 'API key required',
+        code: 'MISSING_API_KEY',
+        hint: 'Include X-API-Key header with your MCP requests',
+      });
+      return;
+    }
+
     try {
       // Get or create session ID
       const sessionId =
@@ -570,6 +609,7 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       status: 'healthy',
       server: 'glance-art-guide',
       version: '1.0.0',
+      authentication: API_KEYS.size > 0 ? 'required' : 'disabled',
       tools: [
         'search_artworks',
         'display_artwork',
@@ -588,6 +628,11 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       name: 'glance-art-guide',
       version: '1.0.0',
       description: 'AI-powered art guide for Glance e-ink display',
+      authentication: {
+        type: 'api-key',
+        header: 'X-API-Key',
+        required: API_KEYS.size > 0,
+      },
       transport: 'streamable-http',
       endpoint: '/api/mcp',
     });
