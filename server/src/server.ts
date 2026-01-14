@@ -157,6 +157,7 @@ app.use(cors(corsOptions));
 app.use(wanRestriction); // Block WAN access except /api/mcp and health endpoints
 app.use('/api', publicApiLimiter);
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true })); // For OAuth token requests (form-urlencoded)
 app.use(express.static('public'));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
