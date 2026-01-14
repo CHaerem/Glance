@@ -899,6 +899,7 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
   // MCP endpoint for Streamable HTTP
   router.post('/mcp', async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
+    const body = req.body as { method?: string; jsonrpc?: string };
     log.info('MCP request received', { body: req.body });
 
     // Validate OAuth Bearer token
@@ -914,7 +915,7 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
           scopes: ['mcp:tools'],
           expiresAt: Math.floor(cachedAuth.expiresAt / 1000),
         };
-        log.info('MCP request allowed via cached IP auth', { ip: clientIp, clientId: cachedAuth.clientId });
+        log.debug('MCP request allowed via cached IP auth', { ip: clientIp, clientId: cachedAuth.clientId });
       } else {
         log.warn('MCP request rejected: invalid or missing OAuth token', {
           ip: req.ip,
@@ -929,22 +930,51 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     }
 
     try {
-      // Get or create session ID
-      const sessionId =
-        (req.headers['mcp-session-id'] as string) || (req.body as { sessionId?: string }).sessionId || 'default';
+      // Check if client sent a session ID header
+      const existingSessionId = req.headers['mcp-session-id'] as string | undefined;
 
-      // Get or create transport for this session
-      let transport = transports.get(sessionId);
-      if (!transport) {
-        transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => sessionId,
-        });
-        await (mcpServer as { connect: (t: unknown) => Promise<void> }).connect(transport);
-        transports.set(sessionId, transport);
-        log.info('MCP session created', { sessionId, clientId: authReq.auth?.clientId });
+      // If session ID provided, look up existing transport
+      if (existingSessionId) {
+        const transport = transports.get(existingSessionId);
+        if (!transport) {
+          log.warn('MCP session not found', { sessionId: existingSessionId });
+          res.status(404).json({ error: 'Session not found', code: 'SESSION_NOT_FOUND' });
+          return;
+        }
+        // Handle request with existing transport
+        await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, req.body);
+        return;
       }
 
-      // Handle the request - pass authReq which has the auth property set
+      // No session ID - this should be an initialize request
+      // Check if this is actually an initialize request
+      const isInitialize = body.method === 'initialize' && body.jsonrpc === '2.0';
+
+      if (!isInitialize) {
+        // Non-initialize request without session ID - return error with proper MCP format
+        log.warn('MCP request without session ID (not initialize)', { method: body.method });
+        res.status(400).json({ error: 'Bad Request: No valid session ID provided' });
+        return;
+      }
+
+      // Create new transport for this session with a unique session ID
+      const newSessionId = crypto.randomUUID();
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => newSessionId,
+      });
+
+      // Register cleanup handler
+      (transport as { onclose?: () => void }).onclose = () => {
+        log.info('MCP session closed', { sessionId: newSessionId });
+        transports.delete(newSessionId);
+      };
+
+      // Connect transport to server and store it
+      await (mcpServer as { connect: (t: unknown) => Promise<void> }).connect(transport);
+      transports.set(newSessionId, transport);
+      log.info('MCP session created', { sessionId: newSessionId, clientId: authReq.auth?.clientId });
+
+      // Handle the initialize request
       await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, req.body);
     } catch (error) {
       log.error('MCP error', {
@@ -996,7 +1026,7 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
             scopes: ['mcp:tools'],
             expiresAt: Math.floor(cachedAuth.expiresAt / 1000),
           };
-          log.info('MCP SSE request allowed via cached IP auth', { ip: clientIp, clientId: cachedAuth.clientId });
+          log.debug('MCP SSE request allowed via cached IP auth', { ip: clientIp, clientId: cachedAuth.clientId });
         } else {
           log.warn('MCP SSE request rejected: invalid or missing OAuth token', {
             ip: req.ip,
@@ -1013,17 +1043,19 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       try {
         const sessionId = req.headers['mcp-session-id'] as string;
         if (!sessionId) {
+          log.warn('MCP SSE request missing session ID');
           res.status(400).json({ error: 'Missing mcp-session-id header' });
           return;
         }
 
         const transport = transports.get(sessionId);
         if (!transport) {
+          log.warn('MCP session not found for SSE', { sessionId });
           res.status(404).json({ error: 'Session not found' });
           return;
         }
 
-        log.info('MCP SSE stream request', { sessionId, clientId: authReq.auth?.clientId });
+        log.debug('MCP SSE stream request', { sessionId, clientId: authReq.auth?.clientId });
 
         // Handle SSE stream - pass authReq with auth property
         await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, undefined);
@@ -1035,12 +1067,13 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     }
 
     // Discovery request - no OAuth required (for Claude.ai to discover the server)
+    // Return basic server info for discoverability
     res.json({
       name: 'glance-art-guide',
       version: '1.0.0',
       description: 'AI-powered art guide for Glance e-ink display',
       authentication: {
-        type: isOAuthConfigured() ? 'oauth2_client_credentials' : 'none',
+        type: isOAuthConfigured() ? 'oauth2' : 'none',
         tokenEndpoint: '/api/token',
         required: isOAuthConfigured(),
       },

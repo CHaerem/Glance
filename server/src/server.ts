@@ -145,7 +145,8 @@ const corsOptions: cors.CorsOptions = {
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-API-Key', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'X-API-Key', 'Authorization', 'mcp-session-id'],
+  exposedHeaders: ['mcp-session-id'], // Required for MCP clients to read session ID
   credentials: true,
 };
 
