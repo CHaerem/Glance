@@ -66,13 +66,31 @@ function validateBearerToken(token: string): McpTokenPayload | null {
   }
 }
 
+/** Auth info to attach to request */
+interface AuthInfo {
+  clientId: string;
+  scopes: string[];
+  expiresAt: number;
+}
+
+/** Extended request with auth info */
+interface AuthenticatedRequest extends Request {
+  auth?: AuthInfo;
+}
+
 /**
- * Validate OAuth for MCP requests
+ * Validate OAuth for MCP requests and attach auth info to request
  * Returns true if valid, false otherwise
  */
-function validateMcpOAuth(req: Request): boolean {
+function validateMcpOAuth(req: AuthenticatedRequest): boolean {
   // If OAuth not configured, allow all (development mode)
   if (!isOAuthConfigured()) {
+    // Set a dummy auth for development
+    req.auth = {
+      clientId: 'development',
+      scopes: ['mcp:tools'],
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    };
     return true;
   }
 
@@ -89,7 +107,13 @@ function validateMcpOAuth(req: Request): boolean {
     return false;
   }
 
-  // Token is valid
+  // Token is valid - attach auth info to request for the SDK transport
+  req.auth = {
+    clientId: payload.client_id,
+    scopes: [payload.scope],
+    expiresAt: payload.exp,
+  };
+
   log.debug('MCP OAuth validated', { client_id: payload.client_id });
   return true;
 }
@@ -834,10 +858,11 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
 
   // MCP endpoint for Streamable HTTP
   router.post('/mcp', async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
     log.info('MCP request received', { body: req.body });
 
     // Validate OAuth Bearer token
-    if (!validateMcpOAuth(req)) {
+    if (!validateMcpOAuth(authReq)) {
       log.warn('MCP request rejected: invalid or missing OAuth token', {
         ip: req.ip,
         hasAuth: !!req.headers.authorization,
@@ -852,7 +877,7 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     try {
       // Get or create session ID
       const sessionId =
-        (req.headers['x-mcp-session-id'] as string) || (req.body as { sessionId?: string }).sessionId || 'default';
+        (req.headers['mcp-session-id'] as string) || (req.body as { sessionId?: string }).sessionId || 'default';
 
       // Get or create transport for this session
       let transport = transports.get(sessionId);
@@ -862,11 +887,11 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         });
         await (mcpServer as { connect: (t: unknown) => Promise<void> }).connect(transport);
         transports.set(sessionId, transport);
-        log.info('MCP session created', { sessionId });
+        log.info('MCP session created', { sessionId, clientId: authReq.auth?.clientId });
       }
 
-      // Handle the request
-      await (transport as { handleRequest: (req: Request, res: Response, body: unknown) => Promise<void> }).handleRequest(req, res, req.body);
+      // Handle the request - pass authReq which has the auth property set
+      await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, req.body);
     } catch (error) {
       log.error('MCP error', {
         error: getErrorMessage(error),
@@ -895,8 +920,53 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     });
   });
 
-  // MCP server info (for discovery)
-  router.get('/mcp', (_req: Request, res: Response) => {
+  // MCP GET endpoint - handles SSE streams for server responses
+  // Also serves as discovery endpoint when no Accept header for SSE
+  router.get('/mcp', async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    // Check if this is an SSE stream request (for MCP communication)
+    const acceptHeader = req.headers.accept || '';
+    const isSSERequest = acceptHeader.includes('text/event-stream');
+
+    if (isSSERequest) {
+      // SSE stream request - requires OAuth
+      if (!validateMcpOAuth(authReq)) {
+        log.warn('MCP SSE request rejected: invalid or missing OAuth token', {
+          ip: req.ip,
+          hasAuth: !!req.headers.authorization,
+        });
+        res.status(401).json({
+          error: 'invalid_token',
+          error_description: 'Bearer token required for MCP streams.',
+        });
+        return;
+      }
+
+      try {
+        const sessionId = req.headers['mcp-session-id'] as string;
+        if (!sessionId) {
+          res.status(400).json({ error: 'Missing mcp-session-id header' });
+          return;
+        }
+
+        const transport = transports.get(sessionId);
+        if (!transport) {
+          res.status(404).json({ error: 'Session not found' });
+          return;
+        }
+
+        log.info('MCP SSE stream request', { sessionId, clientId: authReq.auth?.clientId });
+
+        // Handle SSE stream - pass authReq with auth property
+        await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, undefined);
+      } catch (error) {
+        log.error('MCP SSE error', { error: getErrorMessage(error) });
+        res.status(500).json({ error: getErrorMessage(error) });
+      }
+      return;
+    }
+
+    // Discovery request - no OAuth required (for Claude.ai to discover the server)
     res.json({
       name: 'glance-art-guide',
       version: '1.0.0',
@@ -909,6 +979,35 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       transport: 'streamable-http',
       endpoint: '/api/mcp',
     });
+  });
+
+  // MCP DELETE endpoint - handles session cleanup
+  router.delete('/mcp', async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    // Session cleanup - requires OAuth
+    if (!validateMcpOAuth(authReq)) {
+      log.warn('MCP DELETE request rejected: invalid or missing OAuth token', {
+        ip: req.ip,
+        hasAuth: !!req.headers.authorization,
+      });
+      res.status(401).json({
+        error: 'invalid_token',
+        error_description: 'Bearer token required.',
+      });
+      return;
+    }
+
+    try {
+      const sessionId = req.headers['mcp-session-id'] as string;
+      if (sessionId && transports.has(sessionId)) {
+        transports.delete(sessionId);
+        log.info('MCP session closed', { sessionId, clientId: authReq.auth?.clientId });
+      }
+      res.status(204).send();
+    } catch (error) {
+      log.error('MCP DELETE error', { error: getErrorMessage(error) });
+      res.status(500).json({ error: getErrorMessage(error) });
+    }
   });
 
   // Endpoint for Glance page to fetch latest AI search results
