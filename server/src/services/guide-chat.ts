@@ -406,7 +406,6 @@ IMPORTANT:
         tools: guideTools,
         tool_choice: 'auto',
         max_completion_tokens: 400,
-        temperature: 0.7,
       });
 
       const assistantMessage = response.choices[0]?.message;
@@ -458,7 +457,6 @@ IMPORTANT:
             ...toolResultMessages,
           ],
           max_completion_tokens: 150,
-          temperature: 0.7,
         });
 
         const finalContent = finalResponse.choices[0]?.message?.content || 'Done.';
