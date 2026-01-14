@@ -248,11 +248,13 @@ app.get('/.well-known/oauth-authorization-server', (req: Request, res: Response)
   const baseUrl = getServerBaseUrl(req);
   res.json({
     issuer: baseUrl,
+    authorization_endpoint: `${baseUrl}/api/authorize`,
     token_endpoint: `${baseUrl}/api/token`,
-    token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
-    grant_types_supported: ['client_credentials'],
+    token_endpoint_auth_methods_supported: ['none', 'client_secret_post', 'client_secret_basic'],
+    grant_types_supported: ['authorization_code', 'client_credentials'],
+    response_types_supported: ['code'],
+    code_challenge_methods_supported: ['S256'],
     scopes_supported: ['mcp:tools'],
-    response_types_supported: ['token'],
     service_documentation: `${baseUrl}/api/mcp`,
   });
 });

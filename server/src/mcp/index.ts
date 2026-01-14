@@ -611,53 +611,224 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
   // Store active transports by session ID
   const transports = new Map<string, unknown>();
 
-  // OAuth Token Endpoint (client_credentials grant)
+  // Store authorization codes temporarily (code -> { clientId, codeChallenge, redirectUri, expiresAt })
+  const authorizationCodes = new Map<string, {
+    clientId: string;
+    codeChallenge?: string;
+    codeChallengeMethod?: string;
+    redirectUri: string;
+    expiresAt: number;
+  }>();
+
+  // OAuth Authorization Endpoint (for authorization code flow with PKCE)
+  router.get('/authorize', (req: Request, res: Response) => {
+    const {
+      response_type,
+      client_id,
+      redirect_uri,
+      state,
+      code_challenge,
+      code_challenge_method,
+      scope,
+    } = req.query as {
+      response_type?: string;
+      client_id?: string;
+      redirect_uri?: string;
+      state?: string;
+      code_challenge?: string;
+      code_challenge_method?: string;
+      scope?: string;
+    };
+
+    log.info('OAuth authorize request', {
+      response_type,
+      client_id,
+      redirect_uri,
+      has_code_challenge: !!code_challenge,
+      scope,
+    });
+
+    // Validate required parameters
+    if (response_type !== 'code') {
+      res.status(400).json({
+        error: 'unsupported_response_type',
+        error_description: 'Only code response type is supported',
+      });
+      return;
+    }
+
+    if (!client_id || !redirect_uri) {
+      res.status(400).json({
+        error: 'invalid_request',
+        error_description: 'client_id and redirect_uri are required',
+      });
+      return;
+    }
+
+    // For PKCE, code_challenge is required
+    if (!code_challenge) {
+      res.status(400).json({
+        error: 'invalid_request',
+        error_description: 'code_challenge is required for PKCE',
+      });
+      return;
+    }
+
+    // Generate authorization code
+    const code = crypto.randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Store the code
+    authorizationCodes.set(code, {
+      clientId: client_id,
+      codeChallenge: code_challenge,
+      codeChallengeMethod: code_challenge_method || 'S256',
+      redirectUri: redirect_uri,
+      expiresAt,
+    });
+
+    log.info('OAuth authorization code issued', { client_id });
+
+    // Redirect back with code (auto-approve for this personal project)
+    const redirectUrl = new URL(redirect_uri);
+    redirectUrl.searchParams.set('code', code);
+    if (state) {
+      redirectUrl.searchParams.set('state', state);
+    }
+
+    res.redirect(redirectUrl.toString());
+  });
+
+  // OAuth Token Endpoint (supports both authorization_code and client_credentials)
   router.post('/token', (req: Request, res: Response) => {
-    const { grant_type, client_id, client_secret } = req.body as {
+    const {
+      grant_type,
+      client_id,
+      client_secret,
+      code,
+      redirect_uri,
+      code_verifier,
+    } = req.body as {
       grant_type?: string;
       client_id?: string;
       client_secret?: string;
+      code?: string;
+      redirect_uri?: string;
+      code_verifier?: string;
     };
 
     log.info('OAuth token request', { grant_type, client_id: client_id?.substring(0, 8) + '...' });
 
-    // Validate grant type
-    if (grant_type !== 'client_credentials') {
-      res.status(400).json({
-        error: 'unsupported_grant_type',
-        error_description: 'Only client_credentials grant type is supported',
+    // Handle authorization_code grant (PKCE)
+    if (grant_type === 'authorization_code') {
+      if (!code || !redirect_uri || !code_verifier) {
+        res.status(400).json({
+          error: 'invalid_request',
+          error_description: 'code, redirect_uri, and code_verifier are required',
+        });
+        return;
+      }
+
+      const authCode = authorizationCodes.get(code);
+      if (!authCode) {
+        res.status(400).json({
+          error: 'invalid_grant',
+          error_description: 'Invalid or expired authorization code',
+        });
+        return;
+      }
+
+      // Check expiration
+      if (Date.now() > authCode.expiresAt) {
+        authorizationCodes.delete(code);
+        res.status(400).json({
+          error: 'invalid_grant',
+          error_description: 'Authorization code has expired',
+        });
+        return;
+      }
+
+      // Verify redirect_uri matches
+      if (authCode.redirectUri !== redirect_uri) {
+        res.status(400).json({
+          error: 'invalid_grant',
+          error_description: 'redirect_uri does not match',
+        });
+        return;
+      }
+
+      // Verify PKCE code_verifier
+      const expectedChallenge = crypto
+        .createHash('sha256')
+        .update(code_verifier)
+        .digest('base64url');
+
+      if (expectedChallenge !== authCode.codeChallenge) {
+        log.warn('PKCE verification failed', {
+          expected: authCode.codeChallenge,
+          got: expectedChallenge,
+        });
+        res.status(400).json({
+          error: 'invalid_grant',
+          error_description: 'PKCE verification failed',
+        });
+        return;
+      }
+
+      // Delete the used code
+      authorizationCodes.delete(code);
+
+      // Generate access token
+      const accessToken = generateAccessToken(authCode.clientId);
+      log.info('OAuth token issued via authorization_code', { client_id: authCode.clientId });
+
+      res.json({
+        access_token: accessToken,
+        token_type: 'Bearer',
+        expires_in: MCP_TOKEN_EXPIRY,
+        scope: 'mcp:tools',
       });
       return;
     }
 
-    // Check if OAuth is configured
-    if (!isOAuthConfigured()) {
-      res.status(400).json({
-        error: 'server_error',
-        error_description: 'OAuth is not configured on this server',
+    // Handle client_credentials grant
+    if (grant_type === 'client_credentials') {
+      // Check if OAuth is configured
+      if (!isOAuthConfigured()) {
+        res.status(400).json({
+          error: 'server_error',
+          error_description: 'OAuth is not configured on this server',
+        });
+        return;
+      }
+
+      // Validate client credentials
+      if (client_id !== MCP_CLIENT_ID || client_secret !== MCP_CLIENT_SECRET) {
+        log.warn('OAuth token request rejected: invalid credentials', { client_id });
+        res.status(401).json({
+          error: 'invalid_client',
+          error_description: 'Invalid client credentials',
+        });
+        return;
+      }
+
+      // Generate access token
+      const accessToken = generateAccessToken(client_id);
+      log.info('OAuth token issued via client_credentials', { client_id });
+
+      res.json({
+        access_token: accessToken,
+        token_type: 'Bearer',
+        expires_in: MCP_TOKEN_EXPIRY,
+        scope: 'mcp:tools',
       });
       return;
     }
 
-    // Validate client credentials
-    if (client_id !== MCP_CLIENT_ID || client_secret !== MCP_CLIENT_SECRET) {
-      log.warn('OAuth token request rejected: invalid credentials', { client_id });
-      res.status(401).json({
-        error: 'invalid_client',
-        error_description: 'Invalid client credentials',
-      });
-      return;
-    }
-
-    // Generate access token
-    const accessToken = generateAccessToken(client_id);
-    log.info('OAuth token issued', { client_id });
-
-    res.json({
-      access_token: accessToken,
-      token_type: 'Bearer',
-      expires_in: MCP_TOKEN_EXPIRY,
-      scope: 'mcp:tools',
+    // Unsupported grant type
+    res.status(400).json({
+      error: 'unsupported_grant_type',
+      error_description: 'Supported grant types: authorization_code, client_credentials',
     });
   });
 
