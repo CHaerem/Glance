@@ -189,6 +189,36 @@ docker compose up -d
 | `/api/mcp` | MCP server endpoint (LAN only) |
 | `/api/my-collection` | Personal art collection management |
 | `/api/my-collection/recommendations` | AI-powered art recommendations |
+| `/api/guide/chat` | Agentic art guide with function calling |
+
+## Art Guide (Agentic Chat)
+
+The explore page includes an AI art guide that can search, display, and manage your collection through natural conversation. It uses OpenAI function calling to take actions automatically.
+
+### Guide Tools
+
+| Tool | Description |
+|------|-------------|
+| `search_art` | Search museum collections for artworks |
+| `display_artwork` | Display an artwork on the e-ink frame |
+| `add_to_collection` | Save artwork to personal collection |
+| `get_recommendations` | Get personalized suggestions based on taste |
+| `get_current_display` | Check what's currently showing on the frame |
+
+### Behavior
+
+- **Hybrid agentic**: Acts immediately on clear intent ("display Starry Night"), asks for clarification on ambiguous requests
+- **Conversational**: Type naturally like "show me something peaceful" or "what's on the frame?"
+- **Action feedback**: Shows what actions were taken (🖼️ Sent to frame, 🔍 Found X results)
+
+### Example Interactions
+
+```
+"display starry night" → Searches, finds it, displays on frame
+"show me impressionist art" → Searches and populates the art grid
+"add to collection" → Saves current/last artwork to favorites
+"what's showing?" → Reports current display info
+```
 
 ## MCP Integration (Local Network)
 
@@ -388,6 +418,11 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 
 ## Recent Changes
 
+- **Agentic Art Guide**: Conversational AI guide with function calling
+  - 5 tools: search_art, display_artwork, add_to_collection, get_recommendations, get_current_display
+  - Hybrid behavior: acts on clear intent, asks on ambiguous requests
+  - Inline chat UI in explore page with action feedback
+  - Uses GPT-5 mini with parallel tool execution
 - **Taste Guide**: Personal art collection with AI-powered recommendations
   - Track favorite artworks in `/api/my-collection`
   - Generate embeddings for similarity search
