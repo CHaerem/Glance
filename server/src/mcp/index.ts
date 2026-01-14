@@ -244,16 +244,19 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     'search_artworks',
     'Search for artworks across museum collections. Use keywords like artist names, art movements, subjects, or time periods.',
     {
-      query: {
-        type: 'string',
-        description:
-          'Search query (e.g., "Monet water lilies", "impressionist landscape", "Dutch Golden Age")',
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description:
+            'Search query (e.g., "Monet water lilies", "impressionist landscape", "Dutch Golden Age")',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of results to return (default: 12, max: 20)',
+        },
       },
-      limit: {
-        type: 'number',
-        description: 'Maximum number of results to return (default: 12, max: 20)',
-        optional: true,
-      },
+      required: ['query'],
     },
     async ({ query, limit = 12 }: { query: string; limit?: number }): Promise<McpToolResponse> => {
       log.info('MCP search_artworks', { query, limit });
@@ -320,20 +323,22 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     'display_artwork',
     'Display an artwork on the e-ink frame. The image will be processed and sent to the display.',
     {
-      imageUrl: {
-        type: 'string',
-        description: 'URL of the artwork image to display',
+      type: 'object',
+      properties: {
+        imageUrl: {
+          type: 'string',
+          description: 'URL of the artwork image to display',
+        },
+        title: {
+          type: 'string',
+          description: 'Title of the artwork',
+        },
+        artist: {
+          type: 'string',
+          description: 'Artist name',
+        },
       },
-      title: {
-        type: 'string',
-        description: 'Title of the artwork',
-        optional: true,
-      },
-      artist: {
-        type: 'string',
-        description: 'Artist name',
-        optional: true,
-      },
+      required: ['imageUrl'],
     },
     async ({
       imageUrl,
@@ -478,10 +483,14 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     'get_playlist',
     'Get artworks from a specific playlist.',
     {
-      playlistId: {
-        type: 'string',
-        description: 'Playlist ID (e.g., "impressionist-masters", "serene-nature", "bold-abstract")',
+      type: 'object',
+      properties: {
+        playlistId: {
+          type: 'string',
+          description: 'Playlist ID (e.g., "impressionist-masters", "serene-nature", "bold-abstract")',
+        },
       },
+      required: ['playlistId'],
     },
     async ({ playlistId }: { playlistId: string }): Promise<McpToolResponse> => {
       log.info('MCP get_playlist', { playlistId });
