@@ -200,7 +200,7 @@ class TasteGuideService {
           .join('\n');
 
         const response = await this.client.chat.completions.create({
-          model: 'gpt-5-mini',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
@@ -218,7 +218,7 @@ Be concise and insightful. Write a 2-3 sentence summary of their taste.`,
               content: `Here are the artworks in my collection:\n${artworkDescriptions}\n\nWhat can you tell about my art taste?`,
             },
           ],
-          max_completion_tokens: 300,
+          max_tokens: 300,
         });
 
         summary = response.choices[0]?.message?.content || summary;
@@ -263,7 +263,7 @@ Be concise and insightful. Write a 2-3 sentence summary of their taste.`,
 
         // Ask AI for search queries based on taste
         const response = await this.client.chat.completions.create({
-          model: 'gpt-5-mini',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
@@ -276,7 +276,7 @@ Example: ["Impressionist landscapes", "Claude Monet water scenes", "soft light p
               content: `My collection includes: ${collectionContext}\n\nWhat search queries would find art I'd enjoy?`,
             },
           ],
-          max_completion_tokens: 150,
+          max_tokens: 150,
         });
 
         const content = response.choices[0]?.message?.content || '[]';

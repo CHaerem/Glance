@@ -210,6 +210,7 @@ The explore page includes an AI art guide that can search, display, and manage y
 - **Hybrid agentic**: Acts immediately on clear intent ("display Starry Night"), asks for clarification on ambiguous requests
 - **Conversational**: Type naturally like "show me something peaceful" or "what's on the frame?"
 - **Action feedback**: Shows what actions were taken (🖼️ Sent to frame, 🔍 Found X results)
+- **Dynamic hints**: Quick suggestion links that change based on time of day, current display, and rotating moods/subjects
 
 ### Example Interactions
 
@@ -422,11 +423,12 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
   - 5 tools: search_art, display_artwork, add_to_collection, get_recommendations, get_current_display
   - Hybrid behavior: acts on clear intent, asks on ambiguous requests
   - Inline chat UI in explore page with action feedback
-  - Uses GPT-5 mini with parallel tool execution
+  - Dynamic discovery hints: time-based, context-aware, rotating suggestions
+  - Uses GPT-4o-mini with parallel tool execution
 - **Taste Guide**: Personal art collection with AI-powered recommendations
   - Track favorite artworks in `/api/my-collection`
   - Generate embeddings for similarity search
-  - Build taste profile analyzing collection with GPT-5 mini
+  - Build taste profile analyzing collection with GPT-4o-mini
   - Get personalized recommendations based on your preferences
 - **LAN-only mode**: Server now only accessible from local network
   - WAN access blocked for all endpoints except `/health`

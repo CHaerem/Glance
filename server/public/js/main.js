@@ -154,6 +154,7 @@ function switchMode(mode) {
         document.getElementById('exploreMode').classList.add('show');
         browseDisplayCount = getInitialDisplayCount();
         initializeExploreMode(); // Initialize playlist stacks
+        refreshDiscoveryHints(); // Refresh dynamic hints on each visit
         if (currentArtResults.length === 0) {
             // Playlists will load via initializeExploreMode
         } else {
@@ -1905,48 +1906,193 @@ async function refreshCurrentDisplay() {
 }
 
 // ========================================
-// Discovery Suggestions
+// Discovery Hints (Dynamic)
 // ========================================
 
-function setupDiscoverySuggestions() {
-    // Action chips (surprise me, something peaceful, etc.)
-    document.querySelectorAll('.suggestion-chip').forEach(chip => {
-        chip.addEventListener('click', () => handleSuggestionAction(chip.dataset.action));
-    });
+// Hint pools for dynamic suggestions
+const hintPools = {
+    // Time-based hints
+    morning: [
+        { label: 'morning light', query: 'art with soft morning light, sunrise, dawn' },
+        { label: 'fresh start', query: 'art that feels fresh and new, spring' },
+        { label: 'awakening', query: 'peaceful awakening scenes, gentle morning' }
+    ],
+    afternoon: [
+        { label: 'golden hour', query: 'art with warm golden light, afternoon sun' },
+        { label: 'vibrant day', query: 'bright colorful daytime scenes' },
+        { label: 'lively scenes', query: 'busy lively scenes, markets, streets' }
+    ],
+    evening: [
+        { label: 'sunset glow', query: 'sunset paintings, evening sky, dusk' },
+        { label: 'twilight', query: 'twilight scenes, soft evening light' },
+        { label: 'end of day', query: 'peaceful evening scenes, rest' }
+    ],
+    night: [
+        { label: 'nocturne', query: 'night scenes, moonlight, nocturne paintings' },
+        { label: 'starry skies', query: 'stars, night sky, cosmic art' },
+        { label: 'quiet night', query: 'peaceful night scenes, solitude' }
+    ],
+    // Mood hints (rotated randomly)
+    moods: [
+        { label: 'something calm', query: 'calm peaceful serene art' },
+        { label: 'something bold', query: 'bold dramatic striking art' },
+        { label: 'melancholy', query: 'melancholic contemplative moody art' },
+        { label: 'joyful', query: 'joyful happy celebratory art' },
+        { label: 'mysterious', query: 'mysterious enigmatic atmospheric art' },
+        { label: 'romantic', query: 'romantic love intimate art' },
+        { label: 'dreamy', query: 'dreamlike surreal ethereal art' },
+        { label: 'powerful', query: 'powerful dramatic heroic art' }
+    ],
+    // Subject hints (rotated randomly)
+    subjects: [
+        { label: 'the sea', query: 'ocean sea marine seascape paintings' },
+        { label: 'gardens', query: 'gardens flowers botanical art' },
+        { label: 'city life', query: 'urban city street scenes' },
+        { label: 'portraits', query: 'portrait paintings faces' },
+        { label: 'landscapes', query: 'landscape nature scenery' },
+        { label: 'still life', query: 'still life objects arrangement' },
+        { label: 'animals', query: 'animal wildlife paintings' },
+        { label: 'interiors', query: 'interior rooms domestic scenes' }
+    ],
+    // Context hints (based on current display)
+    context: [
+        { label: 'more like this', action: 'moreLikeThis' },
+        { label: 'same artist', action: 'sameArtist' },
+        { label: 'same era', action: 'sameEra' }
+    ]
+};
 
-    // Mood chips (dreamy, vibrant, etc.)
-    document.querySelectorAll('.mood-chip').forEach(chip => {
-        chip.addEventListener('click', () => handleMoodSearch(chip.dataset.mood));
+// Current display info for context hints
+let currentDisplayInfo = null;
+
+function getTimeOfDay() {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 17) return 'afternoon';
+    if (hour >= 17 && hour < 21) return 'evening';
+    return 'night';
+}
+
+function pickRandom(arr, count = 1) {
+    const shuffled = [...arr].sort(() => Math.random() - 0.5);
+    return count === 1 ? shuffled[0] : shuffled.slice(0, count);
+}
+
+async function fetchCurrentDisplayInfo() {
+    try {
+        const response = await fetch('/api/current.json');
+        if (response.ok) {
+            currentDisplayInfo = await response.json();
+        }
+    } catch (e) {
+        currentDisplayInfo = null;
+    }
+}
+
+function generateDynamicHints() {
+    const hints = [];
+
+    // Always include surprise
+    hints.push({ label: 'surprise me', action: 'surprise' });
+
+    // Add time-based hint
+    const timeOfDay = getTimeOfDay();
+    const timeHint = pickRandom(hintPools[timeOfDay]);
+    hints.push(timeHint);
+
+    // Add a mood or subject hint (alternate randomly)
+    if (Math.random() > 0.5) {
+        hints.push(pickRandom(hintPools.moods));
+    } else {
+        hints.push(pickRandom(hintPools.subjects));
+    }
+
+    // If we have current display info, maybe add a context hint
+    if (currentDisplayInfo && currentDisplayInfo.title && Math.random() > 0.6) {
+        // Replace the last hint with a context hint
+        hints[2] = pickRandom(hintPools.context);
+    }
+
+    return hints;
+}
+
+function renderDiscoveryHints() {
+    const container = document.getElementById('discoveryHints');
+    if (!container) return;
+
+    const hints = generateDynamicHints();
+
+    container.innerHTML = hints.map((hint, i) => {
+        const sep = i < hints.length - 1 ? '<span class="hint-sep">·</span>' : '';
+        if (hint.action) {
+            return `<button class="hint-link" data-action="${hint.action}">${hint.label}</button>${sep}`;
+        } else {
+            return `<button class="hint-link" data-query="${hint.query}">${hint.label}</button>${sep}`;
+        }
+    }).join('');
+
+    // Attach event listeners
+    container.querySelectorAll('.hint-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (link.dataset.action) {
+                handleHintAction(link.dataset.action);
+            } else if (link.dataset.query) {
+                sendGuideMessage(link.dataset.query);
+            }
+        });
     });
 }
 
-async function handleSuggestionAction(action) {
+function setupDiscoverySuggestions() {
+    // Initial fetch of current display info
+    fetchCurrentDisplayInfo().then(() => {
+        renderDiscoveryHints();
+    });
+
+    // Refresh hints periodically (every 5 minutes)
+    setInterval(() => {
+        fetchCurrentDisplayInfo().then(() => {
+            renderDiscoveryHints();
+        });
+    }, 5 * 60 * 1000);
+}
+
+// Refresh hints (called when switching to explore mode)
+function refreshDiscoveryHints() {
+    fetchCurrentDisplayInfo().then(() => {
+        renderDiscoveryHints();
+    });
+}
+
+async function handleHintAction(action) {
     switch (action) {
         case 'surprise':
             await surpriseMe();
             break;
-        case 'peaceful':
-            await sendGuideMessage('show me something peaceful and serene');
+        case 'moreLikeThis':
+            if (currentDisplayInfo && currentDisplayInfo.title) {
+                await sendGuideMessage(`show me art similar to "${currentDisplayInfo.title}"`);
+            } else {
+                await sendGuideMessage('show me something interesting');
+            }
             break;
-        case 'taste':
-            await sendGuideMessage('recommend something based on my taste');
+        case 'sameArtist':
+            if (currentDisplayInfo && currentDisplayInfo.artist) {
+                await sendGuideMessage(`show me more art by ${currentDisplayInfo.artist}`);
+            } else {
+                await sendGuideMessage('recommend an artist to explore');
+            }
             break;
-        case 'current':
-            await sendGuideMessage('what is currently showing on the frame?');
+        case 'sameEra':
+            if (currentDisplayInfo && currentDisplayInfo.title) {
+                await sendGuideMessage(`show me art from the same era as "${currentDisplayInfo.title}"`);
+            } else {
+                await sendGuideMessage('show me classical art');
+            }
             break;
+        default:
+            await sendGuideMessage('show me something beautiful');
     }
-}
-
-async function handleMoodSearch(mood) {
-    const moodQueries = {
-        'dreamy': 'show me dreamy, ethereal paintings with soft light',
-        'vibrant': 'find me art with vibrant, bold colors',
-        'melancholy': 'show me contemplative, melancholic artwork',
-        'nature': 'find peaceful nature scenes and landscapes'
-    };
-
-    const query = moodQueries[mood] || `show me ${mood} artwork`;
-    await sendGuideMessage(query);
 }
 
 async function surpriseMe() {
