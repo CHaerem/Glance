@@ -21,8 +21,11 @@ RUN npm run build
 # Remove dev dependencies after build
 RUN npm prune --production
 
-# Runtime stage - alpine is smaller and has tini built-in
+# Runtime stage - alpine is smaller
 FROM node:20-alpine
+
+# Install tini for proper signal handling
+RUN apk add --no-cache tini
 
 # Add metadata
 LABEL org.opencontainers.image.title="Glance Server" \
