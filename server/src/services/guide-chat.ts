@@ -382,7 +382,7 @@ class GuideChatService {
 
       // Call GPT-5 mini with tools
       const response = await this.client.chat.completions.create({
-        model: 'gpt-4.1-mini',
+        model: 'gpt-5-mini',
         messages: [
           {
             role: 'system',
@@ -405,8 +405,7 @@ IMPORTANT:
         ],
         tools: guideTools,
         tool_choice: 'auto',
-        max_tokens: 400,
-        temperature: 0.7,
+        max_completion_tokens: 400,
       });
 
       const assistantMessage = response.choices[0]?.message;
@@ -443,7 +442,7 @@ IMPORTANT:
         }));
 
         const finalResponse = await this.client.chat.completions.create({
-          model: 'gpt-4.1-mini',
+          model: 'gpt-5-mini',
           messages: [
             {
               role: 'system',
@@ -457,9 +456,8 @@ IMPORTANT:
             },
             ...toolResultMessages,
           ],
-          max_tokens: 150,
-          temperature: 0.7,
-        });
+          max_completion_tokens: 150,
+          });
 
         const finalContent = finalResponse.choices[0]?.message?.content || 'Done.';
 
