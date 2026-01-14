@@ -1472,6 +1472,99 @@
 }
 
 /* ========================================
+   Discovery Suggestions
+   ======================================== */
+
+.discovery-suggestions {
+    margin: 20px 0 16px;
+    animation: fadeInSuggestions 0.4s ease;
+}
+
+@keyframes fadeInSuggestions {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.suggestion-chip {
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.suggestion-chip:hover {
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+    color: #333;
+}
+
+.suggestion-chip:active {
+    transform: scale(0.97);
+}
+
+.mood-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.mood-label {
+    font-size: 0.7rem;
+    color: #bbb;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 4px;
+}
+
+.mood-chip {
+    background: transparent;
+    border: 1px solid #e5e5e5;
+    border-radius: 14px;
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.mood-chip:hover {
+    background: #fafafa;
+    border-color: #ccc;
+    color: #555;
+}
+
+.mood-chip:active {
+    transform: scale(0.95);
+}
+
+/* Hide suggestions when guide chat is active */
+.guide-chat-active .discovery-suggestions {
+    display: none;
+}
+
+/* ========================================
    Art Guide Chat (inline in explore)
    ======================================== */
 

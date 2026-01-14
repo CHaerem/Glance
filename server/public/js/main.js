@@ -133,6 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Art Guide drawer
     initGuideDrawer();
+
+    // Discovery suggestion chips
+    setupDiscoverySuggestions();
 });
 
 // Mode switching
@@ -1898,6 +1901,83 @@ async function refreshCurrentDisplay() {
         }
     } catch (error) {
         console.error('Error refreshing display:', error);
+    }
+}
+
+// ========================================
+// Discovery Suggestions
+// ========================================
+
+function setupDiscoverySuggestions() {
+    // Action chips (surprise me, something peaceful, etc.)
+    document.querySelectorAll('.suggestion-chip').forEach(chip => {
+        chip.addEventListener('click', () => handleSuggestionAction(chip.dataset.action));
+    });
+
+    // Mood chips (dreamy, vibrant, etc.)
+    document.querySelectorAll('.mood-chip').forEach(chip => {
+        chip.addEventListener('click', () => handleMoodSearch(chip.dataset.mood));
+    });
+}
+
+async function handleSuggestionAction(action) {
+    switch (action) {
+        case 'surprise':
+            await surpriseMe();
+            break;
+        case 'peaceful':
+            await sendGuideMessage('show me something peaceful and serene');
+            break;
+        case 'taste':
+            await sendGuideMessage('recommend something based on my taste');
+            break;
+        case 'current':
+            await sendGuideMessage('what is currently showing on the frame?');
+            break;
+    }
+}
+
+async function handleMoodSearch(mood) {
+    const moodQueries = {
+        'dreamy': 'show me dreamy, ethereal paintings with soft light',
+        'vibrant': 'find me art with vibrant, bold colors',
+        'melancholy': 'show me contemplative, melancholic artwork',
+        'nature': 'find peaceful nature scenes and landscapes'
+    };
+
+    const query = moodQueries[mood] || `show me ${mood} artwork`;
+    await sendGuideMessage(query);
+}
+
+async function surpriseMe() {
+    const cardsContainer = document.getElementById('artCards');
+    if (cardsContainer) {
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Finding something special...</div>';
+    }
+
+    // Clear playlist selection
+    currentPlaylistId = null;
+    document.getElementById('currentPlaylist').style.display = 'none';
+    renderPlaylistStacks();
+
+    try {
+        const response = await fetch('/api/art/random');
+        if (!response.ok) throw new Error('Failed to fetch random art');
+
+        const artwork = await response.json();
+
+        // Show the artwork
+        currentArtResults = [artwork];
+        browseDisplayCount = 1;
+        displayBrowseResults();
+
+        // Open modal automatically for surprise
+        openArtModal(artwork, 'browse');
+    } catch (error) {
+        console.error('Surprise failed:', error);
+        if (cardsContainer) {
+            cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Could not find art. Try again!</div>';
+        }
     }
 }
 
