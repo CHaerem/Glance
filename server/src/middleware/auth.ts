@@ -183,6 +183,15 @@ export function wanRestriction(
     return;
   }
 
+  // Debug logging for WAN requests
+  log.debug('WAN request', {
+    ip: req.ip,
+    path: req.path,
+    method: req.method,
+    isLocal: isLocalRequest(req),
+    isTailscale: isTailscaleServeRequest(req),
+  });
+
   // Allowed paths for WAN access
   const allowedPaths = [
     '/api/mcp',       // MCP endpoint for Claude artifacts
