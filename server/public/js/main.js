@@ -155,6 +155,11 @@ function toggleAiGuide() {
         btn.classList.remove('active');
         stopAiSearchPolling();
     } else {
+        // Lazy-load iframe src on first open
+        const iframe = document.getElementById('aiGuideFrame');
+        if (iframe && !iframe.src && iframe.dataset.src) {
+            iframe.src = iframe.dataset.src;
+        }
         panel.style.display = 'block';
         btn.classList.add('active');
         startAiSearchPolling();
