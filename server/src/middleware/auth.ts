@@ -196,6 +196,7 @@ export function wanRestriction(
   // Paths that need exact match (not prefix)
   const exactMatchPaths = [
     '/',  // Main UI - needed for artifact embedding via HTTPS
+    '/artifact-frame.html',  // Wrapper for Claude artifact (allows HTTP→HTTPS→HTTPS chain)
   ];
 
   // Check if path starts with any allowed path or exactly matches
