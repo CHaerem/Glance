@@ -463,7 +463,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       }
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini',
         max_tokens: 220,
         temperature,
         messages: [

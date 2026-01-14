@@ -132,7 +132,7 @@ export function createArtRoutes({ openai, uploadDir }: ArtRouteDeps): Router {
       log.info('Smart search query', { query });
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-5-mini',
         messages: [
           {
             role: 'system',
@@ -164,7 +164,7 @@ Response: {
       });
 
       statistics.trackOpenAICall(
-        'gpt-4',
+        'gpt-5-mini',
         completion.usage?.prompt_tokens || 0,
         completion.usage?.completion_tokens || 0,
         true,
@@ -211,7 +211,7 @@ Response: {
       });
 
       if (openai) {
-        statistics.trackOpenAICall('gpt-4', 0, 0, false, {
+        statistics.trackOpenAICall('gpt-5-mini', 0, 0, false, {
           endpoint: 'chat.completions',
           purpose: 'smart-search',
           error: getErrorMessage(error),
@@ -253,7 +253,7 @@ Response: {
       log.info('Finding similar artworks', { title, artist });
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-5-mini',
         messages: [
           {
             role: 'system',
