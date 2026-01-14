@@ -242,10 +242,10 @@ const firmwareRoutes = createFirmwareRoutes({
 app.use('/api/firmware', firmwareRoutes);
 
 // Semantic search routes
-app.use('/api/semantic', semanticSearchRoutes);
+app.use('/api/semantic', semanticSearchRoutes());
 
 // Prometheus metrics endpoint
-app.use('/api/metrics', metricsRoutes);
+app.use('/api/metrics', metricsRoutes());
 
 // MCP server for Claude.ai artifact integration
 // eslint-disable-next-line @typescript-eslint/no-var-requires
