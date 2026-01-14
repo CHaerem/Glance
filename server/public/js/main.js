@@ -139,6 +139,17 @@ function toggleAiGuide() {
     const btn = document.getElementById('aiGuideBtn');
     const isVisible = panel.style.display !== 'none';
 
+    // If on HTTP, open artifact in new window (CSP blocks HTTP embedding HTTPS)
+    if (window.location.protocol === 'http:') {
+        // Open artifact in new window via Funnel URL
+        window.open('https://serverpi.corgi-climb.ts.net/artifact-frame.html', 'ai-art-guide', 'width=400,height=600');
+        // Start polling for results from the artifact
+        btn.classList.add('active');
+        startAiSearchPolling();
+        return;
+    }
+
+    // HTTPS: use embedded panel
     if (isVisible) {
         panel.style.display = 'none';
         btn.classList.remove('active');
