@@ -1,21 +1,16 @@
-# Build stage - compiles TypeScript and native modules
-FROM node:20-slim AS builder
+# Build stage - compiles TypeScript
+FROM node:20-alpine AS builder
 
 WORKDIR /app
-
-# Install build dependencies for native modules (better-sqlite3, sharp)
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files first for better Docker layer caching
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install all dependencies (including dev for TypeScript compilation)
-RUN npm install && npm cache clean --force
+# Install all dependencies using npm ci (faster, uses lockfile)
+# Sharp v0.32+ ships prebuilt binaries for linux/arm64, no build tools needed
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Copy TypeScript source files
 COPY src ./src
@@ -26,8 +21,8 @@ RUN npm run build
 # Remove dev dependencies after build
 RUN npm prune --production
 
-# Runtime stage - clean image without build tools
-FROM node:20-slim
+# Runtime stage - alpine is smaller and has tini built-in
+FROM node:20-alpine
 
 # Add metadata
 LABEL org.opencontainers.image.title="Glance Server" \
@@ -45,20 +40,12 @@ ENV BUILD_DATE=$BUILD_DATE
 
 WORKDIR /app
 
-# Install only runtime dependencies (dumb-init)
-RUN apt-get update && apt-get install -y \
-    dumb-init \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy built node_modules and compiled TypeScript from builder stage
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 
-# Copy source code, UI files, and assets
-COPY server.js ./
-COPY simple-ui.html ./
-COPY admin.html ./
-COPY bhutan.svg ./
+# Copy source code, UI files, and assets (combined for fewer layers)
+COPY server.js simple-ui.html admin.html bhutan.svg ./
 COPY public ./public
 COPY routes ./routes
 COPY services ./services
@@ -68,9 +55,9 @@ COPY scripts ./scripts
 COPY middleware ./middleware
 COPY mcp ./mcp
 
-# Create non-root user for security
-RUN groupadd --gid 1001 nodejs && \
-    useradd --uid 1001 --gid nodejs --shell /bin/bash --create-home glance
+# Create non-root user for security (alpine uses addgroup/adduser)
+RUN addgroup -g 1001 nodejs && \
+    adduser -u 1001 -G nodejs -s /bin/sh -D glance
 
 # Create data and uploads directories with proper permissions
 RUN mkdir -p /app/data /app/uploads && chown -R glance:nodejs /app
@@ -85,8 +72,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
+# Use tini (built into alpine) to handle signals properly
+ENTRYPOINT ["/sbin/tini", "--"]
 
 # Start the server
 CMD ["node", "server.js"]
