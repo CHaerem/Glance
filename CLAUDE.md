@@ -422,11 +422,11 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
   - 5 tools: search_art, display_artwork, add_to_collection, get_recommendations, get_current_display
   - Hybrid behavior: acts on clear intent, asks on ambiguous requests
   - Inline chat UI in explore page with action feedback
-  - Uses GPT-4.1 mini with parallel tool execution
+  - Uses GPT-5 mini with parallel tool execution
 - **Taste Guide**: Personal art collection with AI-powered recommendations
   - Track favorite artworks in `/api/my-collection`
   - Generate embeddings for similarity search
-  - Build taste profile analyzing collection with GPT-4.1 mini
+  - Build taste profile analyzing collection with GPT-5 mini
   - Get personalized recommendations based on your preferences
 - **LAN-only mode**: Server now only accessible from local network
   - WAN access blocked for all endpoints except `/health`
