@@ -200,7 +200,7 @@ class TasteGuideService {
           .join('\n');
 
         const response = await this.client.chat.completions.create({
-          model: 'gpt-5-mini',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
@@ -263,7 +263,7 @@ Be concise and insightful. Write a 2-3 sentence summary of their taste.`,
 
         // Ask AI for search queries based on taste
         const response = await this.client.chat.completions.create({
-          model: 'gpt-5-mini',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',

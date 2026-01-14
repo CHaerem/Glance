@@ -382,7 +382,7 @@ class GuideChatService {
 
       // Call GPT-5 mini with tools
       const response = await this.client.chat.completions.create({
-        model: 'gpt-5-mini',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -443,7 +443,7 @@ IMPORTANT:
         }));
 
         const finalResponse = await this.client.chat.completions.create({
-          model: 'gpt-5-mini',
+          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'system',
