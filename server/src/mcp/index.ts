@@ -635,6 +635,20 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
   // Store active transports by session ID
   const transports = new Map<string, unknown>();
 
+  // Store authenticated clients by IP (to handle Claude.ai's multiple parallel connections)
+  // Once a client successfully authenticates, allow subsequent requests from same IP
+  const authenticatedClients = new Map<string, { clientId: string; expiresAt: number }>();
+
+  // Clean up expired authenticated clients periodically
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, auth] of authenticatedClients.entries()) {
+      if (now > auth.expiresAt) {
+        authenticatedClients.delete(ip);
+      }
+    }
+  }, 60000); // Clean up every minute
+
   // Store authorization codes temporarily (code -> { clientId, codeChallenge, redirectUri, expiresAt })
   const authorizationCodes = new Map<string, {
     clientId: string;
@@ -804,7 +818,14 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
 
       // Generate access token
       const accessToken = generateAccessToken(authCode.clientId);
-      log.info('OAuth token issued via authorization_code', { client_id: authCode.clientId });
+      log.info('OAuth token issued via authorization_code', { client_id: authCode.clientId, ip: req.ip });
+
+      // Store authenticated client IP to allow subsequent parallel connections from Claude.ai
+      const clientIp = req.ip || 'unknown';
+      authenticatedClients.set(clientIp, {
+        clientId: authCode.clientId,
+        expiresAt: Date.now() + MCP_TOKEN_EXPIRY * 1000, // Same expiry as token
+      });
 
       res.json({
         access_token: accessToken,
@@ -863,15 +884,29 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
 
     // Validate OAuth Bearer token
     if (!validateMcpOAuth(authReq)) {
-      log.warn('MCP request rejected: invalid or missing OAuth token', {
-        ip: req.ip,
-        hasAuth: !!req.headers.authorization,
-      });
-      res.status(401).json({
-        error: 'invalid_token',
-        error_description: 'Bearer token required. Use /api/token endpoint to obtain one.',
-      });
-      return;
+      // Check if this IP was recently authenticated (handles Claude.ai's parallel connections)
+      const clientIp = req.ip || 'unknown';
+      const cachedAuth = authenticatedClients.get(clientIp);
+
+      if (cachedAuth && Date.now() < cachedAuth.expiresAt) {
+        // IP was authenticated recently, allow the request
+        authReq.auth = {
+          clientId: cachedAuth.clientId,
+          scopes: ['mcp:tools'],
+          expiresAt: Math.floor(cachedAuth.expiresAt / 1000),
+        };
+        log.info('MCP request allowed via cached IP auth', { ip: clientIp, clientId: cachedAuth.clientId });
+      } else {
+        log.warn('MCP request rejected: invalid or missing OAuth token', {
+          ip: req.ip,
+          hasAuth: !!req.headers.authorization,
+        });
+        res.status(401).json({
+          error: 'invalid_token',
+          error_description: 'Bearer token required. Use /api/token endpoint to obtain one.',
+        });
+        return;
+      }
     }
 
     try {
@@ -931,15 +966,29 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     if (isSSERequest) {
       // SSE stream request - requires OAuth
       if (!validateMcpOAuth(authReq)) {
-        log.warn('MCP SSE request rejected: invalid or missing OAuth token', {
-          ip: req.ip,
-          hasAuth: !!req.headers.authorization,
-        });
-        res.status(401).json({
-          error: 'invalid_token',
-          error_description: 'Bearer token required for MCP streams.',
-        });
-        return;
+        // Check if this IP was recently authenticated (handles Claude.ai's parallel connections)
+        const clientIp = req.ip || 'unknown';
+        const cachedAuth = authenticatedClients.get(clientIp);
+
+        if (cachedAuth && Date.now() < cachedAuth.expiresAt) {
+          // IP was authenticated recently, allow the request
+          authReq.auth = {
+            clientId: cachedAuth.clientId,
+            scopes: ['mcp:tools'],
+            expiresAt: Math.floor(cachedAuth.expiresAt / 1000),
+          };
+          log.info('MCP SSE request allowed via cached IP auth', { ip: clientIp, clientId: cachedAuth.clientId });
+        } else {
+          log.warn('MCP SSE request rejected: invalid or missing OAuth token', {
+            ip: req.ip,
+            hasAuth: !!req.headers.authorization,
+          });
+          res.status(401).json({
+            error: 'invalid_token',
+            error_description: 'Bearer token required for MCP streams.',
+          });
+          return;
+        }
       }
 
       try {
