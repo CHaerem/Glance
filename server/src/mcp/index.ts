@@ -258,7 +258,10 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       },
       required: ['query'],
     },
-    async ({ query, limit = 12 }: { query: string; limit?: number }): Promise<McpToolResponse> => {
+    async (args: Record<string, unknown>): Promise<McpToolResponse> => {
+      log.info('MCP search_artworks raw args', { args });
+      const query = args.query as string;
+      const limit = (args.limit as number) || 12;
       log.info('MCP search_artworks', { query, limit });
 
       try {
