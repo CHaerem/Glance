@@ -183,17 +183,25 @@ export function wanRestriction(
     return;
   }
 
-  // Allowed paths for WAN access (MCP endpoint for Claude artifacts)
+  // Allowed paths for WAN access
   const allowedPaths = [
-    '/api/mcp',
+    '/api/mcp',       // MCP endpoint for Claude artifacts
     '/health',
     '/api/health',
+    '/js',            // Static JS assets for UI
+    '/css',           // Static CSS assets for UI
+    '/api/ai-search', // AI search results polling (for artifact integration)
   ];
 
-  // Check if path starts with any allowed path
+  // Paths that need exact match (not prefix)
+  const exactMatchPaths = [
+    '/',  // Main UI - needed for artifact embedding via HTTPS
+  ];
+
+  // Check if path starts with any allowed path or exactly matches
   const isAllowed = allowedPaths.some(
     (allowed) => req.path === allowed || req.path.startsWith(allowed + '/')
-  );
+  ) || exactMatchPaths.includes(req.path);
 
   if (isAllowed) {
     next();
