@@ -638,11 +638,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
 }
 
 /**
- * Create Express routes for MCP Streamable HTTP transport
+ * Create Express routes for MCP Streamable HTTP transport (stateless mode)
+ *
+ * This uses true stateless mode where each request gets a fresh transport.
+ * This is simpler, supports horizontal scaling, and works better with Claude.ai.
  */
 export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: McpServerConfig = {}): Router {
   const router = Router();
-  const mcpServer = createMcpServer({ glanceBaseUrl });
 
   // Log OAuth status on startup
   if (MCP_REQUIRE_AUTH && isOAuthConfigured()) {
@@ -650,9 +652,6 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
   } else {
     log.info('MCP OAuth authentication disabled (set MCP_REQUIRE_AUTH=true to enable)');
   }
-
-  // Store active transports by session ID
-  const transports = new Map<string, unknown>();
 
   // Store authenticated clients by IP (to handle Claude.ai's multiple parallel connections)
   // Once a client successfully authenticates, allow subsequent requests from same IP
@@ -896,10 +895,10 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     });
   });
 
-  // MCP endpoint for Streamable HTTP
+  // MCP endpoint for Streamable HTTP (stateless mode)
+  // Each request gets a fresh transport and server instance for complete isolation
   router.post('/mcp', async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
-    const body = req.body as { method?: string; jsonrpc?: string };
     log.info('MCP request received', { body: req.body });
 
     // Validate OAuth Bearer token
@@ -930,51 +929,18 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     }
 
     try {
-      // Check if client sent a session ID header
-      const existingSessionId = req.headers['mcp-session-id'] as string | undefined;
-
-      // If session ID provided, look up existing transport
-      if (existingSessionId) {
-        const transport = transports.get(existingSessionId);
-        if (!transport) {
-          log.warn('MCP session not found', { sessionId: existingSessionId });
-          res.status(404).json({ error: 'Session not found', code: 'SESSION_NOT_FOUND' });
-          return;
-        }
-        // Handle request with existing transport
-        await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, req.body);
-        return;
-      }
-
-      // No session ID - this should be an initialize request
-      // Check if this is actually an initialize request
-      const isInitialize = body.method === 'initialize' && body.jsonrpc === '2.0';
-
-      if (!isInitialize) {
-        // Non-initialize request without session ID - return error with proper MCP format
-        log.warn('MCP request without session ID (not initialize)', { method: body.method });
-        res.status(400).json({ error: 'Bad Request: No valid session ID provided' });
-        return;
-      }
-
-      // Create new transport for this session with a unique session ID
-      const newSessionId = crypto.randomUUID();
+      // Create fresh MCP server and transport for each request (stateless mode)
+      // This ensures complete isolation between requests and supports horizontal scaling
+      const mcpServer = createMcpServer({ glanceBaseUrl });
       const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => newSessionId,
+        sessionIdGenerator: undefined, // Stateless mode - no session management
       });
 
-      // Register cleanup handler
-      (transport as { onclose?: () => void }).onclose = () => {
-        log.info('MCP session closed', { sessionId: newSessionId });
-        transports.delete(newSessionId);
-      };
-
-      // Connect transport to server and store it
+      // Connect transport to server
       await (mcpServer as { connect: (t: unknown) => Promise<void> }).connect(transport);
-      transports.set(newSessionId, transport);
-      log.info('MCP session created', { sessionId: newSessionId, clientId: authReq.auth?.clientId });
+      log.debug('MCP stateless transport created', { clientId: authReq.auth?.clientId });
 
-      // Handle the initialize request
+      // Handle the request
       await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, req.body);
     } catch (error) {
       log.error('MCP error', {
@@ -1004,70 +970,10 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     });
   });
 
-  // MCP GET endpoint - handles SSE streams for server responses
-  // Also serves as discovery endpoint when no Accept header for SSE
-  router.get('/mcp', async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
-    // Check if this is an SSE stream request (for MCP communication)
-    const acceptHeader = req.headers.accept || '';
-    const isSSERequest = acceptHeader.includes('text/event-stream');
-
-    if (isSSERequest) {
-      // SSE stream request - requires OAuth
-      if (!validateMcpOAuth(authReq)) {
-        // Check if this IP was recently authenticated (handles Claude.ai's parallel connections)
-        const clientIp = req.ip || 'unknown';
-        const cachedAuth = authenticatedClients.get(clientIp);
-
-        if (cachedAuth && Date.now() < cachedAuth.expiresAt) {
-          // IP was authenticated recently, allow the request
-          authReq.auth = {
-            clientId: cachedAuth.clientId,
-            scopes: ['mcp:tools'],
-            expiresAt: Math.floor(cachedAuth.expiresAt / 1000),
-          };
-          log.debug('MCP SSE request allowed via cached IP auth', { ip: clientIp, clientId: cachedAuth.clientId });
-        } else {
-          log.warn('MCP SSE request rejected: invalid or missing OAuth token', {
-            ip: req.ip,
-            hasAuth: !!req.headers.authorization,
-          });
-          res.status(401).json({
-            error: 'invalid_token',
-            error_description: 'Bearer token required for MCP streams.',
-          });
-          return;
-        }
-      }
-
-      try {
-        const sessionId = req.headers['mcp-session-id'] as string;
-        if (!sessionId) {
-          log.warn('MCP SSE request missing session ID');
-          res.status(400).json({ error: 'Missing mcp-session-id header' });
-          return;
-        }
-
-        const transport = transports.get(sessionId);
-        if (!transport) {
-          log.warn('MCP session not found for SSE', { sessionId });
-          res.status(404).json({ error: 'Session not found' });
-          return;
-        }
-
-        log.debug('MCP SSE stream request', { sessionId, clientId: authReq.auth?.clientId });
-
-        // Handle SSE stream - pass authReq with auth property
-        await (transport as { handleRequest: (req: AuthenticatedRequest, res: Response, body: unknown) => Promise<void> }).handleRequest(authReq, res, undefined);
-      } catch (error) {
-        log.error('MCP SSE error', { error: getErrorMessage(error) });
-        res.status(500).json({ error: getErrorMessage(error) });
-      }
-      return;
-    }
-
-    // Discovery request - no OAuth required (for Claude.ai to discover the server)
-    // Return basic server info for discoverability
+  // MCP GET endpoint - server discovery
+  // In stateless mode, SSE streams aren't used for server notifications
+  router.get('/mcp', (_req: Request, res: Response) => {
+    // Return server info for discoverability
     res.json({
       name: 'glance-art-guide',
       version: '1.0.0',
@@ -1079,36 +985,14 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
       },
       transport: 'streamable-http',
       endpoint: '/api/mcp',
+      mode: 'stateless', // No session management - each request is independent
     });
   });
 
-  // MCP DELETE endpoint - handles session cleanup
-  router.delete('/mcp', async (req: Request, res: Response) => {
-    const authReq = req as AuthenticatedRequest;
-    // Session cleanup - requires OAuth
-    if (!validateMcpOAuth(authReq)) {
-      log.warn('MCP DELETE request rejected: invalid or missing OAuth token', {
-        ip: req.ip,
-        hasAuth: !!req.headers.authorization,
-      });
-      res.status(401).json({
-        error: 'invalid_token',
-        error_description: 'Bearer token required.',
-      });
-      return;
-    }
-
-    try {
-      const sessionId = req.headers['mcp-session-id'] as string;
-      if (sessionId && transports.has(sessionId)) {
-        transports.delete(sessionId);
-        log.info('MCP session closed', { sessionId, clientId: authReq.auth?.clientId });
-      }
-      res.status(204).send();
-    } catch (error) {
-      log.error('MCP DELETE error', { error: getErrorMessage(error) });
-      res.status(500).json({ error: getErrorMessage(error) });
-    }
+  // MCP DELETE endpoint - no-op in stateless mode
+  // Sessions don't persist, so there's nothing to delete
+  router.delete('/mcp', (_req: Request, res: Response) => {
+    res.status(204).send();
   });
 
   // Endpoint for Glance page to fetch latest AI search results
