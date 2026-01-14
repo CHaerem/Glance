@@ -116,6 +116,22 @@ const publicApiLimiter = rateLimit({
   skip: (req) => isTrustedRequest(req),
 });
 
+// Stricter rate limiting for MCP endpoint (prevents abuse of OpenAI-powered features)
+const mcpRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Much stricter: 20 requests per 15 minutes
+  message: {
+    error: 'MCP rate limit exceeded',
+    code: 'MCP_RATE_LIMITED',
+    retryAfter: '15 minutes',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false },
+  // Skip rate limiting for trusted requests (local network or authenticated Tailscale)
+  skip: (req) => isTrustedRequest(req),
+});
+
 // CORS configuration for Claude.ai artifact integration
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
@@ -235,6 +251,7 @@ app.use('/api/metrics', metricsRoutes);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createMcpRoutes } = require('../../mcp');
 const mcpRoutes = createMcpRoutes({ glanceBaseUrl: 'http://localhost:3000' });
+app.use('/api/mcp', mcpRateLimiter); // Stricter rate limit for MCP
 app.use('/api', mcpRoutes);
 
 // OAuth 2.1 Discovery Endpoints for MCP
