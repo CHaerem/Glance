@@ -49,6 +49,7 @@ import { createFirmwareRoutes } from './routes/firmware';
 import metricsRoutes from './routes/metrics';
 import semanticSearchRoutes from './routes/semantic-search';
 import { createMyCollectionRouter } from './routes/my-collection';
+import { createGuideRoutes } from './routes/guide';
 
 // Configuration
 const app = express();
@@ -222,6 +223,9 @@ app.use('/api/semantic', semanticSearchRoutes());
 
 // My Collection / Taste Guide routes
 app.use('/api/my-collection', createMyCollectionRouter());
+
+// Art Guide chat routes
+app.use('/api/guide', createGuideRoutes());
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', metricsRoutes());

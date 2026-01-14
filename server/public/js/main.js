@@ -127,6 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('moveDown').addEventListener('click', () => adjustCrop('down'));
     document.getElementById('moveLeft').addEventListener('click', () => adjustCrop('left'));
     document.getElementById('moveRight').addEventListener('click', () => adjustCrop('right'));
+
+    // Art Guide drawer
+    initGuideDrawer();
 });
 
 // Mode switching
@@ -1591,6 +1594,202 @@ async function stopRotation() {
         displayMyCollection(); // Refresh to update toggle buttons
     } catch (error) {
         console.error('Error stopping rotation:', error);
+    }
+}
+
+// ========================================
+// Art Guide Drawer
+// ========================================
+
+let guideExpanded = false;
+let guideSending = false;
+const guideSessionId = 'web-' + Date.now();
+
+function initGuideDrawer() {
+    const drawer = document.getElementById('guideDrawer');
+    const header = document.getElementById('guideHeader');
+    const toggleBtn = document.getElementById('guideToggleBtn');
+    const clearBtn = document.getElementById('guideClearBtn');
+    const input = document.getElementById('guideInput');
+    const sendBtn = document.getElementById('guideSendBtn');
+
+    // Start minimized
+    drawer.classList.add('minimized');
+
+    // Toggle drawer on header click
+    header.addEventListener('click', (e) => {
+        if (e.target === clearBtn) return;
+        toggleGuideDrawer();
+    });
+
+    toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleGuideDrawer();
+    });
+
+    // Clear conversation
+    clearBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await clearGuideConversation();
+    });
+
+    // Send message on Enter
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !guideSending) {
+            sendGuideMessage();
+        }
+    });
+
+    // Send button click
+    sendBtn.addEventListener('click', () => {
+        if (!guideSending) {
+            sendGuideMessage();
+        }
+    });
+
+    // Expand when input is focused
+    input.addEventListener('focus', () => {
+        if (!guideExpanded) {
+            expandGuideDrawer();
+        }
+    });
+}
+
+function toggleGuideDrawer() {
+    if (guideExpanded) {
+        collapseGuideDrawer();
+    } else {
+        expandGuideDrawer();
+    }
+}
+
+function expandGuideDrawer() {
+    const drawer = document.getElementById('guideDrawer');
+    const toggleBtn = document.getElementById('guideToggleBtn');
+
+    drawer.classList.remove('minimized');
+    drawer.classList.add('expanded');
+    toggleBtn.textContent = '−';
+    guideExpanded = true;
+
+    // Scroll to bottom of messages
+    const messages = document.getElementById('guideMessages');
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function collapseGuideDrawer() {
+    const drawer = document.getElementById('guideDrawer');
+    const toggleBtn = document.getElementById('guideToggleBtn');
+
+    drawer.classList.remove('expanded');
+    drawer.classList.add('minimized');
+    toggleBtn.textContent = '+';
+    guideExpanded = false;
+}
+
+async function sendGuideMessage() {
+    const input = document.getElementById('guideInput');
+    const sendBtn = document.getElementById('guideSendBtn');
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    guideSending = true;
+    sendBtn.disabled = true;
+    input.value = '';
+
+    // Expand drawer if minimized
+    if (!guideExpanded) {
+        expandGuideDrawer();
+    }
+
+    // Add user message to UI
+    addGuideMessage('user', message);
+
+    // Add loading message
+    const loadingId = addGuideMessage('assistant', 'thinking...', true);
+
+    try {
+        const response = await fetch('/api/guide/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message,
+                sessionId: guideSessionId
+            })
+        });
+
+        const data = await response.json();
+
+        // Remove loading message
+        removeGuideMessage(loadingId);
+
+        // Add assistant response
+        addGuideMessage('assistant', data.message);
+
+        // Display results in art grid if any
+        if (data.results && data.results.length > 0) {
+            currentArtResults = data.results;
+            browseDisplayCount = getInitialDisplayCount();
+
+            // Show playlist label
+            const playlistLabel = document.getElementById('currentPlaylist');
+            const playlistName = document.getElementById('playlistName');
+            playlistLabel.style.display = 'flex';
+            playlistName.textContent = data.searchQuery || 'Guide Results';
+            document.getElementById('playlistRefresh').style.display = 'none';
+
+            displayPlaylistCards();
+
+            // Switch to explore if not there
+            if (currentMode !== 'explore') {
+                switchMode('explore');
+            }
+        }
+    } catch (error) {
+        console.error('Guide chat error:', error);
+        removeGuideMessage(loadingId);
+        addGuideMessage('assistant', 'Sorry, I had trouble with that. Try again?');
+    } finally {
+        guideSending = false;
+        sendBtn.disabled = false;
+        input.focus();
+    }
+}
+
+function addGuideMessage(role, content, isLoading = false) {
+    const messages = document.getElementById('guideMessages');
+    const id = 'msg-' + Date.now();
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `guide-message ${role}${isLoading ? ' loading' : ''}`;
+    msgDiv.id = id;
+    msgDiv.textContent = content;
+
+    messages.appendChild(msgDiv);
+    messages.scrollTop = messages.scrollHeight;
+
+    return id;
+}
+
+function removeGuideMessage(id) {
+    const msg = document.getElementById(id);
+    if (msg) {
+        msg.remove();
+    }
+}
+
+async function clearGuideConversation() {
+    try {
+        await fetch(`/api/guide/chat?sessionId=${guideSessionId}`, {
+            method: 'DELETE'
+        });
+
+        // Clear UI
+        const messages = document.getElementById('guideMessages');
+        messages.innerHTML = '';
+    } catch (error) {
+        console.error('Error clearing conversation:', error);
     }
 }
 
