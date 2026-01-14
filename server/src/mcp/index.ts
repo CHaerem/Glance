@@ -25,6 +25,11 @@ const MCP_CLIENT_SECRET = process.env.MCP_CLIENT_SECRET || '';
 const MCP_JWT_SECRET = process.env.MCP_JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const MCP_TOKEN_EXPIRY = 3600; // 1 hour in seconds
 
+// TEMPORARY: Disable OAuth until Claude.ai fixes their OAuth implementation
+// See: https://github.com/anthropics/claude-ai-mcp/issues/5
+// Set MCP_REQUIRE_AUTH=true to re-enable OAuth when fixed
+const MCP_REQUIRE_AUTH = process.env.MCP_REQUIRE_AUTH === 'true';
+
 /** JWT payload structure */
 interface McpTokenPayload {
   client_id: string;
@@ -34,9 +39,16 @@ interface McpTokenPayload {
 }
 
 /**
- * Check if OAuth is configured
+ * Check if OAuth is configured and required
+ * TEMPORARY: Returns false unless MCP_REQUIRE_AUTH=true
+ * This is because Claude.ai's OAuth implementation is broken as of Dec 2025
+ * See: https://github.com/anthropics/claude-ai-mcp/issues/5
  */
 function isOAuthConfigured(): boolean {
+  // Temporarily disabled - Claude.ai OAuth is broken
+  if (!MCP_REQUIRE_AUTH) {
+    return false;
+  }
   return MCP_CLIENT_ID.length > 0 && MCP_CLIENT_SECRET.length > 0;
 }
 
@@ -631,6 +643,13 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
 export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: McpServerConfig = {}): Router {
   const router = Router();
   const mcpServer = createMcpServer({ glanceBaseUrl });
+
+  // Log OAuth status on startup
+  if (MCP_REQUIRE_AUTH && isOAuthConfigured()) {
+    log.info('MCP OAuth authentication enabled');
+  } else {
+    log.info('MCP OAuth authentication disabled (set MCP_REQUIRE_AUTH=true to enable)');
+  }
 
   // Store active transports by session ID
   const transports = new Map<string, unknown>();
