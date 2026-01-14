@@ -13,6 +13,7 @@ import crypto from 'crypto';
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
+import { z } from 'zod';
 
 import { loggers } from '../services/logger';
 import { getErrorMessage } from '../utils/error';
@@ -244,24 +245,12 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     'search_artworks',
     'Search for artworks across museum collections. Use keywords like artist names, art movements, subjects, or time periods.',
     {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description:
-            'Search query (e.g., "Monet water lilies", "impressionist landscape", "Dutch Golden Age")',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of results to return (default: 12, max: 20)',
-        },
-      },
-      required: ['query'],
+      query: z.string().describe('Search query (e.g., "Monet water lilies", "impressionist landscape", "Dutch Golden Age")'),
+      limit: z.number().optional().describe('Maximum number of results to return (default: 12, max: 20)'),
     },
-    async (args: Record<string, unknown>): Promise<McpToolResponse> => {
-      log.info('MCP search_artworks raw args', { args });
-      const query = args.query as string;
-      const limit = (args.limit as number) || 12;
+    async (args: { query: string; limit?: number }): Promise<McpToolResponse> => {
+      const { query, limit: limitArg } = args;
+      const limit = limitArg || 12;
       log.info('MCP search_artworks', { query, limit });
 
       try {
@@ -326,32 +315,12 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     'display_artwork',
     'Display an artwork on the e-ink frame. The image will be processed and sent to the display.',
     {
-      type: 'object',
-      properties: {
-        imageUrl: {
-          type: 'string',
-          description: 'URL of the artwork image to display',
-        },
-        title: {
-          type: 'string',
-          description: 'Title of the artwork',
-        },
-        artist: {
-          type: 'string',
-          description: 'Artist name',
-        },
-      },
-      required: ['imageUrl'],
+      imageUrl: z.string().describe('URL of the artwork image to display'),
+      title: z.string().optional().describe('Title of the artwork'),
+      artist: z.string().optional().describe('Artist name'),
     },
-    async ({
-      imageUrl,
-      title,
-      artist,
-    }: {
-      imageUrl: string;
-      title?: string;
-      artist?: string;
-    }): Promise<McpToolResponse> => {
+    async (args: { imageUrl: string; title?: string; artist?: string }): Promise<McpToolResponse> => {
+      const { imageUrl, title, artist } = args;
       log.info('MCP display_artwork', { imageUrl, title, artist });
 
       try {
@@ -486,16 +455,10 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     'get_playlist',
     'Get artworks from a specific playlist.',
     {
-      type: 'object',
-      properties: {
-        playlistId: {
-          type: 'string',
-          description: 'Playlist ID (e.g., "impressionist-masters", "serene-nature", "bold-abstract")',
-        },
-      },
-      required: ['playlistId'],
+      playlistId: z.string().describe('Playlist ID (e.g., "impressionist-masters", "serene-nature", "bold-abstract")'),
     },
-    async ({ playlistId }: { playlistId: string }): Promise<McpToolResponse> => {
+    async (args: { playlistId: string }): Promise<McpToolResponse> => {
+      const { playlistId } = args;
       log.info('MCP get_playlist', { playlistId });
 
       try {
