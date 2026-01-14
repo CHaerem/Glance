@@ -81,7 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('fileInput').addEventListener('change', handleFileSelect);
 
     document.getElementById('searchInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') searchArt();
+        if (e.key === 'Enter') {
+            const query = e.target.value.trim();
+            handleSearchOrGuide(query);
+        }
     });
 
     // Playlist stack navigation
@@ -1598,116 +1601,64 @@ async function stopRotation() {
 }
 
 // ========================================
-// Art Guide Drawer
+// Art Guide (inline in explore)
 // ========================================
 
-let guideExpanded = false;
 let guideSending = false;
 const guideSessionId = 'web-' + Date.now();
+let guideHasHistory = false;
 
 function initGuideDrawer() {
-    const drawer = document.getElementById('guideDrawer');
-    const header = document.getElementById('guideHeader');
-    const toggleBtn = document.getElementById('guideToggleBtn');
+    // Clear conversation button
     const clearBtn = document.getElementById('guideClearBtn');
-    const input = document.getElementById('guideInput');
-    const sendBtn = document.getElementById('guideSendBtn');
-
-    // Start minimized
-    drawer.classList.add('minimized');
-
-    // Toggle drawer on header click
-    header.addEventListener('click', (e) => {
-        if (e.target === clearBtn) return;
-        toggleGuideDrawer();
-    });
-
-    toggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleGuideDrawer();
-    });
-
-    // Clear conversation
-    clearBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await clearGuideConversation();
-    });
-
-    // Send message on Enter
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !guideSending) {
-            sendGuideMessage();
-        }
-    });
-
-    // Send button click
-    sendBtn.addEventListener('click', () => {
-        if (!guideSending) {
-            sendGuideMessage();
-        }
-    });
-
-    // Expand when input is focused
-    input.addEventListener('focus', () => {
-        if (!guideExpanded) {
-            expandGuideDrawer();
-        }
-    });
-}
-
-function toggleGuideDrawer() {
-    if (guideExpanded) {
-        collapseGuideDrawer();
-    } else {
-        expandGuideDrawer();
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearGuideConversation);
     }
 }
 
-function expandGuideDrawer() {
-    const drawer = document.getElementById('guideDrawer');
-    const toggleBtn = document.getElementById('guideToggleBtn');
+// Check if query looks conversational (vs simple keyword search)
+function isConversationalQuery(query) {
+    const conversationalPatterns = [
+        /^(show|find|get|give|suggest|recommend)\s+(me|us)/i,
+        /^(i\s+(want|like|love|prefer|need))/i,
+        /^(something|anything)\s+/i,
+        /^(what|how|why|can|could|would)/i,
+        /\?$/,  // ends with question mark
+        /(peaceful|calm|bright|dark|moody|happy|sad|romantic|dramatic)/i,
+        /(like|similar|style|mood|feeling|vibe)/i,
+        /^(more|less|different|another)/i
+    ];
 
-    drawer.classList.remove('minimized');
-    drawer.classList.add('expanded');
-    toggleBtn.textContent = '−';
-    guideExpanded = true;
-
-    // Scroll to bottom of messages
-    const messages = document.getElementById('guideMessages');
-    messages.scrollTop = messages.scrollHeight;
+    return conversationalPatterns.some(pattern => pattern.test(query));
 }
 
-function collapseGuideDrawer() {
-    const drawer = document.getElementById('guideDrawer');
-    const toggleBtn = document.getElementById('guideToggleBtn');
+async function handleSearchOrGuide(query) {
+    if (!query.trim()) return;
 
-    drawer.classList.remove('expanded');
-    drawer.classList.add('minimized');
-    toggleBtn.textContent = '+';
-    guideExpanded = false;
+    // Decide: conversational -> guide, otherwise -> direct search
+    if (isConversationalQuery(query)) {
+        await sendGuideMessage(query);
+    } else {
+        // Regular search (searchArt reads from input)
+        await searchArt();
+    }
 }
 
-async function sendGuideMessage() {
-    const input = document.getElementById('guideInput');
-    const sendBtn = document.getElementById('guideSendBtn');
-    const message = input.value.trim();
+async function sendGuideMessage(message) {
+    if (guideSending) return;
 
-    if (!message) return;
+    const searchInput = document.getElementById('searchInput');
 
     guideSending = true;
-    sendBtn.disabled = true;
-    input.value = '';
+    searchInput.disabled = true;
+    searchInput.value = '';
+    searchInput.placeholder = 'thinking...';
 
-    // Expand drawer if minimized
-    if (!guideExpanded) {
-        expandGuideDrawer();
-    }
+    // Show guide conversation area
+    showGuideInline();
 
     // Add user message to UI
     addGuideMessage('user', message);
-
-    // Add loading message
-    const loadingId = addGuideMessage('assistant', 'thinking...', true);
 
     try {
         const response = await fetch('/api/guide/chat', {
@@ -1721,9 +1672,6 @@ async function sendGuideMessage() {
 
         const data = await response.json();
 
-        // Remove loading message
-        removeGuideMessage(loadingId);
-
         // Add assistant response
         addGuideMessage('assistant', data.message);
 
@@ -1736,47 +1684,47 @@ async function sendGuideMessage() {
             const playlistLabel = document.getElementById('currentPlaylist');
             const playlistName = document.getElementById('playlistName');
             playlistLabel.style.display = 'flex';
-            playlistName.textContent = data.searchQuery || 'Guide Results';
+            playlistName.textContent = data.searchQuery || 'guide results';
             document.getElementById('playlistRefresh').style.display = 'none';
 
             displayPlaylistCards();
-
-            // Switch to explore if not there
-            if (currentMode !== 'explore') {
-                switchMode('explore');
-            }
         }
     } catch (error) {
         console.error('Guide chat error:', error);
-        removeGuideMessage(loadingId);
-        addGuideMessage('assistant', 'Sorry, I had trouble with that. Try again?');
+        addGuideMessage('assistant', 'Sorry, something went wrong. Try again?');
     } finally {
         guideSending = false;
-        sendBtn.disabled = false;
-        input.focus();
+        searchInput.disabled = false;
+        searchInput.placeholder = 'search or ask the guide...';
+        searchInput.focus();
     }
 }
 
-function addGuideMessage(role, content, isLoading = false) {
-    const messages = document.getElementById('guideMessages');
-    const id = 'msg-' + Date.now();
+function showGuideInline() {
+    const guideInline = document.getElementById('guideInline');
+    if (guideInline) {
+        guideInline.style.display = 'block';
+        guideHasHistory = true;
+    }
+}
+
+function hideGuideInline() {
+    const guideInline = document.getElementById('guideInline');
+    if (guideInline) {
+        guideInline.style.display = 'none';
+        guideHasHistory = false;
+    }
+}
+
+function addGuideMessage(role, content) {
+    const conversation = document.getElementById('guideConversation');
+    if (!conversation) return;
 
     const msgDiv = document.createElement('div');
-    msgDiv.className = `guide-message ${role}${isLoading ? ' loading' : ''}`;
-    msgDiv.id = id;
+    msgDiv.className = `guide-message ${role}`;
     msgDiv.textContent = content;
 
-    messages.appendChild(msgDiv);
-    messages.scrollTop = messages.scrollHeight;
-
-    return id;
-}
-
-function removeGuideMessage(id) {
-    const msg = document.getElementById(id);
-    if (msg) {
-        msg.remove();
-    }
+    conversation.appendChild(msgDiv);
 }
 
 async function clearGuideConversation() {
@@ -1786,8 +1734,12 @@ async function clearGuideConversation() {
         });
 
         // Clear UI
-        const messages = document.getElementById('guideMessages');
-        messages.innerHTML = '';
+        const conversation = document.getElementById('guideConversation');
+        if (conversation) {
+            conversation.innerHTML = '';
+        }
+
+        hideGuideInline();
     } catch (error) {
         console.error('Error clearing conversation:', error);
     }
