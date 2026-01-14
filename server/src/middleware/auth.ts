@@ -49,31 +49,22 @@ export function isTailscaleServeRequest(req: Request): boolean {
  *
  * Allows access from:
  * - localhost (127.0.0.1, ::1)
- * - LAN (192.168.x.x, 10.x.x.x)
- * - Docker bridge networks (172.16-31.x.x)
+ * - Private networks (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+ *
+ * Note: Using Docker host networking so container sees real client IPs.
  */
 export function isLocalRequest(req: Request): boolean {
   const ip = req.ip ?? (req.connection as { remoteAddress?: string })?.remoteAddress ?? '';
-
-  // Check for Docker bridge IPs (172.16.0.0 - 172.31.255.255)
-  const isDockerBridge = (ipAddr: string): boolean => {
-    const match = ipAddr.match(/^(?:::ffff:)?172\.(\d+)\./);
-    if (match && match[1]) {
-      const secondOctet = parseInt(match[1], 10);
-      return secondOctet >= 16 && secondOctet <= 31;
-    }
-    return false;
-  };
-
   return (
     ip === '127.0.0.1' ||
     ip === '::1' ||
     ip === '::ffff:127.0.0.1' ||
     ip.startsWith('192.168.') ||
     ip.startsWith('10.') ||
+    ip.startsWith('172.') ||
     ip.startsWith('::ffff:192.168.') ||
     ip.startsWith('::ffff:10.') ||
-    isDockerBridge(ip)
+    ip.startsWith('::ffff:172.')
   );
 }
 
