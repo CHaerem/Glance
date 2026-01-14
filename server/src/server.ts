@@ -48,6 +48,7 @@ import { createLogRoutes } from './routes/logs';
 import { createFirmwareRoutes } from './routes/firmware';
 import metricsRoutes from './routes/metrics';
 import semanticSearchRoutes from './routes/semantic-search';
+import { createMyCollectionRouter } from './routes/my-collection';
 
 // Configuration
 const app = express();
@@ -132,46 +133,21 @@ const mcpRateLimiter = rateLimit({
   skip: (req) => isTrustedRequest(req),
 });
 
-// CORS configuration for Claude.ai artifact integration
+// CORS configuration for local network access
 const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    const allowedOrigins: (string | RegExp)[] = [
-      'https://claude.ai',
-      'https://www.claude.ai',
-      /^https:\/\/.*\.claude\.ai$/,
-      /^https:\/\/.*\.ts\.net$/,
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-    ];
-
-    const isAllowed = allowedOrigins.some((allowed) => {
-      if (allowed instanceof RegExp) {
-        return allowed.test(origin);
-      }
-      return allowed === origin;
-    });
-
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      log.debug('CORS request from origin', { origin });
-      callback(null, true);
-    }
-  },
+  origin: true, // Allow all origins (WAN restriction middleware handles access control)
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'X-API-Key', 'Authorization', 'mcp-session-id'],
-  exposedHeaders: ['mcp-session-id'], // Required for MCP clients to read session ID
+  exposedHeaders: ['mcp-session-id'],
   credentials: true,
 };
 
-// Trust proxy for correct IP detection (1 = trust one hop, for Tailscale Funnel)
+// Trust proxy for correct IP detection (for Tailscale/reverse proxy setups)
 app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors(corsOptions));
-app.use(wanRestriction); // Block WAN access except /api/mcp and health endpoints
+app.use(wanRestriction); // Block all WAN access (LAN only)
 app.use('/api', publicApiLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true })); // For OAuth token requests (form-urlencoded)
@@ -244,10 +220,13 @@ app.use('/api/firmware', firmwareRoutes);
 // Semantic search routes
 app.use('/api/semantic', semanticSearchRoutes());
 
+// My Collection / Taste Guide routes
+app.use('/api/my-collection', createMyCollectionRouter());
+
 // Prometheus metrics endpoint
 app.use('/api/metrics', metricsRoutes());
 
-// MCP server for Claude.ai artifact integration
+// MCP server for Claude Code and other MCP clients
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createMcpRoutes } = require('../../mcp');
 const mcpRoutes = createMcpRoutes({ glanceBaseUrl: 'http://localhost:3000' });

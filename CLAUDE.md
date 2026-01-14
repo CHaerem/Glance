@@ -186,26 +186,13 @@ docker compose up -d
 | `/api/playlists` | List curated and dynamic playlists |
 | `/api/playlists/:id` | Get playlist artworks (static or AI-searched) |
 | `/api/settings` | Server settings (sleep duration, etc.) |
-| `/api/mcp` | MCP server endpoint for Claude.ai integration |
-| `/api/mcp/health` | MCP server health check and available tools |
-| `/api/ai-search/latest` | Get latest AI Art Guide search results (for page polling) |
+| `/api/mcp` | MCP server endpoint (LAN only) |
+| `/api/my-collection` | Personal art collection management |
+| `/api/my-collection/recommendations` | AI-powered art recommendations |
 
-## AI Art Guide (MCP Integration)
+## MCP Integration (Local Network)
 
-The Glance server includes an MCP (Model Context Protocol) server for Claude.ai artifact integration. A Claude artifact provides conversational art discovery, with search results displayed in the Glance explore page grid.
-
-**Full artifact specification:** See [docs/AI-ART-GUIDE-ARTIFACT.md](docs/AI-ART-GUIDE-ARTIFACT.md)
-
-### Architecture
-
-```
-Claude Artifact ──MCP──► Glance Server ──stores results──► Glance Page polls & displays
-```
-
-When Claude calls `search_artworks` via MCP:
-1. Results are returned to Claude for conversational response
-2. Results are stored server-side (`/api/ai-search/latest`)
-3. Glance page polls this endpoint and displays results in the art grid
+The Glance server includes an MCP (Model Context Protocol) server for Claude Code integration. MCP tools allow programmatic control of the e-ink display from any MCP-compatible client on the local network.
 
 ### MCP Tools Available
 
@@ -219,52 +206,14 @@ When Claude calls `search_artworks` via MCP:
 | `get_device_status` | Get device battery and connection status |
 | `random_artwork` | Get a random artwork |
 
-### Setup
-
-1. **Tailscale Funnel**: Expose the server publicly
-   ```bash
-   ssh chris@serverpi.local "sudo tailscale funnel --bg 80"
-   ```
-   This creates: `https://serverpi.corgi-climb.ts.net/`
-
-2. **Claude.ai Configuration**: Connect the MCP server in Claude.ai
-   - Go to Claude.ai Settings → Connectors
-   - Add server URL: `https://serverpi.corgi-climb.ts.net/api/mcp`
-
-3. **Create Artifact**: Ask Claude to create an AI-powered chat artifact
-   - Provide [docs/AI-ART-GUIDE-ARTIFACT.md](docs/AI-ART-GUIDE-ARTIFACT.md) as context
-   - Enable AI capabilities for the artifact
-   - Publish with allowed domain: `serverpi.corgi-climb.ts.net`
-
-4. **Embed in Glance**: Update iframe src in `server/public/index.html`
-
-5. **Access**: Use `https://serverpi.corgi-climb.ts.net` from any device (no Tailscale client needed)
-
 ### Security
 
-**MCP Authentication (OAuth 2.1 Client Credentials):**
+**Network Access:**
+- All endpoints are LAN-only (accessible from `serverpi.local:3000`)
+- WAN access is blocked for all endpoints except `/health`
+- Tailscale Serve users (authenticated) can also access the server
 
-The MCP endpoint uses OAuth 2.1 client credentials flow for machine-to-machine authentication:
-
-| Endpoint | Protection | Notes |
-|----------|------------|-------|
-| `/api/token` | Public | Token endpoint for client credentials grant |
-| `/api/mcp` | OAuth Bearer token | Requires valid JWT from `/api/token` |
-| `/api/mcp/health` | Public | Health check and server discovery |
-
-**OAuth Configuration:**
-- `MCP_CLIENT_ID` - Client identifier for OAuth
-- `MCP_CLIENT_SECRET` - Client secret for OAuth
-- `MCP_JWT_SECRET` - Secret for signing JWT tokens (auto-generated if not set)
-
-**Token Request:**
-```bash
-curl -X POST https://serverpi.corgi-climb.ts.net/api/token \
-  -H "Content-Type: application/json" \
-  -d '{"grant_type":"client_credentials","client_id":"...","client_secret":"..."}'
-```
-
-**Protected endpoints require API key (`X-API-Key` header) when accessed externally:**
+**Protected endpoints require API key (`X-API-Key` header):**
 
 | Endpoint | Protection | Reason |
 |----------|------------|--------|
@@ -273,13 +222,11 @@ curl -X POST https://serverpi.corgi-climb.ts.net/api/token \
 | `/api/art/import` | API key required | Displays on frame |
 | `/api/device-command` | API key required | Controls device |
 | DELETE endpoints | API key required | Destructive |
-| `/api/art/search`, `/api/playlists` | Public | Read-only |
+| All other endpoints | LAN only | Network restriction |
 
 **Configuration:**
 - Set `API_KEYS` environment variable (comma-separated for multiple keys)
-- Set `GLANCE_API_KEY` GitHub secret for CI/CD deployment
-- Local requests (127.0.0.1, 192.168.x.x, 10.x.x.x) bypass authentication
-- Rate limiting: 100 requests per 15 minutes per IP for external access
+- Local requests (127.0.0.1, 192.168.x.x, 10.x.x.x) bypass API key requirement
 
 ## Hardware
 
@@ -352,11 +299,8 @@ Test suites in `server/__tests__/`:
 ## Environment Variables
 
 ### Server (production via GitHub Secrets)
-- `OPENAI_API_KEY` - For AI art generation and vector search
+- `OPENAI_API_KEY` - For AI art generation, vector search, and taste guide
 - `API_KEYS` - Comma-separated API keys for protected endpoints
-- `MCP_CLIENT_ID` - OAuth client ID for MCP authentication
-- `MCP_CLIENT_SECRET` - OAuth client secret for MCP authentication
-- `MCP_JWT_SECRET` - Secret for signing JWT tokens (auto-generated if not set)
 - `LOKI_URL` - Grafana Cloud Loki endpoint (optional)
 - `LOKI_USER` - Loki username (optional)
 - `LOKI_TOKEN` - Loki API token (optional)
@@ -444,12 +388,15 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 
 ## Recent Changes
 
-- **MCP Server for Claude.ai**: AI Art Guide integration via Model Context Protocol
-  - MCP server exposes Glance API as tools for Claude artifacts
-  - Tools: search_artworks, display_artwork, get_current_display, list_playlists, etc.
-  - Tailscale Funnel for public HTTPS access: `https://serverpi.corgi-climb.ts.net/`
-  - API key authentication for sensitive endpoints (upload, generate, delete)
-  - Rate limiting for external requests (100/15min per IP)
+- **Taste Guide**: Personal art collection with AI-powered recommendations
+  - Track favorite artworks in `/api/my-collection`
+  - Generate embeddings for similarity search
+  - Build taste profile analyzing collection with GPT-4o-mini
+  - Get personalized recommendations based on your preferences
+- **LAN-only mode**: Server now only accessible from local network
+  - WAN access blocked for all endpoints except `/health`
+  - Tailscale Serve users (authenticated) can still access
+  - MCP server available for local Claude Code integration
 - **OpenAI Vector Stores migration**: Replaced Qdrant/CLIP with OpenAI's hosted vector database
   - Uses `text-embedding-3-small` model for semantic art search
   - 2+ million artwork embeddings stored in OpenAI Vector Stores

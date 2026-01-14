@@ -1,7 +1,6 @@
 /**
  * API Key Authentication Middleware
  *
- * Validates requests from external sources (like Claude artifacts via Tailscale Funnel).
  * When API_KEYS env var is set, requires X-API-Key header for non-local requests.
  */
 
@@ -162,15 +161,8 @@ export function optionalApiKeyAuth(
 /**
  * WAN restriction middleware
  *
- * Blocks all WAN (non-local, non-Tailscale) requests except for allowed paths.
- * This ensures only LAN users and authenticated Tailscale users can access
- * the web UI and most API endpoints.
- *
- * Allowed for public (Funnel) access:
- * - /api/mcp - Claude artifact integration (secured by API key)
- * - /health, /api/health - Health checks
- *
- * See: https://tailscale.com/kb/1312/serve for identity header details
+ * Blocks ALL WAN requests except health checks.
+ * Only local network (LAN) and authenticated Tailscale users can access the server.
  */
 export function wanRestriction(
   req: Request,
@@ -183,45 +175,13 @@ export function wanRestriction(
     return;
   }
 
-  // Debug logging for WAN requests
-  log.debug('WAN request', {
-    ip: req.ip,
-    path: req.path,
-    method: req.method,
-    isLocal: isLocalRequest(req),
-    isTailscale: isTailscaleServeRequest(req),
-  });
-
-  // Allowed paths for WAN access
-  const allowedPaths = [
-    '/api/mcp',       // MCP endpoint for Claude artifacts
-    '/api/token',     // OAuth token endpoint for MCP authentication
-    '/api/authorize', // OAuth authorization endpoint (PKCE flow)
-    '/.well-known',   // OAuth discovery endpoints (RFC 8414, RFC 9728)
-    '/health',
-    '/api/health',
-    '/js',            // Static JS assets for UI
-    '/css',           // Static CSS assets for UI
-    '/api/ai-search', // AI search results polling (for artifact integration)
-  ];
-
-  // Paths that need exact match (not prefix)
-  const exactMatchPaths = [
-    '/',  // Main UI - needed for artifact embedding via HTTPS
-    '/artifact-frame.html',  // Wrapper for Claude artifact (allows HTTP→HTTPS→HTTPS chain)
-  ];
-
-  // Check if path starts with any allowed path or exactly matches
-  const isAllowed = allowedPaths.some(
-    (allowed) => req.path === allowed || req.path.startsWith(allowed + '/')
-  ) || exactMatchPaths.includes(req.path);
-
-  if (isAllowed) {
+  // Only allow health checks from WAN (for monitoring)
+  if (req.path === '/health' || req.path === '/api/health') {
     next();
     return;
   }
 
-  // Block all other WAN requests
+  // Block all WAN requests
   log.warn('WAN access blocked', {
     ip: req.ip,
     path: req.path,
