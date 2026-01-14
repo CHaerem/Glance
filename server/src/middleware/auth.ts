@@ -196,6 +196,7 @@ export function wanRestriction(
   const allowedPaths = [
     '/api/mcp',       // MCP endpoint for Claude artifacts
     '/api/token',     // OAuth token endpoint for MCP authentication
+    '/.well-known',   // OAuth discovery endpoints (RFC 8414, RFC 9728)
     '/health',
     '/api/health',
     '/js',            // Static JS assets for UI

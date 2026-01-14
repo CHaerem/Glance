@@ -235,6 +235,50 @@ const { createMcpRoutes } = require('../../mcp');
 const mcpRoutes = createMcpRoutes({ glanceBaseUrl: 'http://localhost:3000' });
 app.use('/api', mcpRoutes);
 
+// OAuth 2.1 Discovery Endpoints for MCP
+// These are required for Claude.ai to discover OAuth configuration
+const getServerBaseUrl = (req: Request) => {
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
+  return `${protocol}://${host}`;
+};
+
+// OAuth Authorization Server Metadata (RFC 8414)
+app.get('/.well-known/oauth-authorization-server', (req: Request, res: Response) => {
+  const baseUrl = getServerBaseUrl(req);
+  res.json({
+    issuer: baseUrl,
+    token_endpoint: `${baseUrl}/api/token`,
+    token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
+    grant_types_supported: ['client_credentials'],
+    scopes_supported: ['mcp:tools'],
+    response_types_supported: ['token'],
+    service_documentation: `${baseUrl}/api/mcp`,
+  });
+});
+
+// OAuth Protected Resource Metadata (RFC 9728)
+app.get('/.well-known/oauth-protected-resource', (req: Request, res: Response) => {
+  const baseUrl = getServerBaseUrl(req);
+  res.json({
+    resource: `${baseUrl}/api/mcp`,
+    authorization_servers: [baseUrl],
+    bearer_methods_supported: ['header'],
+    scopes_supported: ['mcp:tools'],
+  });
+});
+
+// Resource-specific OAuth metadata
+app.get('/.well-known/oauth-protected-resource/*', (req: Request, res: Response) => {
+  const baseUrl = getServerBaseUrl(req);
+  res.json({
+    resource: `${baseUrl}/api/mcp`,
+    authorization_servers: [baseUrl],
+    bearer_methods_supported: ['header'],
+    scopes_supported: ['mcp:tools'],
+  });
+});
+
 // Error handling middleware
 const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   log.error('Request error', {
