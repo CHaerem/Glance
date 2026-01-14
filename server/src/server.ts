@@ -225,7 +225,7 @@ app.use('/api/semantic', semanticSearchRoutes());
 app.use('/api/my-collection', createMyCollectionRouter());
 
 // Art Guide chat routes
-app.use('/api/guide', createGuideRoutes());
+app.use('/api/guide', createGuideRoutes({ uploadDir: UPLOAD_DIR }));
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', metricsRoutes());

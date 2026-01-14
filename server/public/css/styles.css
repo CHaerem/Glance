@@ -1472,38 +1472,61 @@
 }
 
 /* ========================================
-   Art Guide (inline in explore)
+   Art Guide Chat (inline in explore)
    ======================================== */
 
-.guide-inline {
+.guide-chat {
     margin: 16px 0;
     padding: 16px;
     background: #fafafa;
-    border-radius: 8px;
+    border-radius: 12px;
     border: 1px solid #f0f0f0;
 }
 
-.guide-conversation {
+.guide-messages {
     display: flex;
     flex-direction: column;
     gap: 12px;
     margin-bottom: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.guide-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+.guide-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.guide-messages::-webkit-scrollbar-thumb {
+    background: #ddd;
+    border-radius: 2px;
 }
 
 .guide-message {
     font-size: 0.9rem;
     line-height: 1.5;
-    color: #666;
+    animation: guideMessageFadeIn 0.3s ease;
+}
+
+@keyframes guideMessageFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .guide-message.user {
-    color: #999;
-    font-style: italic;
-}
-
-.guide-message.user::before {
-    content: "you: ";
-    font-style: normal;
+    color: #888;
+    padding-left: 12px;
+    border-left: 2px solid #e0e0e0;
 }
 
 .guide-message.assistant {
@@ -1512,6 +1535,96 @@
 
 .guide-message.loading {
     color: #bbb;
+}
+
+.guide-message.loading::after {
+    content: '...';
+    animation: guideDots 1.5s infinite;
+}
+
+@keyframes guideDots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}
+
+/* Action feedback toast */
+.guide-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #666;
+    background: #f5f5f5;
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-top: 6px;
+}
+
+.guide-action.success {
+    color: #2a7d3f;
+    background: #e8f5e9;
+}
+
+.guide-action.error {
+    color: #c62828;
+    background: #ffebee;
+}
+
+/* Chat input row */
+.guide-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.guide-input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    background: white;
+    color: #1a1a1a;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.guide-input:focus {
+    border-color: #bbb;
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.03);
+}
+
+.guide-input::placeholder {
+    color: #bbb;
+}
+
+.guide-send-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: #1a1a1a;
+    color: white;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.guide-send-btn:hover {
+    background: #333;
+}
+
+.guide-send-btn:active {
+    transform: scale(0.95);
+}
+
+.guide-send-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
 }
 
 .guide-clear-link {

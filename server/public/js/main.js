@@ -1601,7 +1601,7 @@ async function stopRotation() {
 }
 
 // ========================================
-// Art Guide (inline in explore)
+// Art Guide Chat (agentic, inline in explore)
 // ========================================
 
 let guideSending = false;
@@ -1613,6 +1613,23 @@ function initGuideDrawer() {
     const clearBtn = document.getElementById('guideClearBtn');
     if (clearBtn) {
         clearBtn.addEventListener('click', clearGuideConversation);
+    }
+
+    // Guide input field (dedicated chat input)
+    const guideInput = document.getElementById('guideInput');
+    const guideSendBtn = document.getElementById('guideSendBtn');
+
+    if (guideInput) {
+        guideInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendGuideMessageFromInput();
+            }
+        });
+    }
+
+    if (guideSendBtn) {
+        guideSendBtn.addEventListener('click', sendGuideMessageFromInput);
     }
 }
 
@@ -1626,7 +1643,9 @@ function isConversationalQuery(query) {
         /\?$/,  // ends with question mark
         /(peaceful|calm|bright|dark|moody|happy|sad|romantic|dramatic)/i,
         /(like|similar|style|mood|feeling|vibe)/i,
-        /^(more|less|different|another)/i
+        /^(more|less|different|another)/i,
+        /^(display|put|add|save|show\s+on)/i,  // action requests
+        /^(what('s|s|\s+is)\s+(on|showing|displayed))/i  // status queries
     ];
 
     return conversationalPatterns.some(pattern => pattern.test(query));
@@ -1644,21 +1663,48 @@ async function handleSearchOrGuide(query) {
     }
 }
 
+// Send message from the dedicated guide input
+async function sendGuideMessageFromInput() {
+    const guideInput = document.getElementById('guideInput');
+    if (!guideInput) return;
+
+    const message = guideInput.value.trim();
+    if (!message) return;
+
+    guideInput.value = '';
+    await sendGuideMessage(message);
+}
+
 async function sendGuideMessage(message) {
     if (guideSending) return;
 
     const searchInput = document.getElementById('searchInput');
+    const guideInput = document.getElementById('guideInput');
+    const guideSendBtn = document.getElementById('guideSendBtn');
 
     guideSending = true;
-    searchInput.disabled = true;
-    searchInput.value = '';
-    searchInput.placeholder = 'thinking...';
 
-    // Show guide conversation area
-    showGuideInline();
+    // Disable inputs
+    if (searchInput) {
+        searchInput.disabled = true;
+        searchInput.value = '';
+        searchInput.placeholder = 'guide is thinking...';
+    }
+    if (guideInput) {
+        guideInput.disabled = true;
+    }
+    if (guideSendBtn) {
+        guideSendBtn.disabled = true;
+    }
+
+    // Show guide chat area
+    showGuideChat();
 
     // Add user message to UI
     addGuideMessage('user', message);
+
+    // Add loading indicator
+    const loadingId = addGuideMessage('assistant', 'Thinking', true);
 
     try {
         const response = await fetch('/api/guide/chat', {
@@ -1672,8 +1718,26 @@ async function sendGuideMessage(message) {
 
         const data = await response.json();
 
+        // Remove loading indicator
+        removeGuideMessage(loadingId);
+
         // Add assistant response
         addGuideMessage('assistant', data.message);
+
+        // Show action feedback
+        if (data.actions && data.actions.length > 0) {
+            for (const action of data.actions) {
+                showGuideActionFeedback(action);
+            }
+        }
+
+        // Handle display action - refresh current display
+        if (data.displayed) {
+            // Refresh the current display after a short delay
+            setTimeout(() => {
+                refreshCurrentDisplay();
+            }, 1000);
+        }
 
         // Display results in art grid if any
         if (data.results && data.results.length > 0) {
@@ -1683,48 +1747,119 @@ async function sendGuideMessage(message) {
             // Show playlist label
             const playlistLabel = document.getElementById('currentPlaylist');
             const playlistName = document.getElementById('playlistName');
-            playlistLabel.style.display = 'flex';
-            playlistName.textContent = data.searchQuery || 'guide results';
-            document.getElementById('playlistRefresh').style.display = 'none';
+            if (playlistLabel && playlistName) {
+                playlistLabel.style.display = 'flex';
+                playlistName.textContent = 'guide results';
+                const refreshBtn = document.getElementById('playlistRefresh');
+                if (refreshBtn) refreshBtn.style.display = 'none';
+            }
 
             displayPlaylistCards();
         }
     } catch (error) {
         console.error('Guide chat error:', error);
+        removeGuideMessage(loadingId);
         addGuideMessage('assistant', 'Sorry, something went wrong. Try again?');
     } finally {
         guideSending = false;
-        searchInput.disabled = false;
-        searchInput.placeholder = 'search or ask the guide...';
-        searchInput.focus();
+
+        // Re-enable inputs
+        if (searchInput) {
+            searchInput.disabled = false;
+            searchInput.placeholder = 'search or ask the guide...';
+        }
+        if (guideInput) {
+            guideInput.disabled = false;
+            guideInput.focus();
+        }
+        if (guideSendBtn) {
+            guideSendBtn.disabled = false;
+        }
     }
 }
 
-function showGuideInline() {
-    const guideInline = document.getElementById('guideInline');
-    if (guideInline) {
-        guideInline.style.display = 'block';
+function showGuideChat() {
+    const guideChat = document.getElementById('guideChat');
+    if (guideChat) {
+        guideChat.style.display = 'block';
         guideHasHistory = true;
     }
 }
 
-function hideGuideInline() {
-    const guideInline = document.getElementById('guideInline');
-    if (guideInline) {
-        guideInline.style.display = 'none';
+function hideGuideChat() {
+    const guideChat = document.getElementById('guideChat');
+    if (guideChat) {
+        guideChat.style.display = 'none';
         guideHasHistory = false;
     }
 }
 
-function addGuideMessage(role, content) {
-    const conversation = document.getElementById('guideConversation');
-    if (!conversation) return;
+let guideMessageCounter = 0;
 
+function addGuideMessage(role, content, isLoading = false) {
+    const messages = document.getElementById('guideMessages');
+    if (!messages) return null;
+
+    const msgId = `guide-msg-${++guideMessageCounter}`;
     const msgDiv = document.createElement('div');
-    msgDiv.className = `guide-message ${role}`;
+    msgDiv.id = msgId;
+    msgDiv.className = `guide-message ${role}${isLoading ? ' loading' : ''}`;
     msgDiv.textContent = content;
 
-    conversation.appendChild(msgDiv);
+    messages.appendChild(msgDiv);
+
+    // Scroll to bottom
+    messages.scrollTop = messages.scrollHeight;
+
+    return msgId;
+}
+
+function removeGuideMessage(msgId) {
+    if (!msgId) return;
+    const msgEl = document.getElementById(msgId);
+    if (msgEl) {
+        msgEl.remove();
+    }
+}
+
+function showGuideActionFeedback(action) {
+    const messages = document.getElementById('guideMessages');
+    if (!messages) return;
+
+    const actionDiv = document.createElement('div');
+    actionDiv.className = `guide-action ${action.success ? 'success' : 'error'}`;
+
+    let icon = '';
+    let text = '';
+
+    switch (action.type) {
+        case 'display':
+            icon = action.success ? '🖼️' : '⚠️';
+            text = action.success ? 'Sent to frame' : 'Display failed';
+            break;
+        case 'search':
+            icon = '🔍';
+            text = `Found ${action.data?.resultCount || 0} results`;
+            break;
+        case 'add_to_collection':
+            icon = action.success ? '❤️' : '⚠️';
+            text = action.success ? 'Added to collection' : 'Could not add';
+            break;
+        case 'get_recommendations':
+            icon = '✨';
+            text = `${action.data?.resultCount || 0} recommendations`;
+            break;
+        case 'get_current_display':
+            icon = 'ℹ️';
+            text = 'Checked current display';
+            break;
+        default:
+            return;
+    }
+
+    actionDiv.innerHTML = `<span>${icon}</span><span>${text}</span>`;
+    messages.appendChild(actionDiv);
+    messages.scrollTop = messages.scrollHeight;
 }
 
 async function clearGuideConversation() {
@@ -1734,14 +1869,35 @@ async function clearGuideConversation() {
         });
 
         // Clear UI
-        const conversation = document.getElementById('guideConversation');
-        if (conversation) {
-            conversation.innerHTML = '';
+        const messages = document.getElementById('guideMessages');
+        if (messages) {
+            messages.innerHTML = '';
         }
 
-        hideGuideInline();
+        hideGuideChat();
     } catch (error) {
         console.error('Error clearing conversation:', error);
+    }
+}
+
+// Refresh current display (called after guide displays something)
+async function refreshCurrentDisplay() {
+    try {
+        const response = await fetch('/api/current-full.json');
+        if (response.ok) {
+            const data = await response.json();
+            // Update main display if we have one
+            const mainImage = document.getElementById('mainImage');
+            const mainTitle = document.getElementById('mainTitle');
+            if (mainImage && data.image) {
+                mainImage.src = `data:image/png;base64,${data.image}`;
+            }
+            if (mainTitle && data.title) {
+                mainTitle.textContent = data.title;
+            }
+        }
+    } catch (error) {
+        console.error('Error refreshing display:', error);
     }
 }
 
