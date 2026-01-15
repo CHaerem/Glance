@@ -58,7 +58,8 @@ export async function isUrlAccessible(
       signal: controller.signal,
       redirect: 'follow',
       headers: {
-        'User-Agent': 'Glance/1.0 (Art Gallery Display; contact@example.com)',
+        // Use a proper User-Agent - Wikimedia blocks requests with fake contact info
+        'User-Agent': 'Mozilla/5.0 (compatible; GlanceBot/1.0; +https://github.com/anthropics/glance)',
         Range: 'bytes=0-0', // Only fetch first byte to minimize bandwidth
       },
     });
@@ -71,16 +72,20 @@ export async function isUrlAccessible(
     // Cache the result
     validationCache.set(url, valid);
 
-    if (!valid) {
-      log.debug('Image URL not accessible', { url, status: response.status });
-    }
+    // Log validation result for debugging
+    log.debug('Image URL validation', {
+      url: url.substring(0, 80),
+      status: response.status,
+      ok: response.ok,
+      valid
+    });
 
     return valid;
   } catch (error) {
     // Cache negative results too
     validationCache.set(url, false);
-    log.debug('Image URL check failed', {
-      url,
+    log.warn('Image URL check failed', {
+      url: url.substring(0, 80),
       error: getErrorMessage(error),
     });
     return false;

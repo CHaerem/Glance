@@ -6,7 +6,9 @@ const {
     getWikimediaUrl,
     isFilenameValidated,
     getCacheStats,
-    clearValidationCache
+    clearValidationCache,
+    isUrlAccessible,
+    isWikimediaFileValid
 } = require('../../utils/image-validator');
 
 describe('Image Validator', () => {
@@ -86,5 +88,56 @@ describe('Image Validator', () => {
             const statsAfter = getCacheStats();
             expect(statsAfter.totalEntries).toBe(0);
         });
+    });
+});
+
+// Integration tests - actually hit the network
+describe('Image Validator Integration', () => {
+    beforeEach(() => {
+        clearValidationCache();
+    });
+
+    describe('isUrlAccessible', () => {
+        it('should return true for valid Wikimedia URL', async () => {
+            // Mona Lisa - a well-known file that should always exist
+            const url = getWikimediaUrl('Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg', 400);
+            const result = await isUrlAccessible(url);
+            expect(result).toBe(true);
+        }, 15000);
+
+        it('should return false for non-existent file', async () => {
+            const url = getWikimediaUrl('This_File_Does_Not_Exist_12345.jpg', 400);
+            const result = await isUrlAccessible(url);
+            expect(result).toBe(false);
+        }, 15000);
+
+        it('should cache results', async () => {
+            const url = getWikimediaUrl('Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg', 400);
+
+            // First call - not cached
+            const statsBefore = getCacheStats();
+            expect(statsBefore.totalEntries).toBe(0);
+
+            await isUrlAccessible(url);
+
+            // After call - should be cached
+            const statsAfter = getCacheStats();
+            expect(statsAfter.totalEntries).toBe(1);
+            expect(statsAfter.validUrls).toBe(1);
+        }, 15000);
+    });
+
+    describe('isWikimediaFileValid', () => {
+        it('should validate Starry Night (a common curated artwork)', async () => {
+            // Van Gogh's Starry Night
+            const result = await isWikimediaFileValid('Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg');
+            expect(result).toBe(true);
+        }, 15000);
+
+        it('should validate Water Lilies', async () => {
+            // Monet's Water Lilies
+            const result = await isWikimediaFileValid('Claude_Monet_-_Water_Lilies_-_1906,_Ryerson.jpg');
+            expect(result).toBe(true);
+        }, 15000);
     });
 });
