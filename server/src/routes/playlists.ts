@@ -58,7 +58,7 @@ interface ArtworkResponse {
 }
 
 // Load playlists data
-const PLAYLISTS_PATH = path.join(__dirname, '..', '..', '..', 'data', 'playlists.json');
+const PLAYLISTS_PATH = path.join(__dirname, '..', '..', 'data', 'playlists.json');
 let playlistsData: PlaylistsData = { playlists: [] };
 
 try {

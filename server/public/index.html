@@ -71,6 +71,17 @@
                 <button class="explore-random-btn" id="randomArtBtn" title="Random artwork">🎲</button>
             </div>
 
+            <!-- Quick Suggestions (right after search) -->
+            <div class="quick-suggestions" id="quickSuggestions">
+                <span class="suggestions-label">or try:</span>
+                <span class="suggestion-chip" data-query="impressionists">impressionists</span>
+                <span class="suggestion-chip" data-query="portraits">portraits</span>
+                <span class="suggestion-chip" data-query="landscapes">landscapes</span>
+                <span class="suggestion-chip" data-query="abstract">abstract</span>
+                <span class="suggestion-chip" data-query="dutch masters">dutch masters</span>
+                <span class="suggestion-chip" data-query="japanese art">japanese</span>
+            </div>
+
             <!-- Guide Response (shows after AI responds) -->
             <div class="guide-response" id="guideResponse" style="display: none;">
                 <!-- Shows guide responses briefly -->
@@ -101,17 +112,6 @@
                 <div class="todays-gallery-grid" id="todaysGallery">
                     <!-- Populated dynamically with 8 famous artworks -->
                 </div>
-            </div>
-
-            <!-- Quick Suggestions -->
-            <div class="quick-suggestions" id="quickSuggestions">
-                <span class="suggestions-label">or try:</span>
-                <span class="suggestion-chip" data-query="impressionists">impressionists</span>
-                <span class="suggestion-chip" data-query="portraits">portraits</span>
-                <span class="suggestion-chip" data-query="landscapes">landscapes</span>
-                <span class="suggestion-chip" data-query="abstract">abstract</span>
-                <span class="suggestion-chip" data-query="dutch masters">dutch masters</span>
-                <span class="suggestion-chip" data-query="japanese art">japanese</span>
             </div>
 
             <!-- Search Results (hidden by default, shown when searching) -->
