@@ -1478,14 +1478,51 @@
 }
 
 /* ========================================
-   Discovery Hints (dynamic text links)
+   Single Input + Smart Hints (calm design)
    ======================================== */
 
-.discovery-hints {
+.guide-input-container {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.guide-main-input {
+    width: 100%;
+    padding: 14px 18px;
+    font-size: 0.95rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 24px;
+    background: #fafafa;
+    color: #1a1a1a;
+    outline: none;
+    transition: all 0.25s ease;
+    box-sizing: border-box;
+}
+
+.guide-main-input:focus {
+    background: white;
+    border-color: #ccc;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.guide-main-input::placeholder {
+    color: #aaa;
+}
+
+/* Smart hints - hidden by default, appear on focus */
+.smart-hints {
     text-align: center;
-    margin: 12px 0 8px;
+    padding: 12px 0 4px;
     font-size: 0.8rem;
-    min-height: 24px;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s ease, max-height 0.3s ease;
+}
+
+.smart-hints.visible {
+    opacity: 1;
+    max-height: 80px;
 }
 
 .hint-link {
@@ -1495,9 +1532,8 @@
     cursor: pointer;
     font-family: inherit;
     font-size: inherit;
-    padding: 4px 8px;
-    transition: color 0.2s ease, opacity 0.3s ease;
-    animation: hintFadeIn 0.4s ease;
+    padding: 6px 10px;
+    transition: color 0.2s ease;
 }
 
 .hint-link:hover {
@@ -1511,97 +1547,55 @@
 .hint-sep {
     color: #ddd;
     margin: 0 2px;
-    animation: hintFadeIn 0.4s ease;
 }
 
-@keyframes hintFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Inline response toast */
+.guide-response {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #666;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 0.3s ease;
 }
 
-/* Mobile-friendly hints */
-@media (max-width: 600px) {
-    .discovery-hints {
-        margin: 16px 0 12px;
-        padding: 0 8px;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-        gap: 4px;
-    }
-
-    .hint-link {
-        font-size: 0.85rem;
-        padding: 8px 12px;
-        min-height: 36px;
-        display: inline-flex;
-        align-items: center;
-    }
-
-    .hint-sep {
-        margin: 0 4px;
-    }
+.guide-response.visible {
+    padding: 12px 0;
+    max-height: 120px;
+    opacity: 1;
 }
 
-/* Touch devices - better tap feedback */
-@media (hover: none) and (pointer: coarse) {
-    .hint-link {
-        -webkit-tap-highlight-color: transparent;
-    }
-
-    .hint-link:active {
-        color: #333;
-        background: rgba(0, 0, 0, 0.04);
-        border-radius: 4px;
-    }
+.guide-response-text {
+    display: inline-block;
+    padding: 8px 16px;
+    background: #f5f5f5;
+    border-radius: 16px;
+    line-height: 1.4;
+    animation: responseSlideIn 0.3s ease;
 }
 
-/* ========================================
-   Art Guide Chat (inline in explore)
-   ======================================== */
-
-.guide-chat {
-    margin: 16px 0;
-    padding: 16px;
-    background: #fafafa;
-    border-radius: 12px;
-    border: 1px solid #f0f0f0;
+.guide-response-text.loading {
+    color: #999;
 }
 
-.guide-messages {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 12px;
-    max-height: 280px;
-    overflow-y: auto;
-    padding-right: 4px;
+.guide-response-text.loading::after {
+    content: '';
+    animation: loadingDots 1.2s infinite;
 }
 
-.guide-messages::-webkit-scrollbar {
-    width: 4px;
+@keyframes loadingDots {
+    0% { content: ''; }
+    25% { content: '.'; }
+    50% { content: '..'; }
+    75% { content: '...'; }
 }
 
-.guide-messages::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.guide-messages::-webkit-scrollbar-thumb {
-    background: #ddd;
-    border-radius: 2px;
-}
-
-.guide-message {
-    font-size: 0.9rem;
-    line-height: 1.5;
-    animation: guideMessageFadeIn 0.3s ease;
-}
-
-@keyframes guideMessageFadeIn {
+@keyframes responseSlideIn {
     from {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(-8px);
     }
     to {
         opacity: 1;
@@ -1609,181 +1603,60 @@
     }
 }
 
-.guide-message.user {
-    color: #888;
-    padding-left: 12px;
-    border-left: 2px solid #e0e0e0;
-}
-
-.guide-message.assistant {
-    color: #1a1a1a;
-}
-
-.guide-message.loading {
-    color: #bbb;
-}
-
-.guide-message.loading::after {
-    content: '...';
-    animation: guideDots 1.5s infinite;
-}
-
-@keyframes guideDots {
-    0%, 20% { content: '.'; }
-    40% { content: '..'; }
-    60%, 100% { content: '...'; }
-}
-
-/* Action feedback toast */
-.guide-action {
+/* Action indicators */
+.guide-action-indicator {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.8rem;
-    color: #666;
-    background: #f5f5f5;
-    padding: 4px 10px;
-    border-radius: 12px;
-    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #888;
+    margin-top: 8px;
 }
 
-.guide-action.success {
-    color: #2a7d3f;
-    background: #e8f5e9;
+.guide-action-indicator.success {
+    color: #4a9960;
 }
 
-.guide-action.error {
-    color: #c62828;
-    background: #ffebee;
-}
-
-/* Chat input row */
-.guide-input-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.guide-input {
-    flex: 1;
-    padding: 10px 14px;
-    font-size: 0.9rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 20px;
-    background: white;
-    color: #1a1a1a;
-    outline: none;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.guide-input:focus {
-    border-color: #bbb;
-    box-shadow: 0 0 0 3px rgba(0,0,0,0.03);
-}
-
-.guide-input::placeholder {
-    color: #bbb;
-}
-
-.guide-send-btn {
-    width: 40px;
-    height: 40px;
-    border: none;
-    border-radius: 50%;
-    background: #1a1a1a;
-    color: white;
-    font-size: 1.1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s ease, transform 0.1s ease;
-}
-
-.guide-send-btn:hover {
-    background: #333;
-}
-
-.guide-send-btn:active {
-    transform: scale(0.95);
-}
-
-.guide-send-btn:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-}
-
-.guide-clear-link {
-    background: none;
-    border: none;
-    font-size: 0.75rem;
-    color: #bbb;
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.2s ease;
-}
-
-.guide-clear-link:hover {
-    color: #999;
-}
-
-/* Mobile-friendly guide chat */
+/* Mobile-friendly single input */
 @media (max-width: 600px) {
-    .guide-chat {
-        margin: 12px 0;
-        padding: 12px;
-        border-radius: 10px;
+    .guide-main-input {
+        font-size: 16px; /* Prevents iOS zoom */
+        padding: 16px 18px;
     }
 
-    .guide-messages {
-        max-height: 200px;
-        gap: 10px;
-        margin-bottom: 10px;
+    .smart-hints {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px;
+        padding: 14px 8px 6px;
     }
 
-    .guide-message {
+    .smart-hints.visible {
+        max-height: 100px;
+    }
+
+    .hint-link {
+        padding: 10px 14px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .guide-response-text {
         font-size: 0.88rem;
-    }
-
-    .guide-input-row {
-        gap: 8px;
-    }
-
-    .guide-input {
-        padding: 12px 14px;
-        font-size: 16px; /* Prevents iOS zoom on focus */
-        border-radius: 18px;
-    }
-
-    .guide-send-btn {
-        width: 44px;
-        height: 44px;
-        min-width: 44px; /* Ensure tap target */
-    }
-
-    .guide-action {
-        font-size: 0.78rem;
-        padding: 5px 10px;
-    }
-
-    .guide-clear-link {
-        font-size: 0.78rem;
-        padding: 8px 0;
+        padding: 10px 16px;
     }
 }
 
-/* Touch devices - guide chat improvements */
+/* Touch devices */
 @media (hover: none) and (pointer: coarse) {
-    .guide-send-btn {
+    .hint-link {
         -webkit-tap-highlight-color: transparent;
     }
 
-    .guide-send-btn:active {
-        background: #444;
-        transform: scale(0.95);
-    }
-
-    .guide-clear-link {
-        padding: 10px 4px;
+    .hint-link:active {
+        background: rgba(0, 0, 0, 0.04);
+        border-radius: 8px;
     }
 }

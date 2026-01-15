@@ -1610,30 +1610,24 @@ async function stopRotation() {
 
 let guideSending = false;
 const guideSessionId = 'web-' + Date.now();
-let guideHasHistory = false;
+let responseAutoHideTimer = null;
 
 function initGuideDrawer() {
-    // Clear conversation button
-    const clearBtn = document.getElementById('guideClearBtn');
-    if (clearBtn) {
-        clearBtn.addEventListener('click', clearGuideConversation);
-    }
+    const searchInput = document.getElementById('searchInput');
+    const smartHints = document.getElementById('smartHints');
 
-    // Guide input field (dedicated chat input)
-    const guideInput = document.getElementById('guideInput');
-    const guideSendBtn = document.getElementById('guideSendBtn');
-
-    if (guideInput) {
-        guideInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendGuideMessageFromInput();
-            }
+    if (searchInput && smartHints) {
+        // Show hints on focus
+        searchInput.addEventListener('focus', () => {
+            smartHints.classList.add('visible');
         });
-    }
 
-    if (guideSendBtn) {
-        guideSendBtn.addEventListener('click', sendGuideMessageFromInput);
+        // Hide hints on blur (with delay to allow click)
+        searchInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                smartHints.classList.remove('visible');
+            }, 200);
+        });
     }
 }
 
@@ -1667,48 +1661,52 @@ async function handleSearchOrGuide(query) {
     }
 }
 
-// Send message from the dedicated guide input
-async function sendGuideMessageFromInput() {
-    const guideInput = document.getElementById('guideInput');
-    if (!guideInput) return;
+// Show inline response (toast-style)
+function showInlineResponse(text, isLoading = false) {
+    const responseDiv = document.getElementById('guideResponse');
+    if (!responseDiv) return;
 
-    const message = guideInput.value.trim();
-    if (!message) return;
+    // Clear any existing auto-hide timer
+    if (responseAutoHideTimer) {
+        clearTimeout(responseAutoHideTimer);
+        responseAutoHideTimer = null;
+    }
 
-    guideInput.value = '';
-    await sendGuideMessage(message);
+    responseDiv.innerHTML = `<span class="guide-response-text${isLoading ? ' loading' : ''}">${text}</span>`;
+    responseDiv.classList.add('visible');
+}
+
+// Hide inline response
+function hideInlineResponse() {
+    const responseDiv = document.getElementById('guideResponse');
+    if (responseDiv) {
+        responseDiv.classList.remove('visible');
+    }
+}
+
+// Auto-hide response after delay
+function autoHideResponse(delay = 5000) {
+    if (responseAutoHideTimer) {
+        clearTimeout(responseAutoHideTimer);
+    }
+    responseAutoHideTimer = setTimeout(hideInlineResponse, delay);
 }
 
 async function sendGuideMessage(message) {
     if (guideSending) return;
 
     const searchInput = document.getElementById('searchInput');
-    const guideInput = document.getElementById('guideInput');
-    const guideSendBtn = document.getElementById('guideSendBtn');
-
     guideSending = true;
 
-    // Disable inputs
+    // Disable input and show loading
     if (searchInput) {
         searchInput.disabled = true;
         searchInput.value = '';
-        searchInput.placeholder = 'guide is thinking...';
-    }
-    if (guideInput) {
-        guideInput.disabled = true;
-    }
-    if (guideSendBtn) {
-        guideSendBtn.disabled = true;
+        searchInput.placeholder = 'thinking...';
     }
 
-    // Show guide chat area
-    showGuideChat();
-
-    // Add user message to UI
-    addGuideMessage('user', message);
-
-    // Add loading indicator
-    const loadingId = addGuideMessage('assistant', 'Thinking', true);
+    // Show loading response
+    showInlineResponse('thinking', true);
 
     try {
         const response = await fetch('/api/guide/chat', {
@@ -1722,29 +1720,22 @@ async function sendGuideMessage(message) {
 
         const data = await response.json();
 
-        // Remove loading indicator
-        removeGuideMessage(loadingId);
+        // Show response
+        showInlineResponse(data.message);
 
-        // Add assistant response
-        addGuideMessage('assistant', data.message);
-
-        // Show action feedback
-        if (data.actions && data.actions.length > 0) {
-            for (const action of data.actions) {
-                showGuideActionFeedback(action);
-            }
-        }
+        // Auto-hide after a delay (longer if no results to show)
+        const hasResults = data.results && data.results.length > 0;
+        autoHideResponse(hasResults ? 4000 : 6000);
 
         // Handle display action - refresh current display
         if (data.displayed) {
-            // Refresh the current display after a short delay
             setTimeout(() => {
                 refreshCurrentDisplay();
             }, 1000);
         }
 
         // Display results in art grid if any
-        if (data.results && data.results.length > 0) {
+        if (hasResults) {
             currentArtResults = data.results;
             browseDisplayCount = getInitialDisplayCount();
 
@@ -1762,125 +1753,16 @@ async function sendGuideMessage(message) {
         }
     } catch (error) {
         console.error('Guide chat error:', error);
-        removeGuideMessage(loadingId);
-        addGuideMessage('assistant', 'Sorry, something went wrong. Try again?');
+        showInlineResponse('something went wrong, try again?');
+        autoHideResponse(4000);
     } finally {
         guideSending = false;
 
-        // Re-enable inputs
+        // Re-enable input
         if (searchInput) {
             searchInput.disabled = false;
-            searchInput.placeholder = 'search or ask the guide...';
+            searchInput.placeholder = 'explore art...';
         }
-        if (guideInput) {
-            guideInput.disabled = false;
-            guideInput.focus();
-        }
-        if (guideSendBtn) {
-            guideSendBtn.disabled = false;
-        }
-    }
-}
-
-function showGuideChat() {
-    const guideChat = document.getElementById('guideChat');
-    if (guideChat) {
-        guideChat.style.display = 'block';
-        guideHasHistory = true;
-    }
-}
-
-function hideGuideChat() {
-    const guideChat = document.getElementById('guideChat');
-    if (guideChat) {
-        guideChat.style.display = 'none';
-        guideHasHistory = false;
-    }
-}
-
-let guideMessageCounter = 0;
-
-function addGuideMessage(role, content, isLoading = false) {
-    const messages = document.getElementById('guideMessages');
-    if (!messages) return null;
-
-    const msgId = `guide-msg-${++guideMessageCounter}`;
-    const msgDiv = document.createElement('div');
-    msgDiv.id = msgId;
-    msgDiv.className = `guide-message ${role}${isLoading ? ' loading' : ''}`;
-    msgDiv.textContent = content;
-
-    messages.appendChild(msgDiv);
-
-    // Scroll to bottom
-    messages.scrollTop = messages.scrollHeight;
-
-    return msgId;
-}
-
-function removeGuideMessage(msgId) {
-    if (!msgId) return;
-    const msgEl = document.getElementById(msgId);
-    if (msgEl) {
-        msgEl.remove();
-    }
-}
-
-function showGuideActionFeedback(action) {
-    const messages = document.getElementById('guideMessages');
-    if (!messages) return;
-
-    const actionDiv = document.createElement('div');
-    actionDiv.className = `guide-action ${action.success ? 'success' : 'error'}`;
-
-    let icon = '';
-    let text = '';
-
-    switch (action.type) {
-        case 'display':
-            icon = action.success ? '🖼️' : '⚠️';
-            text = action.success ? 'Sent to frame' : 'Display failed';
-            break;
-        case 'search':
-            icon = '🔍';
-            text = `Found ${action.data?.resultCount || 0} results`;
-            break;
-        case 'add_to_collection':
-            icon = action.success ? '❤️' : '⚠️';
-            text = action.success ? 'Added to collection' : 'Could not add';
-            break;
-        case 'get_recommendations':
-            icon = '✨';
-            text = `${action.data?.resultCount || 0} recommendations`;
-            break;
-        case 'get_current_display':
-            icon = 'ℹ️';
-            text = 'Checked current display';
-            break;
-        default:
-            return;
-    }
-
-    actionDiv.innerHTML = `<span>${icon}</span><span>${text}</span>`;
-    messages.appendChild(actionDiv);
-    messages.scrollTop = messages.scrollHeight;
-}
-
-async function clearGuideConversation() {
-    try {
-        await fetch(`/api/guide/chat?sessionId=${guideSessionId}`, {
-            method: 'DELETE'
-        });
-
-        // Clear UI
-        const messages = document.getElementById('guideMessages');
-        if (messages) {
-            messages.innerHTML = '';
-        }
-
-        hideGuideChat();
-    } catch (error) {
-        console.error('Error clearing conversation:', error);
     }
 }
 
@@ -2016,8 +1898,8 @@ function generateDynamicHints() {
     return hints;
 }
 
-function renderDiscoveryHints() {
-    const container = document.getElementById('discoveryHints');
+function renderSmartHints() {
+    const container = document.getElementById('smartHints');
     if (!container) return;
 
     const hints = generateDynamicHints();
@@ -2033,7 +1915,11 @@ function renderDiscoveryHints() {
 
     // Attach event listeners
     container.querySelectorAll('.hint-link').forEach(link => {
-        link.addEventListener('click', () => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Blur the search input to hide hints smoothly
+            document.getElementById('searchInput')?.blur();
+
             if (link.dataset.action) {
                 handleHintAction(link.dataset.action);
             } else if (link.dataset.query) {
@@ -2046,13 +1932,13 @@ function renderDiscoveryHints() {
 function setupDiscoverySuggestions() {
     // Initial fetch of current display info
     fetchCurrentDisplayInfo().then(() => {
-        renderDiscoveryHints();
+        renderSmartHints();
     });
 
     // Refresh hints periodically (every 5 minutes)
     setInterval(() => {
         fetchCurrentDisplayInfo().then(() => {
-            renderDiscoveryHints();
+            renderSmartHints();
         });
     }, 5 * 60 * 1000);
 }
@@ -2060,7 +1946,7 @@ function setupDiscoverySuggestions() {
 // Refresh hints (called when switching to explore mode)
 function refreshDiscoveryHints() {
     fetchCurrentDisplayInfo().then(() => {
-        renderDiscoveryHints();
+        renderSmartHints();
     });
 }
 
@@ -2096,34 +1982,16 @@ async function handleHintAction(action) {
 }
 
 async function surpriseMe() {
-    const cardsContainer = document.getElementById('artCards');
-    if (cardsContainer) {
-        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Finding something special...</div>';
-    }
-
-    // Clear playlist selection
-    currentPlaylistId = null;
-    document.getElementById('currentPlaylist').style.display = 'none';
-    renderPlaylistStacks();
-
-    try {
-        const response = await fetch('/api/art/random');
-        if (!response.ok) throw new Error('Failed to fetch random art');
-
-        const artwork = await response.json();
-
-        // Show the artwork
-        currentArtResults = [artwork];
-        browseDisplayCount = 1;
-        displayBrowseResults();
-
-        // Open modal automatically for surprise
-        openArtModal(artwork, 'browse');
-    } catch (error) {
-        console.error('Surprise failed:', error);
-        if (cardsContainer) {
-            cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Could not find art. Try again!</div>';
-        }
-    }
+    // Use the guide to find something unexpected
+    // This is more reliable than the random endpoint
+    const surpriseQueries = [
+        'show me something unexpected and beautiful',
+        'surprise me with an interesting painting',
+        'find me a hidden gem from art history',
+        'show me a masterpiece I might not know',
+        'discover something unusual for me'
+    ];
+    const query = surpriseQueries[Math.floor(Math.random() * surpriseQueries.length)];
+    await sendGuideMessage(query);
 }
 

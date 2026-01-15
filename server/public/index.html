@@ -61,30 +61,23 @@
 
         <!-- Explore Mode -->
         <div class="browse-section" id="exploreMode">
-            <!-- Search Bar -->
-            <div class="search-bar">
+            <!-- Search/Guide Input -->
+            <div class="guide-input-container" id="guideInputContainer">
                 <input
                     type="text"
-                    class="search-input"
+                    class="guide-main-input"
                     id="searchInput"
-                    placeholder="search or ask the guide...">
-            </div>
+                    placeholder="explore art...">
 
-            <!-- Discovery Hints (dynamic) -->
-            <div class="discovery-hints" id="discoveryHints">
-                <!-- Populated dynamically by JS -->
-            </div>
+                <!-- Smart Hints (appear on focus) -->
+                <div class="smart-hints" id="smartHints">
+                    <!-- Populated dynamically by JS -->
+                </div>
 
-            <!-- Guide Chat (inline, shows when active) -->
-            <div class="guide-chat" id="guideChat" style="display: none;">
-                <div class="guide-messages" id="guideMessages">
-                    <!-- Chat messages appear here -->
+                <!-- Inline Response (appears after guide responds) -->
+                <div class="guide-response" id="guideResponse">
+                    <!-- Shows guide responses briefly -->
                 </div>
-                <div class="guide-input-row">
-                    <input type="text" id="guideInput" class="guide-input" placeholder="Ask the guide...">
-                    <button class="guide-send-btn" id="guideSendBtn">→</button>
-                </div>
-                <button class="guide-clear-link" id="guideClearBtn">clear conversation</button>
             </div>
 
             <!-- Playlist Stacks -->
