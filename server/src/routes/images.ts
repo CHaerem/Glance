@@ -14,21 +14,11 @@ import { validateImageData, sanitizeInput } from '../utils/validation';
 import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { getErrorMessage } from '../utils/error';
-import imageProcessing from '../services/image-processing';
+import imageProcessing, { SPECTRA_6_PALETTE } from '../services/image-processing';
 import { loggers } from '../services/logger';
 import type { ServerSettings, FileRequest, CurrentData, PlaylistData } from '../types';
 
 const log = loggers.api;
-
-// Spectra 6 palette for preview info
-const SPECTRA_6_PALETTE = [
-  { name: 'Black', rgb: [0, 0, 0] },
-  { name: 'White', rgb: [255, 255, 255] },
-  { name: 'Red', rgb: [255, 0, 0] },
-  { name: 'Yellow', rgb: [255, 255, 0] },
-  { name: 'Blue', rgb: [0, 0, 255] },
-  { name: 'Green', rgb: [0, 255, 0] },
-];
 
 /** Image route dependencies */
 export interface ImageRouteDeps {

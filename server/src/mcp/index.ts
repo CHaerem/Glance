@@ -632,16 +632,6 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
   // Once a client successfully authenticates, allow subsequent requests from same IP
   const authenticatedClients = new Map<string, { clientId: string; expiresAt: number }>();
 
-  // Clean up expired authenticated clients periodically
-  setInterval(() => {
-    const now = Date.now();
-    for (const [ip, auth] of authenticatedClients.entries()) {
-      if (now > auth.expiresAt) {
-        authenticatedClients.delete(ip);
-      }
-    }
-  }, 60000); // Clean up every minute
-
   // Store authorization codes temporarily (code -> { clientId, codeChallenge, redirectUri, expiresAt })
   const authorizationCodes = new Map<string, {
     clientId: string;
@@ -650,6 +640,23 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     redirectUri: string;
     expiresAt: number;
   }>();
+
+  // Clean up expired authenticated clients and authorization codes periodically
+  setInterval(() => {
+    const now = Date.now();
+    // Clean up expired authenticated clients
+    for (const [ip, auth] of authenticatedClients.entries()) {
+      if (now > auth.expiresAt) {
+        authenticatedClients.delete(ip);
+      }
+    }
+    // Clean up expired authorization codes
+    for (const [code, data] of authorizationCodes.entries()) {
+      if (now > data.expiresAt) {
+        authorizationCodes.delete(code);
+      }
+    }
+  }, 60000); // Clean up every minute
 
   // OAuth Authorization Endpoint (for authorization code flow with PKCE)
   router.get('/authorize', (req: Request, res: Response) => {

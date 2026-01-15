@@ -30,6 +30,7 @@ export class TtlCache<T> {
 
   /**
    * Get a cached value if it exists and hasn't expired
+   * NOTE: Returns null for both "not found" AND "stored null" - use tryGet() if storing null values
    */
   get(key: string): T | null {
     const entry = this.cache.get(key);
@@ -41,6 +42,22 @@ export class TtlCache<T> {
       this.cache.delete(key);
     }
     return null;
+  }
+
+  /**
+   * Get a cached value with explicit found/not-found distinction
+   * Use this when storing null as a valid value (e.g., caching failed lookups)
+   */
+  tryGet(key: string): { found: boolean; value: T | null } {
+    const entry = this.cache.get(key);
+    if (entry && Date.now() - entry.timestamp < this.ttl) {
+      return { found: true, value: entry.data };
+    }
+    // Remove expired entry
+    if (entry) {
+      this.cache.delete(key);
+    }
+    return { found: false, value: null };
   }
 
   /**
@@ -63,9 +80,18 @@ export class TtlCache<T> {
 
   /**
    * Check if a key exists and is not expired
+   * Note: This directly checks the cache, not via get(), so it works correctly for null values
    */
   has(key: string): boolean {
-    return this.get(key) !== null;
+    const entry = this.cache.get(key);
+    if (entry && Date.now() - entry.timestamp < this.ttl) {
+      return true;
+    }
+    // Remove expired entry
+    if (entry) {
+      this.cache.delete(key);
+    }
+    return false;
   }
 
   /**

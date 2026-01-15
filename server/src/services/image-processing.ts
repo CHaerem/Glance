@@ -17,7 +17,7 @@ interface EinkPaletteColor {
 }
 
 /** Spectra 6 palette color with name */
-interface Spectra6Color {
+export interface Spectra6Color {
   r: number;
   g: number;
   b: number;
@@ -59,7 +59,8 @@ const EINK_PALETTE: EinkPaletteColor[] = [
 
 // E-ink Spectra 6 optimized color palette for art reproduction
 // MUST MATCH ESP32 client palette exactly (see esp32-client/src/main.cpp:647-654)
-const SPECTRA_6_PALETTE: Spectra6Color[] = [
+// Exported for use in routes/images.ts
+export const SPECTRA_6_PALETTE: Spectra6Color[] = [
   { r: 0, g: 0, b: 0, name: 'Black' },
   { r: 255, g: 255, b: 255, name: 'White' },
   { r: 255, g: 255, b: 0, name: 'Yellow' },

@@ -9,3 +9,5 @@ export * from './data-store';
 export * from './image-validator';
 export * from './cache';
 export * from './error';
+export * from './async-handler';
+export * from './image-utils';

@@ -71,6 +71,12 @@ const conversations = new Map<string, ConversationSession>();
 // Session timeout (30 minutes)
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
+// Maximum number of sessions to prevent memory leaks
+const MAX_SESSIONS = 100;
+
+// Cleanup interval (5 minutes)
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
 // Tools available to the guide
 const guideTools: ChatCompletionTool[] = [
   {
@@ -165,6 +171,25 @@ class GuideChatService {
   private client: OpenAI | null = null;
   private initialized = false;
   private lastSearchResults: Artwork[] = [];
+  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null;
+
+  constructor() {
+    // Start periodic cleanup to prevent memory leaks
+    this.cleanupIntervalId = setInterval(() => {
+      this.cleanupExpiredSessions();
+    }, CLEANUP_INTERVAL_MS);
+  }
+
+  /**
+   * Stop the cleanup interval (for graceful shutdown)
+   */
+  shutdown(): void {
+    if (this.cleanupIntervalId) {
+      clearInterval(this.cleanupIntervalId);
+      this.cleanupIntervalId = null;
+      log.info('Guide chat service shutdown');
+    }
+  }
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -187,6 +212,23 @@ class GuideChatService {
 
     let session = conversations.get(sessionId);
     if (!session) {
+      // Enforce maximum session limit to prevent memory leaks
+      if (conversations.size >= MAX_SESSIONS) {
+        // Remove the oldest session by lastActivity
+        let oldestId: string | null = null;
+        let oldestTime = Infinity;
+        for (const [id, sess] of conversations) {
+          if (sess.lastActivity < oldestTime) {
+            oldestTime = sess.lastActivity;
+            oldestId = id;
+          }
+        }
+        if (oldestId) {
+          conversations.delete(oldestId);
+          log.info('Removed oldest session to stay within limit', { removedId: oldestId, limit: MAX_SESSIONS });
+        }
+      }
+
       session = {
         messages: [],
         createdAt: Date.now(),
