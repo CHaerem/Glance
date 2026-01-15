@@ -79,78 +79,58 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
 
 ### 3. Power System
 
+> **Detailed battery monitoring setup:** See [BATTERY_MONITORING.md](BATTERY_MONITORING.md) for wiring, calibration, and voltage divider configuration.
+
 #### Primary Battery - PiJuice 12,000mAh LiPo
 - **Capacity**: 12,000mAh (~44Wh)
 - **Voltage**: 3.7V nominal (3.0V-4.2V range)
 - **Chemistry**: Lithium Polymer (LiPo)
 - **Connector**: 2-pin JST connector
-- **Features**:
-  - High discharge rate for display refresh
-  - Rechargeable via LiPo Amigo Pro
-  - Long-term deep sleep support
 
-#### Power Management - LiPo Amigo Pro
-- **Manufacturer**: Pimoroni
-- **Function**: LiPo/LiIon battery charger and protection
+#### Charger/Boost - Adafruit PowerBoost 1000C
+- **Manufacturer**: Adafruit
+- **Function**: Combined LiPo charger and 5V boost converter
 - **Input**: USB-C (5V for charging)
-- **Output Connectors**:
-  - **BAT**: 2-pin JST for battery connection
-  - **DEVICE**: 2-pin JST for device power output
+- **Output**: 5.2V @ 1A via USB-A
 - **Key Pins**:
-  - **VBAT**: Battery voltage monitoring pin (3.0V-4.2V)
-  - **VDEV**: Device output voltage
+  - **BAT**: Battery voltage monitoring (connect to voltage divider)
   - **GND**: Common ground
+  - **5V**: Regulated 5V output
 - **Features**:
-  - Automatic charging when USB-C connected
+  - Handles >1A peak current during display refresh (prevents brownouts)
+  - Automatic load sharing (can run while charging)
   - Over-charge/discharge protection
-  - Battery voltage accessible via VBAT pin
-  - Pass-through power delivery
-  - LED charging indicators
-
-#### Boost Converter - Adafruit MiniBoost 5V
-- **Model**: TPS61023-based boost converter
-- **Input**: 2-5V DC (from LiPo Amigo Pro DEVICE output)
-- **Output**: 5.2V @ 1A (regulated)
-- **Connector**: USB-C output to ESP32
-- **Key Pins**:
-  - **VIN**: Input from LiPo Amigo Pro
-  - **GND**: Common ground
-  - **5V OUT**: Regulated 5V output
-  - **EN**: Enable pin (pulled HIGH by default)
-- **Features**:
-  - Efficient boost conversion (85-95% efficiency)
-  - Low quiescent current
-  - True disconnect via EN pin
-  - Over 5V to account for cable drop
+  - Blue LED desoldered to save ~2mA standby
 
 #### Power Flow Diagram
 ```
 [PiJuice 12Ah LiPo]
        │ 2-pin JST
        ↓
-[LiPo Amigo Pro]
-   │         │
-   │ VBAT    │ DEVICE (2-pin JST)
-   │ (mon.)  ↓
-   │    [Adafruit MiniBoost 5V]
-   │              │ USB-C
-   │              ↓
-   │        [ESP32-133C02]
-   │              │
-   │              ↓
-   ↓        [13.3" Display]
-[Voltage Divider → GPIO 2]
+[PowerBoost 1000C]───[BAT pin]
+       │                  │
+       │ USB-A      [Voltage Divider]
+       ↓                  │
+[ESP32-133C02]      [GPIO 2 ADC]
+       │
+       ↓
+[13.3" Display]
 ```
 
-#### Power Budget Analysis (Estimates - Not Verified)
+#### Battery Monitoring
+- **GPIO Pin**: GPIO 2 (ADC1_CH1)
+- **Voltage Divider**: 100kΩ + 27kΩ (ratio ~4.7, calibrated to 8.3)
+- **Thresholds**: Critical 3.3V, Low 3.5V, Normal 3.6V+
+
+For calibration procedure and detailed wiring, see [BATTERY_MONITORING.md](BATTERY_MONITORING.md).
+
+#### Power Budget Analysis
 - **Display Refresh**: ~500mW for 19 seconds = ~2.6mWh per update
 - **ESP32 Active**: ~150mA @ 3.3V = ~500mW
 - **ESP32 Deep Sleep**: ~10μA @ 3.3V = ~0.033mW
 - **Estimated Battery Life**:
   - With hourly updates: ~6 months
   - With daily updates: >1 year
-
-*Note: These are theoretical estimates. Actual measurements may vary.*
 
 ### 4. NFC Wake Module (Future Addition)
 
@@ -183,13 +163,9 @@ Glance is a battery-powered, wireless e-ink art display system designed to showc
          |
     [2-pin JST]
          |
-  [LiPo Amigo Pro]
+  [PowerBoost 1000C]
          |
-    [USB-C Cable]
-         |
-  [Adafruit MiniBoost 5V]
-         |
-    [USB-C Cable]
+    [USB-A Cable]
          |
   [ESP32-133C02 Controller]
          |

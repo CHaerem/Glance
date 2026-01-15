@@ -307,7 +307,7 @@ Server-side processing for e-ink optimization:
 ```bash
 cd server/
 
-# Run all tests (256 tests)
+# Run all tests (262 tests)
 npm test
 
 # Specific test file
@@ -487,4 +487,11 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
   - Solved brownout issues during display refresh on battery
   - Voltage divider ratio recalibrated to 8.3 for new setup
   - Blue LED removed to save ~2mA standby current
-- 256 tests all passing
+- **Code quality refactoring**: Improved structure and fixed bugs
+  - Added `tryGet()` method to TtlCache for null-safe lookups
+  - Fixed memory leaks in guide-chat (session limit) and MCP (auth code cleanup)
+  - Created `asyncHandler` utility for route error handling
+  - Created `image-utils` for consolidated thumbnail/optimization
+  - Consolidated duplicate SPECTRA_6_PALETTE definitions
+  - See `docs/README.md` for documentation navigation
+- 262 tests all passing
