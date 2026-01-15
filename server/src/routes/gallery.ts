@@ -40,7 +40,8 @@ interface GalleryArtwork {
 }
 
 // Load masterpieces data
-const MASTERPIECES_PATH = path.join(__dirname, '..', '..', 'data', 'famous-masterpieces.json');
+// Path from dist/src/routes/ -> dist/src -> dist -> server -> data
+const MASTERPIECES_PATH = path.join(__dirname, '..', '..', '..', 'data', 'famous-masterpieces.json');
 let masterpiecesData: MasterpiecesData = { description: '', masterpieces: [] };
 
 try {

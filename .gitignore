@@ -69,6 +69,7 @@ server/data/
 !server/data/curated-collections.json
 !server/data/smart-categories.json
 !server/data/playlists.json
+!server/data/famous-masterpieces.json
 server/uploads/
 data/
 

@@ -58,7 +58,8 @@ interface ArtworkResponse {
 }
 
 // Load playlists data
-const PLAYLISTS_PATH = path.join(__dirname, '..', '..', 'data', 'playlists.json');
+// Path from dist/src/routes/ -> dist/src -> dist -> server -> data
+const PLAYLISTS_PATH = path.join(__dirname, '..', '..', '..', 'data', 'playlists.json');
 let playlistsData: PlaylistsData = { playlists: [] };
 
 try {
