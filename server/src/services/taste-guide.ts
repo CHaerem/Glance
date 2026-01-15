@@ -7,9 +7,8 @@
 import OpenAI from 'openai';
 import { loggers } from './logger';
 import { getErrorMessage } from '../utils/error';
-import { readJSONFile, writeJSONFile, getDataDir } from '../utils/data-store';
+import { readJSONFile, writeJSONFile } from '../utils/data-store';
 import type { Artwork, CollectionEntry } from '../types';
-import path from 'path';
 
 const log = loggers.api.child({ component: 'taste-guide' });
 
@@ -42,10 +41,9 @@ const COLLECTION_FILE = 'my-collection.json';
 class TasteGuideService {
   private client: OpenAI | null = null;
   private initialized = false;
-  private collectionPath: string;
 
   constructor() {
-    this.collectionPath = path.join(getDataDir(), COLLECTION_FILE);
+    // collectionPath removed - use COLLECTION_FILE with readJSONFile/writeJSONFile
   }
 
   async initialize(): Promise<void> {
@@ -66,7 +64,7 @@ class TasteGuideService {
    */
   async getCollection(): Promise<FavoriteArtwork[]> {
     try {
-      const collection = await readJSONFile<FavoriteArtwork[]>(this.collectionPath);
+      const collection = await readJSONFile<FavoriteArtwork[]>(COLLECTION_FILE);
       return collection || [];
     } catch (error) {
       log.error('Failed to read collection', { error: getErrorMessage(error) });
@@ -121,7 +119,7 @@ class TasteGuideService {
       }
 
       collection.push(entry);
-      await writeJSONFile(this.collectionPath, collection);
+      await writeJSONFile(COLLECTION_FILE, collection);
 
       log.info('Added to collection', { title: artwork.title, artist: artwork.artist });
       return { success: true, message: `Added "${artwork.title}" to your collection` };
@@ -144,7 +142,7 @@ class TasteGuideService {
       }
 
       const removed = collection.splice(index, 1)[0];
-      await writeJSONFile(this.collectionPath, collection);
+      await writeJSONFile(COLLECTION_FILE, collection);
 
       log.info('Removed from collection', { title: removed?.title ?? 'Unknown' });
       return { success: true, message: `Removed "${removed?.title ?? 'artwork'}" from your collection` };
