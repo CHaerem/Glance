@@ -50,6 +50,8 @@ import metricsRoutes from './routes/metrics';
 import semanticSearchRoutes from './routes/semantic-search';
 import { createMyCollectionRouter } from './routes/my-collection';
 import { createGuideRoutes } from './routes/guide';
+import { createGalleryRouter } from './routes/gallery';
+import { createUserPlaylistsRouter } from './routes/user-playlists';
 
 // Configuration
 const app = express();
@@ -179,6 +181,8 @@ statistics.loadStats().catch((err) => log.error('Failed to load stats on startup
 // Mount route modules
 app.use('/api/collections', collectionsRoutes());
 app.use('/api/playlists', playlistsRoutes());
+app.use('/api/gallery', createGalleryRouter());
+app.use('/api/user-playlists', createUserPlaylistsRouter());
 app.use('/api/art', createArtRoutes({ openai, uploadDir: UPLOAD_DIR }));
 
 // History routes

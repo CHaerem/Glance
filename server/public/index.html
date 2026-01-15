@@ -61,90 +61,175 @@
 
         <!-- Explore Mode -->
         <div class="browse-section" id="exploreMode">
-            <!-- Search/Guide Input -->
-            <div class="guide-input-container" id="guideInputContainer">
+            <!-- Search Input -->
+            <div class="explore-search-container">
                 <input
                     type="text"
-                    class="guide-main-input"
+                    class="explore-search-input"
                     id="searchInput"
                     placeholder="explore art...">
+                <button class="explore-random-btn" id="randomArtBtn" title="Random artwork">🎲</button>
+            </div>
 
-                <!-- Smart Hints (appear on focus) -->
-                <div class="smart-hints" id="smartHints">
-                    <!-- Populated dynamically by JS -->
+            <!-- Guide Response (shows after AI responds) -->
+            <div class="guide-response" id="guideResponse" style="display: none;">
+                <!-- Shows guide responses briefly -->
+            </div>
+
+            <!-- Playlists Section -->
+            <div class="explore-section" id="playlistsSection">
+                <div class="section-header">
+                    <span class="section-title">playlists</span>
+                    <button class="section-link" id="seeAllPlaylists">see all</button>
+                </div>
+                <div class="playlist-scroll-container">
+                    <div class="playlist-scroll" id="playlistScroll">
+                        <!-- Populated dynamically with playlist cards -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's Gallery Section -->
+            <div class="explore-section" id="todaysGallerySection">
+                <div class="section-header">
+                    <span class="section-title">today's gallery</span>
+                    <span class="section-actions">
+                        <button class="section-link" id="playGallery">▶ play</button>
+                        <button class="section-link" id="refreshGallery">refresh ↻</button>
+                    </span>
+                </div>
+                <div class="todays-gallery-grid" id="todaysGallery">
+                    <!-- Populated dynamically with 8 famous artworks -->
+                </div>
+            </div>
+
+            <!-- Quick Suggestions -->
+            <div class="quick-suggestions" id="quickSuggestions">
+                <span class="suggestions-label">or try:</span>
+                <span class="suggestion-chip" data-query="impressionists">impressionists</span>
+                <span class="suggestion-chip" data-query="portraits">portraits</span>
+                <span class="suggestion-chip" data-query="landscapes">landscapes</span>
+                <span class="suggestion-chip" data-query="abstract">abstract</span>
+                <span class="suggestion-chip" data-query="dutch masters">dutch masters</span>
+                <span class="suggestion-chip" data-query="japanese art">japanese</span>
+            </div>
+
+            <!-- Search Results (hidden by default, shown when searching) -->
+            <div class="search-results-section" id="searchResultsSection" style="display: none;">
+                <div class="section-header">
+                    <span class="section-title" id="searchResultsTitle">results</span>
+                    <button class="section-link" id="clearSearch">clear ✕</button>
                 </div>
 
-                <!-- Inline Response (appears after guide responds) -->
-                <div class="guide-response" id="guideResponse">
-                    <!-- Shows guide responses briefly -->
+                <!-- Refinement chips (shown after search) -->
+                <div class="refinement-chips" id="refinementChips" style="display: none;">
+                    <!-- Populated dynamically based on search results -->
+                </div>
+
+                <!-- Art Cards Grid -->
+                <div class="art-cards" id="artCards">
+                    <!-- Populated dynamically with physical cards -->
+                </div>
+
+                <!-- Show more button -->
+                <div class="show-more" id="browseShowMore" style="display: none;">
+                    <button class="show-more-btn" id="showMoreBrowseBtn">show more</button>
                 </div>
             </div>
 
-            <!-- Playlist Stacks -->
-            <div class="playlist-stacks-container">
-                <button class="stacks-nav stacks-nav-left" id="stacksNavLeft" aria-label="Previous playlists">&#8249;</button>
-                <div class="playlist-stacks" id="playlistStacks">
-                    <!-- Populated dynamically with card stacks -->
+            <!-- Playlist View (hidden by default, shown when viewing a playlist) -->
+            <div class="playlist-view-section" id="playlistViewSection" style="display: none;">
+                <div class="section-header">
+                    <span class="section-title" id="playlistViewTitle">playlist</span>
+                    <button class="section-link" id="closePlaylistView">back ←</button>
                 </div>
-                <button class="stacks-nav stacks-nav-right" id="stacksNavRight" aria-label="Next playlists">&#8250;</button>
-            </div>
-
-            <!-- Current Playlist Label -->
-            <div class="current-playlist" id="currentPlaylist" style="display: none;">
-                <span class="playlist-name" id="playlistName"></span>
-                <button class="playlist-refresh" id="playlistRefresh" title="Refresh for new results" style="display: none;">&#8635;</button>
-                <button class="playlist-clear" id="playlistClear">&#215;</button>
-            </div>
-
-            <!-- Art Cards Grid -->
-            <div class="art-cards" id="artCards">
-                <!-- Populated dynamically with physical cards -->
-            </div>
-
-            <!-- Show more button -->
-            <div class="show-more" id="browseShowMore" style="display: none;">
-                <button class="show-more-btn" id="showMoreBrowseBtn">show more</button>
+                <div class="art-cards" id="playlistArtCards">
+                    <!-- Populated with playlist artworks -->
+                </div>
+                <div class="playlist-actions">
+                    <button class="btn btn-primary" id="playPlaylistBtn">▶ play all</button>
+                </div>
             </div>
         </div>
 
         <!-- My Collection Mode -->
         <div class="browse-section" id="myCollectionMode">
-            <!-- Collection Controls -->
-            <div class="collection-controls">
-                <input type="text" id="collectionSearch" class="collection-search" placeholder="search collection...">
-                <div class="collection-sort">
-                    <label class="sort-label">sort by</label>
-                    <select id="collectionSort" class="sort-select">
-                        <option value="date-desc">newest first</option>
-                        <option value="date-asc">oldest first</option>
-                        <option value="title-asc">title (a-z)</option>
-                        <option value="title-desc">title (z-a)</option>
-                        <option value="artist-asc">artist (a-z)</option>
-                    </select>
+            <!-- My Playlists Section -->
+            <div class="explore-section" id="myPlaylistsSection">
+                <div class="section-header">
+                    <span class="section-title">my playlists</span>
+                    <button class="section-link" id="createPlaylistBtn">+ new</button>
+                </div>
+                <div class="my-playlists-grid" id="myPlaylistsGrid">
+                    <!-- Populated dynamically with user's playlists -->
                 </div>
             </div>
 
-            <!-- Rotation Status Bar (only shown when rotation active) -->
-            <div class="rotation-status" id="rotationStatus" style="display: none;">
-                <span id="rotationStatusText">rotating 0 images</span>
-                <span class="rotation-controls">
-                    <button class="mode-link" id="rotationModeToggle">shuffle</button>
-                    <span style="color: #e5e5e5;">·</span>
-                    <button class="mode-link" id="rotationIntervalToggle">5 min</button>
-                    <span style="color: #e5e5e5;">·</span>
-                    <button class="mode-link" id="stopRotationBtn">stop</button>
-                </span>
-            </div>
+            <!-- Saved Artworks Section -->
+            <div class="explore-section">
+                <div class="section-header">
+                    <span class="section-title">saved artworks</span>
+                </div>
 
-            <!-- Collection Grid -->
-            <div class="collection-grid" id="collectionGrid"></div>
+                <!-- Collection Controls -->
+                <div class="collection-controls">
+                    <input type="text" id="collectionSearch" class="collection-search" placeholder="search collection...">
+                    <div class="collection-sort">
+                        <label class="sort-label">sort by</label>
+                        <select id="collectionSort" class="sort-select">
+                            <option value="date-desc">newest first</option>
+                            <option value="date-asc">oldest first</option>
+                            <option value="title-asc">title (a-z)</option>
+                            <option value="title-desc">title (z-a)</option>
+                            <option value="artist-asc">artist (a-z)</option>
+                        </select>
+                    </div>
+                </div>
 
-            <!-- Show more button -->
-            <div class="show-more" id="collectionShowMore" style="display: none;">
-                <button class="show-more-btn" id="showMoreCollectionBtn">show 8 more</button>
+                <!-- Rotation Status Bar (only shown when rotation active) -->
+                <div class="rotation-status" id="rotationStatus" style="display: none;">
+                    <span id="rotationStatusText">rotating 0 images</span>
+                    <span class="rotation-controls">
+                        <button class="mode-link" id="rotationModeToggle">shuffle</button>
+                        <span style="color: #e5e5e5;">·</span>
+                        <button class="mode-link" id="rotationIntervalToggle">5 min</button>
+                        <span style="color: #e5e5e5;">·</span>
+                        <button class="mode-link" id="stopRotationBtn">stop</button>
+                    </span>
+                </div>
+
+                <!-- Collection Grid -->
+                <div class="collection-grid" id="collectionGrid"></div>
+
+                <!-- Show more button -->
+                <div class="show-more" id="collectionShowMore" style="display: none;">
+                    <button class="show-more-btn" id="showMoreCollectionBtn">show 8 more</button>
+                </div>
             </div>
         </div>
 
+    </div>
+
+    <!-- Now Playing Bar (Spotify-like, persistent at bottom) -->
+    <div class="now-playing-bar" id="nowPlayingBar" style="display: none;">
+        <div class="now-playing-content">
+            <div class="now-playing-artwork">
+                <img id="nowPlayingThumb" src="" alt="">
+            </div>
+            <div class="now-playing-info">
+                <span class="now-playing-title" id="nowPlayingTitle">Title</span>
+                <span class="now-playing-subtitle" id="nowPlayingSubtitle">Artist · Playlist</span>
+            </div>
+            <div class="now-playing-controls">
+                <button class="now-playing-btn" id="nowPlayingPrev" title="Previous">◀</button>
+                <button class="now-playing-btn now-playing-btn-main" id="nowPlayingToggle" title="Play/Pause">▶</button>
+                <button class="now-playing-btn" id="nowPlayingNext" title="Next">▶</button>
+                <button class="now-playing-btn" id="nowPlayingShuffle" title="Shuffle">⟳</button>
+                <button class="now-playing-btn" id="nowPlayingInterval" title="Change interval">5m</button>
+                <button class="now-playing-btn" id="nowPlayingExpand" title="Expand">⌃</button>
+                <button class="now-playing-btn" id="nowPlayingClose" title="Stop playback">×</button>
+            </div>
+        </div>
     </div>
 
     <!-- Admin Link -->

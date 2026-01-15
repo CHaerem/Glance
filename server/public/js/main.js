@@ -87,14 +87,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Playlist stack navigation
-    document.getElementById('stacksNavLeft').addEventListener('click', () => scrollPlaylistStacks('left'));
-    document.getElementById('stacksNavRight').addEventListener('click', () => scrollPlaylistStacks('right'));
+    // New Explore Page Controls
+    document.getElementById('randomArtBtn').addEventListener('click', loadRandomArt);
+    document.getElementById('refreshGallery').addEventListener('click', refreshTodaysGallery);
+    document.getElementById('playGallery').addEventListener('click', playTodaysGallery);
+    document.getElementById('clearSearch').addEventListener('click', clearSearchResults);
+    document.getElementById('closePlaylistView').addEventListener('click', closePlaylistView);
+    document.getElementById('playPlaylistBtn').addEventListener('click', playCurrentPlaylist);
+
+    // Suggestion chips
+    document.querySelectorAll('.suggestion-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const query = chip.dataset.query;
+            document.getElementById('searchInput').value = query;
+            handleSearchOrGuide(query);
+        });
+    });
+
+    // Legacy playlist stack navigation (keeping for backwards compatibility)
+    const stacksNavLeft = document.getElementById('stacksNavLeft');
+    const stacksNavRight = document.getElementById('stacksNavRight');
+    if (stacksNavLeft) stacksNavLeft.addEventListener('click', () => scrollPlaylistStacks('left'));
+    if (stacksNavRight) stacksNavRight.addEventListener('click', () => scrollPlaylistStacks('right'));
     setupPlaylistDragScroll();
 
-    // Playlist controls
-    document.getElementById('playlistClear').addEventListener('click', clearPlaylist);
-    document.getElementById('playlistRefresh').addEventListener('click', refreshPlaylist);
+    // Legacy playlist controls
+    const playlistClear = document.getElementById('playlistClear');
+    const playlistRefresh = document.getElementById('playlistRefresh');
+    if (playlistClear) playlistClear.addEventListener('click', clearPlaylist);
+    if (playlistRefresh) playlistRefresh.addEventListener('click', refreshPlaylist);
 
     document.getElementById('showMoreBrowseBtn').addEventListener('click', showMoreBrowse);
     document.getElementById('showMoreCollectionBtn').addEventListener('click', showMoreCollection);
@@ -110,6 +131,9 @@ document.addEventListener('DOMContentLoaded', () => {
         collectionDisplayCount = getInitialDisplayCount();
         displayMyCollection();
     });
+
+    // User playlist creation
+    document.getElementById('createPlaylistBtn')?.addEventListener('click', showCreatePlaylistDialog);
 
     document.getElementById('closeModalBtn').addEventListener('click', closeModal);
     document.getElementById('artModal').addEventListener('click', (e) => {
@@ -136,6 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Discovery suggestion chips
     setupDiscoverySuggestions();
+
+    // Now Playing bar
+    initNowPlayingBar();
 });
 
 // Mode switching
@@ -164,6 +191,7 @@ function switchMode(mode) {
         document.getElementById('myCollectionMode').classList.add('show');
         collectionDisplayCount = getInitialDisplayCount();
         loadRotationStatus(); // Load rotation status for collection view
+        loadMyPlaylists(); // Load user's playlists
         displayMyCollection();
     }
 
@@ -178,14 +206,618 @@ let allPlaylists = [];
 let currentPlaylistId = null;
 let exploreInitialized = false;
 const playlistDataCache = new Map(); // Client-side cache for loaded playlist artworks
+let todaysGalleryArtworks = []; // Store gallery artworks for playback
+let myUserPlaylists = []; // User-created playlists
 
-// Initialize explore mode with playlist stacks
+// Initialize explore mode with playlists and Today's Gallery
 async function initializeExploreMode() {
     if (!exploreInitialized) {
-        await loadPlaylists();
+        await Promise.all([
+            loadPlaylistsHorizontal(),
+            loadTodaysGallery()
+        ]);
         exploreInitialized = true;
     }
-    updateStacksNavigation();
+    // Show default sections, hide search results
+    showDefaultExploreSections();
+}
+
+// Show default explore sections (playlists, gallery, suggestions)
+function showDefaultExploreSections() {
+    document.getElementById('playlistsSection').style.display = 'block';
+    document.getElementById('todaysGallerySection').style.display = 'block';
+    document.getElementById('quickSuggestions').style.display = 'flex';
+    document.getElementById('searchResultsSection').style.display = 'none';
+    document.getElementById('playlistViewSection').style.display = 'none';
+}
+
+// Show search results section
+function showSearchResultsSection(title) {
+    document.getElementById('playlistsSection').style.display = 'none';
+    document.getElementById('todaysGallerySection').style.display = 'none';
+    document.getElementById('quickSuggestions').style.display = 'none';
+    document.getElementById('searchResultsSection').style.display = 'block';
+    document.getElementById('playlistViewSection').style.display = 'none';
+    document.getElementById('searchResultsTitle').textContent = title || 'results';
+}
+
+// Load playlists in horizontal scroll format
+async function loadPlaylistsHorizontal() {
+    const scrollContainer = document.getElementById('playlistScroll');
+    if (!scrollContainer) return;
+
+    try {
+        const response = await fetch('/api/playlists');
+        const data = await response.json();
+        allPlaylists = data.playlists || [];
+
+        scrollContainer.innerHTML = allPlaylists.map(playlist => {
+            const previewUrl = playlist.preview || '';
+            return `
+                <div class="playlist-card" onclick="openPlaylistView('${playlist.id}')">
+                    <img class="playlist-card-image ${!previewUrl ? 'loading' : ''}"
+                         src="${previewUrl}"
+                         alt="${playlist.name}"
+                         onerror="this.classList.add('loading'); this.src='';">
+                    <div class="playlist-card-name">${playlist.name}</div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Failed to load playlists:', error);
+        scrollContainer.innerHTML = '<div style="color: #999; padding: 20px;">Failed to load</div>';
+    }
+}
+
+// Load Today's Gallery
+async function loadTodaysGallery() {
+    const galleryContainer = document.getElementById('todaysGallery');
+    if (!galleryContainer) return;
+
+    // Show loading skeletons
+    galleryContainer.innerHTML = Array(8).fill(0).map(() =>
+        '<div class="gallery-artwork loading"></div>'
+    ).join('');
+
+    try {
+        const response = await fetch('/api/gallery/today');
+        const data = await response.json();
+
+        if (data.artworks && data.artworks.length > 0) {
+            // Store for playback
+            todaysGalleryArtworks = data.artworks;
+
+            galleryContainer.innerHTML = data.artworks.map(artwork => `
+                <div class="gallery-artwork" onclick="openArtPreview(${JSON.stringify(artwork).replace(/"/g, '&quot;')})">
+                    <img src="${artwork.thumbnailUrl || artwork.imageUrl}" alt="${artwork.title}" loading="lazy">
+                    <div class="gallery-artwork-info">
+                        <div class="gallery-artwork-title">${artwork.title}</div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            todaysGalleryArtworks = [];
+            galleryContainer.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">No artworks available</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load Today\'s Gallery:', error);
+        todaysGalleryArtworks = [];
+        galleryContainer.innerHTML = '<div style="color: #999; padding: 20px; text-align: center;">Failed to load gallery</div>';
+    }
+}
+
+// Play Today's Gallery as a playlist
+function playTodaysGallery() {
+    if (todaysGalleryArtworks.length === 0) {
+        console.log('No gallery artworks to play');
+        return;
+    }
+    startNowPlaying(todaysGalleryArtworks, "today's gallery");
+}
+
+// ========================================
+// USER PLAYLISTS (Collection Page)
+// ========================================
+
+// Load user playlists
+async function loadMyPlaylists() {
+    const grid = document.getElementById('myPlaylistsGrid');
+    if (!grid) return;
+
+    try {
+        const response = await fetch('/api/user-playlists');
+        if (response.ok) {
+            const data = await response.json();
+            myUserPlaylists = data.playlists || [];
+        } else {
+            myUserPlaylists = [];
+        }
+    } catch (error) {
+        console.log('User playlists API not available');
+        myUserPlaylists = [];
+    }
+
+    renderMyPlaylists();
+}
+
+// Render user playlists grid
+function renderMyPlaylists() {
+    const grid = document.getElementById('myPlaylistsGrid');
+    if (!grid) return;
+
+    if (myUserPlaylists.length === 0) {
+        grid.innerHTML = `
+            <div class="my-playlist-empty">
+                <p>You haven't created any playlists yet.</p>
+                <button class="create-playlist-btn" onclick="showCreatePlaylistDialog()">Create Your First Playlist</button>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = myUserPlaylists.map(playlist => {
+        const previewUrl = playlist.preview || '';
+        const count = playlist.artworkCount || 0;
+        return `
+            <div class="my-playlist-card" onclick="openUserPlaylist('${playlist.id}')">
+                <div class="my-playlist-card-preview">
+                    ${previewUrl ? `<img src="${previewUrl}" alt="${playlist.name}">` : ''}
+                </div>
+                <div class="my-playlist-card-name">${playlist.name}</div>
+                <div class="my-playlist-card-count">${count} artwork${count !== 1 ? 's' : ''}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Show create playlist dialog
+function showCreatePlaylistDialog() {
+    const name = prompt('Enter playlist name:');
+    if (!name || !name.trim()) return;
+
+    createUserPlaylist(name.trim());
+}
+
+// Create a new user playlist
+async function createUserPlaylist(name) {
+    try {
+        const response = await fetch('/api/user-playlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+
+        if (response.ok) {
+            await loadMyPlaylists();
+        } else {
+            const data = await response.json();
+            alert('Failed to create playlist: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Failed to create playlist:', error);
+        alert('Failed to create playlist. Please try again.');
+    }
+}
+
+// Open a user playlist
+async function openUserPlaylist(playlistId) {
+    // For now, just show an alert - full implementation pending
+    alert('User playlist view coming soon!');
+}
+
+// Refresh Today's Gallery
+async function refreshTodaysGallery() {
+    const galleryContainer = document.getElementById('todaysGallery');
+    if (!galleryContainer) return;
+
+    // Show loading skeletons
+    galleryContainer.innerHTML = Array(8).fill(0).map(() =>
+        '<div class="gallery-artwork loading"></div>'
+    ).join('');
+
+    try {
+        const response = await fetch('/api/gallery/today/refresh', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.artworks && data.artworks.length > 0) {
+            // Store for playback
+            todaysGalleryArtworks = data.artworks;
+
+            galleryContainer.innerHTML = data.artworks.map(artwork => `
+                <div class="gallery-artwork" onclick="openArtPreview(${JSON.stringify(artwork).replace(/"/g, '&quot;')})">
+                    <img src="${artwork.thumbnailUrl || artwork.imageUrl}" alt="${artwork.title}" loading="lazy">
+                    <div class="gallery-artwork-info">
+                        <div class="gallery-artwork-title">${artwork.title}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Failed to refresh gallery:', error);
+    }
+}
+
+// Open playlist view
+async function openPlaylistView(playlistId) {
+    const playlist = allPlaylists.find(p => p.id === playlistId);
+    if (!playlist) return;
+
+    currentPlaylistId = playlistId;
+
+    // Update UI
+    document.getElementById('playlistsSection').style.display = 'none';
+    document.getElementById('todaysGallerySection').style.display = 'none';
+    document.getElementById('quickSuggestions').style.display = 'none';
+    document.getElementById('searchResultsSection').style.display = 'none';
+    document.getElementById('playlistViewSection').style.display = 'block';
+    document.getElementById('playlistViewTitle').textContent = playlist.name;
+
+    const cardsContainer = document.getElementById('playlistArtCards');
+    cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Loading...</div>';
+
+    try {
+        const response = await fetch(`/api/playlists/${playlistId}`);
+        const data = await response.json();
+
+        if (data.artworks && data.artworks.length > 0) {
+            currentArtResults = data.artworks;
+            cardsContainer.innerHTML = data.artworks.map(artwork => createArtCard(artwork)).join('');
+        } else {
+            cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">No artworks in playlist</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load playlist:', error);
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Failed to load playlist</div>';
+    }
+}
+
+// Close playlist view
+function closePlaylistView() {
+    currentPlaylistId = null;
+    showDefaultExploreSections();
+}
+
+// ========================================
+// NOW PLAYING BAR (Spotify-like playback)
+// ========================================
+
+let nowPlayingState = {
+    active: false,
+    paused: false,
+    artworks: [],
+    currentIndex: 0,
+    playlistName: '',
+    shuffle: false,
+    interval: 300000, // 5 minutes default
+    timer: null
+};
+
+const npIntervalOptions = [
+    { value: 60000, label: '1m' },
+    { value: 300000, label: '5m' },
+    { value: 900000, label: '15m' },
+    { value: 1800000, label: '30m' },
+    { value: 3600000, label: '1h' }
+];
+
+// Initialize Now Playing bar event listeners
+function initNowPlayingBar() {
+    document.getElementById('nowPlayingToggle')?.addEventListener('click', toggleNowPlaying);
+    document.getElementById('nowPlayingPrev')?.addEventListener('click', nowPlayingPrev);
+    document.getElementById('nowPlayingNext')?.addEventListener('click', nowPlayingNext);
+    document.getElementById('nowPlayingShuffle')?.addEventListener('click', toggleNowPlayingShuffle);
+    document.getElementById('nowPlayingInterval')?.addEventListener('click', cycleNowPlayingInterval);
+    document.getElementById('nowPlayingExpand')?.addEventListener('click', expandNowPlaying);
+    document.getElementById('nowPlayingClose')?.addEventListener('click', stopNowPlaying);
+}
+
+// Start playing a playlist/collection
+function startNowPlaying(artworks, playlistName = 'playlist') {
+    if (!artworks || artworks.length === 0) return;
+
+    nowPlayingState.artworks = [...artworks];
+    nowPlayingState.playlistName = playlistName;
+    nowPlayingState.currentIndex = 0;
+    nowPlayingState.active = true;
+    nowPlayingState.paused = false;
+
+    // Shuffle if enabled
+    if (nowPlayingState.shuffle) {
+        shuffleNowPlayingQueue();
+    }
+
+    // Display first artwork
+    displayNowPlayingCurrent();
+    showNowPlayingBar();
+    startNowPlayingTimer();
+}
+
+// Show the Now Playing bar
+function showNowPlayingBar() {
+    const bar = document.getElementById('nowPlayingBar');
+    if (bar) {
+        bar.style.display = 'flex';
+        // Add class for animation
+        setTimeout(() => {
+            bar.classList.add('visible');
+            document.body.classList.add('now-playing-visible');
+        }, 10);
+    }
+}
+
+// Hide the Now Playing bar
+function hideNowPlayingBar() {
+    const bar = document.getElementById('nowPlayingBar');
+    if (bar) {
+        bar.classList.remove('visible');
+        document.body.classList.remove('now-playing-visible');
+        setTimeout(() => bar.style.display = 'none', 300);
+    }
+}
+
+// Update the Now Playing bar UI
+function updateNowPlayingBar() {
+    if (!nowPlayingState.active || nowPlayingState.artworks.length === 0) return;
+
+    const current = nowPlayingState.artworks[nowPlayingState.currentIndex];
+    if (!current) return;
+
+    const thumb = document.getElementById('nowPlayingThumb');
+    const title = document.getElementById('nowPlayingTitle');
+    const subtitle = document.getElementById('nowPlayingSubtitle');
+    const toggleBtn = document.getElementById('nowPlayingToggle');
+    const shuffleBtn = document.getElementById('nowPlayingShuffle');
+    const intervalBtn = document.getElementById('nowPlayingInterval');
+
+    if (thumb) {
+        thumb.src = current.thumbnailUrl || current.thumbnail || current.imageUrl || '';
+    }
+    if (title) {
+        title.textContent = current.title || 'Untitled';
+    }
+    if (subtitle) {
+        const artist = current.artist || '';
+        subtitle.textContent = artist ? `${artist} · ${nowPlayingState.playlistName}` : nowPlayingState.playlistName;
+    }
+    if (toggleBtn) {
+        toggleBtn.textContent = nowPlayingState.paused ? '▶' : '⏸';
+        toggleBtn.title = nowPlayingState.paused ? 'Play' : 'Pause';
+    }
+    if (shuffleBtn) {
+        shuffleBtn.classList.toggle('active', nowPlayingState.shuffle);
+    }
+    if (intervalBtn) {
+        const opt = npIntervalOptions.find(o => o.value === nowPlayingState.interval);
+        intervalBtn.textContent = opt ? opt.label : '5m';
+    }
+}
+
+// Display the current artwork on the frame
+async function displayNowPlayingCurrent() {
+    if (!nowPlayingState.active || nowPlayingState.artworks.length === 0) return;
+
+    const current = nowPlayingState.artworks[nowPlayingState.currentIndex];
+    if (!current) return;
+
+    updateNowPlayingBar();
+
+    // Import/display the artwork
+    try {
+        const response = await fetch('/api/art/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                imageUrl: current.imageUrl,
+                title: current.title,
+                artist: current.artist,
+                rotation: defaultOrientation === 'landscape' ? 90 : 0
+            })
+        });
+
+        if (response.ok) {
+            // Refresh the current display preview
+            setTimeout(loadCurrentDisplay, 2000);
+        }
+    } catch (error) {
+        console.error('Failed to display artwork:', error);
+    }
+}
+
+// Toggle play/pause
+function toggleNowPlaying() {
+    if (!nowPlayingState.active) return;
+
+    nowPlayingState.paused = !nowPlayingState.paused;
+
+    if (nowPlayingState.paused) {
+        stopNowPlayingTimer();
+    } else {
+        startNowPlayingTimer();
+    }
+
+    updateNowPlayingBar();
+}
+
+// Go to previous artwork
+function nowPlayingPrev() {
+    if (!nowPlayingState.active || nowPlayingState.artworks.length === 0) return;
+
+    nowPlayingState.currentIndex--;
+    if (nowPlayingState.currentIndex < 0) {
+        nowPlayingState.currentIndex = nowPlayingState.artworks.length - 1;
+    }
+
+    displayNowPlayingCurrent();
+    resetNowPlayingTimer();
+}
+
+// Go to next artwork
+function nowPlayingNext() {
+    if (!nowPlayingState.active || nowPlayingState.artworks.length === 0) return;
+
+    nowPlayingState.currentIndex++;
+    if (nowPlayingState.currentIndex >= nowPlayingState.artworks.length) {
+        nowPlayingState.currentIndex = 0;
+    }
+
+    displayNowPlayingCurrent();
+    resetNowPlayingTimer();
+}
+
+// Toggle shuffle mode
+function toggleNowPlayingShuffle() {
+    nowPlayingState.shuffle = !nowPlayingState.shuffle;
+
+    if (nowPlayingState.shuffle && nowPlayingState.active) {
+        // Reshuffle remaining items
+        shuffleNowPlayingQueue();
+    }
+
+    updateNowPlayingBar();
+}
+
+// Shuffle the queue (keeping current item at position 0)
+function shuffleNowPlayingQueue() {
+    if (nowPlayingState.artworks.length <= 1) return;
+
+    const current = nowPlayingState.artworks[nowPlayingState.currentIndex];
+    const others = nowPlayingState.artworks.filter((_, i) => i !== nowPlayingState.currentIndex);
+
+    // Fisher-Yates shuffle
+    for (let i = others.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [others[i], others[j]] = [others[j], others[i]];
+    }
+
+    nowPlayingState.artworks = [current, ...others];
+    nowPlayingState.currentIndex = 0;
+}
+
+// Cycle through interval options
+function cycleNowPlayingInterval() {
+    const currentIdx = npIntervalOptions.findIndex(o => o.value === nowPlayingState.interval);
+    const nextIdx = (currentIdx + 1) % npIntervalOptions.length;
+    nowPlayingState.interval = npIntervalOptions[nextIdx].value;
+
+    updateNowPlayingBar();
+    resetNowPlayingTimer();
+}
+
+// Start the auto-advance timer
+function startNowPlayingTimer() {
+    if (nowPlayingState.timer) {
+        clearInterval(nowPlayingState.timer);
+    }
+
+    nowPlayingState.timer = setInterval(() => {
+        if (!nowPlayingState.paused) {
+            nowPlayingNext();
+        }
+    }, nowPlayingState.interval);
+}
+
+// Stop the timer
+function stopNowPlayingTimer() {
+    if (nowPlayingState.timer) {
+        clearInterval(nowPlayingState.timer);
+        nowPlayingState.timer = null;
+    }
+}
+
+// Reset the timer (restart countdown)
+function resetNowPlayingTimer() {
+    if (!nowPlayingState.paused) {
+        startNowPlayingTimer();
+    }
+}
+
+// Expand to full modal view
+function expandNowPlaying() {
+    if (!nowPlayingState.active || nowPlayingState.artworks.length === 0) return;
+
+    const current = nowPlayingState.artworks[nowPlayingState.currentIndex];
+    if (current) {
+        openArtPreview(current);
+    }
+}
+
+// Stop Now Playing completely
+function stopNowPlaying() {
+    nowPlayingState.active = false;
+    nowPlayingState.paused = false;
+    nowPlayingState.artworks = [];
+    nowPlayingState.currentIndex = 0;
+    stopNowPlayingTimer();
+    hideNowPlayingBar();
+}
+
+// Play current playlist (set as rotation)
+function playCurrentPlaylist() {
+    if (currentArtResults.length === 0) return;
+
+    const playlist = allPlaylists.find(p => p.id === currentPlaylistId);
+    const name = playlist ? playlist.name : 'playlist';
+
+    startNowPlaying(currentArtResults, name);
+}
+
+// Clear search results and return to default view
+function clearSearchResults() {
+    document.getElementById('searchInput').value = '';
+    currentArtResults = [];
+    showDefaultExploreSections();
+}
+
+// Load random artwork
+async function loadRandomArt() {
+    try {
+        const response = await fetch('/api/art/random');
+        const data = await response.json();
+
+        if (data.artwork) {
+            openArtPreview(data.artwork);
+        }
+    } catch (error) {
+        console.error('Failed to load random art:', error);
+    }
+}
+
+// Open art preview modal from Today's Gallery
+function openArtPreview(artwork) {
+    selectedModalArt = artwork;
+    const modal = document.getElementById('artModal');
+    const modalImage = document.getElementById('modalImage');
+
+    modalImage.src = artwork.imageUrl || artwork.thumbnailUrl;
+    modal.style.display = 'flex';
+    applyDefaultOrientation();
+
+    // Setup secondary action (add to collection)
+    const secondaryBtn = document.getElementById('modalSecondaryAction');
+    secondaryBtn.textContent = '♡ save to collection';
+    secondaryBtn.style.display = 'inline-block';
+    secondaryActionType = 'add';
+
+    // Show "more like this" button
+    document.getElementById('moreLikeThisBtn').style.display = 'inline-block';
+}
+
+// Create art card HTML (helper function)
+function createArtCard(artwork) {
+    const imageUrl = artwork.thumbnailUrl || artwork.thumbnail || artwork.imageUrl || '';
+    const title = artwork.title || 'Untitled';
+    const artist = artwork.artist || '';
+
+    return `
+        <div class="art-card" onclick="openArtPreview(${JSON.stringify(artwork).replace(/"/g, '&quot;')})">
+            <img src="${imageUrl}" alt="${title}" loading="lazy"
+                 onerror="this.parentElement.style.display='none'">
+            <div class="art-card-info">
+                <div class="art-card-title">${title}</div>
+                ${artist ? `<div class="art-card-artist">${artist}</div>` : ''}
+            </div>
+        </div>
+    `;
 }
 
 // Load all playlists from API
@@ -619,10 +1251,13 @@ async function searchArt() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) return;
 
+    // Show search results section
+    showSearchResultsSection(`"${query}"`);
+
     // Clear playlist selection when searching
     currentPlaylistId = null;
-    document.getElementById('currentPlaylist').style.display = 'none';
-    renderPlaylistStacks();
+    const currentPlaylistEl = document.getElementById('currentPlaylist');
+    if (currentPlaylistEl) currentPlaylistEl.style.display = 'none';
 
     const cardsContainer = document.getElementById('artCards');
     cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Searching...</div>';
@@ -631,11 +1266,29 @@ async function searchArt() {
         const data = await window.smartSearch(query);
         currentArtResults = data.results || [];
         browseDisplayCount = getInitialDisplayCount();
-        displayPlaylistCards();
+        displaySearchResults();
     } catch (error) {
         console.error('Search failed:', error);
         cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Search failed</div>';
     }
+}
+
+// Display search results in the new format
+function displaySearchResults() {
+    const cardsContainer = document.getElementById('artCards');
+    const showMoreBtn = document.getElementById('browseShowMore');
+
+    if (currentArtResults.length === 0) {
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">No results found</div>';
+        showMoreBtn.style.display = 'none';
+        return;
+    }
+
+    const displayArtworks = currentArtResults.slice(0, browseDisplayCount);
+    cardsContainer.innerHTML = displayArtworks.map(artwork => createArtCard(artwork)).join('');
+
+    // Show/hide "show more" button
+    showMoreBtn.style.display = currentArtResults.length > browseDisplayCount ? 'block' : 'none';
 }
 
 async function loadAllArt() {
@@ -807,7 +1460,13 @@ async function quickAddToCollection(art) {
 
 function showMoreBrowse() {
     browseDisplayCount += getShowMoreIncrement();
-    displayPlaylistCards();
+    // Use displaySearchResults when in search results view
+    const searchSection = document.getElementById('searchResultsSection');
+    if (searchSection && searchSection.style.display !== 'none') {
+        displaySearchResults();
+    } else {
+        displayPlaylistCards();
+    }
 }
 
 function previewArt(art) {
