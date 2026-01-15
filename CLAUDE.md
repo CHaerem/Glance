@@ -45,12 +45,14 @@ Glance/
 │   │   ├── server.ts             # Main server (~500 lines)
 │   │   ├── routes/               # API route handlers (12 modules)
 │   │   │   └── *.ts              # Factory pattern: createXxxRoutes() => Router
-│   │   ├── services/             # Business logic (5 modules)
+│   │   ├── services/             # Business logic (7 modules)
 │   │   │   ├── logger.ts         # Structured JSON logging for Loki
 │   │   │   ├── image-processing.ts # Dithering, color conversion
 │   │   │   ├── museum-api.ts     # Museum search with art filtering
 │   │   │   ├── openai-search.ts  # OpenAI Vector Stores integration
-│   │   │   └── statistics.ts     # API tracking, pricing
+│   │   │   ├── statistics.ts     # API tracking, pricing
+│   │   │   ├── guide-chat.ts     # Agentic art guide with function calling
+│   │   │   └── taste-guide.ts    # Personal collection & recommendations
 │   │   ├── utils/                # Shared utilities
 │   │   │   ├── time.ts           # Oslo timezone, night sleep
 │   │   │   ├── validation.ts     # Input validation
@@ -67,7 +69,7 @@ Glance/
 │   ├── Dockerfile                # Multi-stage Docker build with TypeScript
 │   ├── tsconfig.json             # TypeScript configuration
 │   ├── scripts/                  # Data import scripts
-│   └── __tests__/                # Jest test suite (220 tests)
+│   └── __tests__/                # Jest test suite (256 tests)
 ├── scripts/                      # Root utilities
 │   ├── build-and-push.sh         # Docker build & push
 │   └── run-tests.sh              # Test runner
@@ -153,7 +155,7 @@ npm run build:check      # Type-check without emitting
 npm run dev
 
 # Run tests
-npm test                 # All tests (220 tests)
+npm test                 # All tests (256 tests)
 npm run test:watch       # Watch mode
 npm run test:coverage    # Coverage report
 
@@ -305,11 +307,14 @@ Server-side processing for e-ink optimization:
 ```bash
 cd server/
 
-# Run all tests (220 tests)
+# Run all tests (256 tests)
 npm test
 
 # Specific test file
 npm test -- image-processing.test.js
+
+# Run guide-chat evaluation tests
+npm test -- guide-chat.test.js
 
 # Type-check
 npm run build:check
@@ -325,7 +330,21 @@ Test suites in `server/__tests__/`:
 - `full-pipeline.test.js` - End-to-end workflows
 - `upload-endpoint.test.js` - Upload integration tests
 - `services/*.test.js` - Service module tests
+- `services/guide-chat.test.js` - AI guide evaluation (tool selection, performance)
 - `utils/*.test.js` - Utility module tests
+
+### AI Guide Evaluation
+
+The guide-chat test suite includes evaluation scenarios for tuning the AI guide:
+
+- **Tool Selection Tests**: Validates correct tool is called for different user intents
+- **Performance Benchmarks**: Documents target response times (<5s total, <2s first response)
+- **Evaluation Scenarios**: Comprehensive test cases for art discovery, display, collection management
+
+Run live API tests (requires `OPENAI_API_KEY`):
+```bash
+npm test -- --testTimeout=60000 guide-chat.test.js
+```
 
 ## Environment Variables
 
@@ -422,13 +441,14 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 - **Agentic Art Guide**: Conversational AI guide with function calling
   - 5 tools: search_art, display_artwork, add_to_collection, get_recommendations, get_current_display
   - Hybrid behavior: acts on clear intent, asks on ambiguous requests
-  - Inline chat UI in explore page with action feedback
+  - Single input UI with inline response toast and smart hints
   - Dynamic discovery hints: time-based, context-aware, rotating suggestions
-  - Uses GPT-4o-mini with parallel tool execution
+  - Uses GPT-5-mini with parallel tool execution
+  - Performance metrics: tracks response time, token usage, tool calls for evaluation
 - **Taste Guide**: Personal art collection with AI-powered recommendations
   - Track favorite artworks in `/api/my-collection`
-  - Generate embeddings for similarity search
-  - Build taste profile analyzing collection with GPT-4o-mini
+  - Generate embeddings for similarity search (text-embedding-3-small)
+  - Build taste profile analyzing collection with GPT-5-mini
   - Get personalized recommendations based on your preferences
 - **LAN-only mode**: Server now only accessible from local network
   - WAN access blocked for all endpoints except `/health`
@@ -467,4 +487,4 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
   - Solved brownout issues during display refresh on battery
   - Voltage divider ratio recalibrated to 8.3 for new setup
   - Blue LED removed to save ~2mA standby current
-- 220 tests all passing
+- 256 tests all passing

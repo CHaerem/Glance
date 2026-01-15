@@ -33,6 +33,22 @@ interface GuideResponse {
   actions: GuideAction[];
   results?: Artwork[];
   displayed?: Artwork;
+  metrics?: GuideMetrics;
+}
+
+/** Performance metrics for evaluation */
+interface GuideMetrics {
+  totalDurationMs: number;
+  firstResponseMs: number;
+  toolExecutionMs: number;
+  finalResponseMs: number;
+  toolsCalled: string[];
+  tokenUsage?: {
+    prompt: number;
+    completion: number;
+    total: number;
+  };
+  model: string;
 }
 
 /** Conversation session */
@@ -371,6 +387,16 @@ class GuideChatService {
     });
 
     try {
+      // Start performance tracking
+      const startTime = Date.now();
+      const MODEL = 'gpt-5-mini';
+      let firstResponseMs = 0;
+      let toolExecutionMs = 0;
+      let finalResponseMs = 0;
+      const toolsCalled: string[] = [];
+      let totalPromptTokens = 0;
+      let totalCompletionTokens = 0;
+
       // Get taste profile context
       const tasteContext = await tasteGuideService.getCollectionSummary();
 
@@ -382,7 +408,7 @@ class GuideChatService {
 
       // Call GPT-5-mini with tools (uses max_completion_tokens, no temperature)
       const response = await this.client.chat.completions.create({
-        model: 'gpt-5-mini',
+        model: MODEL,
         messages: [
           {
             role: 'system',
@@ -408,13 +434,28 @@ IMPORTANT:
         max_completion_tokens: 400,
       });
 
+      // Track first response timing and tokens
+      firstResponseMs = Date.now() - startTime;
+      if (response.usage) {
+        totalPromptTokens += response.usage.prompt_tokens;
+        totalCompletionTokens += response.usage.completion_tokens;
+      }
+
       const assistantMessage = response.choices[0]?.message;
       const toolCalls = assistantMessage?.tool_calls || [];
       const actions: GuideAction[] = [];
       let displayedArtwork: Artwork | undefined;
 
+      // Track which tools were called
+      for (const tc of toolCalls) {
+        if (tc.type === 'function') {
+          toolsCalled.push(tc.function.name);
+        }
+      }
+
       // Execute tool calls in parallel
       if (toolCalls.length > 0) {
+        const toolStartTime = Date.now();
         const toolPromises = toolCalls.map(async (toolCall) => {
           if (toolCall.type !== 'function') {
             return { action: { type: 'search' as const, data: {}, success: false }, toolResult: '{}' };
@@ -424,6 +465,7 @@ IMPORTANT:
         });
 
         const toolResults = await Promise.all(toolPromises);
+        toolExecutionMs = Date.now() - toolStartTime;
 
         // Collect actions
         for (const result of toolResults) {
@@ -441,8 +483,9 @@ IMPORTANT:
           content: toolResults[index]?.toolResult || '{}',
         }));
 
+        const finalStartTime = Date.now();
         const finalResponse = await this.client.chat.completions.create({
-          model: 'gpt-5-mini',
+          model: MODEL,
           messages: [
             {
               role: 'system',
@@ -458,8 +501,40 @@ IMPORTANT:
           ],
           max_completion_tokens: 150,
         });
+        finalResponseMs = Date.now() - finalStartTime;
+
+        // Track final response tokens
+        if (finalResponse.usage) {
+          totalPromptTokens += finalResponse.usage.prompt_tokens;
+          totalCompletionTokens += finalResponse.usage.completion_tokens;
+        }
 
         const finalContent = finalResponse.choices[0]?.message?.content || 'Done.';
+        const totalDurationMs = Date.now() - startTime;
+
+        // Build metrics
+        const metrics: GuideMetrics = {
+          totalDurationMs,
+          firstResponseMs,
+          toolExecutionMs,
+          finalResponseMs,
+          toolsCalled,
+          tokenUsage: {
+            prompt: totalPromptTokens,
+            completion: totalCompletionTokens,
+            total: totalPromptTokens + totalCompletionTokens,
+          },
+          model: MODEL,
+        };
+
+        // Log performance metrics
+        log.info('Guide response completed', {
+          sessionId,
+          userMessage: userMessage.substring(0, 50),
+          ...metrics,
+          actionsCount: actions.length,
+          resultsCount: this.lastSearchResults.length,
+        });
 
         // Add assistant message to history
         session.messages.push({
@@ -473,11 +548,35 @@ IMPORTANT:
           actions,
           results: this.lastSearchResults.length > 0 ? this.lastSearchResults : undefined,
           displayed: displayedArtwork,
+          metrics,
         };
       }
 
       // No tool calls - just a conversational response
       const content = assistantMessage?.content || 'I\'m here to help you discover art. What would you like to find?';
+      const totalDurationMs = Date.now() - startTime;
+
+      // Build metrics for no-tool-call response
+      const metrics: GuideMetrics = {
+        totalDurationMs,
+        firstResponseMs,
+        toolExecutionMs: 0,
+        finalResponseMs: 0,
+        toolsCalled: [],
+        tokenUsage: {
+          prompt: totalPromptTokens,
+          completion: totalCompletionTokens,
+          total: totalPromptTokens + totalCompletionTokens,
+        },
+        model: MODEL,
+      };
+
+      // Log performance metrics
+      log.info('Guide response completed (no tools)', {
+        sessionId,
+        userMessage: userMessage.substring(0, 50),
+        ...metrics,
+      });
 
       session.messages.push({
         role: 'assistant',
@@ -488,6 +587,7 @@ IMPORTANT:
       return {
         message: content,
         actions: [],
+        metrics,
       };
     } catch (error) {
       log.error('Guide chat failed', { error: getErrorMessage(error) });
