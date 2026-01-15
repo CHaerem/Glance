@@ -126,10 +126,10 @@ function selectDailyMasterpieces(masterpieces: Masterpiece[], count: number, see
  * Search for artwork and convert to gallery format
  */
 async function searchForArtwork(masterpiece: Masterpiece): Promise<GalleryArtwork | null> {
-  // Check cache first
+  // Check cache first - use has() since get() returns null for both miss and stored null
   const cacheKey = `search-${masterpiece.id}`;
-  const cached = searchCache.get(cacheKey);
-  if (cached !== undefined) {
+  if (searchCache.has(cacheKey)) {
+    const cached = searchCache.get(cacheKey);
     if (cached === null) return null;
     return {
       id: masterpiece.id,
