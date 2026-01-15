@@ -160,7 +160,7 @@ Response: {
           },
         ],
         temperature: 0.3,
-        max_tokens: 300,
+        max_completion_tokens: 300,
       });
 
       statistics.trackOpenAICall(
@@ -288,7 +288,7 @@ Source: ${source || 'Unknown'}`,
           },
         ],
         temperature: 0.7,
-        max_tokens: 200,
+        max_completion_tokens: 200,
       });
 
       statistics.trackOpenAICall(

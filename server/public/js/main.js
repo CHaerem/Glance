@@ -461,7 +461,7 @@ async function openPlaylistView(playlistId) {
 
         if (data.artworks && data.artworks.length > 0) {
             currentArtResults = data.artworks;
-            cardsContainer.innerHTML = data.artworks.map(artwork => createArtCard(artwork)).join('');
+            cardsContainer.innerHTML = data.artworks.map(artwork => createPhysicalCard(artwork)).join('');
         } else {
             cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">No artworks in playlist</div>';
         }
@@ -800,24 +800,6 @@ function openArtPreview(artwork) {
 
     // Show "more like this" button
     document.getElementById('moreLikeThisBtn').style.display = 'inline-block';
-}
-
-// Create art card HTML (helper function)
-function createArtCard(artwork) {
-    const imageUrl = artwork.thumbnailUrl || artwork.thumbnail || artwork.imageUrl || '';
-    const title = artwork.title || 'Untitled';
-    const artist = artwork.artist || '';
-
-    return `
-        <div class="art-card" onclick="openArtPreview(${JSON.stringify(artwork).replace(/"/g, '&quot;')})">
-            <img src="${imageUrl}" alt="${title}" loading="lazy"
-                 onerror="this.parentElement.style.display='none'">
-            <div class="art-card-info">
-                <div class="art-card-title">${title}</div>
-                ${artist ? `<div class="art-card-artist">${artist}</div>` : ''}
-            </div>
-        </div>
-    `;
 }
 
 // Load all playlists from API
@@ -1285,7 +1267,7 @@ function displaySearchResults() {
     }
 
     const displayArtworks = currentArtResults.slice(0, browseDisplayCount);
-    cardsContainer.innerHTML = displayArtworks.map(artwork => createArtCard(artwork)).join('');
+    cardsContainer.innerHTML = displayArtworks.map(artwork => createPhysicalCard(artwork)).join('');
 
     // Show/hide "show more" button
     showMoreBtn.style.display = currentArtResults.length > browseDisplayCount ? 'block' : 'none';

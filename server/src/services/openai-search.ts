@@ -409,7 +409,7 @@ Consider:
         ],
         tools: searchTools,
         tool_choice: 'auto',
-        max_tokens: 1000,
+        max_completion_tokens: 1000,
       });
 
       // Execute tool calls IN PARALLEL for speed
@@ -506,7 +506,7 @@ Search for artworks with similar characteristics.`,
           ],
           tools: searchTools,
           tool_choice: 'auto',
-          max_tokens: 500,
+          max_completion_tokens: 500,
         });
 
         // Execute searches IN PARALLEL
