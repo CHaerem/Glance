@@ -435,6 +435,7 @@ async function loadPlaylistsHorizontal() {
                     <img class="playlist-card-image ${!previewUrl ? 'loading' : ''}"
                          src="${previewUrl}"
                          alt="${playlist.name}"
+                         loading="lazy"
                          onerror="this.classList.add('loading'); this.src='';">
                     <div class="playlist-card-name">${playlist.name}</div>
                 </div>

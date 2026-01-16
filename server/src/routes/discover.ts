@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { loggers } from '../services/logger';
-import { getErrorMessage } from '../utils';
+import { getErrorMessage, TtlCache, TTL } from '../utils';
 import { Artwork } from '../types';
 import {
   isLocalLibraryAvailable,
@@ -16,6 +16,9 @@ import {
 } from '../services/local-library';
 
 const log = loggers.api;
+
+// Cache discover feed for 5 minutes (movements don't change often)
+const discoverCache = new TtlCache<unknown>({ ttl: TTL.FIVE_MINUTES });
 
 // Movement metadata for display
 const MOVEMENT_INFO: Record<string, { name: string; period: string; description: string; color: string }> = {
@@ -151,14 +154,26 @@ export function createDiscoverRouter(): Router {
    */
   router.get('/', async (_req: Request, res: Response) => {
     try {
+      // Get current hour for mood-based cache key
+      const currentHour = new Date().getHours();
+      const today = new Date();
+      const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+      const cacheKey = `discover-${dayOfYear}-${currentHour}`;
+
+      // Check cache first
+      const cached = discoverCache.get(cacheKey);
+      if (cached) {
+        res.set('X-Cache', 'HIT');
+        res.json(cached);
+        return;
+      }
+
       const libraryAvailable = isLocalLibraryAvailable();
       const stats = libraryAvailable ? await getLibraryStats() : null;
       const movements = libraryAvailable ? await getAvailableMovements() : [];
 
       // Get featured movement (rotates daily)
-      const today = new Date();
-      const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-      const featuredMovementIndex = dayOfYear % movements.length;
+      const featuredMovementIndex = movements.length > 0 ? dayOfYear % movements.length : 0;
       const featuredMovement = movements[featuredMovementIndex];
 
       // Get featured artworks from that movement
@@ -176,7 +191,7 @@ export function createDiscoverRouter(): Router {
         ...(MOVEMENT_INFO[m.id] || { name: m.id, period: '', description: '', color: '#666' }),
       }));
 
-      res.json({
+      const response = {
         libraryAvailable,
         stats,
         featured: featuredMovement ? {
@@ -188,7 +203,12 @@ export function createDiscoverRouter(): Router {
         } : null,
         mood,
         movements: enrichedMovements,
-      });
+      };
+
+      // Cache the response
+      discoverCache.set(cacheKey, response);
+      res.set('X-Cache', 'MISS');
+      res.json(response);
     } catch (error) {
       log.error('Error getting discover feed', { error: getErrorMessage(error) });
       res.status(500).json({ error: 'Internal server error' });

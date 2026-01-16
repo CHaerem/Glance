@@ -97,19 +97,26 @@ function renderMovementsSection(movements) {
         return;
     }
 
-    // Sort by count (most artworks first)
-    const sorted = [...movements].sort((a, b) => b.count - a.count);
+    // Sort by count (most artworks first), limit to top 15 for performance
+    const sorted = [...movements].sort((a, b) => b.count - a.count).slice(0, 15);
 
-    container.innerHTML = sorted.map(movement => `
-        <div class="movement-card"
-             data-movement-id="${movement.id}"
-             style="--movement-color: ${movement.color || '#666'}">
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+    sorted.forEach(movement => {
+        const card = document.createElement('div');
+        card.className = 'movement-card';
+        card.dataset.movementId = movement.id;
+        card.style.setProperty('--movement-color', movement.color || '#666');
+        card.innerHTML = `
             <div class="movement-name">${movement.name || movement.id}</div>
             <div class="movement-period">${movement.period || ''}</div>
             <div class="movement-count">${movement.count} artworks</div>
-        </div>
-    `).join('');
+        `;
+        fragment.appendChild(card);
+    });
 
+    container.innerHTML = '';
+    container.appendChild(fragment);
     section.style.display = 'block';
 }
 

@@ -1880,6 +1880,7 @@
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
+    transform: translateZ(0); /* GPU acceleration */
     scrollbar-width: none;
     padding-bottom: 8px;
 }
@@ -1941,6 +1942,7 @@
     border-radius: 8px;
     overflow: hidden;
     background: #f5f5f5;
+    contain: layout style; /* CSS containment for performance */
     aspect-ratio: 1;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -2361,6 +2363,7 @@ body.now-playing-visible .container {
     display: flex;
     gap: 12px;
     padding-bottom: 8px;
+    transform: translateZ(0); /* GPU acceleration */
 }
 
 .movement-card {
@@ -2371,9 +2374,10 @@ body.now-playing-visible .container {
     border-radius: 12px;
     padding: 16px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     position: relative;
     overflow: hidden;
+    contain: layout style; /* CSS containment for performance */
 }
 
 .movement-card::before {
