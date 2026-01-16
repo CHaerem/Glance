@@ -457,7 +457,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
         temperature = 0.9;
         userContent = `Use the following loose guidance to create a vivid prompt:\n${cueParts.join('\n')}\n\nDeliver one complete prompt ready for image generation, highlighting full-bleed composition, dramatic lighting, and strong contrast suitable for a striking art poster.`;
       } else {
-        temperature = 1.1;
+        temperature = 1.0;
         const inspirationSeed = getRandomLuckyPrompt();
         userContent = `Surprise me with a fresh, inspiring idea for a portrait-oriented AI artwork with bold visual impact. Lean into ${inspirationSeed}. Make sure the prompt enforces full-bleed composition, edge-to-edge detail, and dramatic contrast.`;
       }
