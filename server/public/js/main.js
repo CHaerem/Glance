@@ -160,8 +160,8 @@ function openArtModal(artwork, options = {}) {
 document.addEventListener('DOMContentLoaded', () => {
     loadSettings();
     loadCurrentDisplay();
-    loadAllArt();
-    loadMyCollection();
+    // Defer loadAllArt() and loadMyCollection() to when user switches modes
+    // This improves initial page load time
     setupDragDrop();
     setupTouchZoom();
     setInterval(loadCurrentDisplay, 30000);
@@ -293,9 +293,17 @@ function switchMode(mode) {
     } else if (mode === 'my-collection') {
         document.getElementById('myCollectionMode').classList.add('show');
         collectionDisplayCount = getInitialDisplayCount();
-        loadRotationStatus(); // Load rotation status for collection view
-        loadMyPlaylists(); // Load user's playlists
-        displayMyCollection();
+        // Lazy load collection data on first visit
+        if (!collectionInitialized) {
+            loadMyCollection().then(() => {
+                collectionInitialized = true;
+                displayMyCollection();
+            });
+            loadRotationStatus();
+            loadMyPlaylists();
+        } else {
+            displayMyCollection();
+        }
     }
 
     // Update tab colors
@@ -308,6 +316,7 @@ function switchMode(mode) {
 let allPlaylists = [];
 let currentPlaylistId = null;
 let exploreInitialized = false;
+let collectionInitialized = false;
 const playlistDataCache = new Map(); // Client-side cache for loaded playlist artworks
 const PLAYLIST_CACHE_MAX_ENTRIES = 20;
 const PLAYLIST_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
