@@ -5,6 +5,7 @@ let selectedModalArt = null;
 let selectedHistoryItem = null;
 let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
+let modalTransitioning = false; // Prevent rapid open/close
 
 // Browse state
 let browseDisplayCount = getInitialDisplayCount();
@@ -91,6 +92,11 @@ function updateModalMetadata(artwork) {
 
 // Unified art modal opening function
 function openArtModal(artwork, options = {}) {
+    // Prevent rapid open/close issues
+    if (modalTransitioning) return;
+    modalTransitioning = true;
+    setTimeout(() => { modalTransitioning = false; }, 150);
+
     const {
         source = 'explore',  // 'explore' | 'collection' | 'generated' | 'search'
         showMoreLikeThis = true,
@@ -1562,6 +1568,11 @@ async function openCollectionItem(item) {
 }
 
 function closeModal() {
+    // Prevent rapid open/close issues
+    if (modalTransitioning) return;
+    modalTransitioning = true;
+    setTimeout(() => { modalTransitioning = false; }, 150);
+
     document.getElementById('artModal').classList.remove('show');
     selectedModalArt = null;
     selectedHistoryItem = null;
