@@ -86,3 +86,7 @@ data/
 monitor.py
 debug-*.py
 test-*.py.playwright-mcp/
+
+# Playwright test outputs
+server/playwright-report/
+server/test-results/
