@@ -95,42 +95,48 @@
       "name": "Morning Calm",
       "type": "dynamic",
       "description": "Peaceful art for quiet mornings",
-      "searchQuery": "serene peaceful calm morning light pastel landscape water reflections soft gentle"
+      "searchQuery": "serene peaceful calm morning light pastel landscape water reflections soft gentle",
+      "preview": "Claude_Monet_-_Water_Lilies_-_1906,_Ryerson.jpg"
     },
     {
       "id": "rainy-afternoon",
       "name": "Rainy Afternoon",
       "type": "dynamic",
       "description": "Contemplative moods",
-      "searchQuery": "melancholic contemplative rain grey moody atmospheric foggy introspective"
+      "searchQuery": "melancholic contemplative rain grey moody atmospheric foggy introspective",
+      "preview": "Gustave_Caillebotte_-_Paris_Street;_Rainy_Day_-_Google_Art_Project.jpg"
     },
     {
       "id": "golden-hour",
       "name": "Golden Hour",
       "type": "dynamic",
       "description": "Warm evening light",
-      "searchQuery": "golden hour sunset warm light evening glow amber orange twilight"
+      "searchQuery": "golden hour sunset warm light evening glow amber orange twilight",
+      "preview": "Claude_Monet_-_Impression,_soleil_levant.jpg"
     },
     {
       "id": "bold-vibrant",
       "name": "Bold & Vibrant",
       "type": "dynamic",
       "description": "Energetic and colorful",
-      "searchQuery": "bold vibrant colorful intense saturated expressive dynamic energetic"
+      "searchQuery": "bold vibrant colorful intense saturated expressive dynamic energetic",
+      "preview": "Vassily_Kandinsky,_1923_-_Composition_8,_huile_sur_toile,_140_cm_x_201_cm,_Mus%C3%A9e_Guggenheim,_New_York.jpg"
     },
     {
       "id": "quiet-interiors",
       "name": "Quiet Interiors",
       "type": "dynamic",
       "description": "Intimate indoor scenes",
-      "searchQuery": "interior room domestic quiet intimate window light reading solitude"
+      "searchQuery": "interior room domestic quiet intimate window light reading solitude",
+      "preview": "Johannes_Vermeer_-_Het_melkmeisje_-_Google_Art_Project.jpg"
     },
     {
       "id": "winter-light",
       "name": "Winter Light",
       "type": "seasonal",
       "description": "Cold beauty and snow",
-      "searchQuery": "winter snow cold ice frost white blue serene quiet landscape"
+      "searchQuery": "winter snow cold ice frost white blue serene quiet landscape",
+      "preview": "Caspar_David_Friedrich_-_Wanderer_above_the_sea_of_fog.jpg"
     }
   ]
 }

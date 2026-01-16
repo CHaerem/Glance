@@ -28,6 +28,7 @@ interface Playlist {
   description: string;
   source?: string;
   searchQuery?: string;
+  preview?: string; // Wikimedia filename for preview image
   artworks?: PlaylistArtwork[];
 }
 
@@ -88,19 +89,25 @@ export function createPlaylistsRouter(): Router {
    */
   router.get('/', (_req: Request, res: Response) => {
     try {
-      const playlists: PlaylistListItem[] = playlistsData.playlists.map((p) => ({
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        description: p.description,
-        source: p.source || null,
-        // Include preview image (first artwork for classic, null for dynamic)
-        preview:
-          p.artworks && p.artworks.length > 0
-            ? `https://commons.wikimedia.org/wiki/Special:FilePath/${p.artworks[0]!.wikimedia}?width=400`
-            : null,
-        artworkCount: p.artworks ? p.artworks.length : null,
-      }));
+      const playlists: PlaylistListItem[] = playlistsData.playlists.map((p) => {
+        // Get preview image: explicit preview field, first artwork, or null
+        let preview: string | null = null;
+        if (p.preview) {
+          preview = `https://commons.wikimedia.org/wiki/Special:FilePath/${p.preview}?width=400`;
+        } else if (p.artworks && p.artworks.length > 0) {
+          preview = `https://commons.wikimedia.org/wiki/Special:FilePath/${p.artworks[0]!.wikimedia}?width=400`;
+        }
+
+        return {
+          id: p.id,
+          name: p.name,
+          type: p.type,
+          description: p.description,
+          source: p.source || null,
+          preview,
+          artworkCount: p.artworks ? p.artworks.length : null,
+        };
+      });
 
       // Cache playlist metadata for 5 minutes (rarely changes)
       res.set('Cache-Control', 'public, max-age=300');
