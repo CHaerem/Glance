@@ -134,7 +134,8 @@ function setupDiscoverListeners() {
 
     // Explore featured movement button
     document.getElementById('exploreFeaturedBtn')?.addEventListener('click', (e) => {
-        const movementId = e.target.dataset.movementId;
+        const btn = e.currentTarget;
+        const movementId = btn.dataset.movementId;
         if (movementId) {
             browseMovement(movementId);
         }
@@ -142,7 +143,9 @@ function setupDiscoverListeners() {
 
     // Mood button - trigger search
     document.getElementById('moodBtn')?.addEventListener('click', (e) => {
-        const query = e.target.dataset.query;
+        // Use currentTarget to get the button, not the clicked text inside it
+        const btn = e.currentTarget;
+        const query = btn.dataset.query;
         if (query && window.performSearch) {
             window.performSearch(query);
         }
