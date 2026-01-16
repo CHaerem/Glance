@@ -2854,21 +2854,25 @@ window.performSearch = async function(query) {
     await sendGuideMessage(query);
 };
 window.displaySearchResults = function(artworks, title) {
-    // Set results and display them
+    // Handle both cases: called with artworks param (discover.js) or without (searchArt)
     if (artworks && artworks.length > 0) {
         currentArtResults = artworks;
         browseDisplayCount = getInitialDisplayCount();
-
-        // Show search results section
         showSearchResultsSection(title || 'results');
-
-        // Display in art cards
-        const cardsContainer = document.getElementById('artCards');
-        const showMoreBtn = document.getElementById('browseShowMore');
-
-        const displayArtworks = currentArtResults.slice(0, browseDisplayCount);
-        cardsContainer.innerHTML = displayArtworks.map(artwork => createPhysicalCard(artwork)).join('');
-        showMoreBtn.style.display = currentArtResults.length > browseDisplayCount ? 'block' : 'none';
     }
+
+    // Display current results (either just set above, or already set by searchArt)
+    const cardsContainer = document.getElementById('artCards');
+    const showMoreBtn = document.getElementById('browseShowMore');
+
+    if (currentArtResults.length === 0) {
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">No results found</div>';
+        showMoreBtn.style.display = 'none';
+        return;
+    }
+
+    const displayArtworks = currentArtResults.slice(0, browseDisplayCount);
+    cardsContainer.innerHTML = displayArtworks.map(artwork => createPhysicalCard(artwork)).join('');
+    showMoreBtn.style.display = currentArtResults.length > browseDisplayCount ? 'block' : 'none';
 };
 
