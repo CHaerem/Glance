@@ -480,6 +480,18 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       });
 
       const candidate = response?.choices?.[0]?.message?.content?.trim();
+      const finishReason = response?.choices?.[0]?.finish_reason;
+      const refusal = response?.choices?.[0]?.message?.refusal;
+
+      // Debug logging for empty responses
+      if (!candidate) {
+        log.warn('OpenAI response details', {
+          hasChoices: !!response?.choices?.length,
+          finishReason,
+          refusal,
+          usage: response?.usage,
+        });
+      }
 
       statistics.trackOpenAICall(
         'gpt-4o-mini',
