@@ -1447,7 +1447,17 @@ async function searchArt() {
     if (currentPlaylistEl) currentPlaylistEl.style.display = 'none';
 
     const cardsContainer = document.getElementById('artCards');
-    cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Searching...</div>';
+    // Show skeleton loaders for instant feedback
+    const skeletonCount = getInitialDisplayCount();
+    cardsContainer.innerHTML = Array(skeletonCount).fill(0).map(() => `
+        <div class="physical-card skeleton">
+            <div class="physical-card-image skeleton-shimmer"></div>
+            <div class="physical-card-meta">
+                <div class="skeleton-text skeleton-shimmer" style="width: 80%; height: 14px; margin-bottom: 6px;"></div>
+                <div class="skeleton-text skeleton-shimmer" style="width: 60%; height: 12px;"></div>
+            </div>
+        </div>
+    `).join('');
 
     try {
         const data = await window.smartSearch(query);

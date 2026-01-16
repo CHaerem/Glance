@@ -1419,6 +1419,30 @@
     white-space: nowrap;
 }
 
+/* Skeleton loading states */
+.physical-card.skeleton {
+    pointer-events: none;
+}
+
+.physical-card.skeleton .physical-card-image {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.skeleton-text {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+}
+
+.skeleton-shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
 /* ============================================
    RESPONSIVE ADJUSTMENTS
    ============================================ */
@@ -1763,6 +1787,34 @@
     margin-bottom: 12px;
 }
 
+/* Search header with back button */
+.section-header.search-header {
+    justify-content: flex-start;
+    gap: 16px;
+}
+
+.back-button {
+    font-size: 0.85rem;
+    color: #666;
+    padding: 8px 16px;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.back-button:hover {
+    background: #1a1a1a;
+    color: #ffffff;
+    border-color: #1a1a1a;
+}
+
+.back-button:active {
+    transform: scale(0.98);
+}
+
 .section-actions {
     display: flex;
     gap: 12px;
@@ -1985,31 +2037,42 @@
 .quick-suggestions {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
-    padding: 16px 0;
-    border-top: 1px solid #f0f0f0;
+    padding: 20px 0;
+    border-top: 1px solid #eee;
 }
 
 .suggestions-label {
-    font-size: 0.75rem;
-    color: #999;
-    margin-right: 4px;
+    font-size: 0.8rem;
+    color: #888;
+    margin-right: 6px;
+    font-weight: 500;
 }
 
 .suggestion-chip {
-    font-size: 0.75rem;
-    color: #666;
-    padding: 6px 12px;
-    background: #f5f5f5;
-    border-radius: 16px;
+    font-size: 0.85rem;
+    color: #444;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+    border: 1px solid #e8e8e8;
+    border-radius: 24px;
     cursor: pointer;
     transition: all 0.2s ease;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .suggestion-chip:hover {
-    background: #1a1a1a;
+    background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
     color: #ffffff;
+    border-color: #1a1a1a;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.suggestion-chip:active {
+    transform: translateY(0);
 }
 
 /* Search Results Section */
