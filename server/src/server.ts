@@ -9,6 +9,7 @@ import 'dotenv/config';
 import express, { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import multer from 'multer';
 import rateLimit from 'express-rate-limit';
@@ -159,7 +160,13 @@ app.use(express.static('public'));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 // Serve local art library images (if available)
-const artLibraryPath = path.join(__dirname, '..', 'data', 'art-library');
+// In production Docker: data is at /app/data/art-library
+// In dev: data is at server/data/art-library (relative to __dirname)
+let artLibraryPath = path.join(__dirname, '..', 'data', 'art-library');
+if (!existsSync(artLibraryPath)) {
+  // Try alternate path for Docker (compiled to dist/src, data at /app/data)
+  artLibraryPath = path.join(__dirname, '..', '..', 'data', 'art-library');
+}
 app.use('/art-library', express.static(artLibraryPath));
 
 // HTTP request logging

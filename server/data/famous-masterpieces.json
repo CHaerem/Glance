@@ -440,6 +440,94 @@
       "date": "1863",
       "source": "Musée d'Orsay",
       "wikimedia": "Edouard_Manet_-_Olympia_-_Google_Art_Project_3.jpg"
+    },
+    {
+      "id": "zurich-mondrian-composition",
+      "title": "Composition II in Red, Blue, and Yellow",
+      "artist": "Piet Mondrian",
+      "date": "1930",
+      "source": "Kunsthaus Zürich",
+      "wikimedia": "Piet_Mondriaan,_1930_-_Mondrian_Composition_II_in_Red,_Blue,_and_Yellow.jpg"
+    },
+    {
+      "id": "moma-mondrian-broadway",
+      "title": "Broadway Boogie Woogie",
+      "artist": "Piet Mondrian",
+      "date": "1943",
+      "source": "MoMA",
+      "wikimedia": "Piet_Mondrian,_1942_-_Broadway_Boogie_Woogie.jpg"
+    },
+    {
+      "id": "guggenheim-kandinsky-composition",
+      "title": "Composition VIII",
+      "artist": "Wassily Kandinsky",
+      "date": "1923",
+      "source": "Guggenheim",
+      "wikimedia": "Vassily_Kandinsky,_1923_-_Composition_8,_huile_sur_toile,_140_cm_x_201_cm,_Musée_Guggenheim,_New_York.jpg"
+    },
+    {
+      "id": "guggenheim-kandinsky-circles",
+      "title": "Several Circles",
+      "artist": "Wassily Kandinsky",
+      "date": "1926",
+      "source": "Guggenheim",
+      "wikimedia": "Vassily_Kandinsky,_1926_-_Several_Circles,_Gugg_0910_25.jpg"
+    },
+    {
+      "id": "private-klee-castle",
+      "title": "Castle and Sun",
+      "artist": "Paul Klee",
+      "date": "1928",
+      "source": "Private Collection",
+      "wikimedia": "Paul_klee_castle_and_sun.jpg"
+    },
+    {
+      "id": "leopold-schiele-physalis",
+      "title": "Self-Portrait with Physalis",
+      "artist": "Egon Schiele",
+      "date": "1912",
+      "source": "Leopold Museum",
+      "wikimedia": "Egon_Schiele_-_Self-Portrait_with_Physalis_-_Google_Art_Project.jpg"
+    },
+    {
+      "id": "israel-modigliani-jeanne",
+      "title": "Portrait of Jeanne Hébuterne, Seated",
+      "artist": "Amedeo Modigliani",
+      "date": "1918",
+      "source": "Israel Museum",
+      "wikimedia": "Amedeo_Modigliani_-_Portrait_of_Jeanne_Hebuterne,_Seated,_1918_-_Google_Art_Project.jpg"
+    },
+    {
+      "id": "hermitage-matisse-dance",
+      "title": "The Dance",
+      "artist": "Henri Matisse",
+      "date": "1910",
+      "source": "Hermitage Museum",
+      "wikimedia": "Henri_Matisse_-_Dance_1910.jpg"
+    },
+    {
+      "id": "lenbachhaus-marc-horse",
+      "title": "Blue Horse I",
+      "artist": "Franz Marc",
+      "date": "1911",
+      "source": "Lenbachhaus",
+      "wikimedia": "Marc,_Franz_-_Blue_Horse_I_-_Google_Art_Project.jpg"
+    },
+    {
+      "id": "des-moines-hopper-automat",
+      "title": "Automat",
+      "artist": "Edward Hopper",
+      "date": "1927",
+      "source": "Des Moines Art Center",
+      "wikimedia": "Automat-edward-hopper-1927.jpg"
+    },
+    {
+      "id": "neue-galerie-kirchner-street",
+      "title": "Berlin Street Scene",
+      "artist": "Ernst Ludwig Kirchner",
+      "date": "1913",
+      "source": "Neue Galerie",
+      "wikimedia": "Kirchner_Berlin_Street_Scene_1913.jpg"
     }
   ]
 }
