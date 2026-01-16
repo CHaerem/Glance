@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { loggers } from '../services/logger';
 import { TtlCache, TTL, getErrorMessage } from '../utils';
+import { getWikimediaUrl } from '../utils/image-validator';
 import type { Artwork } from '../types';
 
 const log = loggers.api;
@@ -19,7 +20,9 @@ interface Masterpiece {
   artist: string;
   date: string;
   source: string;
-  searchQuery: string;
+  wikimedia?: string;     // Wikimedia Commons filename (preferred)
+  imageUrl?: string;      // Direct URL fallback
+  searchQuery?: string;   // Search query fallback
 }
 
 /** Masterpieces data file structure */
@@ -123,9 +126,42 @@ function selectDailyMasterpieces(masterpieces: Masterpiece[], count: number, see
 }
 
 /**
- * Search for artwork and convert to gallery format
+ * Get artwork from masterpiece - uses Wikimedia filename, direct URL, or searches
  */
-async function searchForArtwork(masterpiece: Masterpiece): Promise<GalleryArtwork | null> {
+async function getArtwork(masterpiece: Masterpiece): Promise<GalleryArtwork | null> {
+  // Wikimedia filename - use Special:FilePath API (most reliable)
+  if (masterpiece.wikimedia) {
+    const imageUrl = getWikimediaUrl(masterpiece.wikimedia);
+    return {
+      id: masterpiece.id,
+      title: masterpiece.title,
+      artist: masterpiece.artist,
+      date: masterpiece.date,
+      imageUrl,
+      thumbnailUrl: getWikimediaUrl(masterpiece.wikimedia, 400),
+      source: masterpiece.source,
+    };
+  }
+
+  // Direct URL fallback
+  if (masterpiece.imageUrl) {
+    return {
+      id: masterpiece.id,
+      title: masterpiece.title,
+      artist: masterpiece.artist,
+      date: masterpiece.date,
+      imageUrl: masterpiece.imageUrl,
+      thumbnailUrl: masterpiece.imageUrl,
+      source: masterpiece.source,
+    };
+  }
+
+  // No direct source - fall back to search
+  if (!masterpiece.searchQuery) {
+    log.warn('Masterpiece has no wikimedia, imageUrl, or searchQuery', { id: masterpiece.id });
+    return null;
+  }
+
   // Check cache first - use tryGet() to distinguish between "not found" and "stored null"
   const cacheKey = `search-${masterpiece.id}`;
   const cacheResult = searchCache.tryGet(cacheKey);
@@ -235,7 +271,7 @@ export function createGalleryRouter(): Router {
       const selectedMasterpieces = selectDailyMasterpieces(masterpiecesData.masterpieces, 8, seed);
 
       // Search for each masterpiece in parallel
-      const artworkPromises = selectedMasterpieces.map((m) => searchForArtwork(m));
+      const artworkPromises = selectedMasterpieces.map((m) => getArtwork(m));
       const artworkResults = await Promise.all(artworkPromises);
 
       // Filter out failed searches
@@ -278,7 +314,7 @@ export function createGalleryRouter(): Router {
       const selectedMasterpieces = selectDailyMasterpieces(masterpiecesData.masterpieces, 8, refreshSeed);
 
       // Search for each masterpiece in parallel
-      const artworkPromises = selectedMasterpieces.map((m) => searchForArtwork(m));
+      const artworkPromises = selectedMasterpieces.map((m) => getArtwork(m));
       const artworkResults = await Promise.all(artworkPromises);
 
       // Filter out failed searches

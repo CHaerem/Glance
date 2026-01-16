@@ -1553,8 +1553,9 @@ async function openCollectionItem(item) {
         let secondaryAction = null;
         if (item.collectionType === 'generated' || item.collectionType === 'uploaded') {
             secondaryAction = { text: 'delete', type: 'delete' };
-        } else if (item.collectionType === 'added') {
-            secondaryAction = { text: 'remove from collection', type: 'remove' };
+        } else {
+            // 'added', 'external', or any other type - show remove option
+            secondaryAction = { text: 'remove', type: 'remove' };
         }
 
         openArtModal(item, {

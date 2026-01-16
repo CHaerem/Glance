@@ -1,757 +1,445 @@
 {
-  "description": "Curated pool of ~100 famous, recognizable masterpieces for Today's Gallery",
+  "description": "Curated pool of famous masterpieces for Today's Gallery. Uses Wikimedia Commons filenames with Special:FilePath API for reliable URLs.",
   "masterpieces": [
     {
-      "id": "met-436535",
+      "id": "moma-starry-night",
       "title": "The Starry Night",
       "artist": "Vincent van Gogh",
       "date": "1889",
-      "source": "moma",
-      "searchQuery": "starry night van gogh"
+      "source": "MoMA",
+      "wikimedia": "Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg"
     },
     {
-      "id": "met-437133",
-      "title": "Water Lilies",
-      "artist": "Claude Monet",
-      "date": "1906",
-      "source": "met",
-      "searchQuery": "water lilies monet"
-    },
-    {
-      "id": "mauritshuis-670",
+      "id": "mauritshuis-pearl",
       "title": "Girl with a Pearl Earring",
       "artist": "Johannes Vermeer",
       "date": "1665",
-      "source": "mauritshuis",
-      "searchQuery": "girl pearl earring vermeer"
+      "source": "Mauritshuis",
+      "wikimedia": "1665_Girl_with_a_Pearl_Earring.jpg"
     },
     {
       "id": "nasjonalmuseet-scream",
       "title": "The Scream",
       "artist": "Edvard Munch",
       "date": "1893",
-      "source": "nasjonalmuseet",
-      "searchQuery": "scream munch"
+      "source": "National Gallery Oslo",
+      "wikimedia": "Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg"
     },
     {
-      "id": "met-hokusai-wave",
+      "id": "met-great-wave",
       "title": "The Great Wave off Kanagawa",
       "artist": "Katsushika Hokusai",
       "date": "1831",
-      "source": "met",
-      "searchQuery": "great wave kanagawa hokusai"
+      "source": "Met Museum",
+      "wikimedia": "Tsunami_by_hokusai_19th_century.jpg"
     },
     {
       "id": "belvedere-kiss",
       "title": "The Kiss",
       "artist": "Gustav Klimt",
       "date": "1908",
-      "source": "belvedere",
-      "searchQuery": "kiss klimt"
-    },
-    {
-      "id": "moma-persistence",
-      "title": "The Persistence of Memory",
-      "artist": "Salvador Dalí",
-      "date": "1931",
-      "source": "moma",
-      "searchQuery": "persistence memory dali melting clocks"
+      "source": "Belvedere",
+      "wikimedia": "The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg"
     },
     {
       "id": "uffizi-venus",
       "title": "The Birth of Venus",
       "artist": "Sandro Botticelli",
       "date": "1485",
-      "source": "uffizi",
-      "searchQuery": "birth venus botticelli"
+      "source": "Uffizi Gallery",
+      "wikimedia": "Sandro_Botticelli_-_La_nascita_di_Venere_-_Google_Art_Project_-_edited.jpg"
     },
     {
       "id": "aic-gothic",
       "title": "American Gothic",
       "artist": "Grant Wood",
       "date": "1930",
-      "source": "aic",
-      "searchQuery": "american gothic grant wood"
+      "source": "Art Institute of Chicago",
+      "wikimedia": "Grant_Wood_-_American_Gothic_-_Google_Art_Project.jpg"
     },
     {
       "id": "aic-nighthawks",
       "title": "Nighthawks",
       "artist": "Edward Hopper",
       "date": "1942",
-      "source": "aic",
-      "searchQuery": "nighthawks hopper"
+      "source": "Art Institute of Chicago",
+      "wikimedia": "Nighthawks_by_Edward_Hopper_1942.jpg"
     },
     {
-      "id": "aic-sunday-afternoon",
+      "id": "aic-grande-jatte",
       "title": "A Sunday Afternoon on the Island of La Grande Jatte",
       "artist": "Georges Seurat",
       "date": "1886",
-      "source": "aic",
-      "searchQuery": "sunday afternoon grande jatte seurat"
-    },
-    {
-      "id": "met-wheat-field",
-      "title": "Wheat Field with Cypresses",
-      "artist": "Vincent van Gogh",
-      "date": "1889",
-      "source": "met",
-      "searchQuery": "wheat field cypresses van gogh"
+      "source": "Art Institute of Chicago",
+      "wikimedia": "A_Sunday_on_La_Grande_Jatte,_Georges_Seurat,_1884.jpg"
     },
     {
       "id": "rijks-night-watch",
       "title": "The Night Watch",
       "artist": "Rembrandt van Rijn",
       "date": "1642",
-      "source": "rijksmuseum",
-      "searchQuery": "night watch rembrandt"
+      "source": "Rijksmuseum",
+      "wikimedia": "The_Night_Watch_-_HD.jpg"
     },
     {
       "id": "rijks-milkmaid",
       "title": "The Milkmaid",
       "artist": "Johannes Vermeer",
       "date": "1660",
-      "source": "rijksmuseum",
-      "searchQuery": "milkmaid vermeer"
+      "source": "Rijksmuseum",
+      "wikimedia": "Johannes_Vermeer_-_Het_melkmeisje_-_Google_Art_Project.jpg"
     },
     {
       "id": "louvre-liberty",
       "title": "Liberty Leading the People",
       "artist": "Eugène Delacroix",
       "date": "1830",
-      "source": "louvre",
-      "searchQuery": "liberty leading people delacroix"
+      "source": "Louvre",
+      "wikimedia": "Eugène_Delacroix_-_Le_28_Juillet._La_Liberté_guidant_le_peuple.jpg"
     },
     {
-      "id": "moma-starry-night-rhone",
+      "id": "orsay-starry-rhone",
       "title": "Starry Night Over the Rhône",
       "artist": "Vincent van Gogh",
       "date": "1888",
-      "source": "orsay",
-      "searchQuery": "starry night rhone van gogh"
+      "source": "Musée d'Orsay",
+      "wikimedia": "Starry_Night_Over_the_Rhone.jpg"
+    },
+    {
+      "id": "met-water-lilies",
+      "title": "Water Lilies",
+      "artist": "Claude Monet",
+      "date": "1906",
+      "source": "Met Museum",
+      "wikimedia": "Claude_Monet_-_Water_Lilies_-_1906,_Ryerson.jpg"
     },
     {
       "id": "met-japanese-bridge",
       "title": "Bridge over a Pond of Water Lilies",
       "artist": "Claude Monet",
       "date": "1899",
-      "source": "met",
-      "searchQuery": "japanese bridge water lilies monet"
+      "source": "Met Museum",
+      "wikimedia": "Claude_Monet,_The_Japanese_Footbridge,_1899,_NGA_74796.jpg"
     },
     {
-      "id": "nga-luncheon",
+      "id": "phillips-boating",
       "title": "Luncheon of the Boating Party",
       "artist": "Pierre-Auguste Renoir",
       "date": "1881",
-      "source": "phillipscollection",
-      "searchQuery": "luncheon boating party renoir"
-    },
-    {
-      "id": "orsay-dancers",
-      "title": "The Dance Class",
-      "artist": "Edgar Degas",
-      "date": "1874",
-      "source": "orsay",
-      "searchQuery": "dance class degas ballet"
+      "source": "Phillips Collection",
+      "wikimedia": "Pierre-Auguste_Renoir_-_Luncheon_of_the_Boating_Party_-_Google_Art_Project.jpg"
     },
     {
       "id": "aic-bedroom",
       "title": "The Bedroom",
       "artist": "Vincent van Gogh",
       "date": "1889",
-      "source": "aic",
-      "searchQuery": "bedroom arles van gogh"
+      "source": "Art Institute of Chicago",
+      "wikimedia": "Vincent_van_Gogh_-_De_slaapkamer_-_Google_Art_Project.jpg"
     },
     {
       "id": "prado-garden",
       "title": "The Garden of Earthly Delights",
       "artist": "Hieronymus Bosch",
       "date": "1510",
-      "source": "prado",
-      "searchQuery": "garden earthly delights bosch"
+      "source": "Museo del Prado",
+      "wikimedia": "The_Garden_of_earthly_delights.jpg"
     },
     {
-      "id": "hermitage-dance",
-      "title": "Dance",
-      "artist": "Henri Matisse",
-      "date": "1910",
-      "source": "hermitage",
-      "searchQuery": "dance matisse"
-    },
-    {
-      "id": "moma-guernica",
-      "title": "Guernica",
-      "artist": "Pablo Picasso",
-      "date": "1937",
-      "source": "reinasofia",
-      "searchQuery": "guernica picasso"
-    },
-    {
-      "id": "met-irises",
+      "id": "getty-irises",
       "title": "Irises",
       "artist": "Vincent van Gogh",
       "date": "1889",
-      "source": "getty",
-      "searchQuery": "irises van gogh"
+      "source": "Getty Museum",
+      "wikimedia": "Irises-Vincent_van_Gogh.jpg"
     },
     {
       "id": "orsay-moulin",
       "title": "Bal du moulin de la Galette",
       "artist": "Pierre-Auguste Renoir",
       "date": "1876",
-      "source": "orsay",
-      "searchQuery": "moulin galette renoir"
+      "source": "Musée d'Orsay",
+      "wikimedia": "Pierre-Auguste_Renoir,_Le_Moulin_de_la_Galette.jpg"
     },
     {
-      "id": "nga-girl-watering",
-      "title": "A Girl with a Watering Can",
-      "artist": "Pierre-Auguste Renoir",
-      "date": "1876",
-      "source": "nga",
-      "searchQuery": "girl watering can renoir"
-    },
-    {
-      "id": "met-café-terrace",
+      "id": "kroller-cafe",
       "title": "Café Terrace at Night",
       "artist": "Vincent van Gogh",
       "date": "1888",
-      "source": "kroller-muller",
-      "searchQuery": "cafe terrace night van gogh"
+      "source": "Kröller-Müller",
+      "wikimedia": "Van_Gogh_-_Terrasse_des_Cafés_an_der_Place_du_Forum_in_Arles_am_Abend1.jpeg"
     },
     {
-      "id": "orsay-olympia",
-      "title": "Olympia",
-      "artist": "Édouard Manet",
-      "date": "1863",
-      "source": "orsay",
-      "searchQuery": "olympia manet"
-    },
-    {
-      "id": "met-autumn-rhythm",
-      "title": "Autumn Rhythm (Number 30)",
-      "artist": "Jackson Pollock",
-      "date": "1950",
-      "source": "met",
-      "searchQuery": "autumn rhythm pollock"
-    },
-    {
-      "id": "moma-campbell",
-      "title": "Campbell's Soup Cans",
-      "artist": "Andy Warhol",
-      "date": "1962",
-      "source": "moma",
-      "searchQuery": "campbell soup warhol"
-    },
-    {
-      "id": "met-sunflowers",
+      "id": "nat-sunflowers",
       "title": "Sunflowers",
       "artist": "Vincent van Gogh",
       "date": "1888",
-      "source": "nationalgallery",
-      "searchQuery": "sunflowers van gogh"
-    },
-    {
-      "id": "nga-watson",
-      "title": "Watson and the Shark",
-      "artist": "John Singleton Copley",
-      "date": "1778",
-      "source": "nga",
-      "searchQuery": "watson shark copley"
+      "source": "National Gallery London",
+      "wikimedia": "Vincent_Willem_van_Gogh_127.jpg"
     },
     {
       "id": "tate-ophelia",
       "title": "Ophelia",
       "artist": "John Everett Millais",
       "date": "1852",
-      "source": "tate",
-      "searchQuery": "ophelia millais"
+      "source": "Tate Britain",
+      "wikimedia": "John_Everett_Millais_-_Ophelia_-_Google_Art_Project.jpg"
     },
     {
       "id": "met-washington",
       "title": "Washington Crossing the Delaware",
       "artist": "Emanuel Leutze",
       "date": "1851",
-      "source": "met",
-      "searchQuery": "washington crossing delaware"
+      "source": "Met Museum",
+      "wikimedia": "Washington_Crossing_the_Delaware_by_Emanuel_Leutze,_MMA-NYC,_1851.jpg"
     },
     {
       "id": "louvre-raft",
       "title": "The Raft of the Medusa",
       "artist": "Théodore Géricault",
       "date": "1819",
-      "source": "louvre",
-      "searchQuery": "raft medusa gericault"
+      "source": "Louvre",
+      "wikimedia": "JEAN_LOUIS_THÉODORE_GÉRICAULT_-_La_Balsa_de_la_Medusa_(Museo_del_Louvre,_1818-19).jpg"
     },
     {
-      "id": "met-poppies",
-      "title": "Poppies",
-      "artist": "Claude Monet",
-      "date": "1873",
-      "source": "orsay",
-      "searchQuery": "poppies monet field"
-    },
-    {
-      "id": "met-impression",
+      "id": "marmottan-impression",
       "title": "Impression, Sunrise",
       "artist": "Claude Monet",
       "date": "1872",
-      "source": "marmottan",
-      "searchQuery": "impression sunrise monet"
+      "source": "Musée Marmottan",
+      "wikimedia": "Monet_-_Impression,_Sunrise.jpg"
     },
     {
       "id": "aic-paris-street",
       "title": "Paris Street; Rainy Day",
       "artist": "Gustave Caillebotte",
       "date": "1877",
-      "source": "aic",
-      "searchQuery": "paris street rainy caillebotte"
+      "source": "Art Institute of Chicago",
+      "wikimedia": "Gustave_Caillebotte_-_Paris_Street;_Rainy_Day_-_Google_Art_Project.jpg"
     },
     {
-      "id": "met-wanderer",
+      "id": "kunsthalle-wanderer",
       "title": "Wanderer above the Sea of Fog",
       "artist": "Caspar David Friedrich",
       "date": "1818",
-      "source": "hamburger-kunsthalle",
-      "searchQuery": "wanderer sea fog friedrich"
+      "source": "Hamburger Kunsthalle",
+      "wikimedia": "Caspar_David_Friedrich_-_Wanderer_above_the_sea_of_fog.jpg"
     },
     {
-      "id": "nationalgallery-arnolfini",
+      "id": "nat-arnolfini",
       "title": "The Arnolfini Portrait",
       "artist": "Jan van Eyck",
       "date": "1434",
-      "source": "nationalgallery",
-      "searchQuery": "arnolfini portrait van eyck"
+      "source": "National Gallery London",
+      "wikimedia": "Van_Eyck_-_Arnolfini_Portrait.jpg"
     },
     {
-      "id": "uffizi-spring",
+      "id": "uffizi-primavera",
       "title": "Primavera",
       "artist": "Sandro Botticelli",
       "date": "1482",
-      "source": "uffizi",
-      "searchQuery": "primavera botticelli spring"
+      "source": "Uffizi Gallery",
+      "wikimedia": "Botticelli-primavera.jpg"
     },
     {
-      "id": "prado-maids",
+      "id": "prado-meninas",
       "title": "Las Meninas",
       "artist": "Diego Velázquez",
       "date": "1656",
-      "source": "prado",
-      "searchQuery": "las meninas velazquez"
-    },
-    {
-      "id": "met-oarsmen",
-      "title": "The Oarsmen at Chatou",
-      "artist": "Pierre-Auguste Renoir",
-      "date": "1879",
-      "source": "nga",
-      "searchQuery": "oarsmen chatou renoir"
-    },
-    {
-      "id": "orsay-absinthe",
-      "title": "L'Absinthe",
-      "artist": "Edgar Degas",
-      "date": "1876",
-      "source": "orsay",
-      "searchQuery": "absinthe degas"
+      "source": "Museo del Prado",
+      "wikimedia": "Las_Meninas,_by_Diego_Velázquez,_from_Prado_in_Google_Earth.jpg"
     },
     {
       "id": "tate-lady-shalott",
       "title": "The Lady of Shalott",
       "artist": "John William Waterhouse",
       "date": "1888",
-      "source": "tate",
-      "searchQuery": "lady shalott waterhouse"
+      "source": "Tate Britain",
+      "wikimedia": "John_William_Waterhouse_-_The_Lady_of_Shalott_-_Google_Art_Project.jpg"
     },
     {
-      "id": "met-monet-rouen",
-      "title": "Rouen Cathedral: The Portal (Sunlight)",
-      "artist": "Claude Monet",
-      "date": "1894",
-      "source": "met",
-      "searchQuery": "rouen cathedral monet"
-    },
-    {
-      "id": "aic-old-guitarist",
-      "title": "The Old Guitarist",
-      "artist": "Pablo Picasso",
-      "date": "1904",
-      "source": "aic",
-      "searchQuery": "old guitarist picasso blue"
-    },
-    {
-      "id": "moma-demoiselles",
-      "title": "Les Demoiselles d'Avignon",
-      "artist": "Pablo Picasso",
-      "date": "1907",
-      "source": "moma",
-      "searchQuery": "demoiselles avignon picasso"
-    },
-    {
-      "id": "tate-turner-rain",
-      "title": "Rain, Steam and Speed",
-      "artist": "J.M.W. Turner",
-      "date": "1844",
-      "source": "nationalgallery",
-      "searchQuery": "rain steam speed turner"
-    },
-    {
-      "id": "hermitage-madonna",
-      "title": "The Benois Madonna",
-      "artist": "Leonardo da Vinci",
-      "date": "1480",
-      "source": "hermitage",
-      "searchQuery": "benois madonna leonardo"
-    },
-    {
-      "id": "met-haystacks",
-      "title": "Haystacks (Effect of Snow and Sun)",
-      "artist": "Claude Monet",
-      "date": "1891",
-      "source": "met",
-      "searchQuery": "haystacks monet snow"
-    },
-    {
-      "id": "orsay-luncheon-grass",
-      "title": "Le Déjeuner sur l'herbe",
-      "artist": "Édouard Manet",
-      "date": "1863",
-      "source": "orsay",
-      "searchQuery": "dejeuner herbe manet luncheon grass"
-    },
-    {
-      "id": "whitney-christina",
-      "title": "Christina's World",
-      "artist": "Andrew Wyeth",
-      "date": "1948",
-      "source": "moma",
-      "searchQuery": "christina world wyeth"
-    },
-    {
-      "id": "aic-seurat-circus",
-      "title": "The Circus Sideshow",
-      "artist": "Georges Seurat",
-      "date": "1888",
-      "source": "met",
-      "searchQuery": "circus sideshow seurat"
-    },
-    {
-      "id": "met-cezanne-apples",
-      "title": "Still Life with Apples",
-      "artist": "Paul Cézanne",
-      "date": "1895",
-      "source": "met",
-      "searchQuery": "still life apples cezanne"
-    },
-    {
-      "id": "musee-orangerie-nympheas",
-      "title": "Les Nymphéas (Water Lilies Murals)",
-      "artist": "Claude Monet",
-      "date": "1926",
-      "source": "orangerie",
-      "searchQuery": "nympheas water lilies monet orangerie"
-    },
-    {
-      "id": "tate-whistler-mother",
-      "title": "Arrangement in Grey and Black No.1",
-      "artist": "James Abbott McNeill Whistler",
-      "date": "1871",
-      "source": "orsay",
-      "searchQuery": "whistlers mother arrangement grey"
-    },
-    {
-      "id": "louvre-oath-horatii",
-      "title": "Oath of the Horatii",
-      "artist": "Jacques-Louis David",
-      "date": "1784",
-      "source": "louvre",
-      "searchQuery": "oath horatii david"
-    },
-    {
-      "id": "hermitage-red-room",
-      "title": "The Red Room",
-      "artist": "Henri Matisse",
-      "date": "1908",
-      "source": "hermitage",
-      "searchQuery": "red room matisse harmony"
-    },
-    {
-      "id": "moma-rothko-orange",
-      "title": "Orange and Yellow",
-      "artist": "Mark Rothko",
-      "date": "1956",
-      "source": "albright-knox",
-      "searchQuery": "orange yellow rothko"
-    },
-    {
-      "id": "stedelijk-mondrian",
-      "title": "Composition with Red, Blue, and Yellow",
-      "artist": "Piet Mondrian",
-      "date": "1930",
-      "source": "stedelijk",
-      "searchQuery": "composition red blue yellow mondrian"
-    },
-    {
-      "id": "yale-rothko-chapel",
-      "title": "No. 61 (Rust and Blue)",
-      "artist": "Mark Rothko",
-      "date": "1953",
-      "source": "moca",
-      "searchQuery": "rothko rust blue abstract"
-    },
-    {
-      "id": "tate-turner-fighting",
+      "id": "nat-fighting-temeraire",
       "title": "The Fighting Temeraire",
       "artist": "J.M.W. Turner",
       "date": "1839",
-      "source": "nationalgallery",
-      "searchQuery": "fighting temeraire turner"
+      "source": "National Gallery London",
+      "wikimedia": "The_Fighting_Temeraire,_JMW_Turner,_National_Gallery.jpg"
     },
     {
-      "id": "met-degas-ballet",
-      "title": "The Ballet Class",
-      "artist": "Edgar Degas",
-      "date": "1871",
-      "source": "met",
-      "searchQuery": "ballet class degas"
-    },
-    {
-      "id": "rijks-view-delft",
-      "title": "View of Delft",
-      "artist": "Johannes Vermeer",
-      "date": "1661",
-      "source": "mauritshuis",
-      "searchQuery": "view delft vermeer"
-    },
-    {
-      "id": "nga-girl-hoop",
-      "title": "Girl with a Hoop",
-      "artist": "Pierre-Auguste Renoir",
-      "date": "1885",
-      "source": "nga",
-      "searchQuery": "girl hoop renoir"
-    },
-    {
-      "id": "orsay-self-portrait-bandaged",
-      "title": "Self-Portrait with Bandaged Ear",
-      "artist": "Vincent van Gogh",
-      "date": "1889",
-      "source": "courtauld",
-      "searchQuery": "self portrait bandaged ear van gogh"
-    },
-    {
-      "id": "rijks-anatomy-lesson",
-      "title": "The Anatomy Lesson of Dr. Nicolaes Tulp",
-      "artist": "Rembrandt van Rijn",
-      "date": "1632",
-      "source": "mauritshuis",
-      "searchQuery": "anatomy lesson tulp rembrandt"
-    },
-    {
-      "id": "nga-haymaking",
+      "id": "nat-hay-wain",
       "title": "The Hay Wain",
       "artist": "John Constable",
       "date": "1821",
-      "source": "nationalgallery",
-      "searchQuery": "hay wain constable"
+      "source": "National Gallery London",
+      "wikimedia": "John_Constable_-_The_Hay_Wain_(1821).jpg"
     },
     {
-      "id": "met-monet-venice",
-      "title": "The Grand Canal, Venice",
-      "artist": "Claude Monet",
-      "date": "1908",
-      "source": "mfa-boston",
-      "searchQuery": "grand canal venice monet"
-    },
-    {
-      "id": "met-vermeer-lacemaker",
-      "title": "The Lacemaker",
-      "artist": "Johannes Vermeer",
-      "date": "1670",
-      "source": "louvre",
-      "searchQuery": "lacemaker vermeer"
-    },
-    {
-      "id": "aic-wood-midnight",
-      "title": "Midnight Ride of Paul Revere",
-      "artist": "Grant Wood",
-      "date": "1931",
-      "source": "met",
-      "searchQuery": "midnight ride paul revere wood"
-    },
-    {
-      "id": "mfa-gauguin-tahiti",
-      "title": "Where Do We Come From? What Are We? Where Are We Going?",
-      "artist": "Paul Gauguin",
-      "date": "1897",
-      "source": "mfa-boston",
-      "searchQuery": "where come from gauguin tahiti"
-    },
-    {
-      "id": "tate-blake-newton",
-      "title": "Newton",
-      "artist": "William Blake",
-      "date": "1795",
-      "source": "tate",
-      "searchQuery": "newton william blake"
-    },
-    {
-      "id": "met-renoir-swing",
-      "title": "The Swing",
-      "artist": "Pierre-Auguste Renoir",
-      "date": "1876",
-      "source": "orsay",
-      "searchQuery": "swing renoir balancoire"
+      "id": "orsay-dejeuner",
+      "title": "Le Déjeuner sur l'herbe",
+      "artist": "Édouard Manet",
+      "date": "1863",
+      "source": "Musée d'Orsay",
+      "wikimedia": "Édouard_Manet_-_Le_Déjeuner_sur_l'herbe.jpg"
     },
     {
       "id": "prado-saturn",
       "title": "Saturn Devouring His Son",
       "artist": "Francisco Goya",
       "date": "1823",
-      "source": "prado",
-      "searchQuery": "saturn devouring son goya"
-    },
-    {
-      "id": "met-bierstadt-rocky",
-      "title": "The Rocky Mountains, Lander's Peak",
-      "artist": "Albert Bierstadt",
-      "date": "1863",
-      "source": "met",
-      "searchQuery": "rocky mountains bierstadt landers peak"
-    },
-    {
-      "id": "nationalgallery-sunflowers",
-      "title": "Sunflowers (Fourth Version)",
-      "artist": "Vincent van Gogh",
-      "date": "1888",
-      "source": "nationalgallery",
-      "searchQuery": "sunflowers van gogh national gallery"
-    },
-    {
-      "id": "orsay-ball-moulin",
-      "title": "Dance at Le moulin de la Galette",
-      "artist": "Pierre-Auguste Renoir",
-      "date": "1876",
-      "source": "orsay",
-      "searchQuery": "dance moulin galette renoir ball"
-    },
-    {
-      "id": "moma-starry-night",
-      "title": "The Starry Night",
-      "artist": "Vincent van Gogh",
-      "date": "1889",
-      "source": "moma",
-      "searchQuery": "starry night van gogh moma"
+      "source": "Museo del Prado",
+      "wikimedia": "Francisco_de_Goya,_Saturno_devorando_a_su_hijo_(1819-1823).jpg"
     },
     {
       "id": "louvre-coronation",
       "title": "The Coronation of Napoleon",
       "artist": "Jacques-Louis David",
       "date": "1807",
-      "source": "louvre",
-      "searchQuery": "coronation napoleon david"
+      "source": "Louvre",
+      "wikimedia": "Jacques-Louis_David_-_The_Coronation_of_Napoleon_(1805-1807).jpg"
     },
     {
-      "id": "met-homer-gulf",
+      "id": "met-gulf-stream",
       "title": "The Gulf Stream",
       "artist": "Winslow Homer",
       "date": "1899",
-      "source": "met",
-      "searchQuery": "gulf stream winslow homer"
+      "source": "Met Museum",
+      "wikimedia": "Winslow_Homer_-_The_Gulf_Stream_-_Metropolitan_Museum_of_Art.jpg"
     },
     {
-      "id": "hermitage-matisse-dance",
-      "title": "Dance (II)",
-      "artist": "Henri Matisse",
-      "date": "1910",
-      "source": "hermitage",
-      "searchQuery": "dance matisse hermitage red"
+      "id": "met-wheat-cypresses",
+      "title": "Wheat Field with Cypresses",
+      "artist": "Vincent van Gogh",
+      "date": "1889",
+      "source": "Met Museum",
+      "wikimedia": "Vincent_van_Gogh_-_Wheat_Field_with_Cypresses_-_Google_Art_Project.jpg"
     },
     {
-      "id": "met-monet-argenteuil",
-      "title": "Regatta at Argenteuil",
-      "artist": "Claude Monet",
-      "date": "1872",
-      "source": "orsay",
-      "searchQuery": "regatta argenteuil monet sailboats"
-    },
-    {
-      "id": "frick-vermeer",
-      "title": "Officer and Laughing Girl",
-      "artist": "Johannes Vermeer",
-      "date": "1657",
-      "source": "frick",
-      "searchQuery": "officer laughing girl vermeer"
-    },
-    {
-      "id": "met-church-andes",
-      "title": "The Heart of the Andes",
-      "artist": "Frederic Edwin Church",
-      "date": "1859",
-      "source": "met",
-      "searchQuery": "heart andes church"
-    },
-    {
-      "id": "aic-hopper-gas",
-      "title": "Gas",
-      "artist": "Edward Hopper",
-      "date": "1940",
-      "source": "moma",
-      "searchQuery": "gas hopper station"
-    },
-    {
-      "id": "nga-cole-oxbow",
+      "id": "met-oxbow",
       "title": "The Oxbow",
       "artist": "Thomas Cole",
       "date": "1836",
-      "source": "met",
-      "searchQuery": "oxbow cole thunderstorm"
+      "source": "Met Museum",
+      "wikimedia": "Cole_Thomas_The_Oxbow_(The_Connecticut_River_near_Northampton_1836).jpg"
     },
     {
-      "id": "musee-marmottan-sunrise",
-      "title": "Impression, Sunrise",
-      "artist": "Claude Monet",
-      "date": "1872",
-      "source": "marmottan",
-      "searchQuery": "impression sunrise monet harbor"
-    },
-    {
-      "id": "met-sisley-flood",
-      "title": "Flood at Port-Marly",
-      "artist": "Alfred Sisley",
-      "date": "1876",
-      "source": "orsay",
-      "searchQuery": "flood port marly sisley"
-    },
-    {
-      "id": "hermitage-gauguin",
-      "title": "Tahitian Women on the Beach",
+      "id": "mfa-gauguin",
+      "title": "Where Do We Come From? What Are We? Where Are We Going?",
       "artist": "Paul Gauguin",
-      "date": "1891",
-      "source": "orsay",
-      "searchQuery": "tahitian women beach gauguin"
+      "date": "1897",
+      "source": "MFA Boston",
+      "wikimedia": "Paul_Gauguin_-_D'ou_venons-nous.jpg"
     },
     {
-      "id": "tate-preraffaelite-beata",
-      "title": "Beata Beatrix",
-      "artist": "Dante Gabriel Rossetti",
-      "date": "1870",
-      "source": "tate",
-      "searchQuery": "beata beatrix rossetti"
+      "id": "nat-rain-steam",
+      "title": "Rain, Steam and Speed",
+      "artist": "J.M.W. Turner",
+      "date": "1844",
+      "source": "National Gallery London",
+      "wikimedia": "Turner_-_Rain,_Steam_and_Speed_-_National_Gallery_file.jpg"
+    },
+    {
+      "id": "orsay-absinthe",
+      "title": "L'Absinthe",
+      "artist": "Edgar Degas",
+      "date": "1876",
+      "source": "Musée d'Orsay",
+      "wikimedia": "Edgar_Degas_-_In_a_Café_-_Google_Art_Project_2.jpg"
+    },
+    {
+      "id": "louvre-oath",
+      "title": "Oath of the Horatii",
+      "artist": "Jacques-Louis David",
+      "date": "1784",
+      "source": "Louvre",
+      "wikimedia": "Jacques-Louis_David_-_Oath_of_the_Horatii_-_Google_Art_Project.jpg"
+    },
+    {
+      "id": "met-bierstadt",
+      "title": "The Rocky Mountains, Lander's Peak",
+      "artist": "Albert Bierstadt",
+      "date": "1863",
+      "source": "Met Museum",
+      "wikimedia": "Albert_Bierstadt_-_The_Rocky_Mountains,_Lander's_Peak.jpg"
+    },
+    {
+      "id": "met-heart-andes",
+      "title": "The Heart of the Andes",
+      "artist": "Frederic Edwin Church",
+      "date": "1859",
+      "source": "Met Museum",
+      "wikimedia": "Church_Heart_of_the_Andes.jpg"
+    },
+    {
+      "id": "courtauld-bandaged",
+      "title": "Self-Portrait with Bandaged Ear",
+      "artist": "Vincent van Gogh",
+      "date": "1889",
+      "source": "Courtauld Gallery",
+      "wikimedia": "Vincent_van_Gogh_-_Self-portrait_with_bandaged_ear_(1889,_Courtauld_Institute).jpg"
+    },
+    {
+      "id": "rijks-anatomy",
+      "title": "The Anatomy Lesson of Dr. Nicolaes Tulp",
+      "artist": "Rembrandt van Rijn",
+      "date": "1632",
+      "source": "Mauritshuis",
+      "wikimedia": "Rembrandt_-_The_Anatomy_Lesson_of_Dr_Nicolaes_Tulp.jpg"
+    },
+    {
+      "id": "louvre-lacemaker",
+      "title": "The Lacemaker",
+      "artist": "Johannes Vermeer",
+      "date": "1670",
+      "source": "Louvre",
+      "wikimedia": "Johannes_Vermeer_-_The_lacemaker_(c.1669-1671).jpg"
+    },
+    {
+      "id": "tate-newton",
+      "title": "Newton",
+      "artist": "William Blake",
+      "date": "1795",
+      "source": "Tate Britain",
+      "wikimedia": "Newton-WilliamBlake.jpg"
     },
     {
       "id": "rijks-jewish-bride",
       "title": "The Jewish Bride",
       "artist": "Rembrandt van Rijn",
       "date": "1667",
-      "source": "rijksmuseum",
-      "searchQuery": "jewish bride rembrandt"
+      "source": "Rijksmuseum",
+      "wikimedia": "Rembrandt_Harmensz._van_Rijn_-_Het_Joodse_bruidje.jpg"
     },
     {
-      "id": "moma-monet-reflections",
-      "title": "Reflections of Clouds on the Water-Lily Pond",
-      "artist": "Claude Monet",
-      "date": "1920",
-      "source": "moma",
-      "searchQuery": "reflections clouds water lily monet"
+      "id": "tate-beata",
+      "title": "Beata Beatrix",
+      "artist": "Dante Gabriel Rossetti",
+      "date": "1870",
+      "source": "Tate Britain",
+      "wikimedia": "Dante_Gabriel_Rossetti_-_Beata_Beatrix,_1864-1870.jpg"
+    },
+    {
+      "id": "orsay-dance-class",
+      "title": "The Dance Class",
+      "artist": "Edgar Degas",
+      "date": "1874",
+      "source": "Musée d'Orsay",
+      "wikimedia": "Edgar_Degas_The_Dance_Class.jpg"
+    },
+    {
+      "id": "mauritshuis-view-delft",
+      "title": "View of Delft",
+      "artist": "Johannes Vermeer",
+      "date": "1661",
+      "source": "Mauritshuis",
+      "wikimedia": "Vermeer-view-of-delft.jpg"
+    },
+    {
+      "id": "orsay-olympia",
+      "title": "Olympia",
+      "artist": "Édouard Manet",
+      "date": "1863",
+      "source": "Musée d'Orsay",
+      "wikimedia": "Edouard_Manet_-_Olympia_-_Google_Art_Project_3.jpg"
     }
   ]
 }

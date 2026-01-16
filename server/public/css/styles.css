@@ -573,11 +573,11 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.92);
             z-index: 1000;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 12px;
         }
 
         .modal.show {
@@ -586,22 +586,22 @@
 
         .modal-content {
             background: white;
-            border-radius: 8px;
-            max-width: 90vw;
-            max-height: 90vh;
+            border-radius: 12px;
+            max-width: 95vw;
+            max-height: 95vh;
             width: auto;
-            overflow-y: auto;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
         .modal-image-container {
             width: 100%;
-            max-height: calc(90vh - 200px);
+            max-height: calc(95vh - 120px);
             aspect-ratio: 3 / 4;
-            border-radius: 8px 8px 0 0;
+            border-radius: 12px 12px 0 0;
             overflow: hidden;
-            background: #f5f5f5;
+            background: #1a1a1a;
             position: relative;
             display: flex;
             align-items: center;
@@ -644,24 +644,25 @@
         }
 
         .modal-info {
-            padding: 16px;
+            padding: 12px 16px;
             background: white;
-            border-radius: 0 0 8px 8px;
+            border-radius: 0 0 12px 12px;
         }
 
         .modal-actions {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
             gap: 8px;
             align-items: center;
+            justify-content: center;
         }
 
         .modal-btn-primary {
             background: #1a1a1a;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
+            padding: 10px 20px;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 0.85rem;
             font-weight: 500;
@@ -675,9 +676,9 @@
 
         .modal-btn-secondary {
             background: transparent;
-            color: #999;
+            color: #666;
             border: none;
-            padding: 8px 16px;
+            padding: 8px 12px;
             cursor: pointer;
             font-size: 0.8rem;
             transition: all 0.15s ease;
@@ -685,50 +686,46 @@
         }
 
         .modal-btn-secondary:hover {
-            color: #666;
+            color: #1a1a1a;
         }
 
         .modal-btn-tertiary {
             background: transparent;
-            color: #666;
-            border: 1px solid #ddd;
-            padding: 8px 16px;
+            color: #888;
+            border: none;
+            padding: 8px 12px;
             cursor: pointer;
-            font-size: 0.8rem;
-            border-radius: 20px;
+            font-size: 0.75rem;
             transition: all 0.15s ease;
             text-transform: lowercase;
         }
 
         .modal-btn-tertiary:hover {
-            background: #f5f5f5;
-            border-color: #ccc;
+            color: #1a1a1a;
         }
 
         .modal-artwork-details {
             text-align: center;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #eee;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         .modal-title {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 500;
-            margin: 0 0 4px 0;
+            margin: 0 0 2px 0;
             color: #1a1a1a;
         }
 
         .modal-artist {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #666;
             margin: 0;
         }
 
         .modal-year {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #999;
-            margin: 4px 0 0 0;
+            margin: 2px 0 0 0;
         }
 
         .close-modal {
