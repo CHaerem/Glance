@@ -52,6 +52,7 @@ import { createMyCollectionRouter } from './routes/my-collection';
 import { createGuideRoutes } from './routes/guide';
 import { createGalleryRouter } from './routes/gallery';
 import { createUserPlaylistsRouter } from './routes/user-playlists';
+import { createDiscoverRouter } from './routes/discover';
 
 // Configuration
 const app = express();
@@ -186,6 +187,7 @@ statistics.loadStats().catch((err) => log.error('Failed to load stats on startup
 app.use('/api/collections', collectionsRoutes());
 app.use('/api/playlists', playlistsRoutes());
 app.use('/api/gallery', createGalleryRouter());
+app.use('/api/discover', createDiscoverRouter());
 app.use('/api/user-playlists', createUserPlaylistsRouter());
 app.use('/api/art', createArtRoutes({ openai, uploadDir: UPLOAD_DIR }));
 

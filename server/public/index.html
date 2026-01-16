@@ -87,6 +87,43 @@
                 <!-- Shows guide responses briefly -->
             </div>
 
+            <!-- Featured Movement Section -->
+            <div class="explore-section" id="featuredSection" style="display: none;">
+                <div class="featured-card" id="featuredCard">
+                    <div class="featured-header">
+                        <span class="featured-label">featured movement</span>
+                        <span class="featured-period" id="featuredPeriod"></span>
+                    </div>
+                    <h3 class="featured-title" id="featuredTitle"></h3>
+                    <p class="featured-description" id="featuredDescription"></p>
+                    <div class="featured-artworks" id="featuredArtworks">
+                        <!-- 4 preview thumbnails -->
+                    </div>
+                    <button class="featured-explore-btn" id="exploreFeaturedBtn">explore movement →</button>
+                </div>
+            </div>
+
+            <!-- Mood Suggestion -->
+            <div class="explore-section" id="moodSection" style="display: none;">
+                <div class="mood-card" id="moodCard">
+                    <span class="mood-label" id="moodLabel">morning calm</span>
+                    <span class="mood-description" id="moodDescription">Peaceful scenes to start your day</span>
+                    <button class="mood-btn" id="moodBtn">show me →</button>
+                </div>
+            </div>
+
+            <!-- Browse by Movement -->
+            <div class="explore-section" id="movementsSection" style="display: none;">
+                <div class="section-header">
+                    <span class="section-title">browse by movement</span>
+                </div>
+                <div class="movements-scroll-container">
+                    <div class="movements-scroll" id="movementsScroll">
+                        <!-- Populated dynamically with movement cards -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Playlists Section -->
             <div class="explore-section" id="playlistsSection">
                 <div class="section-header">
@@ -289,6 +326,7 @@
     <input type="file" id="fileInput" accept="image/*">
 
     <script src="/js/features/search.js"></script>
+    <script src="/js/features/discover.js"></script>
     <script src="/js/main.js"></script>
 </body>
 </html>

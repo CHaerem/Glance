@@ -381,7 +381,9 @@ async function initializeExploreMode() {
     if (!exploreInitialized) {
         await Promise.all([
             loadPlaylistsHorizontal(),
-            loadTodaysGallery()
+            loadTodaysGallery(),
+            // Initialize curated discovery sections (from discover.js)
+            typeof initDiscover === 'function' ? initDiscover() : Promise.resolve()
         ]);
         exploreInitialized = true;
     }
@@ -391,20 +393,28 @@ async function initializeExploreMode() {
 
 // Show default explore sections (playlists, gallery, suggestions)
 function showDefaultExploreSections() {
+    // Standard sections
     document.getElementById('playlistsSection').style.display = 'block';
     document.getElementById('todaysGallerySection').style.display = 'block';
     document.getElementById('quickSuggestions').style.display = 'flex';
     document.getElementById('searchResultsSection').style.display = 'none';
     document.getElementById('playlistViewSection').style.display = 'none';
+    // Note: Featured, mood, and movements sections are controlled by discover.js
 }
 
 // Show search results section
 function showSearchResultsSection(title) {
+    // Hide all default sections
     document.getElementById('playlistsSection').style.display = 'none';
     document.getElementById('todaysGallerySection').style.display = 'none';
     document.getElementById('quickSuggestions').style.display = 'none';
-    document.getElementById('searchResultsSection').style.display = 'block';
     document.getElementById('playlistViewSection').style.display = 'none';
+    // Hide discover sections
+    document.getElementById('featuredSection').style.display = 'none';
+    document.getElementById('moodSection').style.display = 'none';
+    document.getElementById('movementsSection').style.display = 'none';
+    // Show search results
+    document.getElementById('searchResultsSection').style.display = 'block';
     document.getElementById('searchResultsTitle').textContent = title || 'results';
 }
 
@@ -2794,4 +2804,33 @@ async function surpriseMe() {
     const query = surpriseQueries[Math.floor(Math.random() * surpriseQueries.length)];
     await sendGuideMessage(query);
 }
+
+// ========================================
+// Global Exports (for other modules)
+// ========================================
+
+// Export functions for discover.js and other modules
+window.openArtModal = openArtModal;
+window.performSearch = async function(query) {
+    // Wrapper for guide-based search
+    await sendGuideMessage(query);
+};
+window.displaySearchResults = function(artworks, title) {
+    // Set results and display them
+    if (artworks && artworks.length > 0) {
+        currentArtResults = artworks;
+        browseDisplayCount = getInitialDisplayCount();
+
+        // Show search results section
+        showSearchResultsSection(title || 'results');
+
+        // Display in art cards
+        const cardsContainer = document.getElementById('artCards');
+        const showMoreBtn = document.getElementById('browseShowMore');
+
+        const displayArtworks = currentArtResults.slice(0, browseDisplayCount);
+        cardsContainer.innerHTML = displayArtworks.map(artwork => createPhysicalCard(artwork)).join('');
+        showMoreBtn.style.display = currentArtResults.length > browseDisplayCount ? 'block' : 'none';
+    }
+};
 
