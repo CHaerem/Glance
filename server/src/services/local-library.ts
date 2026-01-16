@@ -13,8 +13,10 @@ import { loggers } from './logger';
 
 const log = loggers.api;
 
-// Paths
-const LIBRARY_PATH = path.join(__dirname, '../../data/art-library');
+// Paths - go up from dist/src/services to app root, then to data
+// In dev: __dirname is src/services, go up to server/data/art-library
+// In prod: __dirname is dist/src/services, go up to app/data/art-library
+const LIBRARY_PATH = path.join(__dirname, '../../../data/art-library');
 const INDEX_PATH = path.join(LIBRARY_PATH, 'index.json');
 
 // Local artwork entry as stored in index.json
