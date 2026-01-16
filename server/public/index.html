@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glance</title>
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/css/styles.css" as="style">
+    <link rel="preload" href="/js/main.js" as="script">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <!-- Styles -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -14,10 +20,10 @@
             <h1>GLANCE</h1>
         </div>
 
-        <!-- Current Display -->
+        <!-- Current Display (LCP element - prioritize loading) -->
         <div class="current-status">
             <div id="currentImagePreview">
-                <img id="currentImageThumb" src="" alt="Current display">
+                <img id="currentImageThumb" src="" alt="Current display" fetchpriority="high" decoding="async">
                 <div id="currentImagePrompt"></div>
             </div>
         </div>
@@ -327,6 +333,7 @@
 
     <script src="/js/features/search.js"></script>
     <script src="/js/features/discover.js"></script>
+    <script src="/js/utils/lazy-load.js"></script>
     <script src="/js/main.js"></script>
 </body>
 </html>

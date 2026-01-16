@@ -54,6 +54,8 @@ import { createGuideRoutes } from './routes/guide';
 import { createGalleryRouter } from './routes/gallery';
 import { createUserPlaylistsRouter } from './routes/user-playlists';
 import { createDiscoverRouter } from './routes/discover';
+import { createImageProxyRouter } from './routes/image-proxy';
+import { initCacheWarmer, scheduleCacheWarming } from './services/cache-warmer';
 
 // Configuration
 const app = express();
@@ -246,6 +248,9 @@ app.use('/api/guide', createGuideRoutes({ uploadDir: UPLOAD_DIR }));
 
 // Prometheus metrics endpoint
 app.use('/api/metrics', metricsRoutes());
+
+// Image proxy with local caching
+app.use('/api/image-proxy', createImageProxyRouter());
 
 // MCP server for Claude Code and other MCP clients
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -487,6 +492,14 @@ async function startServer(): Promise<void> {
       version: IMAGE_VERSION,
       buildDate: BUILD_DATE_HUMAN,
     });
+
+    // Initialize image cache and start warming
+    initCacheWarmer(PORT).catch((err) => {
+      log.error('Image cache initialization failed', { error: err instanceof Error ? err.message : String(err) });
+    });
+
+    // Schedule periodic cache warming (every 6 hours)
+    scheduleCacheWarming(PORT, 6);
   });
 }
 

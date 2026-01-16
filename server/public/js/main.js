@@ -7,6 +7,29 @@ let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
 let modalTransitioning = false; // Prevent rapid open/close
 
+/**
+ * Convert image URL to proxy URL for local caching
+ * @param {string} url - Original image URL
+ * @param {string} [size] - 'small' (200px) or 'medium' (400px) for thumbnail
+ * @returns {string} Proxy URL or original if not external
+ */
+function proxyImageUrl(url, size) {
+    if (!url) return '';
+    // Only proxy external URLs
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return url;
+    }
+    // Don't proxy local URLs
+    if (url.includes('localhost') || url.includes('127.0.0.1')) {
+        return url;
+    }
+    const params = new URLSearchParams({ url });
+    if (size) {
+        params.set('size', size);
+    }
+    return `/api/image-proxy?${params.toString()}`;
+}
+
 // Browse state
 let browseDisplayCount = getInitialDisplayCount();
 let collectionDisplayCount = getInitialDisplayCount();
@@ -119,8 +142,8 @@ function openArtModal(artwork, options = {}) {
     modalImage.style.objectPosition = '50% 50%';
     modalImage.style.objectFit = 'cover';
 
-    // Set image source
-    modalImage.src = getArtworkImageUrl(artwork);
+    // Set image source (use proxy for caching, no size param for full resolution)
+    modalImage.src = proxyImageUrl(getArtworkImageUrl(artwork));
 
     applyDefaultOrientation();
 
@@ -442,9 +465,11 @@ async function loadPlaylistsHorizontal() {
             return `
                 <div class="playlist-card" onclick="openPlaylistView('${playlist.id}')">
                     <img class="playlist-card-image ${!previewUrl ? 'loading' : ''}"
-                         src="${previewUrl}"
+                         src="${proxyImageUrl(previewUrl, 'small')}"
                          alt="${playlist.name}"
                          loading="lazy"
+                         decoding="async"
+                         onload="this.classList.remove('loading'); this.classList.add('loaded')"
                          onerror="this.classList.add('loading'); this.src='';">
                     <div class="playlist-card-name">${playlist.name}</div>
                 </div>
@@ -476,7 +501,8 @@ async function loadTodaysGallery() {
 
             galleryContainer.innerHTML = data.artworks.map(artwork => `
                 <div class="gallery-artwork" onclick="openArtPreview(${JSON.stringify(artwork).replace(/"/g, '&quot;')})">
-                    <img src="${artwork.thumbnailUrl || artwork.imageUrl}" alt="${artwork.title}" loading="lazy">
+                    <img src="${proxyImageUrl(artwork.thumbnailUrl || artwork.imageUrl, 'medium')}" alt="${artwork.title}" loading="lazy" decoding="async"
+                         onload="this.parentElement.classList.remove('loading'); this.parentElement.classList.add('loaded')">
                     <div class="gallery-artwork-info">
                         <div class="gallery-artwork-title">${artwork.title}</div>
                     </div>
@@ -612,7 +638,7 @@ async function refreshTodaysGallery() {
 
             galleryContainer.innerHTML = data.artworks.map(artwork => `
                 <div class="gallery-artwork" onclick="openArtPreview(${JSON.stringify(artwork).replace(/"/g, '&quot;')})">
-                    <img src="${artwork.thumbnailUrl || artwork.imageUrl}" alt="${artwork.title}" loading="lazy">
+                    <img src="${proxyImageUrl(artwork.thumbnailUrl || artwork.imageUrl, 'medium')}" alt="${artwork.title}" loading="lazy">
                     <div class="gallery-artwork-info">
                         <div class="gallery-artwork-title">${artwork.title}</div>
                     </div>
@@ -1160,9 +1186,11 @@ function createPhysicalCard(art) {
     const imageUrl = art.thumbnail || art.thumbnailUrl || art.imageUrl || '';
     const artJson = JSON.stringify(art).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
 
-    // Handle missing images gracefully
+    // Handle missing images gracefully with onload for smooth transitions
     const imgContent = imageUrl
-        ? `<img src="${imageUrl}" alt="${truncateText(title, 50)}" loading="lazy" onerror="this.parentElement.classList.add('no-image'); this.style.display='none';">`
+        ? `<img src="${proxyImageUrl(imageUrl, 'medium')}" alt="${truncateText(title, 50)}" loading="lazy" decoding="async"
+             onload="this.parentElement.classList.add('loaded')"
+             onerror="this.parentElement.classList.add('no-image'); this.style.display='none';">`
         : '';
 
     return `
@@ -1564,7 +1592,7 @@ function displayMyCollection() {
         return `
             <div class="collection-item ${inRotation ? 'in-rotation' : ''}" data-image-id="${itemId}">
                 <div class="collection-image-container" onclick='openCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
-                    <img class="collection-image" src="${imageUrl}" alt="${title}">
+                    <img class="collection-image" src="${proxyImageUrl(imageUrl, 'medium')}" alt="${title}">
                     <div class="rotation-indicator"></div>
                     <button class="rotation-toggle-btn ${inRotation ? 'in-rotation' : ''}" onclick='event.stopPropagation(); toggleImageRotation("${itemId}")' title="${inRotation ? 'Remove from rotation' : 'Add to rotation'}">↻</button>
                     <button class="delete-btn" onclick='event.stopPropagation(); deleteCollectionItem(${JSON.stringify(item).replace(/'/g, "&apos;")})' title="Delete">×</button>

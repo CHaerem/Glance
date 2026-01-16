@@ -2277,13 +2277,36 @@ body.now-playing-visible .container {
     overflow: hidden;
     background: #e5e5e5;
     cursor: pointer;
+    position: relative;
+}
+
+.featured-artwork-thumb::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: lazyShimmer 1.5s infinite;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.featured-artwork-thumb.loaded::before {
+    opacity: 0;
 }
 
 .featured-artwork-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .featured-artwork-thumb:hover img {
@@ -2502,4 +2525,246 @@ body.now-playing-visible .container {
         width: 120px;
         padding: 12px;
     }
+}
+
+/* ============================================
+   Lazy Loading System
+   ============================================ */
+
+/* Lazy image container - prevents layout shift */
+.lazy-container {
+    position: relative;
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+/* Skeleton shimmer effect */
+.lazy-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: lazyShimmer 1.5s infinite;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.lazy-container.lazy-loaded::before {
+    display: none;
+}
+
+@keyframes lazyShimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* Lazy image styles */
+.lazy-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+/* Loading state - blurred placeholder */
+.lazy-img.lazy-loading {
+    opacity: 0.6;
+    filter: blur(10px);
+    transform: scale(1.05);
+}
+
+/* Loaded state - sharp image */
+.lazy-img.lazy-loaded {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+}
+
+/* Error state */
+.lazy-img.lazy-error {
+    opacity: 0.3;
+}
+
+/* Placeholder for missing images */
+.lazy-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #e5e5e5 0%, #f5f5f5 50%, #e5e5e5 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lazy-placeholder::after {
+    content: '';
+    width: 40%;
+    height: 40%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23ccc' viewBox='0 0 24 24'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.5;
+}
+
+/* Enhanced physical card images */
+.physical-card-image {
+    position: relative;
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+.physical-card-image::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: lazyShimmer 1.5s infinite;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.physical-card-image.loaded::before {
+    opacity: 0;
+}
+
+.physical-card-image img {
+    transition: opacity 0.4s ease, filter 0.4s ease, transform 0.4s ease;
+}
+
+.physical-card-image img:not([src]),
+.physical-card-image img[src=""],
+.physical-card-image img[src^="data:image/svg"] {
+    opacity: 0;
+}
+
+/* Gallery artwork enhancements */
+.gallery-artwork {
+    position: relative;
+    background: #f0f0f0;
+}
+
+.gallery-artwork::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: lazyShimmer 1.5s infinite;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.gallery-artwork.loaded::before {
+    opacity: 0;
+}
+
+.gallery-artwork img {
+    transition: opacity 0.4s ease;
+}
+
+/* Playlist card image enhancements */
+.playlist-card-image {
+    position: relative;
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+.playlist-card-image::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: lazyShimmer 1.5s infinite;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.playlist-card-image.loaded::before {
+    opacity: 0;
+}
+
+/* Collection image enhancements */
+.collection-image {
+    transition: opacity 0.4s ease;
+}
+
+/* Prevent content jumping - ensure all images have explicit dimensions */
+img[loading="lazy"] {
+    content-visibility: auto;
+}
+
+/* GPU acceleration for smoother animations */
+.lazy-img,
+.physical-card-image img,
+.gallery-artwork img,
+.playlist-card-image img {
+    will-change: opacity, filter;
+    transform: translateZ(0);
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .lazy-container::before,
+    .physical-card-image::before,
+    .gallery-artwork::before,
+    .playlist-card-image::before {
+        animation: none;
+    }
+
+    .lazy-img,
+    .physical-card-image img,
+    .gallery-artwork img {
+        transition: none;
+    }
+}
+
+/* ============================================
+   Content Visibility - Skip rendering off-screen
+   ============================================ */
+
+/* Off-screen sections skip rendering until needed */
+#searchResultsSection,
+#playlistViewSection,
+#myCollectionMode,
+#createMode {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 500px;
+}
+
+/* Sections below the fold */
+#todaysGallerySection,
+#movementsSection,
+#moodSection,
+#featuredSection {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 300px;
 }

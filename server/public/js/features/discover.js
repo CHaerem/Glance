@@ -55,9 +55,11 @@ function renderFeaturedSection(featured) {
     const artworksContainer = document.getElementById('featuredArtworks');
     artworksContainer.innerHTML = artworks.slice(0, 4).map(artwork => `
         <div class="featured-artwork-thumb" data-artwork='${JSON.stringify(artwork).replace(/'/g, "&#39;")}'>
-            <img src="${artwork.thumbnailUrl || artwork.imageUrl}"
+            <img src="${proxyImageUrl(artwork.thumbnailUrl || artwork.imageUrl, 'small')}"
                  alt="${artwork.title}"
                  loading="lazy"
+                 decoding="async"
+                 onload="this.parentElement.classList.add('loaded')"
                  onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23333%22 width=%22100%22 height=%22100%22/></svg>'">
         </div>
     `).join('');
