@@ -85,4 +85,4 @@ data/
 *~debug*
 monitor.py
 debug-*.py
-test-*.py
+test-*.py.playwright-mcp/
