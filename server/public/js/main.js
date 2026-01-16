@@ -53,6 +53,102 @@ function applyDefaultOrientation() {
     }
 }
 
+// Get artwork image URL from various possible fields
+function getArtworkImageUrl(artwork) {
+    if (artwork.imageUrl) return artwork.imageUrl;
+    if (artwork.thumbnailUrl) return artwork.thumbnailUrl;
+    if (artwork.originalImage) {
+        return `data:${artwork.originalImageMime || 'image/png'};base64,${artwork.originalImage}`;
+    }
+    if (artwork.thumbnail) {
+        return `data:image/png;base64,${artwork.thumbnail}`;
+    }
+    return '';
+}
+
+// Update modal metadata display
+function updateModalMetadata(artwork) {
+    const titleEl = document.getElementById('modalTitle');
+    const artistEl = document.getElementById('modalArtist');
+    const yearEl = document.getElementById('modalYear');
+    const detailsEl = document.getElementById('modalArtworkDetails');
+
+    // Check if we have any metadata
+    const hasTitle = artwork.title && !artwork.title.startsWith('Uploaded:') && !artwork.title.startsWith('Generated:');
+    const hasArtist = artwork.artist;
+    const hasYear = artwork.year || artwork.date;
+
+    if (!hasTitle && !hasArtist && !hasYear) {
+        if (detailsEl) detailsEl.style.display = 'none';
+        return;
+    }
+
+    if (detailsEl) detailsEl.style.display = 'block';
+    if (titleEl) titleEl.textContent = hasTitle ? artwork.title : '';
+    if (artistEl) artistEl.textContent = hasArtist ? artwork.artist : '';
+    if (yearEl) yearEl.textContent = hasYear ? (artwork.year || artwork.date) : '';
+}
+
+// Unified art modal opening function
+function openArtModal(artwork, options = {}) {
+    const {
+        source = 'explore',  // 'explore' | 'collection' | 'generated' | 'search'
+        showMoreLikeThis = true,
+        secondaryAction = null  // { text, type } or null
+    } = options;
+
+    // Reset state
+    selectedModalArt = artwork;
+    selectedHistoryItem = (source === 'generated' || source === 'collection') ? artwork : null;
+    cropX = 50;
+    cropY = 50;
+    zoomLevel = 1.0;
+
+    const modal = document.getElementById('artModal');
+    const modalImage = document.getElementById('modalImage');
+
+    // Reset image styles
+    modalImage.style.transform = 'scale(1)';
+    modalImage.style.transformOrigin = '50% 50%';
+    modalImage.style.objectPosition = '50% 50%';
+    modalImage.style.objectFit = 'cover';
+
+    // Set image source
+    modalImage.src = getArtworkImageUrl(artwork);
+
+    applyDefaultOrientation();
+
+    // Update metadata display
+    updateModalMetadata(artwork);
+
+    // Configure secondary action
+    const secondaryBtn = document.getElementById('modalSecondaryAction');
+    if (secondaryAction) {
+        secondaryBtn.textContent = secondaryAction.text;
+        secondaryBtn.style.display = 'block';
+        secondaryActionType = secondaryAction.type;
+    } else {
+        secondaryBtn.style.display = 'none';
+        secondaryActionType = null;
+    }
+
+    // Configure more like this button
+    const moreLikeBtn = document.getElementById('moreLikeThisBtn');
+    if (moreLikeBtn) {
+        moreLikeBtn.style.display = showMoreLikeThis ? 'block' : 'none';
+    }
+
+    // Configure ask about button (only show if we have meaningful metadata)
+    const askBtn = document.getElementById('askAboutBtn');
+    if (askBtn) {
+        const hasMeaningfulTitle = artwork.title && !artwork.title.startsWith('Uploaded:') && !artwork.title.startsWith('Generated:');
+        askBtn.style.display = (hasMeaningfulTitle || artwork.artist) ? 'block' : 'none';
+    }
+
+    // Show modal using CSS class (consistent method)
+    modal.classList.add('show');
+}
+
 // Initialize
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -143,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('applyModalBtn').addEventListener('click', applyModalArt);
     document.getElementById('modalSecondaryAction').addEventListener('click', handleSecondaryAction);
     document.getElementById('moreLikeThisBtn').addEventListener('click', findSimilarArt);
+    document.getElementById('askAboutBtn').addEventListener('click', askAboutArtwork);
 
     // Zoom controls (desktop only - hidden on mobile)
     document.getElementById('zoomIn').addEventListener('click', () => adjustZoom('in'));
@@ -784,22 +881,11 @@ async function loadRandomArt() {
 
 // Open art preview modal from Today's Gallery
 function openArtPreview(artwork) {
-    selectedModalArt = artwork;
-    const modal = document.getElementById('artModal');
-    const modalImage = document.getElementById('modalImage');
-
-    modalImage.src = artwork.imageUrl || artwork.thumbnailUrl;
-    modal.style.display = 'flex';
-    applyDefaultOrientation();
-
-    // Setup secondary action (add to collection)
-    const secondaryBtn = document.getElementById('modalSecondaryAction');
-    secondaryBtn.textContent = '♡ save to collection';
-    secondaryBtn.style.display = 'inline-block';
-    secondaryActionType = 'add';
-
-    // Show "more like this" button
-    document.getElementById('moreLikeThisBtn').style.display = 'inline-block';
+    openArtModal(artwork, {
+        source: 'explore',
+        showMoreLikeThis: true,
+        secondaryAction: { text: 'add to collection', type: 'add' }
+    });
 }
 
 // Load all playlists from API
@@ -1195,16 +1281,12 @@ async function openGeneratedImagePreview(imageId) {
         }
 
         const item = await response.json();
-        selectedHistoryItem = item;
 
-        const imageSrc = item.originalImage
-            ? `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`
-            : `data:image/png;base64,${item.thumbnail}`;
-
-        document.getElementById('modalImage').src = imageSrc;
-        applyDefaultOrientation();
-        document.getElementById('deleteModalBtn').style.display = 'inline-block';
-        document.getElementById('artModal').classList.add('show');
+        openArtModal(item, {
+            source: 'generated',
+            showMoreLikeThis: false,
+            secondaryAction: { text: 'delete', type: 'delete' }
+        });
     } catch (error) {
         console.error('Failed to open preview:', error);
     }
@@ -1452,80 +1534,28 @@ function showMoreBrowse() {
 }
 
 function previewArt(art) {
-    selectedModalArt = art;
-    selectedHistoryItem = null;
-
-    // Reset crop and zoom state
-    cropX = 50;
-    cropY = 50;
-    zoomLevel = 1.0;
-
-    const modalImage = document.getElementById('modalImage');
-    modalImage.src = art.imageUrl;
-    modalImage.style.transform = 'scale(1)';
-    modalImage.style.transformOrigin = '50% 50%';
-    modalImage.style.objectPosition = '50% 50%';
-    modalImage.style.objectFit = 'cover';
-
-    applyDefaultOrientation();
-
-    // Show "add to collection" link
-    const secondaryAction = document.getElementById('modalSecondaryAction');
-    secondaryAction.textContent = 'add to collection';
-    secondaryAction.style.display = 'block';
-    secondaryActionType = 'add';
-
-    // Show "More Like This" button for browse artworks
-    document.getElementById('moreLikeThisBtn').style.display = 'block';
-
-    document.getElementById('artModal').classList.add('show');
+    openArtModal(art, {
+        source: 'search',
+        showMoreLikeThis: true,
+        secondaryAction: { text: 'add to collection', type: 'add' }
+    });
 }
 
 async function openCollectionItem(item) {
     try {
-        selectedHistoryItem = item;
-        selectedModalArt = null;
-
-        // Reset crop and zoom state
-        cropX = 50;
-        cropY = 50;
-        zoomLevel = 1.0;
-
-        // Determine image source
-        let imageSrc;
-        if (item.imageUrl) {
-            imageSrc = item.imageUrl;
-        } else if (item.originalImage) {
-            imageSrc = `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`;
-        } else if (item.thumbnail) {
-            imageSrc = `data:image/png;base64,${item.thumbnail}`;
-        }
-
-        const modalImage = document.getElementById('modalImage');
-        modalImage.src = imageSrc;
-        modalImage.style.transform = 'scale(1)';
-        modalImage.style.transformOrigin = '50% 50%';
-        modalImage.style.objectPosition = '50% 50%';
-        modalImage.style.objectFit = 'cover';
-
-        applyDefaultOrientation();
-
-        // Set appropriate secondary action
-        const secondaryAction = document.getElementById('modalSecondaryAction');
+        // Determine secondary action based on collection type
+        let secondaryAction = null;
         if (item.collectionType === 'generated' || item.collectionType === 'uploaded') {
-            secondaryAction.textContent = 'delete';
-            secondaryAction.style.display = 'block';
-            secondaryActionType = 'delete';
+            secondaryAction = { text: 'delete', type: 'delete' };
         } else if (item.collectionType === 'added') {
-            secondaryAction.textContent = 'remove from collection';
-            secondaryAction.style.display = 'block';
-            secondaryActionType = 'remove';
-        } else {
-            secondaryAction.style.display = 'none';
-            secondaryActionType = null;
+            secondaryAction = { text: 'remove from collection', type: 'remove' };
         }
 
-        document.getElementById('artModal').classList.add('show');
+        openArtModal(item, {
+            source: 'collection',
+            showMoreLikeThis: true,  // Now enabled for collection items!
+            secondaryAction
+        });
     } catch (error) {
         console.error('Failed to open collection item:', error);
     }
@@ -1552,15 +1582,18 @@ function closeModal() {
 
 // Find similar artworks using AI
 async function findSimilarArt() {
-    if (!selectedModalArt) return;
+    // Support both selectedModalArt (explore/search) and selectedHistoryItem (collection)
+    const artwork = selectedModalArt || selectedHistoryItem;
+    if (!artwork) return;
 
     // Close modal and switch to explore mode
     closeModal();
     switchMode('explore');
 
-    // Show loading state
-    const grid = document.getElementById('artGrid');
-    grid.innerHTML = '<div class="loading">Finding similar artworks...</div>';
+    // Show loading state in search results
+    showSearchResultsSection(`similar to "${artwork.title || 'artwork'}"`);
+    const cardsContainer = document.getElementById('artCards');
+    cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Finding similar artworks...</div>';
 
     try {
         // Use semantic similarity search (CLIP-based visual matching)
@@ -1568,7 +1601,7 @@ async function findSimilarArt() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                artworkId: selectedModalArt.id,
+                artworkId: artwork.id,
                 limit: 30 // Get more similar artworks
             })
         });
@@ -1581,16 +1614,45 @@ async function findSimilarArt() {
         currentArtResults = data.results || [];
         browseDisplayCount = getInitialDisplayCount();
 
-        // Display results
-        displayArtResults();
+        // Display results in search results format
+        displaySearchResults();
 
         // Log similarity metadata if available
         if (data.metadata) {
-            console.log(`Found ${data.results.length} visually similar artworks using CLIP embeddings`);
+            console.log(`Found ${data.results.length} visually similar artworks`);
         }
     } catch (error) {
         console.error('Similar artwork search failed:', error);
-        grid.innerHTML = '<div class="loading">Failed to find similar artworks</div>';
+        cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Failed to find similar artworks</div>';
+    }
+}
+
+// Ask the guide about the current artwork
+async function askAboutArtwork() {
+    const artwork = selectedModalArt || selectedHistoryItem;
+    if (!artwork) return;
+
+    // Build context query
+    const title = artwork.title || 'this artwork';
+    const artist = artwork.artist ? ` by ${artwork.artist}` : '';
+    const contextQuery = `Tell me about "${title}"${artist}. What makes it significant?`;
+
+    // Close modal and switch to explore mode
+    closeModal();
+    switchMode('explore');
+
+    // Set the search input and trigger guide
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = contextQuery;
+    }
+
+    // Send to guide if available
+    if (typeof sendGuideMessage === 'function') {
+        await sendGuideMessage(contextQuery);
+    } else {
+        // Fallback: just do a search
+        await window.smartSearch(contextQuery);
     }
 }
 
@@ -1975,16 +2037,12 @@ async function openHistoryPreview(imageId) {
         }
 
         const item = await response.json();
-        selectedHistoryItem = item;
 
-        const imageSrc = item.originalImage
-            ? `data:${item.originalImageMime || 'image/png'};base64,${item.originalImage}`
-            : `data:image/png;base64,${item.thumbnail}`;
-
-        document.getElementById('modalImage').src = imageSrc;
-        applyDefaultOrientation();
-        document.getElementById('deleteModalBtn').style.display = 'inline-block';
-        document.getElementById('artModal').classList.add('show');
+        openArtModal(item, {
+            source: 'generated',
+            showMoreLikeThis: false,
+            secondaryAction: { text: 'delete', type: 'delete' }
+        });
     } catch (error) {
         console.error('Failed to open preview:', error);
     }
