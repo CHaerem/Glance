@@ -9,6 +9,7 @@ import statistics from './statistics';
 import { loggers } from './logger';
 import { TtlCache, TTL, getErrorMessage } from '../utils';
 import type { Artwork } from '../types';
+import { searchLocalLibrary, isLocalLibraryAvailable } from './local-library';
 
 const log = loggers.api;
 
@@ -980,6 +981,10 @@ export async function performArtSearch(
     }
   };
 
+  // Check if local library is available
+  const localLibraryAvailable = isLocalLibraryAvailable();
+
+  // Run all searches in parallel (including local library if available)
   const [
     metResults,
     articResults,
@@ -989,6 +994,7 @@ export async function performArtSearch(
     vamResults,
     harvardResults,
     smithsonianResults,
+    localResults,
   ] = await Promise.all([
     trackSearch('Met Museum', searchMet),
     trackSearch('Art Institute of Chicago', searchArtic),
@@ -998,6 +1004,10 @@ export async function performArtSearch(
     trackSearch('Victoria & Albert', searchVictoriaAlbert),
     trackSearch('Harvard Art Museums', searchHarvard),
     trackSearch('Smithsonian', searchSmithsonian),
+    // Local library search (returns empty array if not available)
+    localLibraryAvailable
+      ? trackSearch('Local Library', () => searchLocalLibrary(query, targetCount))
+      : Promise.resolve([]),
   ]);
 
   // Track source status for user feedback
@@ -1034,6 +1044,12 @@ export async function performArtSearch(
       status: smithsonianResults.length > 0 ? 'ok' : 'no_results',
       count: smithsonianResults.length,
     },
+    ...(localLibraryAvailable && {
+      'local-library': {
+        status: localResults.length > 0 ? 'ok' : 'no_results',
+        count: localResults.length,
+      },
+    }),
   };
 
   // Ranking function to score artworks
@@ -1112,6 +1128,7 @@ export async function performArtSearch(
     ...vamResults,
     ...harvardResults,
     ...smithsonianResults,
+    ...localResults,
   ];
 
   // Sort by score
@@ -1141,6 +1158,7 @@ export async function performArtSearch(
       vam: vamResults.length,
       harvard: harvardResults.length,
       smithsonian: smithsonianResults.length,
+      ...(localLibraryAvailable && { local: localResults.length }),
     },
   });
 

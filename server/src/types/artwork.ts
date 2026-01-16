@@ -12,7 +12,8 @@ export type MuseumSource =
   | 'harvard'
   | 'smithsonian'
   | 'europeana'
-  | 'wikimedia';
+  | 'wikimedia'
+  | 'local-library';
 
 // Basic artwork information
 export interface Artwork {

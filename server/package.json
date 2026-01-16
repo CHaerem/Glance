@@ -19,7 +19,12 @@
     "build:preview": "node preview/build-preview.js",
     "preview:serve": "npm run build:preview && cd preview && python3 -m http.server 8080",
     "init:storage": "node scripts/init-storage.js",
-    "test:memory": "jest --testPathPattern=memory"
+    "test:memory": "jest --testPathPattern=memory",
+    "sync:art": "node scripts/sync-art-library.js",
+    "sync:art:dry": "node scripts/sync-art-library.js --dry-run",
+    "sync:wikidata": "node scripts/sync-art-wikidata.js",
+    "sync:wikidata:dry": "node scripts/sync-art-wikidata.js --dry-run",
+    "sync:wikidata:artists": "node scripts/sync-art-wikidata.js --artists-only"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",

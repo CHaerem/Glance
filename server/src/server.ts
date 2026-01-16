@@ -157,6 +157,10 @@ app.use(express.urlencoded({ extended: true })); // For OAuth token requests (fo
 app.use(express.static('public'));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
+// Serve local art library images (if available)
+const artLibraryPath = path.join(__dirname, '..', 'data', 'art-library');
+app.use('/art-library', express.static(artLibraryPath));
+
 // HTTP request logging
 const httpLog = loggers.api.child({ component: 'http' });
 app.use((req: Request, res: Response, next: NextFunction) => {
