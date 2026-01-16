@@ -11,6 +11,7 @@ import { getOsloTimestamp } from '../utils/time';
 import { getServerLogs, getDeviceLogs } from '../utils/state';
 import { loggers } from '../services/logger';
 import { getErrorMessage } from '../utils/error';
+import guideChatService from '../services/guide-chat';
 
 const log = loggers.server;
 
@@ -83,6 +84,40 @@ export function createSystemRoutes({
       uptime: process.uptime(),
       memoryUsage: process.memoryUsage(),
       cpuUsage: process.cpuUsage(),
+    });
+  });
+
+  /**
+   * Memory and cache diagnostics for performance monitoring
+   * GET /api/diagnostics
+   */
+  router.get('/diagnostics', (_req: Request, res: Response) => {
+    const memoryUsage = process.memoryUsage();
+    const guideDiagnostics = guideChatService.getDiagnostics();
+
+    // Get MCP diagnostics from global (set in server.ts)
+    const getMcpDiagnostics = (global as unknown as { getMcpDiagnostics?: () => unknown }).getMcpDiagnostics;
+    const mcpDiagnostics = getMcpDiagnostics ? getMcpDiagnostics() : null;
+
+    res.json({
+      timestamp: Date.now(),
+      uptime: process.uptime(),
+      memory: {
+        heapUsed: memoryUsage.heapUsed,
+        heapTotal: memoryUsage.heapTotal,
+        heapUsedMB: Math.round(memoryUsage.heapUsed / 1024 / 1024 * 100) / 100,
+        heapTotalMB: Math.round(memoryUsage.heapTotal / 1024 / 1024 * 100) / 100,
+        external: memoryUsage.external,
+        rss: memoryUsage.rss,
+        rssMB: Math.round(memoryUsage.rss / 1024 / 1024 * 100) / 100,
+      },
+      guideChat: guideDiagnostics,
+      mcp: mcpDiagnostics,
+      status: {
+        healthy: true,
+        memoryWarning: memoryUsage.heapUsed > 500 * 1024 * 1024, // Warn if heap > 500MB
+        sessionWarning: guideDiagnostics.sessionCount > guideDiagnostics.limits.maxSessions * 0.8,
+      },
     });
   });
 

@@ -74,6 +74,9 @@ const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 // Maximum number of sessions to prevent memory leaks
 const MAX_SESSIONS = 100;
 
+// Maximum messages per session to prevent memory growth
+const MAX_MESSAGES_PER_SESSION = 50;
+
 // Cleanup interval (5 minutes)
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -428,6 +431,11 @@ class GuideChatService {
       timestamp: Date.now(),
     });
 
+    // Trim old messages to prevent memory growth
+    if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
+      session.messages = session.messages.slice(-MAX_MESSAGES_PER_SESSION);
+    }
+
     try {
       // Start performance tracking
       const startTime = Date.now();
@@ -654,6 +662,41 @@ IMPORTANT:
    */
   setLastSearchResults(results: Artwork[]): void {
     this.lastSearchResults = results;
+  }
+
+  /**
+   * Get diagnostics for memory monitoring
+   */
+  getDiagnostics(): {
+    sessionCount: number;
+    totalMessages: number;
+    maxSessionMessages: number;
+    oldestSessionAge: number;
+    limits: { maxSessions: number; maxMessagesPerSession: number; sessionTimeoutMs: number };
+  } {
+    let totalMessages = 0;
+    let maxSessionMessages = 0;
+    let oldestSessionAge = 0;
+    const now = Date.now();
+
+    for (const session of conversations.values()) {
+      totalMessages += session.messages.length;
+      maxSessionMessages = Math.max(maxSessionMessages, session.messages.length);
+      const age = now - session.createdAt;
+      oldestSessionAge = Math.max(oldestSessionAge, age);
+    }
+
+    return {
+      sessionCount: conversations.size,
+      totalMessages,
+      maxSessionMessages,
+      oldestSessionAge,
+      limits: {
+        maxSessions: MAX_SESSIONS,
+        maxMessagesPerSession: MAX_MESSAGES_PER_SESSION,
+        sessionTimeoutMs: SESSION_TIMEOUT_MS,
+      },
+    };
   }
 }
 

@@ -237,9 +237,12 @@ app.use('/api/metrics', metricsRoutes());
 // MCP server for Claude Code and other MCP clients
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { createMcpRoutes } = require('../../mcp');
-const mcpRoutes = createMcpRoutes({ glanceBaseUrl: 'http://localhost:3000' });
+const { router: mcpRoutes, getDiagnostics: getMcpDiagnostics } = createMcpRoutes({ glanceBaseUrl: 'http://localhost:3000' });
 app.use('/api/mcp', mcpRateLimiter); // Stricter rate limit for MCP
 app.use('/api', mcpRoutes);
+
+// Store MCP diagnostics getter for system routes
+(global as unknown as { getMcpDiagnostics: () => unknown }).getMcpDiagnostics = getMcpDiagnostics;
 
 // OAuth 2.1 Discovery Endpoints for MCP
 // These are required for Claude.ai to discover OAuth configuration

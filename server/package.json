@@ -18,7 +18,8 @@
     "test:e2e:headed": "playwright test --headed",
     "build:preview": "node preview/build-preview.js",
     "preview:serve": "npm run build:preview && cd preview && python3 -m http.server 8080",
-    "init:storage": "node scripts/init-storage.js"
+    "init:storage": "node scripts/init-storage.js",
+    "test:memory": "jest --testPathPattern=memory"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",

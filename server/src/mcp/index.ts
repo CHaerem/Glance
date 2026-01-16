@@ -618,7 +618,10 @@ export function createMcpServer({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
  * This uses true stateless mode where each request gets a fresh transport.
  * This is simpler, supports horizontal scaling, and works better with Claude.ai.
  */
-export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: McpServerConfig = {}): Router {
+export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: McpServerConfig = {}): {
+  router: Router;
+  getDiagnostics: () => { authCodesCount: number; authenticatedClientsCount: number; limits: { maxAuthCodes: number; maxAuthClients: number } };
+} {
   const router = Router();
 
   // Log OAuth status on startup
@@ -641,6 +644,19 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     expiresAt: number;
   }>();
 
+  // Memory limits to prevent unbounded growth
+  const MAX_AUTH_CODES = 100;
+  const MAX_AUTH_CLIENTS = 200;
+
+  // Helper to evict oldest entries when limit exceeded
+  function enforceMapLimit<T>(map: Map<string, T>, maxSize: number): void {
+    if (map.size > maxSize) {
+      const excess = map.size - maxSize;
+      const keysToDelete = Array.from(map.keys()).slice(0, excess);
+      keysToDelete.forEach(key => map.delete(key));
+    }
+  }
+
   // Clean up expired authenticated clients and authorization codes periodically
   setInterval(() => {
     const now = Date.now();
@@ -656,6 +672,9 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
         authorizationCodes.delete(code);
       }
     }
+    // Enforce size limits after expiration cleanup
+    enforceMapLimit(authorizationCodes, MAX_AUTH_CODES);
+    enforceMapLimit(authenticatedClients, MAX_AUTH_CLIENTS);
   }, 60000); // Clean up every minute
 
   // OAuth Authorization Endpoint (for authorization code flow with PKCE)
@@ -989,7 +1008,17 @@ export function createMcpRoutes({ glanceBaseUrl = 'http://localhost:3000' }: Mcp
     res.json({ success: true });
   });
 
-  return router;
+  // Diagnostics function for memory monitoring
+  const getDiagnostics = () => ({
+    authCodesCount: authorizationCodes.size,
+    authenticatedClientsCount: authenticatedClients.size,
+    limits: {
+      maxAuthCodes: MAX_AUTH_CODES,
+      maxAuthClients: MAX_AUTH_CLIENTS,
+    },
+  });
+
+  return { router, getDiagnostics };
 }
 
 export default {

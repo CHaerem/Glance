@@ -309,8 +309,72 @@ let allPlaylists = [];
 let currentPlaylistId = null;
 let exploreInitialized = false;
 const playlistDataCache = new Map(); // Client-side cache for loaded playlist artworks
+const PLAYLIST_CACHE_MAX_ENTRIES = 20;
+const PLAYLIST_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 let todaysGalleryArtworks = []; // Store gallery artworks for playback
 let myUserPlaylists = []; // User-created playlists
+
+// Helper to manage playlist cache with size and TTL limits
+function setPlaylistCache(playlistId, data) {
+    // Remove expired entries first
+    const now = Date.now();
+    for (const [key, value] of playlistDataCache.entries()) {
+        if (now - value.timestamp > PLAYLIST_CACHE_TTL_MS) {
+            playlistDataCache.delete(key);
+        }
+    }
+    // Enforce size limit (remove oldest if over limit)
+    if (playlistDataCache.size >= PLAYLIST_CACHE_MAX_ENTRIES) {
+        const oldestKey = playlistDataCache.keys().next().value;
+        playlistDataCache.delete(oldestKey);
+    }
+    playlistDataCache.set(playlistId, { ...data, timestamp: now });
+}
+
+function getPlaylistCache(playlistId) {
+    const cached = playlistDataCache.get(playlistId);
+    if (!cached) return null;
+    // Check TTL
+    if (Date.now() - cached.timestamp > PLAYLIST_CACHE_TTL_MS) {
+        playlistDataCache.delete(playlistId);
+        return null;
+    }
+    return cached;
+}
+
+// Client-side diagnostics for memory monitoring (accessible via console: getClientDiagnostics())
+window.getClientDiagnostics = function() {
+    const diagnostics = {
+        timestamp: Date.now(),
+        playlistCache: {
+            size: playlistDataCache.size,
+            maxSize: PLAYLIST_CACHE_MAX_ENTRIES,
+            ttlMs: PLAYLIST_CACHE_TTL_MS,
+            entries: Array.from(playlistDataCache.entries()).map(([key, value]) => ({
+                key,
+                artworkCount: value.artworks?.length || 0,
+                ageMs: Date.now() - (value.timestamp || 0),
+                expired: Date.now() - (value.timestamp || 0) > PLAYLIST_CACHE_TTL_MS
+            }))
+        },
+        setupGuards: {
+            guideDrawerInitialized: typeof guideDrawerInitialized !== 'undefined' ? guideDrawerInitialized : 'N/A',
+            discoverySuggestionsInitialized: typeof discoverySuggestionsInitialized !== 'undefined' ? discoverySuggestionsInitialized : 'N/A',
+            touchZoomInitialized: typeof touchZoomInitialized !== 'undefined' ? touchZoomInitialized : 'N/A',
+            dragDropInitialized: typeof dragDropInitialized !== 'undefined' ? dragDropInitialized : 'N/A',
+            playlistDragScrollInitialized: typeof playlistDragScrollInitialized !== 'undefined' ? playlistDragScrollInitialized : 'N/A',
+            exploreInitialized: typeof exploreInitialized !== 'undefined' ? exploreInitialized : 'N/A'
+        },
+        globalArrays: {
+            currentArtResults: currentArtResults?.length || 0,
+            allPlaylists: allPlaylists?.length || 0,
+            todaysGalleryArtworks: todaysGalleryArtworks?.length || 0,
+            myCollection: typeof myCollection !== 'undefined' ? myCollection?.length || 0 : 'N/A'
+        }
+    };
+    console.log('Client Diagnostics:', diagnostics);
+    return diagnostics;
+};
 
 // Initialize explore mode with playlists and Today's Gallery
 async function initializeExploreMode() {
@@ -1014,8 +1078,8 @@ async function loadPlaylist(playlistId) {
 
     const cardsContainer = document.getElementById('artCards');
 
-    // Check client-side cache first
-    const cached = playlistDataCache.get(playlistId);
+    // Check client-side cache first (with TTL check)
+    const cached = getPlaylistCache(playlistId);
     if (cached && cached.artworks && cached.artworks.length > 0) {
         currentArtResults = cached.artworks;
         browseDisplayCount = getInitialDisplayCount();
@@ -1031,8 +1095,8 @@ async function loadPlaylist(playlistId) {
         const data = await response.json();
 
         if (data.artworks && data.artworks.length > 0) {
-            // Cache the results client-side
-            playlistDataCache.set(playlistId, { artworks: data.artworks, timestamp: Date.now() });
+            // Cache the results client-side (with TTL and size limits)
+            setPlaylistCache(playlistId, { artworks: data.artworks });
             currentArtResults = data.artworks;
             browseDisplayCount = getInitialDisplayCount();
             displayPlaylistCards();
@@ -1125,7 +1189,12 @@ function updateStacksNavigation() {
 }
 
 // Setup drag-to-scroll for playlist stacks (works on both touch and mouse)
+let playlistDragScrollInitialized = false;
 function setupPlaylistDragScroll() {
+    // Guard against multiple initializations (prevents duplicate listeners)
+    if (playlistDragScrollInitialized) return;
+    playlistDragScrollInitialized = true;
+
     const container = document.getElementById('playlistStacks');
     if (!container) return;
 
@@ -1864,8 +1933,13 @@ let touchStartY = 0;
 let touchStartCropX = 50;
 let touchStartCropY = 50;
 let isTouchPanning = false;
+let touchZoomInitialized = false;
 
 function setupTouchZoom() {
+    // Guard against multiple initializations (prevents duplicate listeners)
+    if (touchZoomInitialized) return;
+    touchZoomInitialized = true;
+
     const modalImage = document.getElementById('modalImage');
     const modal = document.getElementById('artModal');
 
@@ -1941,7 +2015,12 @@ function getPinchDistance(touches) {
 }
 
 // File upload
+let dragDropInitialized = false;
 function setupDragDrop() {
+    // Guard against multiple initializations (prevents duplicate listeners)
+    if (dragDropInitialized) return;
+    dragDropInitialized = true;
+
     const zone = document.getElementById('dropZone');
 
     zone.addEventListener('dragover', (e) => {
@@ -2322,8 +2401,13 @@ async function stopRotation() {
 let guideSending = false;
 const guideSessionId = 'web-' + Date.now();
 let responseAutoHideTimer = null;
+let guideDrawerInitialized = false;
 
 function initGuideDrawer() {
+    // Guard against multiple initializations (prevents duplicate listeners)
+    if (guideDrawerInitialized) return;
+    guideDrawerInitialized = true;
+
     const searchInput = document.getElementById('searchInput');
     const smartHints = document.getElementById('smartHints');
 
@@ -2640,7 +2724,12 @@ function renderSmartHints() {
     });
 }
 
+let discoverySuggestionsInitialized = false;
 function setupDiscoverySuggestions() {
+    // Guard against multiple initializations (prevents duplicate intervals)
+    if (discoverySuggestionsInitialized) return;
+    discoverySuggestionsInitialized = true;
+
     // Initial fetch of current display info
     fetchCurrentDisplayInfo().then(() => {
         renderSmartHints();
