@@ -10,6 +10,7 @@ module.exports = {
     ensureDir: dataStoreModule.ensureDir,
     readJSONFile: dataStoreModule.readJSONFile,
     writeJSONFile: dataStoreModule.writeJSONFile,
+    modifyJSONFile: dataStoreModule.modifyJSONFile,
     clearCache: dataStoreModule.clearCache,
     getDataDir: dataStoreModule.getDataDir
 };

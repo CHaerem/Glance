@@ -9,6 +9,7 @@ const {
     ensureDir,
     readJSONFile,
     writeJSONFile,
+    modifyJSONFile,
     clearCache,
     getDataDir
 } = require('../../utils/data-store');
@@ -170,6 +171,140 @@ describe('Data Store Utility Functions', () => {
             await writeJSONFile(TEST_FILE, data3);
             const result3 = await readJSONFile(TEST_FILE, false);
             expect(result3).toEqual(data3);
+        });
+    });
+
+    describe('modifyJSONFile (transactional)', () => {
+        const MODIFY_TEST_FILE = 'modify-test.json';
+
+        afterEach(async () => {
+            try {
+                await fs.unlink(path.join(TEST_DIR, MODIFY_TEST_FILE));
+            } catch {
+                // File doesn't exist, ignore
+            }
+        });
+
+        it('should create file with default value if not exists', async () => {
+            const result = await modifyJSONFile(
+                MODIFY_TEST_FILE,
+                (data) => ({ ...data, added: true }),
+                { initial: true }
+            );
+
+            expect(result).toEqual({ initial: true, added: true });
+        });
+
+        it('should modify existing data', async () => {
+            // Create initial data
+            await writeJSONFile(MODIFY_TEST_FILE, { count: 0 });
+
+            // Modify it
+            const result = await modifyJSONFile(
+                MODIFY_TEST_FILE,
+                (data) => ({ ...data, count: data.count + 1 }),
+                { count: 0 }
+            );
+
+            expect(result).toEqual({ count: 1 });
+        });
+
+        it('should support async modifiers', async () => {
+            await writeJSONFile(MODIFY_TEST_FILE, { value: 'sync' });
+
+            const result = await modifyJSONFile(
+                MODIFY_TEST_FILE,
+                async (data) => {
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                    return { ...data, value: 'async' };
+                },
+                {}
+            );
+
+            expect(result).toEqual({ value: 'async' });
+        });
+
+        it('should handle concurrent modifications safely', async () => {
+            // Initialize counter
+            await writeJSONFile(MODIFY_TEST_FILE, { count: 0 });
+
+            // Run 10 concurrent increments
+            const promises = [];
+            for (let i = 0; i < 10; i++) {
+                promises.push(
+                    modifyJSONFile(
+                        MODIFY_TEST_FILE,
+                        (data) => ({ count: data.count + 1 }),
+                        { count: 0 }
+                    )
+                );
+            }
+
+            await Promise.all(promises);
+
+            // All increments should be applied (no race conditions)
+            const result = await readJSONFile(MODIFY_TEST_FILE, false);
+            expect(result.count).toBe(10);
+        });
+
+        it('should prevent race conditions in read-modify-write', async () => {
+            // Initialize data
+            await writeJSONFile(MODIFY_TEST_FILE, {
+                devices: {},
+                updateCount: 0
+            });
+
+            // Simulate concurrent device updates
+            const deviceUpdates = [
+                { id: 'device-1', battery: 3.9 },
+                { id: 'device-2', battery: 4.0 },
+                { id: 'device-3', battery: 3.7 },
+            ];
+
+            await Promise.all(deviceUpdates.map(device =>
+                modifyJSONFile(
+                    MODIFY_TEST_FILE,
+                    (data) => ({
+                        devices: { ...data.devices, [device.id]: device },
+                        updateCount: data.updateCount + 1
+                    }),
+                    { devices: {}, updateCount: 0 }
+                )
+            ));
+
+            const result = await readJSONFile(MODIFY_TEST_FILE, false);
+            expect(Object.keys(result.devices)).toHaveLength(3);
+            expect(result.updateCount).toBe(3);
+        });
+
+        it('should preserve data integrity on modifier error', async () => {
+            const initialData = { value: 'original' };
+            await writeJSONFile(MODIFY_TEST_FILE, initialData);
+
+            // Try to modify with a failing modifier
+            await expect(
+                modifyJSONFile(
+                    MODIFY_TEST_FILE,
+                    () => { throw new Error('Modifier failed'); },
+                    {}
+                )
+            ).rejects.toThrow('Modifier failed');
+
+            // Original data should be preserved
+            const result = await readJSONFile(MODIFY_TEST_FILE, false);
+            expect(result).toEqual(initialData);
+        });
+
+        it('should return the modified data', async () => {
+            await writeJSONFile(MODIFY_TEST_FILE, { items: [] });
+
+            const result = await modifyJSONFile(
+                MODIFY_TEST_FILE,
+                (data) => ({ items: [...data.items, 'new-item'] }),
+                { items: [] }
+            );
+
+            expect(result).toEqual({ items: ['new-item'] });
         });
     });
 });

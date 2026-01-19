@@ -5,12 +5,13 @@
 
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { loggers } from '../services/logger';
-import { getErrorMessage } from './error';
+import { getErrorMessage, ApiError } from './error';
 
 const log = loggers.api;
 
 /**
- * Wraps an async route handler to automatically catch errors and return 500 responses.
+ * Wraps an async route handler to automatically catch errors and return appropriate responses.
+ * Handles ApiError instances with their specific status codes.
  * Eliminates the need for try/catch blocks in every route handler.
  *
  * @param fn - The async route handler function
@@ -32,6 +33,7 @@ const log = loggers.api;
  * // After:
  * router.get('/today', asyncHandler(async (req, res) => {
  *   const data = await getData();
+ *   if (!data) throw ApiError.notFound('Data not found');
  *   res.json(data);
  * }, 'gallery-today'));
  */
@@ -41,6 +43,25 @@ export function asyncHandler(
 ): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
     Promise.resolve(fn(req, res, next)).catch((error: unknown) => {
+      // Handle ApiError with specific status codes
+      if (error instanceof ApiError) {
+        log.warn(`API error in ${operationName || req.path}`, {
+          statusCode: error.statusCode,
+          error: error.message,
+          path: req.path,
+          method: req.method,
+          details: error.details,
+        });
+        if (!res.headersSent) {
+          res.status(error.statusCode).json({
+            error: error.message,
+            details: error.details,
+          });
+        }
+        return;
+      }
+
+      // Handle unexpected errors
       log.error(`Error in ${operationName || req.path}`, {
         error: getErrorMessage(error),
         path: req.path,

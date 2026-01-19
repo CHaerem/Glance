@@ -61,3 +61,46 @@ export function createErrorResponse(
   const message = getErrorMessage(error);
   return context ? { error: message, context } : { error: message };
 }
+
+/**
+ * Custom API error class with status code
+ * Use with asyncHandler for automatic status code handling
+ *
+ * @example
+ * throw ApiError.notFound('User not found');
+ * throw ApiError.badRequest('Invalid email format', { field: 'email' });
+ */
+export class ApiError extends Error {
+  constructor(
+    public statusCode: number,
+    message: string,
+    public details?: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+
+  static badRequest(message: string, details?: unknown): ApiError {
+    return new ApiError(400, message, details);
+  }
+
+  static unauthorized(message = 'Unauthorized'): ApiError {
+    return new ApiError(401, message);
+  }
+
+  static forbidden(message = 'Forbidden'): ApiError {
+    return new ApiError(403, message);
+  }
+
+  static notFound(message = 'Not found'): ApiError {
+    return new ApiError(404, message);
+  }
+
+  static tooManyRequests(message = 'Too many requests'): ApiError {
+    return new ApiError(429, message);
+  }
+
+  static internal(message = 'Internal server error'): ApiError {
+    return new ApiError(500, message);
+  }
+}
