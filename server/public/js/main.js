@@ -127,6 +127,9 @@ function updateModalMetadata(artwork) {
     const artistEl = document.getElementById('modalArtist');
     const yearEl = document.getElementById('modalYear');
     const detailsEl = document.getElementById('modalArtworkDetails');
+    const chipsEl = document.getElementById('modalContextChips');
+    const toggleEl = document.getElementById('modalDetailsToggle');
+    const expandedEl = document.getElementById('modalExpandedDetails');
 
     // Check if we have any metadata
     const hasTitle = artwork.title && !artwork.title.startsWith('Uploaded:') && !artwork.title.startsWith('Generated:');
@@ -142,6 +145,66 @@ function updateModalMetadata(artwork) {
     if (titleEl) titleEl.textContent = hasTitle ? artwork.title : '';
     if (artistEl) artistEl.textContent = hasArtist ? artwork.artist : '';
     if (yearEl) yearEl.textContent = hasYear ? (artwork.year || artwork.date) : '';
+
+    // Build contextual chips (max 3, only meaningful values)
+    if (chipsEl) {
+        chipsEl.innerHTML = '';
+        const chips = [];
+
+        // Museum source (prioritize)
+        const source = artwork.source || artwork.museum;
+        if (source && source !== 'Unknown' && !source.startsWith('local')) {
+            chips.push(source);
+        }
+
+        // Culture
+        if (artwork.culture && artwork.culture !== 'Unknown') {
+            chips.push(artwork.culture);
+        }
+
+        // Period (only if no culture, to avoid clutter)
+        if (!artwork.culture && artwork.period && artwork.period !== 'Unknown') {
+            chips.push(artwork.period);
+        }
+
+        // Render max 3 chips
+        chips.slice(0, 3).forEach(text => {
+            const chip = document.createElement('span');
+            chip.className = 'context-chip';
+            chip.textContent = text;
+            chipsEl.appendChild(chip);
+        });
+    }
+
+    // Build expanded details (only if we have additional info)
+    if (toggleEl && expandedEl) {
+        const details = [];
+
+        if (artwork.medium) {
+            details.push({ label: 'medium', value: artwork.medium });
+        }
+        if (artwork.dimensions) {
+            details.push({ label: 'size', value: artwork.dimensions });
+        }
+        if (artwork.department && artwork.department !== 'Unknown') {
+            details.push({ label: 'dept', value: artwork.department });
+        }
+        if (artwork.creditLine) {
+            details.push({ label: 'credit', value: artwork.creditLine });
+        }
+
+        if (details.length > 0) {
+            toggleEl.style.display = 'block';
+            toggleEl.textContent = 'details ↓';
+            expandedEl.style.display = 'none';
+            expandedEl.innerHTML = details.map(d =>
+                `<div class="detail-row"><span class="detail-label">${d.label}</span><span class="detail-value">${d.value}</span></div>`
+            ).join('');
+        } else {
+            toggleEl.style.display = 'none';
+            expandedEl.style.display = 'none';
+        }
+    }
 }
 
 // Unified art modal opening function
@@ -303,6 +366,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('closeModalBtn').addEventListener('click', closeModal);
     document.getElementById('artModal').addEventListener('click', (e) => {
         if (e.target.id === 'artModal') closeModal();
+    });
+    document.getElementById('modalDetailsToggle').addEventListener('click', () => {
+        const toggle = document.getElementById('modalDetailsToggle');
+        const expanded = document.getElementById('modalExpandedDetails');
+        const isVisible = expanded.style.display !== 'none';
+        expanded.style.display = isVisible ? 'none' : 'block';
+        toggle.textContent = isVisible ? 'details ↓' : 'details ↑';
     });
     document.getElementById('orientationToggle').addEventListener('click', togglePreviewOrientation);
     document.getElementById('applyModalBtn').addEventListener('click', applyModalArt);

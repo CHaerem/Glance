@@ -774,6 +774,73 @@
             margin: 2px 0 0 0;
         }
 
+        /* Context chips - subtle metadata pills */
+        .modal-context-chips {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .modal-context-chips:empty {
+            display: none;
+        }
+
+        .context-chip {
+            font-size: 0.7rem;
+            color: #888;
+            background: #f5f5f5;
+            padding: 3px 8px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+
+        /* Details toggle - very subtle */
+        .modal-details-toggle {
+            display: block;
+            margin: 10px auto 0;
+            padding: 4px 8px;
+            background: none;
+            border: none;
+            color: #bbb;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+
+        .modal-details-toggle:hover {
+            color: #888;
+        }
+
+        /* Expanded details - calm tabular layout */
+        .modal-expanded-details {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
+            text-align: left;
+            max-width: 280px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .detail-row {
+            display: flex;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+            line-height: 1.4;
+        }
+
+        .detail-label {
+            color: #aaa;
+            width: 70px;
+            flex-shrink: 0;
+        }
+
+        .detail-value {
+            color: #666;
+        }
+
         .close-modal {
             position: absolute;
             top: 20px;
