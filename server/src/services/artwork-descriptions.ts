@@ -132,6 +132,16 @@ Do not start with "This painting" or "This work" - vary your openings.`,
 
       const description = response.choices[0]?.message?.content?.trim();
 
+      // Debug logging
+      log.debug('OpenAI response', {
+        id: artwork.id,
+        hasChoices: !!response.choices?.length,
+        hasMessage: !!response.choices?.[0]?.message,
+        hasContent: !!response.choices?.[0]?.message?.content,
+        contentLength: description?.length || 0,
+        finishReason: response.choices?.[0]?.finish_reason,
+      });
+
       // Track the API call
       await statistics.trackOpenAICall(
         'gpt-5-mini',
