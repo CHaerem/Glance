@@ -14,6 +14,7 @@ import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
 import { getErrorMessage } from '../utils/error';
 import { apiKeyAuth } from '../middleware/auth';
+import { performArtSearch } from '../services/museum-api';
 import type { ServerSettings, PlaylistData } from '../types';
 
 const log = loggers.api;
@@ -556,6 +557,104 @@ export function createHistoryRoutes({ uploadDir }: HistoryRouteDeps): Router {
         error: getErrorMessage(error),
       });
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * Migrate history items to add original imageUrl
+   * POST /api/history/migrate-urls
+   *
+   * This endpoint searches for original museum URLs for history items
+   * that are missing imageUrl. Useful for fixing items imported before
+   * the URL preservation feature was added.
+   */
+  router.post('/history/migrate-urls', apiKeyAuth, async (_req: Request, res: Response) => {
+    try {
+      interface HistoryItemFull {
+        imageId: string;
+        title: string;
+        artist?: string;
+        source?: string;
+        timestamp: number;
+        thumbnail: string;
+        aiGenerated?: boolean;
+        imageUrl?: string;
+      }
+
+      const history: HistoryItemFull[] = (await readJSONFile('history.json')) || [];
+      log.info('Starting history URL migration', { totalItems: history.length });
+
+      let updated = 0;
+      let skipped = 0;
+      let notFound = 0;
+      const results: Array<{ title: string; status: string; url?: string }> = [];
+
+      for (const item of history) {
+        // Skip items that already have imageUrl
+        if (item.imageUrl) {
+          skipped++;
+          continue;
+        }
+
+        // Skip AI generated/uploaded items (they don't have museum URLs)
+        if (item.aiGenerated || item.source === 'generated' || item.source === 'uploaded') {
+          skipped++;
+          continue;
+        }
+
+        // Search for the artwork
+        const searchQuery = `${item.title} ${item.artist || ''}`.trim();
+        log.info('Searching for artwork', { title: item.title, query: searchQuery });
+
+        try {
+          const searchResults = await performArtSearch(searchQuery, 5);
+
+          // Find a matching result
+          const match = searchResults.results.find(
+            (r) =>
+              r.title.toLowerCase().includes(item.title.toLowerCase()) ||
+              item.title.toLowerCase().includes(r.title.toLowerCase())
+          );
+
+          if (match && match.imageUrl) {
+            item.imageUrl = match.imageUrl;
+            updated++;
+            results.push({ title: item.title, status: 'updated', url: match.imageUrl });
+            log.info('Found URL for artwork', { title: item.title, url: match.imageUrl });
+          } else {
+            notFound++;
+            results.push({ title: item.title, status: 'not_found' });
+            log.warn('No match found for artwork', { title: item.title });
+          }
+
+          // Rate limit to avoid overwhelming APIs
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        } catch (error) {
+          log.error('Error searching for artwork', {
+            title: item.title,
+            error: getErrorMessage(error),
+          });
+          notFound++;
+          results.push({ title: item.title, status: 'error' });
+        }
+      }
+
+      // Save updated history
+      await writeJSONFile('history.json', history);
+
+      log.info('History URL migration complete', { updated, skipped, notFound });
+
+      res.json({
+        success: true,
+        message: 'Migration complete',
+        stats: { updated, skipped, notFound },
+        results,
+      });
+    } catch (error) {
+      log.error('Error during history migration', {
+        error: getErrorMessage(error),
+      });
+      res.status(500).json({ error: 'Migration failed: ' + getErrorMessage(error) });
     }
   });
 
