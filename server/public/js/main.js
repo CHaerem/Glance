@@ -985,10 +985,10 @@ function clearSearchResults() {
 async function loadRandomArt() {
     try {
         const response = await fetch('/api/art/random');
-        const data = await response.json();
+        const artwork = await response.json();
 
-        if (data.artwork) {
-            openArtPreview(data.artwork);
+        if (artwork && artwork.id) {
+            openArtPreview(artwork);
         }
     } catch (error) {
         console.error('Failed to load random art:', error);
