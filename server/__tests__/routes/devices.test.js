@@ -292,12 +292,15 @@ describe('Device Routes', () => {
     });
 
     describe('GET /api/esp32-status', () => {
-        it('should return empty object when no devices', async () => {
+        it('should return offline status when no devices', async () => {
             const response = await request(app)
                 .get('/api/esp32-status')
                 .expect(200);
 
-            expect(response.body).toEqual({});
+            // API returns default offline status when no devices exist
+            expect(response.body.state).toBe('offline');
+            expect(response.body.batteryVoltage).toBeNull();
+            expect(response.body.deviceId).toBeNull();
         });
 
         it('should return device status', async () => {
@@ -320,8 +323,10 @@ describe('Device Routes', () => {
                 .get('/api/esp32-status')
                 .expect(200);
 
-            expect(response.body['test-device-001']).toBeDefined();
-            expect(response.body['test-device-001'].batteryVoltage).toBe(3.9);
+            // API returns status for the most recently seen device
+            expect(response.body.deviceId).toBe('test-device-001');
+            expect(response.body.batteryVoltage).toBe(3.9);
+            expect(response.body.state).toBe('online');
         });
     });
 
