@@ -21,6 +21,8 @@ const OPENAI_PRICING: Record<string, ModelPricing> = {
   'gpt-4': { input: 30.0, output: 60.0 },
   'gpt-4o': { input: 5.0, output: 15.0 },
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'gpt-5-mini': { input: 0.25, output: 2.0 },
+  'gpt-5-nano': { input: 0.05, output: 0.4 },
   'gpt-3.5-turbo': { input: 0.5, output: 1.5 },
 };
 

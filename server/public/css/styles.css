@@ -800,6 +800,11 @@
             display: none;
         }
 
+        .modal-description.loading {
+            font-style: italic;
+            opacity: 0.6;
+        }
+
         /* Context chips - subtle metadata pills */
         .modal-context-chips {
             display: flex;

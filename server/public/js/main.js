@@ -121,6 +121,58 @@ function getArtworkImageUrl(artwork) {
     return '';
 }
 
+// Fetch AI-generated description for artwork
+async function fetchAIDescription(artwork, descriptionEl) {
+    // Skip if already has description or missing required fields
+    if (artwork.description || !artwork.id || !artwork.title) {
+        return;
+    }
+
+    // Skip for uploaded/generated content
+    if (artwork.title.startsWith('Uploaded:') || artwork.title.startsWith('Generated:')) {
+        return;
+    }
+
+    try {
+        descriptionEl.textContent = 'Loading description...';
+        descriptionEl.style.display = 'block';
+        descriptionEl.classList.add('loading');
+
+        const response = await fetch('/api/art/description', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: artwork.id,
+                title: artwork.title,
+                artist: artwork.artist,
+                date: artwork.date || artwork.year,
+                medium: artwork.medium,
+                style: artwork.style,
+                department: artwork.department,
+                source: artwork.source,
+                placeOfOrigin: artwork.placeOfOrigin,
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.description) {
+                artwork.description = data.description; // Cache in artwork object
+                descriptionEl.textContent = data.description;
+                descriptionEl.classList.remove('loading');
+            } else {
+                descriptionEl.style.display = 'none';
+            }
+        } else {
+            descriptionEl.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Failed to fetch AI description:', error);
+        descriptionEl.style.display = 'none';
+    }
+    descriptionEl.classList.remove('loading');
+}
+
 // Update modal metadata display
 function updateModalMetadata(artwork) {
     const titleEl = document.getElementById('modalTitle');
@@ -189,10 +241,15 @@ function updateModalMetadata(artwork) {
         });
     }
 
-    // Description - short artwork context (shown before the toggle)
+    // Description - show museum-provided or fetch AI-generated
     if (descriptionEl) {
-        descriptionEl.textContent = artwork.description || '';
-        descriptionEl.style.display = artwork.description ? 'block' : 'none';
+        if (artwork.description) {
+            descriptionEl.textContent = artwork.description;
+            descriptionEl.style.display = 'block';
+        } else {
+            // Fetch AI description for artworks without one
+            fetchAIDescription(artwork, descriptionEl);
+        }
     }
 
     // Build expanded details (only if we have additional info)

@@ -13,6 +13,7 @@ import OpenAI from 'openai';
 import { performArtSearch } from '../services/museum-api';
 import imageProcessing from '../services/image-processing';
 import statistics from '../services/statistics';
+import artworkDescriptionService from '../services/artwork-descriptions';
 import { readJSONFile, writeJSONFile, ensureDir } from '../utils/data-store';
 import { addDeviceLog } from '../utils/state';
 import { loggers } from '../services/logger';
@@ -746,6 +747,55 @@ Enhanced query:`;
       });
 
       res.status(500).json({ error: 'Failed to generate search query' });
+    }
+  });
+
+  /**
+   * Generate AI description for artwork that lacks one
+   * POST /api/art/description
+   */
+  router.post('/description', async (req: Request, res: Response) => {
+    try {
+      const { id, title, artist, date, medium, style, department, source, placeOfOrigin } = req.body as {
+        id?: string;
+        title?: string;
+        artist?: string;
+        date?: string;
+        medium?: string;
+        style?: string;
+        department?: string;
+        source?: string;
+        placeOfOrigin?: string;
+      };
+
+      if (!id || !title) {
+        res.status(400).json({ error: 'Artwork id and title are required' });
+        return;
+      }
+
+      log.info('Description requested', { id, title });
+
+      const description = await artworkDescriptionService.getDescription({
+        id,
+        title,
+        artist,
+        date,
+        medium,
+        style,
+        department,
+        source,
+        placeOfOrigin,
+      });
+
+      if (!description) {
+        res.status(503).json({ error: 'Unable to generate description' });
+        return;
+      }
+
+      res.json({ description, generated: true });
+    } catch (error) {
+      log.error('Error generating description', { error: getErrorMessage(error) });
+      res.status(500).json({ error: 'Failed to generate description' });
     }
   });
 
