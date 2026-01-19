@@ -981,11 +981,25 @@ function clearSearchResults() {
     showDefaultExploreSections();
 }
 
+// Typewriter effect helper
+async function typewriterEffect(element, text, speed = 35) {
+    element.value = '';
+    for (let i = 0; i < text.length; i++) {
+        element.value += text[i];
+        await new Promise(resolve => setTimeout(resolve, speed));
+    }
+}
+
 // Lucky search - generate or enhance AI search query and show results
 async function loadRandomArt() {
+    const diceBtn = document.getElementById('randomArtBtn');
+    const searchInput = document.getElementById('searchInput');
+
     try {
-        const searchInput = document.getElementById('searchInput');
         const existingQuery = searchInput.value.trim();
+
+        // Start loading animation
+        diceBtn.classList.add('loading');
 
         // If there's existing text, enhance it; otherwise generate new query
         const url = existingQuery
@@ -996,12 +1010,20 @@ async function loadRandomArt() {
         const data = await response.json();
 
         if (data.query) {
-            // Put the query in the search input and execute search
-            searchInput.value = data.query;
+            // Typewriter effect for the query
+            await typewriterEffect(searchInput, data.query);
+
+            // Brief pause to let user see the query
+            await new Promise(resolve => setTimeout(resolve, 400));
+
+            // Execute search
             await searchArt();
         }
     } catch (error) {
         console.error('Failed to load lucky search:', error);
+    } finally {
+        // Stop loading animation
+        diceBtn.classList.remove('loading');
     }
 }
 

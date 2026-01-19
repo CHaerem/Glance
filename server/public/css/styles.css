@@ -1775,6 +1775,17 @@
     background: #f5f5f5;
 }
 
+.explore-random-btn.loading {
+    pointer-events: none;
+    animation: dice-tumble 0.6s ease-in-out infinite;
+}
+
+@keyframes dice-tumble {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(15deg); }
+    75% { transform: rotate(-15deg); }
+}
+
 /* Explore Sections */
 .explore-section {
     margin-bottom: 32px;
