@@ -127,7 +127,6 @@ Do not start with "This painting" or "This work" - vary your openings.`,
             content: prompt,
           },
         ],
-        temperature: 0.7,
         max_completion_tokens: 150,
       });
 
