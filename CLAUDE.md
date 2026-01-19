@@ -185,6 +185,7 @@ docker compose up -d
 | `/api/art/search` | Keyword search (8 museum sources, filtered for actual art) |
 | `/api/art/smart-search` | Semantic search (OpenAI Vector Stores) |
 | `/api/art/random` | Random artwork |
+| `/api/art/lucky-search` | AI-generated creative search query (or enhance existing query) |
 | `/api/playlists` | List curated and dynamic playlists |
 | `/api/playlists/:id` | Get playlist artworks (static or AI-searched) |
 | `/api/settings` | Server settings (sleep duration, etc.) |
@@ -438,6 +439,15 @@ The system supports Over-The-Air (OTA) firmware updates for the ESP32:
 
 ## Recent Changes
 
+- **Lucky Search Dice Button**: AI-powered art discovery on the explore page
+  - Dice button (🎲) generates creative search queries like "gaslit cafe nocturnes"
+  - Enhance mode: type a simple term, click dice to transform it (e.g., "flowers" → "dutch golden age floral still life")
+  - Smooth UX: gentle dice tumble animation, typewriter text effect, brief pause before search
+  - Falls back to curated queries if OpenAI unavailable
+- **Smart polling optimization**: Improved page responsiveness
+  - Current display now uses lightweight metadata check before fetching full image
+  - Reduces polling overhead from ~2MB to ~1KB when image hasn't changed
+  - Eliminates periodic jank from base64 image decoding
 - **Agentic Art Guide**: Conversational AI guide with function calling
   - 5 tools: search_art, display_artwork, add_to_collection, get_recommendations, get_current_display
   - Hybrid behavior: acts on clear intent, asks on ambiguous requests
