@@ -113,6 +113,8 @@ export function createImageRoutes({ upload, uploadDir }: ImageRouteDeps): Router
       addDeviceLog(
         `Device fetched image metadata: ${metadata.imageId} (sleep: ${Math.round(metadata.sleepDuration / 60000000)}min)${devServerHost ? ' [dev mode]' : ''}${nightSleepLog}`
       );
+      // Short cache to reduce load from rapid polling, but keep fresh for ESP32
+      res.set('Cache-Control', 'private, max-age=5');
       res.json(metadata);
     } catch (error) {
       log.error('Error getting current', {

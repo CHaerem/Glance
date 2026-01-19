@@ -158,8 +158,26 @@ app.use(wanRestriction); // Block all WAN access (LAN only)
 app.use('/api', publicApiLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true })); // For OAuth token requests (form-urlencoded)
-app.use(express.static('public'));
-app.use('/uploads', express.static(UPLOAD_DIR));
+// Static file serving with cache headers
+const staticCacheOptions = {
+  maxAge: '1d', // Cache for 1 day
+  setHeaders: (res: Response, filePath: string) => {
+    // Long cache for versioned assets (JS/CSS with hashes)
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day
+    }
+    // Short cache for images (may be updated)
+    else if (/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // 1 hour
+    }
+    // HTML files should be revalidated
+    else if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+};
+app.use(express.static('public', staticCacheOptions));
+app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '1h' }));
 
 // Serve local art library images (if available)
 // In production Docker: data is at /app/data/art-library
@@ -169,7 +187,7 @@ if (!existsSync(artLibraryPath)) {
   // Try alternate path for Docker (compiled to dist/src, data at /app/data)
   artLibraryPath = path.join(__dirname, '..', '..', 'data', 'art-library');
 }
-app.use('/art-library', express.static(artLibraryPath));
+app.use('/art-library', express.static(artLibraryPath, { maxAge: '1d' }));
 
 // HTTP request logging
 const httpLog = loggers.api.child({ component: 'http' });

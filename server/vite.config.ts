@@ -6,7 +6,7 @@ export default defineConfig({
   base: '/js/',
   build: {
     outDir: '../js/dist',
-    emptyDirFirst: true,
+    emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
       input: {
