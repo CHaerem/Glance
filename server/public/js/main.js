@@ -354,11 +354,10 @@ function openArtModal(artwork, options = {}) {
     // Update metadata display
     updateModalMetadata(artwork);
 
-    // Configure secondary action
+    // Configure secondary action (keep icon, just show/hide)
     const secondaryBtn = document.getElementById('modalSecondaryAction');
     if (secondaryAction) {
-        secondaryBtn.textContent = secondaryAction.text;
-        secondaryBtn.style.display = 'block';
+        secondaryBtn.style.display = 'flex';
         secondaryActionType = secondaryAction.type;
     } else {
         secondaryBtn.style.display = 'none';
@@ -368,7 +367,7 @@ function openArtModal(artwork, options = {}) {
     // Configure more like this button
     const moreLikeBtn = document.getElementById('moreLikeThisBtn');
     if (moreLikeBtn) {
-        moreLikeBtn.style.display = showMoreLikeThis ? 'block' : 'none';
+        moreLikeBtn.style.display = showMoreLikeThis ? 'flex' : 'none';
     }
 
     // Configure ask about button (only show if we have meaningful metadata)

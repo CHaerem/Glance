@@ -687,30 +687,32 @@
             aspect-ratio: 4 / 3;
         }
 
-        /* Close button - soft floating circle */
+        /* Close button - inside image container */
         .close-modal {
             position: absolute;
-            top: 12px;
-            right: 12px;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
             border: none;
-            width: 32px;
-            height: 32px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 1.25rem;
             color: rgba(255, 255, 255, 0.9);
-            transition: all 0.3s ease;
-            z-index: 10;
+            transition: all 0.2s ease;
+            z-index: 15;
             display: flex;
             align-items: center;
             justify-content: center;
+            line-height: 1;
         }
 
         .close-modal:hover {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
         }
 
         /* Reframe controls - soft floating bar */

@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glance</title>
     <!-- Preload critical resources -->
-    <link rel="preload" href="/css/styles.css" as="style">
-    <link rel="preload" href="/js/main.js?v=3" as="script">
+    <link rel="preload" href="/css/styles.css?v=2" as="style">
+    <link rel="preload" href="/js/main.js?v=5" as="script">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <!-- Styles -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css?v=2">
 </head>
 <body>
     <div class="container">
@@ -292,11 +292,12 @@
     <!-- Art Preview Modal - Minimalist Design -->
     <div class="modal" id="artModal">
         <div class="modal-content">
-            <button class="close-modal" id="closeModalBtn">×</button>
-
             <div class="modal-image-container">
                 <img id="modalImage" class="modal-image" src="" alt="">
                 <div class="display-frame-overlay"></div>
+
+                <!-- Close button - on the image -->
+                <button class="close-modal" id="closeModalBtn">×</button>
 
                 <!-- Reframe controls - appear on hover/tap -->
                 <div class="reframe-controls" id="reframeControls">
@@ -325,8 +326,8 @@
                 <!-- Action bar - clean icons -->
                 <div class="modal-actions">
                     <button class="action-primary" id="applyModalBtn">Display</button>
-                    <button class="action-icon" id="modalSecondaryAction" title="Save to collection" style="display: none;">♡</button>
-                    <button class="action-icon" id="moreLikeThisBtn" title="More like this" style="display: none;">✦</button>
+                    <button class="action-icon" id="modalSecondaryAction" title="Save to collection">♡</button>
+                    <button class="action-icon" id="moreLikeThisBtn" title="More like this">✦</button>
                     <button class="action-icon" id="modalInfoToggle" title="More info">ⓘ</button>
                 </div>
 
@@ -358,6 +359,6 @@
     <script src="/js/features/art-guide.js"></script>
     <script src="/js/utils/lazy-load.js"></script>
     <!-- Main app initialization -->
-    <script src="/js/main.js?v=4"></script>
+    <script src="/js/main.js?v=5"></script>
 </body>
 </html>
