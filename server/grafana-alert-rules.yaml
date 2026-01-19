@@ -17,7 +17,7 @@ groups:
       # Battery Critical - Voltage below 3.3V
       - uid: glance-battery-voltage-critical
         title: Battery Voltage Critical
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -29,36 +29,28 @@ groups:
               instant: true
               refId: A
           - refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
             datasourceUid: __expr__
             model:
-              type: reduce
-              expression: A
-              reducer: last
-              refId: B
-          - refId: C
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              expression: B
+              type: classic_conditions
               conditions:
                 - evaluator:
-                    type: lt
                     params:
                       - 3.3
+                    type: lt
                   operator:
                     type: and
+                  query:
+                    params:
+                      - A
                   reducer:
                     type: last
-              refId: C
+              refId: B
         noDataState: NoData
         execErrState: Error
         for: 5m
         annotations:
-          summary: "Battery voltage critically low on {{ $labels.device_id }}"
-          description: "Battery voltage is {{ $values.B }}V, below critical threshold of 3.3V. Device may shut down soon."
+          summary: "Battery voltage critically low on {{ $labels.device_id | default \"unknown device\" }}"
+          description: "Battery voltage is {{ $values.A }}V, below critical threshold of 3.3V. Device may shut down soon."
         labels:
           severity: critical
           device: "{{ $labels.device_id }}"
@@ -66,7 +58,7 @@ groups:
       # Battery Critical - Percentage below 15%
       - uid: glance-battery-percent-critical
         title: Battery Percentage Critical
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -78,36 +70,28 @@ groups:
               instant: true
               refId: A
           - refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
             datasourceUid: __expr__
             model:
-              type: reduce
-              expression: A
-              reducer: last
-              refId: B
-          - refId: C
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              expression: B
+              type: classic_conditions
               conditions:
                 - evaluator:
-                    type: lt
                     params:
                       - 15
+                    type: lt
                   operator:
                     type: and
+                  query:
+                    params:
+                      - A
                   reducer:
                     type: last
-              refId: C
+              refId: B
         noDataState: NoData
         execErrState: Error
         for: 5m
         annotations:
-          summary: "Battery critically low on {{ $labels.device_id }}"
-          description: "Battery is at {{ $values.B }}%, below critical threshold of 15%. Charge the device soon."
+          summary: "Battery critically low on {{ $labels.device_id | default \"unknown device\" }}"
+          description: "Battery is at {{ $values.A }}%, below critical threshold of 15%. Charge the device soon."
         labels:
           severity: critical
           device: "{{ $labels.device_id }}"
@@ -115,7 +99,7 @@ groups:
       # Battery Low Warning - Voltage below 3.5V
       - uid: glance-battery-voltage-low
         title: Battery Voltage Low
-        condition: C
+        condition: B
         data:
           - refId: A
             relativeTimeRange:
@@ -127,37 +111,28 @@ groups:
               instant: true
               refId: A
           - refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
             datasourceUid: __expr__
             model:
-              type: reduce
-              expression: A
-              reducer: last
-              refId: B
-          - refId: C
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              expression: B
+              type: classic_conditions
               conditions:
                 - evaluator:
-                    type: lt
                     params:
                       - 3.5
+                    type: lt
                   operator:
                     type: and
+                  query:
+                    params:
+                      - A
                   reducer:
                     type: last
-              refId: C
+              refId: B
         noDataState: NoData
         execErrState: Error
         for: 5m
         annotations:
-          summary: "Battery voltage low on {{ $labels.device_id }}"
-          description: "Battery voltage is {{ $values.B }}V, below warning threshold of 3.5V. Consider charging soon."
+          summary: "Battery voltage low on {{ $labels.device_id | default \"unknown device\" }}"
+          description: "Battery voltage is {{ $values.A }}V, below warning threshold of 3.5V. Consider charging soon."
         labels:
           severity: warning
           device: "{{ $labels.device_id }}"
-
