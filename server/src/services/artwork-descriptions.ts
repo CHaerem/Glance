@@ -107,7 +107,7 @@ class ArtworkDescriptionService {
       log.info('Generating description', { id: artwork.id, title: artwork.title, prompt });
 
       const response = await this.client.chat.completions.create({
-        model: 'gpt-5-mini',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -126,7 +126,7 @@ Do not start with "This painting" or "This work" - vary your openings.`,
             content: prompt,
           },
         ],
-        max_completion_tokens: 500, // Need room for reasoning tokens + output
+        max_tokens: 150, // gpt-4o-mini doesn't use reasoning tokens
       });
 
       const description = response.choices[0]?.message?.content?.trim();
@@ -145,7 +145,7 @@ Do not start with "This painting" or "This work" - vary your openings.`,
 
       // Track the API call
       await statistics.trackOpenAICall(
-        'gpt-5-mini',
+        'gpt-4o-mini',
         response.usage?.prompt_tokens || 0,
         response.usage?.completion_tokens || 0,
         !!description,
@@ -165,7 +165,7 @@ Do not start with "This painting" or "This work" - vary your openings.`,
       this.cache.set(artwork.id, {
         description,
         generatedAt: Date.now(),
-        model: 'gpt-5-mini',
+        model: 'gpt-4o-mini',
       });
 
       await this.saveCache();
@@ -178,7 +178,7 @@ Do not start with "This painting" or "This work" - vary your openings.`,
         error: getErrorMessage(error),
       });
 
-      await statistics.trackOpenAICall('gpt-5-mini', 0, 0, false, {
+      await statistics.trackOpenAICall('gpt-4o-mini', 0, 0, false, {
         endpoint: 'chat.completions',
         purpose: 'artwork-description',
         error: getErrorMessage(error),
