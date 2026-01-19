@@ -289,49 +289,63 @@
     </div>
 
 
-    <!-- Art Preview Modal -->
+    <!-- Art Preview Modal - Minimalist Design -->
     <div class="modal" id="artModal">
         <div class="modal-content">
             <button class="close-modal" id="closeModalBtn">×</button>
 
-            <!-- Unified control bar -->
-            <div class="image-control-bar">
-                <button class="control-btn-minimal" id="orientationToggle" title="Rotate">⟲</button>
-                <span class="control-separator desktop-only">|</span>
-                <button class="control-btn-minimal desktop-only" id="moveUp" title="Move up">↑</button>
-                <button class="control-btn-minimal desktop-only" id="moveDown" title="Move down">↓</button>
-                <button class="control-btn-minimal desktop-only" id="moveLeft" title="Move left">←</button>
-                <button class="control-btn-minimal desktop-only" id="moveRight" title="Move right">→</button>
-                <span class="control-separator desktop-only">|</span>
-                <button class="control-btn-minimal desktop-only" id="zoomIn" title="Zoom in">+</button>
-                <button class="control-btn-minimal desktop-only" id="zoomOut" title="Zoom out">−</button>
-                <button class="control-btn-minimal desktop-only" id="zoomFit" title="Fit to frame">⊡</button>
-            </div>
-
             <div class="modal-image-container">
                 <img id="modalImage" class="modal-image" src="" alt="">
                 <div class="display-frame-overlay"></div>
-            </div>
-            <div class="modal-info">
-                <div class="modal-artwork-details" id="modalArtworkDetails" style="display: none;">
-                    <h3 class="modal-title" id="modalTitle"></h3>
-                    <p class="modal-artist" id="modalArtist"></p>
-                    <p class="modal-artist-bio" id="modalArtistBio"></p>
-                    <p class="modal-year" id="modalYear"></p>
-                    <div class="modal-context-chips" id="modalContextChips"></div>
-                    <p class="modal-description" id="modalDescription" style="display: none;"></p>
-                    <button class="modal-details-toggle" id="modalDetailsToggle" style="display: none;">details ↓</button>
-                    <div class="modal-expanded-details" id="modalExpandedDetails" style="display: none;"></div>
+
+                <!-- Reframe controls - appear on hover/tap -->
+                <div class="reframe-controls" id="reframeControls">
+                    <button class="reframe-btn" id="orientationToggle" title="Rotate">⟲</button>
+                    <div class="reframe-arrows desktop-only">
+                        <button class="reframe-btn" id="moveUp" title="Move up">↑</button>
+                        <button class="reframe-btn" id="moveLeft" title="Move left">←</button>
+                        <button class="reframe-btn" id="moveRight" title="Move right">→</button>
+                        <button class="reframe-btn" id="moveDown" title="Move down">↓</button>
+                    </div>
+                    <div class="reframe-zoom desktop-only">
+                        <button class="reframe-btn" id="zoomOut" title="Zoom out">−</button>
+                        <button class="reframe-btn" id="zoomFit" title="Fit to frame">⊡</button>
+                        <button class="reframe-btn" id="zoomIn" title="Zoom in">+</button>
+                    </div>
                 </div>
+            </div>
+
+            <div class="modal-info">
+                <!-- Minimal metadata - always visible -->
+                <div class="modal-header" id="modalArtworkDetails">
+                    <h3 class="modal-title" id="modalTitle"></h3>
+                    <p class="modal-subtitle" id="modalSubtitle"></p>
+                </div>
+
+                <!-- Action bar - clean icons -->
                 <div class="modal-actions">
-                    <button class="modal-btn-primary" id="applyModalBtn">apply to display</button>
-                    <button class="modal-btn-secondary" id="modalSecondaryAction" style="display: none;"></button>
-                    <button class="modal-btn-secondary" id="moreLikeThisBtn" style="display: none;">✨ more like this</button>
-                    <button class="modal-btn-tertiary" id="askAboutBtn" style="display: none;">💬 ask about this</button>
+                    <button class="action-primary" id="applyModalBtn">Display</button>
+                    <button class="action-icon" id="modalSecondaryAction" title="Save to collection" style="display: none;">♡</button>
+                    <button class="action-icon" id="moreLikeThisBtn" title="More like this" style="display: none;">✦</button>
+                    <button class="action-icon" id="modalInfoToggle" title="More info">ⓘ</button>
+                </div>
+
+                <!-- Expandable info panel -->
+                <div class="modal-info-panel" id="modalInfoPanel" style="display: none;">
+                    <p class="modal-description" id="modalDescription"></p>
+                    <div class="modal-context-chips" id="modalContextChips"></div>
+                    <div class="modal-details" id="modalExpandedDetails"></div>
+                    <button class="modal-btn-text" id="askAboutBtn">Ask about this artwork</button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Hidden elements for backward compatibility -->
+    <span id="modalArtist" style="display:none;"></span>
+    <span id="modalArtistBio" style="display:none;"></span>
+    <span id="modalYear" style="display:none;"></span>
+    <span id="modalDetailsToggle" style="display:none;"></span>
 
     <!-- Hidden file input -->
     <input type="file" id="fileInput" accept="image/*">
@@ -344,6 +358,6 @@
     <script src="/js/features/art-guide.js"></script>
     <script src="/js/utils/lazy-load.js"></script>
     <!-- Main app initialization -->
-    <script src="/js/main.js?v=3"></script>
+    <script src="/js/main.js?v=4"></script>
 </body>
 </html>

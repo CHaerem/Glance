@@ -173,21 +173,20 @@ async function fetchAIDescription(artwork, descriptionEl) {
     descriptionEl.classList.remove('loading');
 }
 
-// Update modal metadata display
+// Update modal metadata display - Minimalist design
 function updateModalMetadata(artwork) {
     const titleEl = document.getElementById('modalTitle');
-    const artistEl = document.getElementById('modalArtist');
-    const artistBioEl = document.getElementById('modalArtistBio');
-    const yearEl = document.getElementById('modalYear');
+    const subtitleEl = document.getElementById('modalSubtitle');
     const detailsEl = document.getElementById('modalArtworkDetails');
     const chipsEl = document.getElementById('modalContextChips');
     const descriptionEl = document.getElementById('modalDescription');
-    const toggleEl = document.getElementById('modalDetailsToggle');
     const expandedEl = document.getElementById('modalExpandedDetails');
+    const infoPanelEl = document.getElementById('modalInfoPanel');
+    const infoToggleEl = document.getElementById('modalInfoToggle');
 
     // Check if we have any metadata
     const hasTitle = artwork.title && !artwork.title.startsWith('Uploaded:') && !artwork.title.startsWith('Generated:');
-    const hasArtist = artwork.artist;
+    const hasArtist = artwork.artist && artwork.artist !== 'Unknown Artist';
     const hasYear = artwork.year || artwork.date;
 
     if (!hasTitle && !hasArtist && !hasYear) {
@@ -196,43 +195,48 @@ function updateModalMetadata(artwork) {
     }
 
     if (detailsEl) detailsEl.style.display = 'block';
-    if (titleEl) titleEl.textContent = hasTitle ? artwork.title : '';
-    if (artistEl) artistEl.textContent = hasArtist ? artwork.artist : '';
-    if (yearEl) yearEl.textContent = hasYear ? (artwork.year || artwork.date) : '';
 
-    // Artist bio - subtle line under artist name (e.g., "French, 1840-1926")
-    if (artistBioEl) {
-        artistBioEl.textContent = artwork.artistBio || '';
-        artistBioEl.style.display = artwork.artistBio ? 'block' : 'none';
+    // Title
+    if (titleEl) titleEl.textContent = hasTitle ? artwork.title : '';
+
+    // Subtitle: Artist • Year (combined, cleaner)
+    if (subtitleEl) {
+        const parts = [];
+        if (hasArtist) parts.push(artwork.artist);
+        if (hasYear) parts.push(artwork.year || artwork.date);
+        subtitleEl.textContent = parts.join(' · ');
     }
 
-    // Build contextual chips (max 3, only meaningful values)
+    // Reset info panel state
+    if (infoPanelEl) infoPanelEl.style.display = 'none';
+    if (infoToggleEl) infoToggleEl.classList.remove('active');
+
+    // Build contextual chips (for info panel)
     if (chipsEl) {
         chipsEl.innerHTML = '';
         const chips = [];
 
-        // Museum source (prioritize)
+        // Museum source
         const source = artwork.source || artwork.museum;
         if (source && source !== 'Unknown' && !source.startsWith('local')) {
             chips.push(source);
         }
 
-        // Style (if available, e.g., "Impressionism")
+        // Style
         if (artwork.style && artwork.style !== 'Unknown') {
             chips.push(artwork.style);
         }
 
-        // Culture (if no style shown)
+        // Culture (if no style)
         if (!artwork.style && artwork.culture && artwork.culture !== 'Unknown') {
             chips.push(artwork.culture);
         }
 
-        // Period (only if no culture/style, to avoid clutter)
-        if (!artwork.culture && !artwork.style && artwork.period && artwork.period !== 'Unknown') {
-            chips.push(artwork.period);
+        // Artist bio (short form)
+        if (artwork.artistBio) {
+            chips.push(artwork.artistBio);
         }
 
-        // Render max 3 chips
         chips.slice(0, 3).forEach(text => {
             const chip = document.createElement('span');
             chip.className = 'context-chip';
@@ -241,19 +245,16 @@ function updateModalMetadata(artwork) {
         });
     }
 
-    // Description - show museum-provided or fetch AI-generated
+    // Description - will be loaded when info panel opens
     if (descriptionEl) {
-        if (artwork.description) {
-            descriptionEl.textContent = artwork.description;
-            descriptionEl.style.display = 'block';
-        } else {
-            // Fetch AI description for artworks without one
-            fetchAIDescription(artwork, descriptionEl);
-        }
+        descriptionEl.textContent = '';
+        descriptionEl.classList.remove('loading');
+        // Store artwork reference for lazy loading
+        descriptionEl.dataset.artworkId = artwork.id;
     }
 
-    // Build expanded details (only if we have additional info)
-    if (toggleEl && expandedEl) {
+    // Build expanded details
+    if (expandedEl) {
         const details = [];
 
         if (artwork.medium) {
@@ -268,20 +269,41 @@ function updateModalMetadata(artwork) {
         if (artwork.department && artwork.department !== 'Unknown') {
             details.push({ label: 'dept', value: artwork.department });
         }
-        if (artwork.creditLine) {
-            details.push({ label: 'credit', value: artwork.creditLine });
-        }
 
-        if (details.length > 0) {
-            toggleEl.style.display = 'block';
-            toggleEl.textContent = 'details ↓';
-            expandedEl.style.display = 'none';
-            expandedEl.innerHTML = details.map(d =>
-                `<div class="detail-row"><span class="detail-label">${d.label}</span><span class="detail-value">${d.value}</span></div>`
-            ).join('');
-        } else {
-            toggleEl.style.display = 'none';
-            expandedEl.style.display = 'none';
+        expandedEl.innerHTML = details.map(d =>
+            `<div class="detail-row"><span class="detail-label">${d.label}</span><span class="detail-value">${d.value}</span></div>`
+        ).join('');
+    }
+
+    // Store current artwork for info panel
+    window.currentModalArtwork = artwork;
+}
+
+// Toggle info panel visibility
+function toggleInfoPanel() {
+    const infoPanelEl = document.getElementById('modalInfoPanel');
+    const infoToggleEl = document.getElementById('modalInfoToggle');
+    const descriptionEl = document.getElementById('modalDescription');
+
+    if (!infoPanelEl) return;
+
+    const isShowing = infoPanelEl.style.display !== 'none';
+
+    if (isShowing) {
+        infoPanelEl.style.display = 'none';
+        if (infoToggleEl) infoToggleEl.classList.remove('active');
+    } else {
+        infoPanelEl.style.display = 'block';
+        if (infoToggleEl) infoToggleEl.classList.add('active');
+
+        // Lazy load description when panel opens
+        if (descriptionEl && window.currentModalArtwork) {
+            const artwork = window.currentModalArtwork;
+            if (artwork.description) {
+                descriptionEl.textContent = artwork.description;
+            } else if (!descriptionEl.textContent && descriptionEl.dataset.artworkId === artwork.id) {
+                fetchAIDescription(artwork, descriptionEl);
+            }
         }
     }
 }
@@ -446,7 +468,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('artModal').addEventListener('click', (e) => {
         if (e.target.id === 'artModal') closeModal();
     });
-    document.getElementById('modalDetailsToggle').addEventListener('click', () => {
+    // Info toggle button (new minimalist modal)
+    document.getElementById('modalInfoToggle')?.addEventListener('click', toggleInfoPanel);
+    // Legacy details toggle (for backward compat)
+    document.getElementById('modalDetailsToggle')?.addEventListener('click', () => {
         const toggle = document.getElementById('modalDetailsToggle');
         const expanded = document.getElementById('modalExpandedDetails');
         const isVisible = expanded.style.display !== 'none';

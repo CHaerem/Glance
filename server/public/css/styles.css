@@ -630,9 +630,11 @@
             display: flex;
         }
 
+        /* ===== MINIMALIST MODAL DESIGN ===== */
+
         .modal-content {
             background: white;
-            border-radius: 12px;
+            border-radius: 16px;
             max-width: 95vw;
             max-height: 95vh;
             width: auto;
@@ -643,11 +645,11 @@
 
         .modal-image-container {
             width: 100%;
-            max-height: calc(95vh - 120px);
+            max-height: calc(95vh - 100px);
             aspect-ratio: 3 / 4;
-            border-radius: 12px 12px 0 0;
+            border-radius: 16px 16px 0 0;
             overflow: hidden;
-            background: #1a1a1a;
+            background: #0a0a0a;
             position: relative;
             display: flex;
             align-items: center;
@@ -662,25 +664,21 @@
             transition: transform 0.2s ease, object-position 0.2s ease;
         }
 
-        /* Display frame overlay - shows exact e-ink display crop area (1200x1600 portrait or 1600x1200 landscape) */
+        /* Display frame overlay */
         .display-frame-overlay {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             pointer-events: none;
-            border: 3px solid rgba(255, 255, 255, 0.9);
-            box-shadow:
-                inset 0 0 0 1px rgba(0, 0, 0, 0.4),
-                0 0 0 9999px rgba(0, 0, 0, 0.5);
-            /* Portrait mode: 1200x1600 pixels (3:4 aspect ratio) */
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
             aspect-ratio: 3 / 4;
             width: 100%;
             max-width: 100%;
             max-height: 100%;
         }
 
-        /* Landscape mode: 1600x1200 pixels (4:3 aspect ratio) */
         .modal-image-container:has(.modal-image.landscape) {
             aspect-ratio: 4 / 3;
         }
@@ -689,111 +687,161 @@
             aspect-ratio: 4 / 3;
         }
 
-        .modal-info {
-            padding: 12px 16px;
-            background: white;
-            border-radius: 0 0 12px 12px;
+        /* Reframe controls - subtle, appears on hover */
+        .reframe-controls {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            padding: 8px 12px;
+            border-radius: 24px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
 
+        .modal-image-container:hover .reframe-controls,
+        .reframe-controls:focus-within {
+            opacity: 1;
+        }
+
+        /* Always show on touch devices */
+        @media (hover: none) {
+            .reframe-controls {
+                opacity: 1;
+            }
+        }
+
+        .reframe-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s ease;
+        }
+
+        .reframe-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .reframe-arrows,
+        .reframe-zoom {
+            display: flex;
+            gap: 2px;
+            padding-left: 8px;
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Modal info section - minimal */
+        .modal-info {
+            padding: 16px 20px;
+            background: white;
+            border-radius: 0 0 16px 16px;
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .modal-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin: 0;
+            color: #1a1a1a;
+            line-height: 1.3;
+        }
+
+        .modal-subtitle {
+            font-size: 0.85rem;
+            color: #888;
+            margin: 4px 0 0 0;
+        }
+
+        /* Action bar - clean and centered */
         .modal-actions {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            gap: 12px;
             align-items: center;
             justify-content: center;
         }
 
-        .modal-btn-primary {
+        .action-primary {
             background: #1a1a1a;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 10px 24px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             font-weight: 500;
             transition: all 0.15s ease;
-            text-transform: lowercase;
         }
 
-        .modal-btn-primary:hover {
+        .action-primary:hover {
             background: #333;
         }
 
-        .modal-btn-secondary {
-            background: transparent;
-            color: #666;
+        .action-primary.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .action-icon {
+            width: 40px;
+            height: 40px;
             border: none;
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.15s ease;
-            text-transform: lowercase;
-        }
-
-        .modal-btn-secondary:hover {
-            color: #1a1a1a;
-        }
-
-        .modal-btn-tertiary {
-            background: transparent;
-            color: #888;
-            border: none;
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            transition: all 0.15s ease;
-            text-transform: lowercase;
-        }
-
-        .modal-btn-tertiary:hover {
-            color: #1a1a1a;
-        }
-
-        .modal-artwork-details {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-
-        .modal-title {
-            font-size: 1rem;
-            font-weight: 500;
-            margin: 0 0 2px 0;
-            color: #1a1a1a;
-        }
-
-        .modal-artist {
-            font-size: 0.85rem;
+            background: #f5f5f5;
             color: #666;
-            margin: 0;
+            font-size: 1.1rem;
+            cursor: pointer;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
         }
 
-        .modal-year {
-            font-size: 0.8rem;
-            color: #999;
-            margin: 2px 0 0 0;
+        .action-icon:hover {
+            background: #eee;
+            color: #1a1a1a;
         }
 
-        /* Artist bio - subtle line under artist name */
-        .modal-artist-bio {
-            font-size: 0.7rem;
-            color: #aaa;
-            margin: 2px 0 0 0;
-            font-style: italic;
+        .action-icon.active {
+            background: #1a1a1a;
+            color: white;
         }
 
-        .modal-artist-bio:empty {
-            display: none;
+        /* Expandable info panel */
+        .modal-info-panel {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #f0f0f0;
+            animation: slideDown 0.2s ease;
         }
 
-        /* Description - short artwork context */
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .modal-description {
-            font-size: 0.75rem;
-            color: #666;
-            margin: 10px auto 0;
-            max-width: 300px;
-            line-height: 1.5;
+            font-size: 0.85rem;
+            color: #555;
+            line-height: 1.6;
             text-align: center;
+            margin: 0 0 12px 0;
         }
 
         .modal-description:empty {
@@ -801,17 +849,16 @@
         }
 
         .modal-description.loading {
+            color: #aaa;
             font-style: italic;
-            opacity: 0.6;
         }
 
-        /* Context chips - subtle metadata pills */
         .modal-context-chips {
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 8px;
+            gap: 8px;
+            margin-bottom: 12px;
         }
 
         .modal-context-chips:empty {
@@ -819,46 +866,27 @@
         }
 
         .context-chip {
-            font-size: 0.7rem;
-            color: #888;
+            font-size: 0.75rem;
+            color: #666;
             background: #f5f5f5;
-            padding: 3px 8px;
-            border-radius: 10px;
-            white-space: nowrap;
+            padding: 4px 10px;
+            border-radius: 12px;
         }
 
-        /* Details toggle - very subtle */
-        .modal-details-toggle {
-            display: block;
-            margin: 10px auto 0;
-            padding: 4px 8px;
-            background: none;
-            border: none;
-            color: #bbb;
-            font-size: 0.7rem;
-            cursor: pointer;
-            transition: color 0.15s ease;
-        }
-
-        .modal-details-toggle:hover {
-            color: #888;
-        }
-
-        /* Expanded details - calm tabular layout */
-        .modal-expanded-details {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #f0f0f0;
+        .modal-details {
             text-align: left;
-            max-width: 280px;
-            margin-left: auto;
-            margin-right: auto;
+            max-width: 300px;
+            margin: 0 auto 12px;
+        }
+
+        .modal-details:empty {
+            display: none;
         }
 
         .detail-row {
             display: flex;
-            font-size: 0.75rem;
-            margin-bottom: 4px;
+            font-size: 0.8rem;
+            margin-bottom: 6px;
             line-height: 1.4;
         }
 
@@ -866,10 +894,27 @@
             color: #aaa;
             width: 70px;
             flex-shrink: 0;
+            text-transform: lowercase;
         }
 
         .detail-value {
-            color: #666;
+            color: #555;
+        }
+
+        .modal-btn-text {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+
+        .modal-btn-text:hover {
+            color: #1a1a1a;
         }
 
         .close-modal {
@@ -892,53 +937,7 @@
             color: #1a1a1a;
         }
 
-        /* Unified control bar - calm and minimal */
-        .image-control-bar {
-            position: absolute;
-            top: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 6px 12px;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(8px);
-            border-radius: 24px;
-            z-index: 10;
-        }
-
-        .control-btn-minimal {
-            background: transparent;
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            color: #999;
-            transition: all 0.15s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .control-btn-minimal:hover {
-            background: rgba(0, 0, 0, 0.05);
-            color: #666;
-        }
-
-        .control-btn-minimal:active {
-            background: rgba(0, 0, 0, 0.1);
-        }
-
-        .control-separator {
-            color: #e5e5e5;
-            font-size: 0.9rem;
-            padding: 0 4px;
-        }
-
-        /* Hide desktop controls on mobile (touch devices) */
+        /* Hide desktop controls on mobile */
         @media (max-width: 768px) {
             .desktop-only {
                 display: none !important;
