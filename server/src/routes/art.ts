@@ -79,6 +79,7 @@ interface HistoryEntry {
   timestamp: number;
   thumbnail: string;
   aiGenerated: boolean;
+  imageUrl?: string;  // Original source URL for reframing
 }
 
 /**
@@ -882,6 +883,7 @@ Enhanced query:`;
         timestamp: currentData.timestamp,
         thumbnail: thumbnailBuffer.toString('base64'),
         aiGenerated: false,
+        imageUrl: imageUrl,  // Preserve original museum URL for reframing
       });
 
       if (history.length > 100) {
