@@ -6,6 +6,7 @@ let selectedHistoryItem = null;
 let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
 let modalTransitioning = false; // Prevent rapid open/close
+let cachedDisplayImageId = null; // Track current display to avoid refetching
 
 /**
  * Convert image URL to proxy URL for local caching
@@ -828,8 +829,8 @@ async function displayNowPlayingCurrent() {
         });
 
         if (response.ok) {
-            // Refresh the current display preview
-            setTimeout(loadCurrentDisplay, 2000);
+            // Refresh the current display preview (force refresh since we just changed it)
+            setTimeout(() => loadCurrentDisplay(true), 2000);
         }
     } catch (error) {
         console.error('Failed to display artwork:', error);
@@ -1359,13 +1360,25 @@ async function refreshPlaylist() {
     }
 }
 
-// Load current display
-async function loadCurrentDisplay() {
+// Load current display (smart polling - only fetches full data when image changes)
+async function loadCurrentDisplay(forceRefresh = false) {
     try {
+        // First, check metadata to see if image changed (lightweight call)
+        const metaResponse = await fetch('/api/current.json');
+        const meta = await metaResponse.json();
+
+        // Skip full fetch if image hasn't changed (unless forced)
+        if (!forceRefresh && meta.imageId === cachedDisplayImageId) {
+            return;
+        }
+
+        // Image changed - fetch full data
         const response = await fetch('/api/current-full.json');
         const data = await response.json();
 
         if (data.imageId && data.originalImage) {
+            cachedDisplayImageId = data.imageId;
+
             const preview = document.getElementById('currentImagePreview');
             const img = document.getElementById('currentImageThumb');
             const prompt = document.getElementById('currentImagePrompt');
@@ -2285,7 +2298,7 @@ async function applyModalArt() {
             overlay.classList.remove('show');
             statusText.textContent = 'Generating image...';
             filenameText.textContent = '';
-            setTimeout(loadCurrentDisplay, 2000);
+            setTimeout(() => loadCurrentDisplay(true), 2000);
         } else if (response) {
             overlay.classList.remove('show');
             const errorData = await response.json();
