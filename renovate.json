@@ -1,0 +1,53 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "labels": ["dependencies"],
+  "rangeStrategy": "pin",
+  "packageRules": [
+    {
+      "description": "Auto-merge minor and patch updates for production deps",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepTypes": ["dependencies"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Auto-merge all devDependencies updates",
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Group all non-major updates together",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch"
+    },
+    {
+      "description": "Require manual review for major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major"]
+    },
+    {
+      "description": "Group TypeScript ecosystem updates",
+      "matchPackagePatterns": ["^@types/", "^typescript$", "^ts-"],
+      "groupName": "typescript ecosystem"
+    },
+    {
+      "description": "Group test framework updates",
+      "matchPackagePatterns": ["^jest", "^@jest/", "^playwright"],
+      "groupName": "test frameworks"
+    }
+  ],
+  "schedule": ["before 6am on monday"],
+  "timezone": "Europe/Oslo",
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2
+}
