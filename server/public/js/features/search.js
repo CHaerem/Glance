@@ -163,7 +163,7 @@ function getSearchSuggestions() {
 /**
  * Format search results for display
  * @param {Array} results - Raw search results
- * @returns {Array} Formatted results
+ * @returns {Array} Formatted results with all metadata
  */
 function formatSearchResults(results) {
     if (!Array.isArray(results)) {
@@ -171,7 +171,7 @@ function formatSearchResults(results) {
     }
 
     return results.map(result => ({
-        id: result.id,
+        ...result,  // Pass through all fields from API
         title: result.title || 'Untitled',
         artist: result.artist || 'Unknown Artist',
         imageUrl: result.imageUrl || result.thumbnailUrl,
