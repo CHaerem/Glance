@@ -158,6 +158,39 @@ class TasteGuideService {
   }
 
   /**
+   * Update reframe settings for an existing collection item
+   */
+  async updateReframe(
+    artworkId: string,
+    reframe: { cropX?: number; cropY?: number; zoomLevel?: number }
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const collection = await this.getCollection();
+      const index = collection.findIndex((item) => item.id === artworkId);
+
+      const item = collection[index];
+      if (index === -1 || !item) {
+        return { success: false, message: 'Artwork not found in collection' };
+      }
+
+      // Update reframe settings
+      item.reframe = {
+        cropX: reframe.cropX ?? 50,
+        cropY: reframe.cropY ?? 50,
+        zoomLevel: reframe.zoomLevel ?? 1.0,
+      };
+
+      await writeJSONFile(COLLECTION_FILE, collection);
+
+      log.info('Updated reframe settings', { artworkId, reframe: item.reframe });
+      return { success: true, message: 'Reframe settings saved' };
+    } catch (error) {
+      log.error('Failed to update reframe', { error: getErrorMessage(error) });
+      return { success: false, message: 'Failed to update reframe settings' };
+    }
+  }
+
+  /**
    * Check if an artwork is in the collection
    */
   async isInCollection(artworkId: string): Promise<boolean> {

@@ -36,6 +36,7 @@ export function createMyCollectionRouter(): Router {
           imageUrl: item.imageUrl,
           thumbnailUrl: item.thumbnailUrl,
           addedAt: item.addedAt,
+          reframe: item.reframe,  // Include saved crop/zoom settings
         })),
       });
     } catch (error) {
@@ -87,6 +88,33 @@ export function createMyCollectionRouter(): Router {
     } catch (error) {
       log.error('Failed to remove from collection', { error: getErrorMessage(error) });
       res.status(500).json({ error: 'Failed to remove artwork from collection' });
+    }
+  });
+
+  /**
+   * Update reframe settings for a collection item
+   * PATCH /api/my-collection/:artworkId/reframe
+   */
+  router.patch('/:artworkId/reframe', async (req: Request, res: Response) => {
+    try {
+      const artworkId = req.params.artworkId;
+      const { reframe } = req.body;
+
+      if (!artworkId) {
+        res.status(400).json({ error: 'Artwork ID required' });
+        return;
+      }
+
+      if (!reframe || typeof reframe !== 'object') {
+        res.status(400).json({ error: 'Reframe settings required' });
+        return;
+      }
+
+      const result = await tasteGuideService.updateReframe(artworkId, reframe);
+      res.status(result.success ? 200 : 404).json(result);
+    } catch (error) {
+      log.error('Failed to update reframe', { error: getErrorMessage(error) });
+      res.status(500).json({ error: 'Failed to update reframe settings' });
     }
   });
 

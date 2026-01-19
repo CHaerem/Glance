@@ -5,6 +5,8 @@ let selectedModalArt = null;
 let selectedHistoryItem = null;
 let defaultOrientation = 'portrait';
 let secondaryActionType = null; // 'add', 'remove', 'delete'
+let currentModalSource = null;  // Track if viewing 'collection' item for reframe saving
+let reframeSaveTimeout = null;  // Debounce timer for auto-saving reframe
 let modalTransitioning = false; // Prevent rapid open/close
 let cachedDisplayImageId = null; // Track current display to avoid refetching
 
@@ -158,6 +160,7 @@ function openArtModal(artwork, options = {}) {
     // Reset state
     selectedModalArt = artwork;
     selectedHistoryItem = (source === 'generated' || source === 'collection') ? artwork : null;
+    currentModalSource = source;  // Track source for reframe auto-save
 
     // Restore saved reframe settings or use defaults
     if (artwork.reframe) {
@@ -1510,6 +1513,11 @@ function closeModal() {
     selectedModalArt = null;
     selectedHistoryItem = null;
     secondaryActionType = null;
+    currentModalSource = null;
+    if (reframeSaveTimeout) {
+        clearTimeout(reframeSaveTimeout);
+        reframeSaveTimeout = null;
+    }
     document.getElementById('modalSecondaryAction').style.display = 'none';
     document.getElementById('moreLikeThisBtn').style.display = 'none';
 
@@ -1738,6 +1746,43 @@ function togglePreviewOrientation() {
     modalImage.classList.toggle('landscape');
 }
 
+// Auto-save reframe settings for collection items (debounced)
+function scheduleReframeSave() {
+    // Only auto-save for collection items
+    if (currentModalSource !== 'collection' || !selectedHistoryItem?.id) return;
+
+    // Clear any pending save
+    if (reframeSaveTimeout) {
+        clearTimeout(reframeSaveTimeout);
+    }
+
+    // Schedule save after 500ms of no changes
+    reframeSaveTimeout = setTimeout(async () => {
+        try {
+            const response = await fetch(`/api/my-collection/${selectedHistoryItem.id}/reframe`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reframe: { cropX, cropY, zoomLevel }
+                })
+            });
+            if (response.ok) {
+                const newReframe = { cropX, cropY, zoomLevel };
+                // Update the local item's reframe so it persists
+                selectedHistoryItem.reframe = newReframe;
+                // Also update the local collection cache
+                const collectionItem = myCollection.find(item => item.id === selectedHistoryItem.id);
+                if (collectionItem) {
+                    collectionItem.reframe = newReframe;
+                }
+                console.log('Reframe saved');
+            }
+        } catch (error) {
+            console.error('Failed to save reframe:', error);
+        }
+    }, 500);
+}
+
 // Crop adjustment (position)
 let cropX = 50;
 let cropY = 50;
@@ -1771,6 +1816,9 @@ function adjustCrop(direction) {
     // Use transform-origin to control zoom focus point
     modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
     modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
+
+    // Auto-save for collection items
+    scheduleReframeSave();
 }
 
 // Zoom adjustment
@@ -1799,6 +1847,9 @@ function adjustZoom(direction) {
     } else {
         modalImage.style.objectFit = 'cover';
     }
+
+    // Auto-save for collection items
+    scheduleReframeSave();
 }
 
 // Touch zoom and pan support for mobile
