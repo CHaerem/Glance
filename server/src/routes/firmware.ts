@@ -5,6 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { loggers } from '../services/logger';
@@ -71,27 +72,28 @@ export function createFirmwareRoutes({
   const forceOtaPath = path.join(dataDir, 'force-ota.json');
 
   // Helper to read force OTA state
-  function getForceOtaState(): boolean {
+  async function getForceOtaState(): Promise<boolean> {
     try {
-      if (fs.existsSync(forceOtaPath)) {
-        const data = JSON.parse(fs.readFileSync(forceOtaPath, 'utf8')) as ForceOtaState;
-        return data.forceUpdate === true;
-      }
+      const content = await fsPromises.readFile(forceOtaPath, 'utf8');
+      const data = JSON.parse(content) as ForceOtaState;
+      return data.forceUpdate === true;
     } catch (e) {
-      log.warn('Failed to read force-ota.json', {
-        error: e instanceof Error ? e.message : String(e),
-      });
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+        log.warn('Failed to read force-ota.json', {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
     }
     return false;
   }
 
   // Helper to set force OTA state
-  function setForceOtaState(enabled: boolean): void {
+  async function setForceOtaState(enabled: boolean): Promise<void> {
     const state: ForceOtaState = {
       forceUpdate: enabled,
       updatedAt: new Date().toISOString(),
     };
-    fs.writeFileSync(forceOtaPath, JSON.stringify(state, null, 2));
+    await fsPromises.writeFile(forceOtaPath, JSON.stringify(state, null, 2));
   }
 
   /**
@@ -101,7 +103,9 @@ export function createFirmwareRoutes({
   router.get('/version', async (_req: Request, res: Response) => {
     try {
       // Check if firmware exists
-      if (!fs.existsSync(firmwarePath)) {
+      try {
+        await fsPromises.access(firmwarePath);
+      } catch {
         res.status(404).json({
           error: 'No firmware available',
           message: 'Upload firmware.bin to the data directory',
@@ -111,16 +115,17 @@ export function createFirmwareRoutes({
 
       // Try to read cached firmware info
       let firmwareInfo: FirmwareInfo | undefined;
-      if (fs.existsSync(firmwareInfoPath)) {
-        try {
-          firmwareInfo = JSON.parse(fs.readFileSync(firmwareInfoPath, 'utf8')) as FirmwareInfo;
-        } catch {
+      try {
+        const content = await fsPromises.readFile(firmwareInfoPath, 'utf8');
+        firmwareInfo = JSON.parse(content) as FirmwareInfo;
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
           log.warn('Failed to parse firmware-info.json, regenerating...');
         }
       }
 
       // Get current file stats
-      const stats = fs.statSync(firmwarePath);
+      const stats = await fsPromises.stat(firmwarePath);
       const currentMtime = stats.mtime.getTime();
 
       // Check if we need to regenerate/update info
@@ -131,7 +136,7 @@ export function createFirmwareRoutes({
         log.debug('Generating/updating firmware info...');
 
         // Calculate SHA256
-        const fileBuffer = fs.readFileSync(firmwarePath);
+        const fileBuffer = await fsPromises.readFile(firmwarePath);
         const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
         // Use externally provided version/buildDate from CI if available
@@ -150,7 +155,7 @@ export function createFirmwareRoutes({
         };
 
         // Cache the info
-        fs.writeFileSync(firmwareInfoPath, JSON.stringify(firmwareInfo, null, 2));
+        await fsPromises.writeFile(firmwareInfoPath, JSON.stringify(firmwareInfo, null, 2));
         log.info('Firmware info cached', { version: firmwareInfo.version, size: firmwareInfo.size });
       }
 
@@ -164,7 +169,7 @@ export function createFirmwareRoutes({
         size: info.size,
         sha256: info.sha256,
         minBattery: info.minBattery,
-        forceUpdate: getForceOtaState(),
+        forceUpdate: await getForceOtaState(),
         deployedAt: info.deployedAt,
       };
       res.json(response);
@@ -182,12 +187,14 @@ export function createFirmwareRoutes({
    */
   router.get('/download', async (req: Request, res: Response) => {
     try {
-      if (!fs.existsSync(firmwarePath)) {
+      let stats;
+      try {
+        stats = await fsPromises.stat(firmwarePath);
+      } catch {
         res.status(404).json({ error: 'Firmware not found' });
         return;
       }
 
-      const stats = fs.statSync(firmwarePath);
       const deviceId = (req.query.deviceId as string) || 'unknown';
 
       log.info('Firmware download requested', { deviceId });
@@ -224,7 +231,7 @@ export function createFirmwareRoutes({
    * Enable or disable force OTA update
    * POST /firmware/force
    */
-  router.post('/force', (req: Request, res: Response) => {
+  router.post('/force', async (req: Request, res: Response) => {
     try {
       const { enabled } = req.body as { enabled?: boolean };
 
@@ -236,7 +243,7 @@ export function createFirmwareRoutes({
         return;
       }
 
-      setForceOtaState(enabled);
+      await setForceOtaState(enabled);
 
       const message = enabled
         ? 'Force OTA enabled - all devices will update on next check'
@@ -260,11 +267,9 @@ export function createFirmwareRoutes({
    * Get firmware status
    * GET /firmware/status
    */
-  router.get('/status', (_req: Request, res: Response) => {
-    const available = fs.existsSync(firmwarePath);
-
-    if (available) {
-      const stats = fs.statSync(firmwarePath);
+  router.get('/status', async (_req: Request, res: Response) => {
+    try {
+      const stats = await fsPromises.stat(firmwarePath);
       const response: FirmwareStatusResponse = {
         available: true,
         version: firmwareVersion || 'unknown',
@@ -272,7 +277,7 @@ export function createFirmwareRoutes({
         path: firmwarePath,
       };
       res.json(response);
-    } else {
+    } catch {
       const response: FirmwareStatusResponse = {
         available: false,
         message: 'No firmware.bin in data directory',
