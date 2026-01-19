@@ -32,6 +32,7 @@ interface MuseumArtwork {
   thumbnailUrl: string;
   source: string;
   department?: string;
+  medium?: string;
 }
 
 /** Museum searcher function type */
@@ -69,6 +70,7 @@ const museumSearchers = {
             primaryImage?: string;
             primaryImageSmall?: string;
             department?: string;
+            medium?: string;
             isPublicDomain?: boolean;
           };
           if (obj.primaryImage && obj.isPublicDomain) {
@@ -81,6 +83,7 @@ const museumSearchers = {
               thumbnailUrl: obj.primaryImageSmall ?? obj.primaryImage,
               source: 'The Met Museum',
               department: obj.department,
+              medium: obj.medium,
             };
             return result;
           }
@@ -104,7 +107,7 @@ const museumSearchers = {
     query: string,
     limit: number = 10
   ): Promise<MuseumArtwork[]> {
-    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=${limit}&fields=id,title,artist_display,date_display,image_id,is_public_domain`;
+    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=${limit}&fields=id,title,artist_display,date_display,image_id,is_public_domain,medium_display,department_title`;
     try {
       const response = await fetch(url);
       if (!response.ok) return [];
@@ -116,6 +119,8 @@ const museumSearchers = {
           date_display?: string;
           image_id?: string;
           is_public_domain?: boolean;
+          medium_display?: string;
+          department_title?: string;
         }>;
       };
       return (data.data ?? [])
@@ -128,6 +133,8 @@ const museumSearchers = {
           imageUrl: `https://www.artic.edu/iiif/2/${a.image_id}/full/1200,/0/default.jpg`,
           thumbnailUrl: `https://www.artic.edu/iiif/2/${a.image_id}/full/400,/0/default.jpg`,
           source: 'Art Institute of Chicago',
+          medium: a.medium_display,
+          department: a.department_title,
         }));
     } catch (e) {
       log.warn('ARTIC search failed', {
@@ -184,6 +191,8 @@ const museumSearchers = {
           creators?: Array<{ description?: string }>;
           creation_date?: string;
           images?: { web?: { url?: string } };
+          technique?: string;
+          department?: string;
         }>;
       };
       return (data.data ?? [])
@@ -196,6 +205,8 @@ const museumSearchers = {
           imageUrl: a.images!.web!.url!,
           thumbnailUrl: a.images!.web!.url!,
           source: 'Cleveland Museum of Art',
+          medium: a.technique,
+          department: a.department,
         }));
     } catch (e) {
       log.warn('Cleveland search failed', {
@@ -222,6 +233,8 @@ const museumSearchers = {
           people?: Array<{ name?: string }>;
           dated?: string;
           primaryimageurl?: string;
+          medium?: string;
+          division?: string;
         }>;
       };
       return (data.records ?? [])
@@ -234,6 +247,8 @@ const museumSearchers = {
           imageUrl: a.primaryimageurl!,
           thumbnailUrl: a.primaryimageurl!,
           source: 'Harvard Art Museums',
+          medium: a.medium,
+          department: a.division,
         }));
     } catch (e) {
       log.warn('Harvard search failed', {
