@@ -71,6 +71,13 @@ export interface HistoryEntry {
   imageUrl?: string;
 }
 
+// Reframe settings (crop/zoom state for saved artworks)
+export interface ReframeSettings {
+  cropX?: number;      // 0-100, horizontal position (50 = centered)
+  cropY?: number;      // 0-100, vertical position (50 = centered)
+  zoomLevel?: number;  // 0.5-2.0, zoom factor (1.0 = default)
+}
+
 // Collection entry (saved artwork)
 export interface CollectionEntry {
   id: string;
@@ -81,6 +88,7 @@ export interface CollectionEntry {
   imageUrl: string;
   thumbnailUrl: string;
   addedAt: number;
+  reframe?: ReframeSettings;  // Optional saved crop/zoom state
 }
 
 // Current display state

@@ -104,6 +104,11 @@ class TasteGuideService {
         displayCount: 0,
       };
 
+      // Store reframe settings if provided (preserves crop/zoom state)
+      if ((artwork as CollectionEntry).reframe) {
+        entry.reframe = (artwork as CollectionEntry).reframe;
+      }
+
       // Generate embedding for similarity search (if OpenAI available)
       if (this.client) {
         try {

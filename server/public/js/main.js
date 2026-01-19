@@ -158,18 +158,26 @@ function openArtModal(artwork, options = {}) {
     // Reset state
     selectedModalArt = artwork;
     selectedHistoryItem = (source === 'generated' || source === 'collection') ? artwork : null;
-    cropX = 50;
-    cropY = 50;
-    zoomLevel = 1.0;
+
+    // Restore saved reframe settings or use defaults
+    if (artwork.reframe) {
+        cropX = artwork.reframe.cropX ?? 50;
+        cropY = artwork.reframe.cropY ?? 50;
+        zoomLevel = artwork.reframe.zoomLevel ?? 1.0;
+    } else {
+        cropX = 50;
+        cropY = 50;
+        zoomLevel = 1.0;
+    }
 
     const modal = document.getElementById('artModal');
     const modalImage = document.getElementById('modalImage');
 
-    // Reset image styles
-    modalImage.style.transform = 'scale(1)';
-    modalImage.style.transformOrigin = '50% 50%';
-    modalImage.style.objectPosition = '50% 50%';
-    modalImage.style.objectFit = 'cover';
+    // Apply image styles (uses restored or default reframe settings)
+    modalImage.style.transform = `scale(${zoomLevel})`;
+    modalImage.style.transformOrigin = `${cropX}% ${cropY}%`;
+    modalImage.style.objectPosition = `${cropX}% ${cropY}%`;
+    modalImage.style.objectFit = zoomLevel < 1.0 ? 'contain' : 'cover';
 
     // Set image source (use proxy for caching, no size param for full resolution)
     modalImage.src = proxyImageUrl(getArtworkImageUrl(artwork));
@@ -1606,18 +1614,31 @@ async function addToCollection() {
     if (!selectedModalArt) return;
 
     try {
+        // Build request body with artwork data
+        const body = {
+            imageUrl: selectedModalArt.imageUrl,
+            title: selectedModalArt.title,
+            artist: selectedModalArt.artist,
+            year: selectedModalArt.year,
+            thumbnail: selectedModalArt.thumbnail,
+            collectionId: selectedModalArt.collectionId,
+            wikimedia: selectedModalArt.wikimedia
+        };
+
+        // Include reframe settings if user has adjusted crop/zoom
+        const hasReframe = cropX !== 50 || cropY !== 50 || zoomLevel !== 1.0;
+        if (hasReframe) {
+            body.reframe = {
+                cropX: cropX,
+                cropY: cropY,
+                zoomLevel: zoomLevel
+            };
+        }
+
         const response = await fetch('/api/my-collection', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                imageUrl: selectedModalArt.imageUrl,
-                title: selectedModalArt.title,
-                artist: selectedModalArt.artist,
-                year: selectedModalArt.year,
-                thumbnail: selectedModalArt.thumbnail,
-                collectionId: selectedModalArt.collectionId,
-                wikimedia: selectedModalArt.wikimedia
-            })
+            body: JSON.stringify(body)
         });
 
         if (response.ok) {
