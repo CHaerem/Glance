@@ -642,6 +642,93 @@ Source: ${source || 'Unknown'}`,
   });
 
   /**
+   * Generate a creative search query for art discovery
+   * GET /api/art/lucky-search
+   */
+  router.get('/lucky-search', async (_req: Request, res: Response) => {
+    if (!openai) {
+      // Fallback to random category if no OpenAI
+      const fallbackQueries = [
+        'impressionist landscapes',
+        'dutch golden age portraits',
+        'japanese woodblock prints',
+        'abstract expressionism',
+        'renaissance masterpieces',
+        'romantic seascapes',
+        'art nouveau posters',
+        'surrealist dreams',
+        'baroque still life',
+        'post-impressionist color',
+      ];
+      const query = fallbackQueries[Math.floor(Math.random() * fallbackQueries.length)];
+      res.json({ query, source: 'fallback' });
+      return;
+    }
+
+    try {
+      log.info('Generating lucky search query');
+
+      const inspirations = [
+        'a specific art movement or period',
+        'an emotion or mood',
+        'a subject matter or theme',
+        'a famous artist or school',
+        'a color palette or visual style',
+        'a cultural tradition or region',
+        'a time of day or season',
+        'a natural phenomenon',
+      ];
+      const inspiration = inspirations[Math.floor(Math.random() * inspirations.length)];
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-5-mini',
+        max_completion_tokens: 500,
+        temperature: 1.0,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You generate short, evocative search queries for discovering art in museum collections. Your queries should be 2-5 words that would match interesting artworks. Be creative and specific. Just output the search query, nothing else.',
+          },
+          {
+            role: 'user',
+            content: `Generate a creative art search query inspired by ${inspiration}. Examples: "moonlit harbor scenes", "vibrant floral still life", "melancholic winter landscapes", "bold geometric abstraction". Just the query:`,
+          },
+        ],
+      });
+
+      const query = response?.choices?.[0]?.message?.content?.trim()?.replace(/^["']|["']$/g, '');
+
+      statistics.trackOpenAICall(
+        'gpt-5-mini',
+        response.usage?.prompt_tokens || 0,
+        response.usage?.completion_tokens || 0,
+        !!query,
+        { endpoint: 'chat.completions', purpose: 'lucky-search' }
+      );
+
+      if (!query) {
+        log.warn('OpenAI returned no query for lucky-search');
+        res.status(502).json({ error: 'AI did not return a query. Please try again.' });
+        return;
+      }
+
+      log.info('Generated lucky search query', { query });
+      res.json({ query, source: 'openai' });
+    } catch (error) {
+      log.error('Error generating lucky search query', { error: getErrorMessage(error) });
+
+      statistics.trackOpenAICall('gpt-5-mini', 0, 0, false, {
+        endpoint: 'chat.completions',
+        purpose: 'lucky-search',
+        error: getErrorMessage(error),
+      });
+
+      res.status(500).json({ error: 'Failed to generate search query' });
+    }
+  });
+
+  /**
    * Import artwork from URL
    * POST /api/art/import
    */

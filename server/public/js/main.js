@@ -981,17 +981,20 @@ function clearSearchResults() {
     showDefaultExploreSections();
 }
 
-// Load random artwork
+// Lucky search - generate AI search query and show results
 async function loadRandomArt() {
     try {
-        const response = await fetch('/api/art/random');
-        const artwork = await response.json();
+        // Get a creative search query from AI
+        const response = await fetch('/api/art/lucky-search');
+        const data = await response.json();
 
-        if (artwork && artwork.id) {
-            openArtPreview(artwork);
+        if (data.query) {
+            // Put the query in the search input and execute search
+            document.getElementById('searchInput').value = data.query;
+            await searchArt();
         }
     } catch (error) {
-        console.error('Failed to load random art:', error);
+        console.error('Failed to load lucky search:', error);
     }
 }
 
