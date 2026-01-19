@@ -194,13 +194,8 @@ export function createSemanticSearchRouter(): Router {
       const results = await openaiSearch.searchByText(query, parseInt(String(limit)));
 
       res.json({
-        results: results.map((r: SearchResultArtwork) => ({
-          id: r.id,
-          title: r.title,
-          artist: r.artist,
-          date: r.date,
-          imageUrl: r.imageUrl,
-          thumbnailUrl: r.thumbnailUrl,
+        results: results.map((r) => ({
+          ...r,
           similarity: r.score,
         })),
         metadata: {
@@ -237,13 +232,8 @@ export function createSemanticSearchRouter(): Router {
       const results = await openaiSearch.searchSimilar(artworkId, parseInt(String(limit)));
 
       res.json({
-        results: results.map((r: SearchResultArtwork) => ({
-          id: r.id,
-          title: r.title,
-          artist: r.artist,
-          date: r.date,
-          imageUrl: r.imageUrl,
-          thumbnailUrl: r.thumbnailUrl,
+        results: results.map((r) => ({
+          ...r,
           similarity: r.score,
         })),
         metadata: {
