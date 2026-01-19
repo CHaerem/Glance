@@ -4,10 +4,11 @@
  */
 
 import { Router, Request, Response } from 'express';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { loggers } from '../services/logger';
 import { getErrorMessage } from '../utils';
+import { ensureDir } from '../utils/data-store';
 
 const log = loggers.api;
 
@@ -39,25 +40,24 @@ interface UserPlaylistsData {
 const USER_PLAYLISTS_PATH = path.join(__dirname, '..', '..', 'data', 'user-playlists.json');
 
 // Load user playlists data
-function loadUserPlaylists(): UserPlaylistsData {
+async function loadUserPlaylists(): Promise<UserPlaylistsData> {
   try {
-    if (fs.existsSync(USER_PLAYLISTS_PATH)) {
-      return JSON.parse(fs.readFileSync(USER_PLAYLISTS_PATH, 'utf8')) as UserPlaylistsData;
-    }
+    const content = await fs.readFile(USER_PLAYLISTS_PATH, 'utf8');
+    return JSON.parse(content) as UserPlaylistsData;
   } catch (error) {
-    log.error('Failed to load user playlists', { error: getErrorMessage(error) });
+    // File doesn't exist or is invalid
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      log.error('Failed to load user playlists', { error: getErrorMessage(error) });
+    }
   }
   return { playlists: [] };
 }
 
 // Save user playlists data
-function saveUserPlaylists(data: UserPlaylistsData): void {
+async function saveUserPlaylists(data: UserPlaylistsData): Promise<void> {
   try {
-    const dir = path.dirname(USER_PLAYLISTS_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(USER_PLAYLISTS_PATH, JSON.stringify(data, null, 2));
+    await ensureDir(path.dirname(USER_PLAYLISTS_PATH));
+    await fs.writeFile(USER_PLAYLISTS_PATH, JSON.stringify(data, null, 2));
   } catch (error) {
     log.error('Failed to save user playlists', { error: getErrorMessage(error) });
     throw error;
@@ -79,9 +79,9 @@ export function createUserPlaylistsRouter(): Router {
    * Get all user playlists
    * GET /api/user-playlists
    */
-  router.get('/', (_req: Request, res: Response) => {
+  router.get('/', async (_req: Request, res: Response) => {
     try {
-      const data = loadUserPlaylists();
+      const data = await loadUserPlaylists();
 
       // Return playlists with metadata
       const playlists = data.playlists.map(p => ({
@@ -103,7 +103,7 @@ export function createUserPlaylistsRouter(): Router {
    * Create a new user playlist
    * POST /api/user-playlists
    */
-  router.post('/', (req: Request, res: Response) => {
+  router.post('/', async (req: Request, res: Response) => {
     try {
       const { name } = req.body as { name?: string };
 
@@ -112,7 +112,7 @@ export function createUserPlaylistsRouter(): Router {
         return;
       }
 
-      const data = loadUserPlaylists();
+      const data = await loadUserPlaylists();
 
       const newPlaylist: UserPlaylist = {
         id: generateId(),
@@ -123,7 +123,7 @@ export function createUserPlaylistsRouter(): Router {
       };
 
       data.playlists.push(newPlaylist);
-      saveUserPlaylists(data);
+      await saveUserPlaylists(data);
 
       log.info('Created user playlist', { id: newPlaylist.id, name: newPlaylist.name });
 
@@ -142,10 +142,10 @@ export function createUserPlaylistsRouter(): Router {
    * Get a specific user playlist
    * GET /api/user-playlists/:playlistId
    */
-  router.get('/:playlistId', (req: Request, res: Response) => {
+  router.get('/:playlistId', async (req: Request, res: Response) => {
     try {
       const { playlistId } = req.params;
-      const data = loadUserPlaylists();
+      const data = await loadUserPlaylists();
 
       const playlist = data.playlists.find(p => p.id === playlistId);
 
@@ -173,7 +173,7 @@ export function createUserPlaylistsRouter(): Router {
    * Update a user playlist (rename)
    * PUT /api/user-playlists/:playlistId
    */
-  router.put('/:playlistId', (req: Request, res: Response) => {
+  router.put('/:playlistId', async (req: Request, res: Response) => {
     try {
       const { playlistId } = req.params;
       const { name } = req.body as { name?: string };
@@ -183,7 +183,7 @@ export function createUserPlaylistsRouter(): Router {
         return;
       }
 
-      const data = loadUserPlaylists();
+      const data = await loadUserPlaylists();
       const playlist = data.playlists.find(p => p.id === playlistId);
 
       if (!playlist) {
@@ -193,7 +193,7 @@ export function createUserPlaylistsRouter(): Router {
 
       playlist.name = name.trim();
       playlist.updatedAt = Date.now();
-      saveUserPlaylists(data);
+      await saveUserPlaylists(data);
 
       log.info('Updated user playlist', { id: playlistId, name: playlist.name });
 
@@ -211,10 +211,10 @@ export function createUserPlaylistsRouter(): Router {
    * Delete a user playlist
    * DELETE /api/user-playlists/:playlistId
    */
-  router.delete('/:playlistId', (req: Request, res: Response) => {
+  router.delete('/:playlistId', async (req: Request, res: Response) => {
     try {
       const { playlistId } = req.params;
-      const data = loadUserPlaylists();
+      const data = await loadUserPlaylists();
 
       const index = data.playlists.findIndex(p => p.id === playlistId);
 
@@ -224,7 +224,7 @@ export function createUserPlaylistsRouter(): Router {
       }
 
       data.playlists.splice(index, 1);
-      saveUserPlaylists(data);
+      await saveUserPlaylists(data);
 
       log.info('Deleted user playlist', { id: playlistId });
 
@@ -242,7 +242,7 @@ export function createUserPlaylistsRouter(): Router {
    * Add artwork to a user playlist
    * POST /api/user-playlists/:playlistId/artworks
    */
-  router.post('/:playlistId/artworks', (req: Request, res: Response) => {
+  router.post('/:playlistId/artworks', async (req: Request, res: Response) => {
     try {
       const { playlistId } = req.params;
       const artwork = req.body as Partial<PlaylistArtwork>;
@@ -252,7 +252,7 @@ export function createUserPlaylistsRouter(): Router {
         return;
       }
 
-      const data = loadUserPlaylists();
+      const data = await loadUserPlaylists();
       const playlist = data.playlists.find(p => p.id === playlistId);
 
       if (!playlist) {
@@ -278,7 +278,7 @@ export function createUserPlaylistsRouter(): Router {
 
       playlist.artworks.push(newArtwork);
       playlist.updatedAt = Date.now();
-      saveUserPlaylists(data);
+      await saveUserPlaylists(data);
 
       log.info('Added artwork to user playlist', {
         playlistId,
@@ -299,10 +299,10 @@ export function createUserPlaylistsRouter(): Router {
    * Remove artwork from a user playlist
    * DELETE /api/user-playlists/:playlistId/artworks/:artworkId
    */
-  router.delete('/:playlistId/artworks/:artworkId', (req: Request, res: Response) => {
+  router.delete('/:playlistId/artworks/:artworkId', async (req: Request, res: Response) => {
     try {
       const { playlistId, artworkId } = req.params;
-      const data = loadUserPlaylists();
+      const data = await loadUserPlaylists();
 
       const playlist = data.playlists.find(p => p.id === playlistId);
 
@@ -320,7 +320,7 @@ export function createUserPlaylistsRouter(): Router {
 
       playlist.artworks.splice(artworkIndex, 1);
       playlist.updatedAt = Date.now();
-      saveUserPlaylists(data);
+      await saveUserPlaylists(data);
 
       log.info('Removed artwork from user playlist', { playlistId, artworkId });
 
