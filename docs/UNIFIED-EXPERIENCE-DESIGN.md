@@ -99,7 +99,10 @@ Shows famous, recognizable art immediately. Feels like walking into a gallery.
 
 1. **Search Input** (top, minimal)
    - Types directly for keyword search (fast, ~500ms)
-   - 🎲 button for random/surprise
+   - 🎲 dice button for AI-powered discovery:
+     - Empty: generates creative queries ("gaslit cafe nocturnes")
+     - With text: enhances your search ("flowers" → "dutch golden age floral still life")
+     - Smooth UX: dice tumbles while loading, text types out letter by letter
    - On focus: more suggestions appear
 
 2. **Playlists** (horizontal scroll, prominent)
@@ -573,6 +576,8 @@ type Action =
 - Slide-up for guide panel: 200ms ease-out
 - Fade for results: 150ms
 - Card hover: subtle shadow increase, 100ms
+- Dice button loading: gentle tumble (±15°), 600ms ease-in-out
+- Typewriter effect: 35ms per character for calm reveal
 - No bouncing, no playful animations
 - Everything feels deliberate and calm
 
