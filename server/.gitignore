@@ -3,3 +3,6 @@ coverage/
 # Local art library (images downloaded on Pi, not tracked)
 data/art-library/
 !data/art-library/.gitkeep
+
+# Frontend TypeScript build output
+public/js/dist/
