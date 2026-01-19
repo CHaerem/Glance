@@ -214,6 +214,29 @@
             background: #ff2d1f;
         }
 
+        .btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .btn.loading::after {
+            content: '';
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-left: 8px;
+            border: 2px solid currentColor;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: btn-spin 0.8s linear infinite;
+            vertical-align: middle;
+        }
+
+        @keyframes btn-spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* Mode toggle */
         .mode-toggle {
             text-align: center;

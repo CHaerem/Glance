@@ -1225,6 +1225,9 @@ async function openGeneratedImagePreview(imageId) {
 
 // Feeling lucky
 async function feelingLucky() {
+    const luckyBtn = document.getElementById('luckyBtn');
+    luckyBtn.classList.add('loading');
+
     try {
         const currentPrompt = document.getElementById('promptInput').value.trim();
         const response = await fetch('/api/lucky-prompt', {
@@ -1238,6 +1241,8 @@ async function feelingLucky() {
         }
     } catch (error) {
         console.error('Lucky prompt failed:', error);
+    } finally {
+        luckyBtn.classList.remove('loading');
     }
 }
 
