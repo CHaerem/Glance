@@ -981,16 +981,23 @@ function clearSearchResults() {
     showDefaultExploreSections();
 }
 
-// Lucky search - generate AI search query and show results
+// Lucky search - generate or enhance AI search query and show results
 async function loadRandomArt() {
     try {
-        // Get a creative search query from AI
-        const response = await fetch('/api/art/lucky-search');
+        const searchInput = document.getElementById('searchInput');
+        const existingQuery = searchInput.value.trim();
+
+        // If there's existing text, enhance it; otherwise generate new query
+        const url = existingQuery
+            ? `/api/art/lucky-search?q=${encodeURIComponent(existingQuery)}`
+            : '/api/art/lucky-search';
+
+        const response = await fetch(url);
         const data = await response.json();
 
         if (data.query) {
             // Put the query in the search input and execute search
-            document.getElementById('searchInput').value = data.query;
+            searchInput.value = data.query;
             await searchArt();
         }
     } catch (error) {

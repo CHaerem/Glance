@@ -642,10 +642,13 @@ Source: ${source || 'Unknown'}`,
   });
 
   /**
-   * Generate a creative search query for art discovery
-   * GET /api/art/lucky-search
+   * Generate or enhance a creative search query for art discovery
+   * GET /api/art/lucky-search?q=optional-query-to-enhance
    */
-  router.get('/lucky-search', async (_req: Request, res: Response) => {
+  router.get('/lucky-search', async (req: Request, res: Response) => {
+    const inputQuery = (req.query.q as string)?.trim();
+    const isEnhanceMode = !!inputQuery;
+
     if (!openai) {
       // Fallback to random category if no OpenAI
       const fallbackQueries = [
@@ -660,40 +663,57 @@ Source: ${source || 'Unknown'}`,
         'baroque still life',
         'post-impressionist color',
       ];
-      const query = fallbackQueries[Math.floor(Math.random() * fallbackQueries.length)];
-      res.json({ query, source: 'fallback' });
+      const query = isEnhanceMode ? inputQuery : fallbackQueries[Math.floor(Math.random() * fallbackQueries.length)];
+      res.json({ query, source: 'fallback', enhanced: false });
       return;
     }
 
     try {
-      log.info('Generating lucky search query');
+      log.info(isEnhanceMode ? 'Enhancing search query' : 'Generating lucky search query', { inputQuery });
 
-      const inspirations = [
-        'a specific art movement or period',
-        'an emotion or mood',
-        'a subject matter or theme',
-        'a famous artist or school',
-        'a color palette or visual style',
-        'a cultural tradition or region',
-        'a time of day or season',
-        'a natural phenomenon',
-      ];
-      const inspiration = inspirations[Math.floor(Math.random() * inspirations.length)];
+      let systemPrompt: string;
+      let userPrompt: string;
+
+      if (isEnhanceMode) {
+        // Enhance mode: transform a simple query into something more evocative
+        systemPrompt =
+          'You enhance simple art search queries into more evocative, specific museum search terms. Keep the original intent but make it more poetic and specific. Output only the enhanced query, 2-6 words, no quotes or explanation.';
+        userPrompt = `Enhance this art search query: "${inputQuery}"
+
+Examples:
+- "flowers" → "dutch golden age floral still life"
+- "blue" → "melancholic blue hour seascapes"
+- "cats" → "elegant feline portraits"
+- "night" → "mysterious nocturnal cityscapes"
+- "monet" → "impressionist water garden reflections"
+
+Enhanced query:`;
+      } else {
+        // Generate mode: create a completely new query
+        const inspirations = [
+          'a specific art movement or period',
+          'an emotion or mood',
+          'a subject matter or theme',
+          'a famous artist or school',
+          'a color palette or visual style',
+          'a cultural tradition or region',
+          'a time of day or season',
+          'a natural phenomenon',
+        ];
+        const inspiration = inspirations[Math.floor(Math.random() * inspirations.length)];
+
+        systemPrompt =
+          'You generate short, evocative search queries for discovering art in museum collections. Your queries should be 2-5 words that would match interesting artworks. Be creative and specific. Just output the search query, nothing else.';
+        userPrompt = `Generate a creative art search query inspired by ${inspiration}. Examples: "moonlit harbor scenes", "vibrant floral still life", "melancholic winter landscapes", "bold geometric abstraction". Just the query:`;
+      }
 
       const response = await openai.chat.completions.create({
         model: 'gpt-5-mini',
         max_completion_tokens: 500,
         temperature: 1.0,
         messages: [
-          {
-            role: 'system',
-            content:
-              'You generate short, evocative search queries for discovering art in museum collections. Your queries should be 2-5 words that would match interesting artworks. Be creative and specific. Just output the search query, nothing else.',
-          },
-          {
-            role: 'user',
-            content: `Generate a creative art search query inspired by ${inspiration}. Examples: "moonlit harbor scenes", "vibrant floral still life", "melancholic winter landscapes", "bold geometric abstraction". Just the query:`,
-          },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
         ],
       });
 
@@ -704,7 +724,7 @@ Source: ${source || 'Unknown'}`,
         response.usage?.prompt_tokens || 0,
         response.usage?.completion_tokens || 0,
         !!query,
-        { endpoint: 'chat.completions', purpose: 'lucky-search' }
+        { endpoint: 'chat.completions', purpose: isEnhanceMode ? 'lucky-search-enhance' : 'lucky-search' }
       );
 
       if (!query) {
@@ -713,14 +733,14 @@ Source: ${source || 'Unknown'}`,
         return;
       }
 
-      log.info('Generated lucky search query', { query });
-      res.json({ query, source: 'openai' });
+      log.info(isEnhanceMode ? 'Enhanced search query' : 'Generated lucky search query', { inputQuery, query });
+      res.json({ query, source: 'openai', enhanced: isEnhanceMode, originalQuery: inputQuery || null });
     } catch (error) {
       log.error('Error generating lucky search query', { error: getErrorMessage(error) });
 
       statistics.trackOpenAICall('gpt-5-mini', 0, 0, false, {
         endpoint: 'chat.completions',
-        purpose: 'lucky-search',
+        purpose: isEnhanceMode ? 'lucky-search-enhance' : 'lucky-search',
         error: getErrorMessage(error),
       });
 
