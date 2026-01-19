@@ -104,7 +104,7 @@ class ArtworkDescriptionService {
 
     try {
       const prompt = this.buildPrompt(artwork);
-      log.info('Generating description', { id: artwork.id, title: artwork.title, prompt });
+      log.info('Generating description', { id: artwork.id, title: artwork.title });
 
       const response = await this.client.chat.completions.create({
         model: 'gpt-5-mini',
@@ -131,16 +131,10 @@ Do not start with "This painting" or "This work" - vary your openings.`,
 
       const description = response.choices[0]?.message?.content?.trim();
 
-      // Response logging (INFO level for visibility)
-      log.info('OpenAI response details', {
+      log.debug('OpenAI response', {
         id: artwork.id,
-        hasChoices: !!response.choices?.length,
-        hasMessage: !!response.choices?.[0]?.message,
-        hasContent: !!response.choices?.[0]?.message?.content,
         contentLength: description?.length || 0,
-        finishReason: response.choices?.[0]?.finish_reason,
-        usage: response.usage,
-        rawContent: response.choices?.[0]?.message?.content?.substring(0, 200),
+        tokens: response.usage?.total_tokens,
       });
 
       // Track the API call
