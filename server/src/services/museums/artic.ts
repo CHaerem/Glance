@@ -76,6 +76,7 @@ export const articAdapter: MuseumAdapter = {
           thumbnailUrl: `https://www.artic.edu/iiif/2/${artwork.image_id}/full/400,/0/default.jpg`,
           department: artwork.department_title ?? '',
           culture: '',
+          medium: artwork.medium_display ?? '',
           source: 'Art Institute of Chicago',
         }));
 

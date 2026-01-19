@@ -73,6 +73,7 @@ export const clevelandAdapter: MuseumAdapter = {
           thumbnailUrl: artwork.images?.web?.url ?? '',
           department: artwork.department ?? '',
           culture: artwork.culture?.[0] ?? '',
+          medium: artwork.technique ?? '',
           source: 'Cleveland Museum of Art',
         }));
 

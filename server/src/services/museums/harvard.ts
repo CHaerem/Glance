@@ -74,6 +74,7 @@ export const harvardAdapter: MuseumAdapter = {
           thumbnailUrl: artwork.primaryimageurl ?? '',
           department: artwork.division ?? '',
           culture: artwork.culture ?? '',
+          medium: artwork.medium ?? '',
           source: 'Harvard Art Museums',
         }));
 

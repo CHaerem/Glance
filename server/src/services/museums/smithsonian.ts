@@ -93,6 +93,7 @@ export const smithsonianAdapter: MuseumAdapter = {
             thumbnailUrl: imageUrl,
             department: content?.freetext?.dataSource?.[0]?.content ?? '',
             culture: '',
+            medium: content?.freetext?.physicalDescription?.[0]?.content ?? '',
             source: 'Smithsonian',
           };
         });

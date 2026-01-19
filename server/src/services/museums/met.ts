@@ -96,6 +96,7 @@ export const metAdapter: MuseumAdapter = {
               thumbnailUrl: objectData.primaryImageSmall ?? objectData.primaryImage ?? '',
               department: objectData.department ?? '',
               culture: objectData.culture ?? '',
+              medium: objectData.medium ?? '',
               source: 'The Met Museum',
             });
           }
