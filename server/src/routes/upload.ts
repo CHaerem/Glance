@@ -464,7 +464,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
 
       const response = await openai.chat.completions.create({
         model: 'gpt-5-mini',
-        max_completion_tokens: 1000, // Needs room for reasoning tokens + output
+        max_completion_tokens: 4000, // Reasoning models need room for thinking + output
         temperature,
         messages: [
           {
