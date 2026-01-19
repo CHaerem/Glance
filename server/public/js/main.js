@@ -663,6 +663,9 @@ async function refreshTodaysGallery() {
     const galleryContainer = document.getElementById('todaysGallery');
     if (!galleryContainer) return;
 
+    const refreshBtn = document.getElementById('refreshGallery');
+    refreshBtn.classList.add('loading');
+
     // Show loading skeletons
     galleryContainer.innerHTML = Array(8).fill(0).map(() =>
         '<div class="gallery-artwork loading"></div>'
@@ -687,6 +690,8 @@ async function refreshTodaysGallery() {
         }
     } catch (error) {
         console.error('Failed to refresh gallery:', error);
+    } finally {
+        refreshBtn.classList.remove('loading');
     }
 }
 
@@ -1614,12 +1619,19 @@ async function askAboutArtwork() {
 }
 
 async function handleSecondaryAction() {
-    if (secondaryActionType === 'add') {
-        await addToCollection();
-    } else if (secondaryActionType === 'delete') {
-        await deleteModalImage();
-    } else if (secondaryActionType === 'remove') {
-        await removeFromCollection();
+    const btn = document.getElementById('modalSecondaryAction');
+    btn.classList.add('loading');
+
+    try {
+        if (secondaryActionType === 'add') {
+            await addToCollection();
+        } else if (secondaryActionType === 'delete') {
+            await deleteModalImage();
+        } else if (secondaryActionType === 'remove') {
+            await removeFromCollection();
+        }
+    } finally {
+        btn.classList.remove('loading');
     }
 }
 

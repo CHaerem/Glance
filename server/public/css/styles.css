@@ -237,6 +237,29 @@
             to { transform: rotate(360deg); }
         }
 
+        /* Loading state for text links/buttons */
+        .section-link.loading,
+        .modal-btn-secondary.loading,
+        .modal-btn-tertiary.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .section-link.loading::after,
+        .modal-btn-secondary.loading::after,
+        .modal-btn-tertiary.loading::after {
+            content: '';
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-left: 6px;
+            border: 1.5px solid currentColor;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: btn-spin 0.8s linear infinite;
+            vertical-align: middle;
+        }
+
         /* Mode toggle */
         .mode-toggle {
             text-align: center;
