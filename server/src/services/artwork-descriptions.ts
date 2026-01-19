@@ -126,7 +126,7 @@ Do not start with "This painting" or "This work" - vary your openings.`,
             content: prompt,
           },
         ],
-        max_completion_tokens: 150,
+        max_completion_tokens: 500, // Need room for reasoning tokens + output
       });
 
       const description = response.choices[0]?.message?.content?.trim();
