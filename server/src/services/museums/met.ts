@@ -64,6 +64,7 @@ export const metAdapter: MuseumAdapter = {
             objectID: number;
             title?: string;
             artistDisplayName?: string;
+            artistDisplayBio?: string;
             objectDate?: string;
             primaryImage?: string;
             primaryImageSmall?: string;
@@ -72,6 +73,7 @@ export const metAdapter: MuseumAdapter = {
             classification?: string;
             objectName?: string;
             medium?: string;
+            dimensions?: string;
             isPublicDomain?: boolean;
           };
 
@@ -91,12 +93,14 @@ export const metAdapter: MuseumAdapter = {
               id: `met-${objectData.objectID}`,
               title: objectData.title ?? 'Untitled',
               artist: objectData.artistDisplayName ?? 'Unknown Artist',
+              artistBio: objectData.artistDisplayBio ?? '',
               date: objectData.objectDate ?? '',
               imageUrl: objectData.primaryImage ?? '',
               thumbnailUrl: objectData.primaryImageSmall ?? objectData.primaryImage ?? '',
               department: objectData.department ?? '',
               culture: objectData.culture ?? '',
               medium: objectData.medium ?? '',
+              dimensions: objectData.dimensions ?? '',
               source: 'The Met Museum',
             });
           }

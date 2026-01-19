@@ -37,13 +37,15 @@ export const clevelandAdapter: MuseumAdapter = {
         data?: Array<{
           id: number;
           title?: string;
-          creators?: Array<{ description?: string }>;
+          creators?: Array<{ description?: string; biography?: string }>;
           creation_date?: string;
           images?: { web?: { url?: string } };
           department?: string;
           culture?: string[];
           type?: string;
           technique?: string;
+          description?: string;
+          dimensions?: { framed?: { height?: number; width?: number }; unframed?: { height?: number; width?: number } };
         }>;
       };
       log.debug('Cleveland search results', { total: cmaData.info?.total ?? 0 });
@@ -64,18 +66,27 @@ export const clevelandAdapter: MuseumAdapter = {
           );
         })
         .slice(0, limit)
-        .map((artwork) => ({
-          id: `cma-${artwork.id}`,
-          title: artwork.title ?? 'Untitled',
-          artist: artwork.creators?.map((c) => c.description).join(', ') ?? 'Unknown Artist',
-          date: artwork.creation_date ?? '',
-          imageUrl: artwork.images?.web?.url ?? '',
-          thumbnailUrl: artwork.images?.web?.url ?? '',
-          department: artwork.department ?? '',
-          culture: artwork.culture?.[0] ?? '',
-          medium: artwork.technique ?? '',
-          source: 'Cleveland Museum of Art',
-        }));
+        .map((artwork) => {
+          // Format dimensions from structured object
+          const dims = artwork.dimensions?.unframed || artwork.dimensions?.framed;
+          const dimensionStr = dims ? `${dims.height} × ${dims.width} cm` : '';
+
+          return {
+            id: `cma-${artwork.id}`,
+            title: artwork.title ?? 'Untitled',
+            artist: artwork.creators?.map((c) => c.description).join(', ') ?? 'Unknown Artist',
+            artistBio: artwork.creators?.[0]?.biography ?? '',
+            date: artwork.creation_date ?? '',
+            imageUrl: artwork.images?.web?.url ?? '',
+            thumbnailUrl: artwork.images?.web?.url ?? '',
+            department: artwork.department ?? '',
+            culture: artwork.culture?.[0] ?? '',
+            medium: artwork.technique ?? '',
+            description: artwork.description ?? '',
+            dimensions: dimensionStr,
+            source: 'Cleveland Museum of Art',
+          };
+        });
 
       log.debug('Cleveland returned artworks', { count: artworks.length });
       cache.set(cacheKey, artworks);

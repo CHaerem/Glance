@@ -27,12 +27,17 @@ interface MuseumArtwork {
   id: string;
   title: string;
   artist: string;
+  artistBio?: string;
   date: string;
   imageUrl: string;
   thumbnailUrl: string;
   source: string;
   department?: string;
   medium?: string;
+  description?: string;
+  dimensions?: string;
+  style?: string;
+  placeOfOrigin?: string;
 }
 
 /** Museum searcher function type */
@@ -66,11 +71,13 @@ const museumSearchers = {
             objectID: number;
             title?: string;
             artistDisplayName?: string;
+            artistDisplayBio?: string;
             objectDate?: string;
             primaryImage?: string;
             primaryImageSmall?: string;
             department?: string;
             medium?: string;
+            dimensions?: string;
             isPublicDomain?: boolean;
           };
           if (obj.primaryImage && obj.isPublicDomain) {
@@ -78,12 +85,14 @@ const museumSearchers = {
               id: `met-${obj.objectID}`,
               title: obj.title ?? 'Untitled',
               artist: obj.artistDisplayName ?? 'Unknown',
+              artistBio: obj.artistDisplayBio,
               date: obj.objectDate ?? '',
               imageUrl: obj.primaryImage,
               thumbnailUrl: obj.primaryImageSmall ?? obj.primaryImage,
               source: 'The Met Museum',
               department: obj.department,
               medium: obj.medium,
+              dimensions: obj.dimensions,
             };
             return result;
           }
@@ -107,7 +116,7 @@ const museumSearchers = {
     query: string,
     limit: number = 10
   ): Promise<MuseumArtwork[]> {
-    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=${limit}&fields=id,title,artist_display,date_display,image_id,is_public_domain,medium_display,department_title`;
+    const url = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=${limit}&fields=id,title,artist_display,date_display,image_id,is_public_domain,medium_display,department_title,short_description,dimensions,style_title,place_of_origin`;
     try {
       const response = await fetch(url);
       if (!response.ok) return [];
@@ -121,6 +130,10 @@ const museumSearchers = {
           is_public_domain?: boolean;
           medium_display?: string;
           department_title?: string;
+          short_description?: string;
+          dimensions?: string;
+          style_title?: string;
+          place_of_origin?: string;
         }>;
       };
       return (data.data ?? [])
@@ -135,6 +148,10 @@ const museumSearchers = {
           source: 'Art Institute of Chicago',
           medium: a.medium_display,
           department: a.department_title,
+          description: a.short_description,
+          dimensions: a.dimensions,
+          style: a.style_title,
+          placeOfOrigin: a.place_of_origin,
         }));
     } catch (e) {
       log.warn('ARTIC search failed', {
@@ -188,26 +205,35 @@ const museumSearchers = {
         data?: Array<{
           id: number;
           title?: string;
-          creators?: Array<{ description?: string }>;
+          creators?: Array<{ description?: string; biography?: string }>;
           creation_date?: string;
           images?: { web?: { url?: string } };
           technique?: string;
           department?: string;
+          description?: string;
+          dimensions?: { framed?: { height?: number; width?: number }; unframed?: { height?: number; width?: number } };
         }>;
       };
       return (data.data ?? [])
         .filter((a) => a.images?.web?.url)
-        .map((a) => ({
-          id: `cma-${a.id}`,
-          title: a.title ?? 'Untitled',
-          artist: a.creators?.[0]?.description ?? 'Unknown',
-          date: a.creation_date ?? '',
-          imageUrl: a.images!.web!.url!,
-          thumbnailUrl: a.images!.web!.url!,
-          source: 'Cleveland Museum of Art',
-          medium: a.technique,
-          department: a.department,
-        }));
+        .map((a) => {
+          const dims = a.dimensions?.unframed || a.dimensions?.framed;
+          const dimensionStr = dims ? `${dims.height} × ${dims.width} cm` : undefined;
+          return {
+            id: `cma-${a.id}`,
+            title: a.title ?? 'Untitled',
+            artist: a.creators?.[0]?.description ?? 'Unknown',
+            artistBio: a.creators?.[0]?.biography,
+            date: a.creation_date ?? '',
+            imageUrl: a.images!.web!.url!,
+            thumbnailUrl: a.images!.web!.url!,
+            source: 'Cleveland Museum of Art',
+            medium: a.technique,
+            department: a.department,
+            description: a.description,
+            dimensions: dimensionStr,
+          };
+        });
     } catch (e) {
       log.warn('Cleveland search failed', {
         error: e instanceof Error ? e.message : String(e),

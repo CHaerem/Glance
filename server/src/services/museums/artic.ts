@@ -22,7 +22,7 @@ export const articAdapter: MuseumAdapter = {
     if (cached) return cached;
 
     try {
-      const articUrl = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query || 'painting')}&limit=${limit * 3}&fields=id,title,artist_display,date_display,image_id,is_public_domain,department_title,artwork_type_title,classification_title,medium_display`;
+      const articUrl = `https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query || 'painting')}&limit=${limit * 3}&fields=id,title,artist_display,date_display,image_id,is_public_domain,department_title,artwork_type_title,classification_title,medium_display,short_description,dimensions,style_title,place_of_origin`;
       log.debug('Searching Art Institute of Chicago', { url: articUrl });
 
       const articResponse = await fetch(articUrl);
@@ -45,6 +45,10 @@ export const articAdapter: MuseumAdapter = {
           artwork_type_title?: string;
           classification_title?: string;
           medium_display?: string;
+          short_description?: string;
+          dimensions?: string;
+          style_title?: string;
+          place_of_origin?: string;
         }>;
       };
       log.debug('ARTIC search results', { total: articData.pagination?.total ?? 0 });
@@ -77,6 +81,10 @@ export const articAdapter: MuseumAdapter = {
           department: artwork.department_title ?? '',
           culture: '',
           medium: artwork.medium_display ?? '',
+          description: artwork.short_description ?? '',
+          dimensions: artwork.dimensions ?? '',
+          style: artwork.style_title ?? '',
+          placeOfOrigin: artwork.place_of_origin ?? '',
           source: 'Art Institute of Chicago',
         }));
 

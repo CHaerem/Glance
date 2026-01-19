@@ -125,9 +125,11 @@ function getArtworkImageUrl(artwork) {
 function updateModalMetadata(artwork) {
     const titleEl = document.getElementById('modalTitle');
     const artistEl = document.getElementById('modalArtist');
+    const artistBioEl = document.getElementById('modalArtistBio');
     const yearEl = document.getElementById('modalYear');
     const detailsEl = document.getElementById('modalArtworkDetails');
     const chipsEl = document.getElementById('modalContextChips');
+    const descriptionEl = document.getElementById('modalDescription');
     const toggleEl = document.getElementById('modalDetailsToggle');
     const expandedEl = document.getElementById('modalExpandedDetails');
 
@@ -146,6 +148,12 @@ function updateModalMetadata(artwork) {
     if (artistEl) artistEl.textContent = hasArtist ? artwork.artist : '';
     if (yearEl) yearEl.textContent = hasYear ? (artwork.year || artwork.date) : '';
 
+    // Artist bio - subtle line under artist name (e.g., "French, 1840-1926")
+    if (artistBioEl) {
+        artistBioEl.textContent = artwork.artistBio || '';
+        artistBioEl.style.display = artwork.artistBio ? 'block' : 'none';
+    }
+
     // Build contextual chips (max 3, only meaningful values)
     if (chipsEl) {
         chipsEl.innerHTML = '';
@@ -157,13 +165,18 @@ function updateModalMetadata(artwork) {
             chips.push(source);
         }
 
-        // Culture
-        if (artwork.culture && artwork.culture !== 'Unknown') {
+        // Style (if available, e.g., "Impressionism")
+        if (artwork.style && artwork.style !== 'Unknown') {
+            chips.push(artwork.style);
+        }
+
+        // Culture (if no style shown)
+        if (!artwork.style && artwork.culture && artwork.culture !== 'Unknown') {
             chips.push(artwork.culture);
         }
 
-        // Period (only if no culture, to avoid clutter)
-        if (!artwork.culture && artwork.period && artwork.period !== 'Unknown') {
+        // Period (only if no culture/style, to avoid clutter)
+        if (!artwork.culture && !artwork.style && artwork.period && artwork.period !== 'Unknown') {
             chips.push(artwork.period);
         }
 
@@ -176,6 +189,12 @@ function updateModalMetadata(artwork) {
         });
     }
 
+    // Description - short artwork context (shown before the toggle)
+    if (descriptionEl) {
+        descriptionEl.textContent = artwork.description || '';
+        descriptionEl.style.display = artwork.description ? 'block' : 'none';
+    }
+
     // Build expanded details (only if we have additional info)
     if (toggleEl && expandedEl) {
         const details = [];
@@ -185,6 +204,9 @@ function updateModalMetadata(artwork) {
         }
         if (artwork.dimensions) {
             details.push({ label: 'size', value: artwork.dimensions });
+        }
+        if (artwork.placeOfOrigin) {
+            details.push({ label: 'origin', value: artwork.placeOfOrigin });
         }
         if (artwork.department && artwork.department !== 'Unknown') {
             details.push({ label: 'dept', value: artwork.department });

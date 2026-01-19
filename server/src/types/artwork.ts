@@ -33,6 +33,9 @@ export interface Artwork {
   department?: string;
   culture?: string;
   period?: string;
+  artistBio?: string;        // Artist biographical info (e.g., "French, 1840-1926")
+  style?: string;            // Art style/movement (e.g., "Impressionism")
+  placeOfOrigin?: string;    // Where artwork was created (e.g., "France")
 }
 
 // Search result with metadata

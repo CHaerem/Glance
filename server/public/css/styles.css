@@ -774,6 +774,32 @@
             margin: 2px 0 0 0;
         }
 
+        /* Artist bio - subtle line under artist name */
+        .modal-artist-bio {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin: 2px 0 0 0;
+            font-style: italic;
+        }
+
+        .modal-artist-bio:empty {
+            display: none;
+        }
+
+        /* Description - short artwork context */
+        .modal-description {
+            font-size: 0.75rem;
+            color: #666;
+            margin: 10px auto 0;
+            max-width: 300px;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .modal-description:empty {
+            display: none;
+        }
+
         /* Context chips - subtle metadata pills */
         .modal-context-chips {
             display: flex;
