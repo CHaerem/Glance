@@ -494,7 +494,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
       }
 
       statistics.trackOpenAICall(
-        'gpt-4o-mini',
+        'gpt-5-mini',
         response.usage?.prompt_tokens || 0,
         response.usage?.completion_tokens || 0,
         true,
@@ -534,7 +534,7 @@ export function createUploadRoutes({ upload, uploadDir, openai }: UploadRouteDep
         error: getErrorMessage(error),
       });
 
-      statistics.trackOpenAICall('gpt-4o-mini', 0, 0, false, {
+      statistics.trackOpenAICall('gpt-5-mini', 0, 0, false, {
         endpoint: 'chat.completions',
         error: getErrorMessage(error),
       });
