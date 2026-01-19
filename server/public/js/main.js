@@ -9,6 +9,34 @@ let modalTransitioning = false; // Prevent rapid open/close
 let cachedDisplayImageId = null; // Track current display to avoid refetching
 
 /**
+ * Throttle utility - limits function execution to once per specified interval
+ * Prevents performance issues from rapid event firing (scroll, resize, etc.)
+ * @param {Function} func - Function to throttle
+ * @param {number} limit - Minimum milliseconds between calls
+ * @returns {Function} Throttled function
+ */
+function throttle(func, limit) {
+    let inThrottle = false;
+    let lastArgs = null;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => {
+                inThrottle = false;
+                // Execute with last args if called during throttle
+                if (lastArgs) {
+                    func.apply(this, lastArgs);
+                    lastArgs = null;
+                }
+            }, limit);
+        } else {
+            lastArgs = args;
+        }
+    };
+}
+
+/**
  * Convert image URL to proxy URL for local caching
  * @param {string} url - Original image URL
  * @param {string} [size] - 'small' (200px) or 'medium' (400px) for thumbnail
@@ -1323,10 +1351,8 @@ function setupPlaylistDragScroll() {
         }
     }, true);
 
-    // Update nav buttons on scroll
-    container.addEventListener('scroll', () => {
-        updateStacksNavigation();
-    });
+    // Update nav buttons on scroll (throttled to prevent jank)
+    container.addEventListener('scroll', throttle(updateStacksNavigation, 100));
 }
 
 // Clear playlist selection
