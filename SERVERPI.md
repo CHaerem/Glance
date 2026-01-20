@@ -362,25 +362,58 @@ cat /etc/X11/xorg.conf.d/99-calibration.conf
 - Framebuffer devices: `/dev/fb0`, `/dev/fb1`
 - Display sysfs: `/sys/class/graphics/fb1/`
 
-## Tips for Home Assistant Dashboard
+## Home Assistant Kiosk Setup
 
-If you're building a Home Assistant dashboard for the touchscreen:
+Home Assistant is running in Docker on serverpi, displaying a status dashboard on the touchscreen.
+
+### Current Setup
+
+**Docker Service** (in `~/glance/docker-compose.yml`):
+```yaml
+homeassistant:
+  image: ghcr.io/home-assistant/home-assistant:stable
+  container_name: homeassistant
+  network_mode: host
+  volumes:
+    - homeassistant-config:/config
+    - /etc/localtime:/etc/localtime:ro
+    - /run/dbus:/run/dbus:ro
+  environment:
+    - TZ=Europe/Oslo
+  restart: unless-stopped
+  privileged: true
+```
+
+**Kiosk URL**: `http://localhost:8123/kiosk/status?kiosk=1`
+
+**Features**:
+- Auto-login via trusted networks (no password for local access)
+- Dark theme for always-on display
+- Kiosk mode (header/sidebar hidden via [kiosk-mode plugin](https://github.com/NemesisRE/kiosk-mode))
+- Weather from Met.no integration
+- GitHub Actions workflow status (personal repos + 3lvia org)
+
+### Key Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `/config/configuration.yaml` | Main HA config with trusted networks auth |
+| `/config/secrets.yaml` | GitHub token for Actions monitoring |
+| `/config/themes/dark.yaml` | Dark theme for kiosk |
+| `/config/scripts/check_github_actions.py` | Script to check workflow status |
+| `/config/.storage/lovelace.kiosk` | Kiosk dashboard config |
+| `/config/www/kiosk-mode.js` | Plugin to hide header/sidebar |
+
+### Access
+
+- **Local**: `http://serverpi.local:8123`
+- **Tailscale**: `http://100.108.19.115:8123`
+
+### Dashboard Tips
 
 1. **Resolution**: Design for 480x320 pixels (landscape)
 2. **Touch**: Use large touch targets (min 44x44px)
 3. **Calibration**: Touchscreen calibrated for finger/stylus use
 4. **Dimming**: Implement CSS opacity dimming (backlight can't be controlled)
-5. **Auto-start**: Use the existing kiosk.service, just change the URL
-6. **Network**: Can access Home Assistant via Tailscale or local network
-7. **Performance**: Keep UI simple, Chromium runs in kiosk mode
-8. **Updates**: Can auto-reload page on dashboard updates
-
-**Example Kiosk URL for Home Assistant**:
-```bash
-# If running on same Pi
-http://localhost:8123
-
-# If running on another device
-http://homeassistant.local:8123
-http://homeassistant.ts.net:8123
-```
+5. **Auto-start**: Kiosk service auto-starts on boot
+6. **Performance**: Keep UI simple, Chromium runs in kiosk mode
