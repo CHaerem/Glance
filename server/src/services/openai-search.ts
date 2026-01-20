@@ -301,7 +301,7 @@ const searchTools: ChatCompletionTool[] = [
             description:
               'Search terms (artist name, artwork title, style, subject, period)',
           },
-          limit: { type: 'number', description: 'Max results (default 10)' },
+          limit: { type: 'number', description: 'Max results (default 15, max 25)' },
         },
         required: ['query'],
       },
@@ -317,7 +317,7 @@ const searchTools: ChatCompletionTool[] = [
         type: 'object',
         properties: {
           query: { type: 'string', description: 'Search terms' },
-          limit: { type: 'number', description: 'Max results (default 10)' },
+          limit: { type: 'number', description: 'Max results (default 15, max 25)' },
         },
         required: ['query'],
       },
@@ -333,7 +333,7 @@ const searchTools: ChatCompletionTool[] = [
         type: 'object',
         properties: {
           query: { type: 'string', description: 'Search terms' },
-          limit: { type: 'number', description: 'Max results (default 10)' },
+          limit: { type: 'number', description: 'Max results (default 15, max 25)' },
         },
         required: ['query'],
       },
@@ -349,7 +349,7 @@ const searchTools: ChatCompletionTool[] = [
         type: 'object',
         properties: {
           query: { type: 'string', description: 'Search terms' },
-          limit: { type: 'number', description: 'Max results (default 10)' },
+          limit: { type: 'number', description: 'Max results (default 15, max 25)' },
         },
         required: ['query'],
       },
@@ -365,7 +365,7 @@ const searchTools: ChatCompletionTool[] = [
         type: 'object',
         properties: {
           query: { type: 'string', description: 'Search terms' },
-          limit: { type: 'number', description: 'Max results (default 10)' },
+          limit: { type: 'number', description: 'Max results (default 15, max 25)' },
         },
         required: ['query'],
       },
@@ -432,16 +432,28 @@ class OpenAIAgentSearch {
 
 Your task:
 1. Understand what the user is looking for (mood, style, artist, period, subject)
-2. Search the most relevant museums using the provided tools
-3. Search 2-3 museums with appropriate queries to find diverse results
+2. Search 3-4 museums using the provided tools for diverse results
+3. IMPORTANT: Expand queries to find more results - use multiple search terms!
 4. Return results that best match the user's intent
 
-Consider:
-- For Dutch masters → prioritize Rijksmuseum
-- For Impressionism → prioritize Art Institute of Chicago
-- For diverse/general queries → use Met Museum
-- For Asian art → Cleveland or Harvard
-- Vary your search terms to get diverse results`,
+Query expansion examples:
+- "Eiffel Tower" → search "Eiffel Tower", "Paris cityscape", "Paris scene painting"
+- "flowers" → search "flowers", "still life flowers", "floral painting", "bouquet"
+- "ocean" → search "ocean", "seascape", "marine painting", "sea"
+- "sunset" → search "sunset", "evening landscape", "dusk"
+
+Museum recommendations:
+- Dutch masters, Vermeer, Rembrandt → Rijksmuseum
+- Impressionism, Monet, Renoir → Art Institute of Chicago
+- Diverse/general queries → Met Museum (largest collection)
+- Asian art → Cleveland or Harvard
+- French art, Paris scenes → Met Museum, Art Institute of Chicago
+
+CRITICAL: For subjects like landmarks, places, or things - search with MULTIPLE variations:
+1. The exact term
+2. Related art movements (e.g., Impressionism for Paris)
+3. Broader category (e.g., "cityscape" for buildings)
+4. Artist names known for this subject`,
           },
           {
             role: 'user',
@@ -463,7 +475,7 @@ Consider:
           query: string;
           limit?: number;
         };
-        const searchLimit = args.limit ?? 10;
+        const searchLimit = args.limit ?? 15;
 
         const searchFn = toolNameToSearchFn[toolCall.function.name];
 
