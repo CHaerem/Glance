@@ -176,7 +176,9 @@ async function fetchAIDescription(artwork, descriptionEl) {
 // Update modal metadata display - Minimalist design
 function updateModalMetadata(artwork) {
     const titleEl = document.getElementById('modalTitle');
-    const subtitleEl = document.getElementById('modalSubtitle');
+    const artistEl = document.getElementById('modalArtist');
+    const dateEl = document.getElementById('modalDate');
+    const separatorEl = document.getElementById('modalSeparator');
     const detailsEl = document.getElementById('modalArtworkDetails');
     const chipsEl = document.getElementById('modalContextChips');
     const descriptionEl = document.getElementById('modalDescription');
@@ -199,12 +201,32 @@ function updateModalMetadata(artwork) {
     // Title
     if (titleEl) titleEl.textContent = hasTitle ? artwork.title : '';
 
-    // Subtitle: Artist • Year (combined, cleaner)
-    if (subtitleEl) {
-        const parts = [];
-        if (hasArtist) parts.push(artwork.artist);
-        if (hasYear) parts.push(artwork.year || artwork.date);
-        subtitleEl.textContent = parts.join(' · ');
+    // Artist (clickable)
+    if (artistEl) {
+        if (hasArtist) {
+            artistEl.textContent = artwork.artist;
+            artistEl.style.display = 'inline';
+            artistEl.dataset.artist = artwork.artist;
+        } else {
+            artistEl.style.display = 'none';
+        }
+    }
+
+    // Separator (only show if both artist and date exist)
+    if (separatorEl) {
+        separatorEl.style.display = (hasArtist && hasYear) ? 'inline' : 'none';
+    }
+
+    // Date (clickable)
+    if (dateEl) {
+        const dateValue = artwork.year || artwork.date;
+        if (hasYear) {
+            dateEl.textContent = dateValue;
+            dateEl.style.display = 'inline';
+            dateEl.dataset.date = dateValue;
+        } else {
+            dateEl.style.display = 'none';
+        }
     }
 
     // Reset info panel state
@@ -482,6 +504,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modalSecondaryAction').addEventListener('click', handleSecondaryAction);
     document.getElementById('moreLikeThisBtn').addEventListener('click', findSimilarArt);
     document.getElementById('askAboutBtn').addEventListener('click', askAboutArtwork);
+
+    // Clickable artist and date links (Spotify-like)
+    document.getElementById('modalArtist')?.addEventListener('click', searchByArtist);
+    document.getElementById('modalDate')?.addEventListener('click', searchByPeriod);
 
     // Zoom controls (desktop only - hidden on mobile)
     document.getElementById('zoomIn').addEventListener('click', () => adjustZoom('in'));
@@ -1760,6 +1786,73 @@ async function findSimilarArt() {
         console.error('Similar artwork search failed:', error);
         cardsContainer.innerHTML = '<div style="color: #999; padding: 40px; text-align: center;">Failed to find similar artworks</div>';
     }
+}
+
+// Search for more art by the same artist (Spotify-like)
+async function searchByArtist() {
+    const artistEl = document.getElementById('modalArtist');
+    const artist = artistEl?.dataset?.artist;
+    if (!artist || artist === 'Unknown Artist') return;
+
+    // Close modal and switch to explore mode
+    closeModal();
+    switchMode('explore');
+
+    // Use the artist name as search query
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = artist;
+    }
+
+    // Perform the search using the guide handler
+    await handleSearchOrGuide(artist);
+}
+
+// Search for art from a similar time period
+async function searchByPeriod() {
+    const dateEl = document.getElementById('modalDate');
+    const dateValue = dateEl?.dataset?.date;
+    if (!dateValue) return;
+
+    // Extract century or decade from the date
+    const periodQuery = extractPeriodQuery(dateValue);
+    if (!periodQuery) return;
+
+    // Close modal and switch to explore mode
+    closeModal();
+    switchMode('explore');
+
+    // Use the period as search query
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = periodQuery;
+    }
+
+    // Perform the search using the guide handler
+    await handleSearchOrGuide(periodQuery);
+}
+
+// Extract a searchable period from a date string
+function extractPeriodQuery(dateStr) {
+    if (!dateStr) return null;
+
+    // Try to extract a year
+    const yearMatch = dateStr.match(/\b(\d{4})\b/);
+    if (yearMatch) {
+        const year = parseInt(yearMatch[1], 10);
+        // Get the decade
+        const decade = Math.floor(year / 10) * 10;
+        return `${decade}s art`;
+    }
+
+    // Try century patterns like "16th century", "18th-19th century"
+    const centuryMatch = dateStr.match(/(\d{1,2})(?:st|nd|rd|th)\s*century/i);
+    if (centuryMatch) {
+        return `${centuryMatch[1]}th century art`;
+    }
+
+    // Return the original if nothing matched
+    return dateStr;
 }
 
 // Ask the guide about the current artwork

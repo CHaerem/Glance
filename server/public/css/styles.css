@@ -799,6 +799,23 @@
             font-weight: 400;
         }
 
+        /* Clickable artist and date links - Spotify-like */
+        .modal-artist-link,
+        .modal-date-link {
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .modal-artist-link:hover,
+        .modal-date-link:hover {
+            color: #2a2a2a;
+            text-decoration: underline;
+        }
+
+        .modal-separator {
+            color: #bbb;
+        }
+
         /* Action bar - calm buttons */
         .modal-actions {
             display: flex;

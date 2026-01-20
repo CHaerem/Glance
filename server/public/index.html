@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glance</title>
     <!-- Preload critical resources -->
-    <link rel="preload" href="/css/styles.css?v=2" as="style">
-    <link rel="preload" href="/js/main.js?v=5" as="script">
+    <link rel="preload" href="/css/styles.css?v=3" as="style">
+    <link rel="preload" href="/js/main.js?v=8" as="script">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <!-- Styles -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/css/styles.css?v=2">
+    <link rel="stylesheet" href="/css/styles.css?v=3">
 </head>
 <body>
     <div class="container">
@@ -320,7 +320,11 @@
                 <!-- Minimal metadata - always visible -->
                 <div class="modal-header" id="modalArtworkDetails">
                     <h3 class="modal-title" id="modalTitle"></h3>
-                    <p class="modal-subtitle" id="modalSubtitle"></p>
+                    <p class="modal-subtitle">
+                        <span class="modal-artist-link" id="modalArtist" title="See more by this artist"></span>
+                        <span class="modal-separator" id="modalSeparator"> · </span>
+                        <span class="modal-date-link" id="modalDate" title="See art from this period"></span>
+                    </p>
                 </div>
 
                 <!-- Action bar - clean icons -->
@@ -359,6 +363,6 @@
     <script src="/js/features/art-guide.js"></script>
     <script src="/js/utils/lazy-load.js"></script>
     <!-- Main app initialization -->
-    <script src="/js/main.js?v=5"></script>
+    <script src="/js/main.js?v=8"></script>
 </body>
 </html>
