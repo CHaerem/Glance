@@ -1,8 +1,6 @@
 /**
  * Glance Server
  * Main entry point for the Express server
- *
- * @version 2026-01-22
  */
 
 // Load environment variables from .env file
