@@ -20,6 +20,7 @@ Navigate to the right document based on what you need.
 |----------|-------------|
 | [HARDWARE.md](HARDWARE.md) | ESP32 board specs, display, GPIO pinouts |
 | [BATTERY_MONITORING.md](BATTERY_MONITORING.md) | Battery wiring, calibration, voltage monitoring |
+| [POWER_UPGRADE.md](POWER_UPGRADE.md) | TPL5110 + NFC upgrade for 3+ year battery life |
 
 ### Deployment & Operations
 | Document | Description |
@@ -40,6 +41,7 @@ Navigate to the right document based on what you need.
 **"I want to..."**
 
 - **Set up battery monitoring** → [BATTERY_MONITORING.md](BATTERY_MONITORING.md)
+- **Upgrade to TPL5110 + NFC** → [POWER_UPGRADE.md](POWER_UPGRADE.md)
 - **Deploy changes** → [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Check hardware specs** → [HARDWARE.md](HARDWARE.md)
 - **Understand the UI design** → [UNIFIED-EXPERIENCE-DESIGN.md](UNIFIED-EXPERIENCE-DESIGN.md)
