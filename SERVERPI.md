@@ -417,4 +417,5 @@ homeassistant:
 4. **Dimming**: Implement CSS opacity dimming (backlight can't be controlled)
 5. **Auto-start**: Kiosk service auto-starts on boot
 6. **Performance**: Keep UI simple, Chromium runs in kiosk mode
+7. **Progress Visualization**: Shows GitHub-style progress (✓✓✓●○○) for running workflows
 
