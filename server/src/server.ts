@@ -1,5 +1,5 @@
 /**
- * Glance Server
+ * @module Glance Server
  * Main entry point for the Express server application
  */
 
