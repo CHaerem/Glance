@@ -82,7 +82,6 @@ jobs:
           WIFI_SSID: ${{ secrets.WIFI_SSID }}
           WIFI_PASSWORD: ${{ secrets.WIFI_PASSWORD }}
           DEVICE_ID: "esp32-ota"
-          PLATFORMIO_BUILD_FLAGS: "-j4"
         run: |
           pio run --environment esp32s3 --jobs 4
 
