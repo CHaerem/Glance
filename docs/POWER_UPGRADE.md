@@ -1,6 +1,8 @@
 # Power Optimization Upgrade: TPL5110 + NFC
 
-This document describes a hardware upgrade to dramatically improve battery life from ~3 months to 1.7-3.3 years using the Adafruit TPL5110 timer and ST25DV NFC module.
+This document describes a hardware upgrade to dramatically improve battery life from ~3 months to 1.7-3.3 years using the Adafruit TPL5110 timer and NFC TAG 2 CLICK (NT3H2111) module.
+
+**Key feature:** Wake the display by simply holding your iPhone near the frame - no app required!
 
 ## Current System Limitations
 
@@ -46,11 +48,11 @@ Even with ZERO wakes (infinite deep sleep), the PowerBoost quiescent current lim
 | Component | Product | Price | Function |
 |-----------|---------|-------|----------|
 | TPL5110 | [Adafruit 3435](https://www.adafruit.com/product/3435) | ~$5 | Nano-power timer |
-| ST25DV | NFC tag with energy harvesting | ~$8 | Manual wake via phone tap |
+| NFC TAG 2 CLICK | [MikroE MIKROE-2462](https://www.mikroe.com/nfc-tag-2-click) | ~$20 | Manual wake via phone tap |
 | P-MOSFET | Si2301 or similar | ~$1 | Load switch |
 | Diodes | 2× 1N4148 | ~$0.10 | Diode-OR circuit |
 
-**Total upgrade cost: ~$15**
+**Total upgrade cost: ~$27**
 
 ### TPL5110 Specifications
 
@@ -62,14 +64,42 @@ Even with ZERO wakes (infinite deep sleep), the PowerBoost quiescent current lim
 | Timer adjustment | Onboard trimpot |
 | Manual wake | Tactile button (included) |
 
-### ST25DV NFC Specifications
+### NFC TAG 2 CLICK (NT3H2111) Specifications
 
 | Specification | Value |
 |---------------|-------|
+| Chip | NXP NT3H2111 |
 | Quiescent current (passive) | ~5 μA |
-| Interface | I²C (optional data) |
-| Energy harvesting | Yes (EH_OUT pin) |
-| Wake mechanism | NFC field triggers output pulse |
+| Interface | I²C (up to 400kHz, address 0x55) |
+| Energy harvesting | ~5mA @ 2V from NFC field (VOUT pin) |
+| Field Detection | FD pin goes HIGH when phone is near |
+| Memory | 888 bytes EEPROM + 64 bytes SRAM |
+| Standards | NFC Forum Type 2, ISO/IEC 14443 |
+
+### How iPhone Wake Works
+
+The NT3H2111 has a **Field Detection (FD)** pin that triggers when any NFC-enabled phone is held nearby:
+
+```
+┌─────────────────────────────────────────┐
+│                                         │
+│  1. iPhone held near frame              │
+│         ↓                               │
+│  2. iPhone emits NFC field              │
+│     (always active, no app needed)      │
+│         ↓                               │
+│  3. NT3H2111 detects field              │
+│         ↓                               │
+│  4. FD pin → HIGH                       │
+│         ↓                               │
+│  5. Triggers TPL5110/MOSFET             │
+│         ↓                               │
+│  6. ESP32 powers on, shows new art      │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+**No app required** - just hold iPhone (or any NFC phone) against the frame!
 
 ## System Architecture
 
@@ -92,16 +122,44 @@ Even with ZERO wakes (infinite deep sleep), the PowerBoost quiescent current lim
     └───────────┘ │        ▲         │          │
           │       │        │         │          ▼
        Trimpot    │   ┌────┴────┐    │    ┌───────────┐
-      (2 hours)   │   │ ST25DV  │    │    │  ESP32-S3 │
-          │       │   │   NFC   │    │    │           │
-         GND      │   │         │    │    │  GPIO ────┼──► DONE
-                  │   │ EH_OUT ─┼──►|┘    │  GPIO 2 ◄─┼─── Battery ADC
-                  │   │         │         │           │
-                  │   │   I²C ──┼─────────┼──► (opt)  │
+      (2 hours)   │   │NT3H2111 │    │    │  ESP32-S3 │
+          │       │   │NFC TAG 2│    │    │           │
+         GND      │   │ CLICK   │    │    │  GPIO ────┼──► DONE
+                  │   │         │    │    │  GPIO 2 ◄─┼─── Battery ADC
+                  │   │  FD ────┼──►|┘    │           │
+                  │   │  I²C ───┼─────────┼──► (opt)  │
                   │   └─────────┘         └───────────┘
                   │
                   └─── Trimpot: 60kΩ = 15min, max = 2 hours
 ```
+
+### Physical Placement
+
+Position the NFC antenna where users can easily tap with their phone:
+
+```
+┌─────────────────────────────────┐
+│                                 │
+│     ┌───────────────────┐       │
+│     │                   │       │
+│     │    E-ink          │       │
+│     │    Display        │       │
+│     │                   │       │
+│     │                   │       │
+│     └───────────────────┘       │
+│                                 │
+│  📱 Tap here    ┌─────┐         │
+│  (mark on       │ NFC │         │
+│   frame)        │ TAG │         │
+│                 └─────┘         │
+│           (behind frame)        │
+└─────────────────────────────────┘
+```
+
+**Important placement notes:**
+- Do NOT place behind metal (blocks NFC)
+- Keep within 2-3cm of frame surface
+- Consider adding a subtle "tap here" icon on the frame
 
 ### Wiring Details
 
@@ -115,21 +173,24 @@ Even with ZERO wakes (infinite deep sleep), the PowerBoost quiescent current lim
 | DONE | ESP32 GPIO | Any available GPIO |
 | DELAY | Trimpot (included) | Adjust for wake interval |
 
-#### ST25DV Connections
+#### NFC TAG 2 CLICK (NT3H2111) Connections
 
-| ST25DV Pin | Connect To | Notes |
-|------------|------------|-------|
-| VCC | Battery + | For energy harvesting to work |
+| NFC TAG 2 Pin | Connect To | Notes |
+|---------------|------------|-------|
+| VCC | 3.3V | Required for I²C and FD operation |
 | GND | Battery - | Common ground |
-| EH_OUT | Diode-OR input 2 | Via 1N4148 diode |
+| FD | Diode-OR input 2 | Field Detection - goes HIGH on NFC tap |
+| SDA | ESP32 I²C (optional) | For reading/writing NFC data |
+| SCL | ESP32 I²C (optional) | For reading/writing NFC data |
+| VOUT | Not used | Energy harvest output (alternative to FD) |
 | SDA/SCL | ESP32 I²C (optional) | Only if reading NFC data |
 
 #### Diode-OR Circuit
 
 ```
-TPL5110 DRV ───►|────┬────► P-MOSFET Gate
-                     │
-ST25DV EH_OUT ──►|───┘
+TPL5110 DRV ────►|────┬────► P-MOSFET Gate
+                      │
+NT3H2111 FD ────►|────┘
 
 Diodes: 1N4148 (prevents backfeed between sources)
 ```
@@ -151,7 +212,7 @@ Recommended: Si2301 or equivalent P-channel MOSFET with low Rds(on).
 | Component | Current | Notes |
 |-----------|---------|-------|
 | TPL5110 | 20 μA | Timer running |
-| ST25DV | 5 μA | Passive (no NFC field) |
+| NT3H2111 (NFC TAG 2) | 5 μA | Passive (no NFC field) |
 | PowerBoost | 0 μA | Completely off |
 | ESP32 | 0 μA | Completely off |
 | **Total** | **~25 μA** | **120× better than current 3mA** |
@@ -273,9 +334,9 @@ void app_main(void) {
 ### NFC Wake Flow
 
 ```
-1. User taps frame with smartphone
-2. ST25DV harvests NFC field energy
-3. EH_OUT pulses high
+1. User holds iPhone/Android near frame (no app needed!)
+2. Phone's NFC field activates NT3H2111
+3. FD (Field Detection) pin goes HIGH
 4. Diode-OR triggers P-MOSFET
 5. PowerBoost powers on
 6. ESP32 boots (~3 seconds)
@@ -294,13 +355,14 @@ void app_main(void) {
 - [ ] Connect TPL5110 VDD to battery +
 - [ ] Connect TPL5110 GND to battery -
 - [ ] Connect TPL5110 DRV to diode anode
-- [ ] Connect ST25DV EH_OUT to diode anode
+- [ ] Connect NFC TAG 2 CLICK FD pin to diode anode
+- [ ] Connect NFC TAG 2 CLICK VCC to 3.3V
 - [ ] Connect diode cathodes together (OR output)
 - [ ] Connect OR output to P-MOSFET gate
 - [ ] Connect P-MOSFET source to battery +
 - [ ] Connect P-MOSFET drain to PowerBoost BAT+
 - [ ] Connect TPL5110 DONE to ESP32 GPIO
-- [ ] Position NFC antenna for easy phone access
+- [ ] Position NFC TAG 2 CLICK for easy phone access (not behind metal!)
 
 ### Firmware Updates
 
@@ -328,10 +390,12 @@ void app_main(void) {
 
 ### NFC Wake Not Working
 
-1. Verify ST25DV has power
-2. Check EH_OUT connection
-3. Test with strong NFC field (phone close to antenna)
+1. Verify NFC TAG 2 CLICK has 3.3V power
+2. Check FD pin connection to diode
+3. Test with phone held very close (~1-2cm)
 4. Verify diode orientation (cathode to MOSFET gate)
+5. Check I²C pull-ups if FD needs configuration
+6. Default FD behavior should work without I²C setup
 
 ### Short Battery Life
 
@@ -340,20 +404,28 @@ void app_main(void) {
 3. Verify PowerBoost is completely off when sleeping
 4. Ensure DONE signal is properly cutting power
 
+### NT3H2111 I²C Issues (if using data features)
+
+1. Default I²C address is 0x55
+2. Requires 3.3V logic levels
+3. Add 4.7kΩ pull-up resistors on SDA/SCL
+4. Max I²C speed: 400kHz
+
 ## Bill of Materials
 
 | Item | Quantity | Source | Price |
 |------|----------|--------|-------|
 | Adafruit TPL5110 | 1 | [Adafruit 3435](https://www.adafruit.com/product/3435) | $4.95 |
-| ST25DV NFC board | 1 | Various | ~$8 |
+| NFC TAG 2 CLICK | 1 | [MikroE MIKROE-2462](https://www.mikroe.com/nfc-tag-2-click) | ~$20 |
 | Si2301 P-MOSFET | 1 | DigiKey/Mouser | ~$0.50 |
 | 1N4148 Diode | 2 | DigiKey/Mouser | ~$0.10 |
 | Hookup wire | - | - | - |
-| **Total** | | | **~$15** |
+| **Total** | | | **~$27** |
 
 ## References
 
 - [Adafruit TPL5110 Guide](https://learn.adafruit.com/adafruit-tpl5110-power-timer-breakout)
 - [TPL5110 Datasheet](https://www.ti.com/lit/ds/symlink/tpl5110.pdf)
-- [ST25DV Datasheet](https://www.st.com/resource/en/datasheet/st25dv04k.pdf)
+- [NFC TAG 2 CLICK Product Page](https://www.mikroe.com/nfc-tag-2-click)
+- [NT3H2111 Datasheet](https://www.nxp.com/docs/en/data-sheet/NT3H2111_2211.pdf)
 - [PowerBoost 1000C Guide](https://learn.adafruit.com/adafruit-powerboost-1000c-load-share-usb-charge-boost)
