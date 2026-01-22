@@ -189,6 +189,21 @@ RTC_DATA_ATTR static uint32_t boot_count = 0;
 #define BATTERY_TEST_MODE 0
 #define BATTERY_TEST_CYCLES 3  // Number of test cycles before normal mode
 
+// Track whether display has been initialized (LOAD_SW set HIGH)
+static bool display_power_on = false;
+
+// Helper function to safely enter deep sleep
+// CRITICAL: Always turn off display power before sleep to prevent current leak
+// Without this, the e-ink controller draws ~1-5mA during deep sleep instead of ~10μA
+static void power_off_and_sleep(uint64_t duration_us) {
+    if (display_power_on) {
+        printf("Powering off display (LOAD_SW -> LOW) before sleep\n");
+        setGpioLevel(LOAD_SW, GPIO_LOW);
+        display_power_on = false;
+    }
+    esp_deep_sleep(duration_us);
+}
+
 // Load last image ID from NVS (persistent storage)
 bool load_last_image_id(char* image_id, size_t max_len) {
     nvs_handle_t nvs_handle;
@@ -1327,6 +1342,7 @@ void app_main(void)
     PROFILE_START();
     printf("Battery sufficient (%.2fV), initializing hardware...\n", battery_voltage);
     setGpioLevel(LOAD_SW, GPIO_HIGH);
+    display_power_on = true;  // Track that display is powered for safe sleep
     epdHardwareReset();
     vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
     setPinCsAll(GPIO_HIGH);
@@ -1361,7 +1377,7 @@ void app_main(void)
 
         // Sleep for extended period (6 hours) - battery might recover or user will charge
         const uint64_t CRITICAL_BATTERY_SLEEP = 6ULL * 60 * 60 * 1000000;  // 6 hours
-        esp_deep_sleep(CRITICAL_BATTERY_SLEEP);
+        power_off_and_sleep(CRITICAL_BATTERY_SLEEP);
         // Never returns
     }
 
@@ -1396,6 +1412,7 @@ void app_main(void)
                    wifi_fail_is_charging, battery_voltage);
             // Initialize display hardware for error screen
             setGpioLevel(LOAD_SW, GPIO_HIGH);
+            display_power_on = true;
             epdHardwareReset();
             vTaskDelay(pdMS_TO_TICKS(POST_INIT_DELAY_MS));
             setPinCsAll(GPIO_HIGH);
@@ -1407,7 +1424,7 @@ void app_main(void)
             printf("This prevents brownout boot loop on WiFi failures\n");
         }
 
-        esp_deep_sleep(DEFAULT_SLEEP_DURATION);
+        power_off_and_sleep(DEFAULT_SLEEP_DURATION);
     }
 
     printf("WiFi connected!\n");
@@ -1498,13 +1515,13 @@ void app_main(void)
 
             // Sleep shorter when charging for faster OTA checks
             printf("Sleeping for %d seconds (charging mode)...\n", (int)(CHARGING_SLEEP_DURATION / 1000000));
-            esp_deep_sleep(CHARGING_SLEEP_DURATION);
+            power_off_and_sleep(CHARGING_SLEEP_DURATION);
         } else {
             // On battery - skip everything and sleep for extended period
             printf("⏭️  Battery recovery - skipping display and OTA\n");
             uint64_t recovery_sleep = BROWNOUT_RECOVERY_SLEEP_S * 1000000ULL;
             printf("Sleeping for %d seconds to allow battery recovery...\n", BROWNOUT_RECOVERY_SLEEP_S);
-            esp_deep_sleep(recovery_sleep);
+            power_off_and_sleep(recovery_sleep);
         }
         return;  // Never reached, but makes intent clear
     }
@@ -1620,5 +1637,5 @@ void app_main(void)
     report_device_status("sleep", brownout_count);
 
     printf("Entering deep sleep for %llu seconds...\n", sleep_duration / 1000000);
-    esp_deep_sleep(sleep_duration);
+    power_off_and_sleep(sleep_duration);
 }
