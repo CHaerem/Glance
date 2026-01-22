@@ -1,6 +1,6 @@
 /**
- * @module Glance Server
- * Main entry point for the Express server application
+ * @module server
+ * Glance Server - Main entry point
  */
 
 // Load environment variables from .env file
